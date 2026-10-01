@@ -4,16 +4,18 @@
 
 文舟是独立项目，不是 Acode 官方应用，也不代表 Acode Foundation。项目复用了 Acode 的部分 CodeMirror 编辑组件和 Acode-Writer 1.0.4 的章节识别代码，具体版权与许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-当前版本：`0.4.2`。使用 HarmonyOS 6.1.1 / API 24 SDK 编译，兼容 API 12。仅使用内部工作区，不申请文件访问权限。79 项逻辑检查和 56 项界面检查通过，设备调试签名的 HAP 与 APP 已通过 SDK 签名验证。本次尚未在真机安装验收，源码包不含个人签名材料。验证范围见 [VALIDATION.md](VALIDATION.md)。
+当前版本：`0.4.2`。使用 HarmonyOS 6.1.1 / API 24 SDK 编译，兼容 API 12。仅使用内部工作区，不申请文件访问权限。79 项逻辑检查和 56 项界面检查通过，发布签名的 HAP 与 APP 已通过 SDK 签名验证，Profile 为应用市场发布类型。本次尚未在真机安装验收，源码包不含个人签名材料。验证范围见 [VALIDATION.md](VALIDATION.md)。
 
 当前应用包名：`me.wenzhou.write`。签名 Profile 必须绑定同一包名，且与所选证书匹配。应用文稿与设置保存在自身沙箱中。
 
 发行文件位于 [`dist/`](dist/)：
 
 - [Wenzhou-0.4.2-source.zip](dist/Wenzhou-0.4.2-source.zip)：完整源码包，不含个人证书、私钥或访问令牌。
-- [Wenzhou-0.4.2-unsigned.hap](dist/Wenzhou-0.4.2-unsigned.hap)：未签名构建产物。
-- [Wenzhou-0.4.2-device-signed.hap](dist/Wenzhou-0.4.2-device-signed.hap)：包名为 `me.wenzhou.write`，使用当前 DevEco 工程的设备调试签名配置，仅适用于 Profile 授权的设备。
-- [Wenzhou-0.4.2-device-signed.app](dist/Wenzhou-0.4.2-device-signed.app)：使用同一设备调试签名配置的应用包，包含 entry 模块。以上签名产物不是应用市场发布包。
+- [Wenzhou-0.4.2-release-signed.hap](dist/Wenzhou-0.4.2-release-signed.hap)：包名为 `me.wenzhou.write`，使用当前 DevEco 工程的发布证书和应用市场发布 Profile 签名。
+- [Wenzhou-0.4.2-release-signed.app](dist/Wenzhou-0.4.2-release-signed.app)：使用同一发布签名配置的应用包，包含 entry 模块，供应用市场提交使用。
+- [release.json](dist/release.json)：本版产物的文件大小和 SHA-256 校验值。
+
+历史发行包已归档，构建输出通过 Hvigor 清理；当前发行目录仅保留本版发布产物，开发预览仍位于 `dist/web`。源码包保留可编译的内置编辑器资源，实际发布签名配置保存在本机 DevEco 工程中。
 
 ## 已实现
 
