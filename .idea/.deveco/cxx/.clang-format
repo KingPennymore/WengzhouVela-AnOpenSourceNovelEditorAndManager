@@ -1,0 +1,122 @@
+Language: Cpp
+# BasedOnStyle: LLVM
+ColumnLimit: 120
+TabWidth: 4
+IndentWidth: 4
+UseTab: Never
+AccessModifierOffset: -4
+ContinuationIndentWidth: 4
+IndentCaseBlocks: false
+IndentCaseLabels: false
+IndentGotoLabels: true
+IndentWrappedFunctionNames: false
+SortUsingDeclarations: false
+NamespaceIndentation: None
+IndentAccessModifiers: false
+IndentPPDirectives: None
+PPIndentWidth: -1
+SpaceAfterCStyleCast: false
+SpaceAfterLogicalNot: false
+SpaceAfterTemplateKeyword: true
+SpaceBeforeAssignmentOperators: true
+SpaceBeforeCaseColon: false
+SpaceBeforeCpp11BracedList: false
+SpaceBeforeCtorInitializerColon: true
+SpaceBeforeInheritanceColon: true
+SpaceBeforeRangeBasedForLoopColon: true
+SpaceBeforeSquareBrackets: false
+SpaceInEmptyBlock: false
+SpaceInEmptyParentheses: false
+SpacesInAngles: Never
+SpacesInCStyleCastParentheses: false
+SpacesInConditionalStatement: false
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+AlignTrailingComments: true
+AlignAfterOpenBracket: Align
+AlignArrayOfStructures: None
+AlignConsecutiveAssignments:
+  Enabled: false
+  AcrossEmptyLines: false
+  AcrossComments: false
+  AlignCompound: false
+  PadOperators: true
+AlignConsecutiveBitFields:
+  Enabled: false
+  AcrossEmptyLines: false
+  AcrossComments: false
+AlignConsecutiveDeclarations:
+  Enabled: false
+  AcrossEmptyLines: false
+  AcrossComments: false
+AlignConsecutiveMacros:
+  Enabled: false
+  AcrossEmptyLines: false
+  AcrossComments: false
+PointerAlignment: Right
+QualifierAlignment: Leave
+ReferenceAlignment: Pointer
+SpaceAroundPointerQualifiers: Default
+SpaceBeforeParens: ControlStatements
+DerivePointerAlignment: false
+AllowShortCaseLabelsOnASingleLine: false
+AllowShortEnumsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: All
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLambdasOnASingleLine: All
+AllowShortLoopsOnASingleLine: false
+AlwaysBreakTemplateDeclarations: MultiLine
+BinPackArguments: true
+BinPackParameters: true
+BreakBeforeTernaryOperators: true
+BreakConstructorInitializers: BeforeColon
+BreakInheritanceList: BeforeColon
+BreakStringLiterals: true
+InsertBraces: false
+IndentExternBlock: NoIndent
+BreakBeforeBraces: Custom
+BraceWrapping:
+  AfterCaseLabel: false
+  AfterClass: false
+  AfterControlStatement: Never
+  AfterEnum: false
+  AfterFunction: false
+  AfterNamespace: false
+  AfterStruct: false
+  AfterUnion: false
+  AfterExternBlock: false
+  BeforeCatch: false
+  BeforeElse: false
+  BeforeLambdaBody: false
+  BeforeWhile: false
+  IndentBraces: false
+  SplitEmptyFunction: true
+  SplitEmptyRecord: true
+  SplitEmptyNamespace: true
+ReflowComments: true
+AllowAllArgumentsOnNextLine: true
+AllowAllParametersOfDeclarationOnNextLine: true
+BreakBeforeConceptDeclarations: false
+AllowShortBlocksOnASingleLine: Never
+AlwaysBreakAfterDefinitionReturnType: None
+AlwaysBreakAfterReturnType: None
+BitFieldColonSpacing: Both
+BreakBeforeBinaryOperators: None
+PackConstructorInitializers: BinPack
+AlwaysBreakBeforeMultilineStrings: false
+CompactNamespaces: false
+Cpp11BracedListStyle: true
+FixNamespaceComments: true
+DisableFormat: false
+RemoveBracesLLVM: false
+RemoveSemicolon: false
+SortIncludes: Never
+Standard: Auto
+RequiresClausePosition: OwnLine
+RemoveParentheses: Leave
+IncludeBlocks: Preserve
+MaxEmptyLinesToKeep: 2
+EmptyLineAfterAccessModifier: Never
+EmptyLineBeforeAccessModifier: LogicalBlock
+SeparateDefinitionBlocks: Leave
+KeepEmptyLinesAtTheStartOfBlocks: true

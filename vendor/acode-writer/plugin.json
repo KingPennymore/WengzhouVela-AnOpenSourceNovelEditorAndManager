@@ -1,0 +1,47 @@
+{
+  "id": "com.tuyuan.acode.writer",
+  "name": "写作助手 · 章节与字数",
+  "version": "1.0.4",
+  "main": "main.js",
+  "readme": "readme.md",
+  "changelogs": "changelogs.md",
+  "icon": "icon.png",
+  "files": [
+    "src/core.js",
+    "src/plugin.js",
+    "tests/core.test.cjs",
+    "tests/runtime.test.cjs",
+    "build.py",
+    "sample.txt",
+    "LICENSE",
+    "VALIDATION.md",
+    "tests/browser/host.js",
+    "tests/browser/index.html",
+    "tests/browser/browser.test.cjs",
+    "tests/browser/package.json",
+    "previews/browser-editor.png",
+    "previews/browser-outline.png",
+    "previews/browser-settings.png",
+    "tests/browser/browser-results.json",
+    "src/i18n.js",
+    "readme-en.md",
+    "sample-en.txt",
+    "previews/browser-english-editor.png",
+    "previews/browser-english-outline.png",
+    "previews/browser-english-settings.png"
+  ],
+  "minVersionCode": 290,
+  "price": 0,
+  "license": "MIT",
+  "keywords": [
+    "writing",
+    "chapter",
+    "word-count",
+    "写作",
+    "章节",
+    "字数"
+  ],
+  "author": {
+    "name": "Tu Yuan"
+  }
+}

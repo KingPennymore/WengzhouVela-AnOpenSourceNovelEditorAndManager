@@ -1,0 +1,230 @@
+{
+  "report": [
+    {
+      "mode": "cm",
+      "name": "底栏显示初始章节与全文字数",
+      "passed": true
+    },
+    {
+      "mode": "cm",
+      "name": "底栏预留空间，正文没有覆盖",
+      "passed": true
+    },
+    {
+      "mode": "cm",
+      "name": "目录搜索点击跳转，文稿内容不变",
+      "passed": true
+    },
+    {
+      "mode": "cm",
+      "name": "编辑后实时刷新",
+      "passed": true
+    },
+    {
+      "mode": "cm",
+      "name": "持续输入时500ms内刷新",
+      "passed": true
+    },
+    {
+      "mode": "cm",
+      "name": "设置模板保存并应用",
+      "passed": true
+    },
+    {
+      "mode": "cm",
+      "name": "无效正则不能覆盖已保存设置",
+      "passed": true
+    },
+    {
+      "mode": "cm",
+      "name": "恢复默认和重载保留设置",
+      "passed": true
+    },
+    {
+      "mode": "cm",
+      "name": "320px屏幕的大字数可见",
+      "passed": true
+    },
+    {
+      "mode": "cm",
+      "name": "低高度窗口中的设置表单可滚动",
+      "passed": true
+    },
+    {
+      "mode": "cm",
+      "name": "切换文件不沿用上一文稿章节和字数",
+      "passed": true
+    },
+    {
+      "mode": "cm",
+      "name": "替换EditorState后恢复面板",
+      "passed": true
+    },
+    {
+      "mode": "cm",
+      "name": "重复启用停用清理底栏、命令和返回栈",
+      "passed": true
+    },
+    {
+      "mode": "cm",
+      "name": "浅色模式：正文、底栏、目录、表单和错误提示清晰",
+      "passed": true
+    },
+    {
+      "mode": "cm",
+      "name": "已打开的设置弹窗随主题即时切换，深色保持可读",
+      "passed": true
+    },
+    {
+      "mode": "cm",
+      "name": "组合多种格式：添加模板与正则，停用单条规则并保存",
+      "passed": true
+    },
+    {
+      "mode": "cm",
+      "name": "组合规则验证、删除及空列表不会覆盖已保存设置",
+      "passed": true
+    },
+    {
+      "mode": "cm",
+      "name": "自动模式跟随Acode英语，目录保留文稿原始标题并跳转",
+      "passed": true
+    },
+    {
+      "mode": "cm",
+      "name": "英文设置、验证错误和空文稿标签",
+      "passed": true
+    },
+    {
+      "mode": "cm",
+      "name": "英文模板预览保存，大小写与英文数词支持",
+      "passed": true
+    },
+    {
+      "mode": "cm",
+      "name": "明确英文选择持久保存，Acode中文不会覆盖",
+      "passed": true
+    },
+    {
+      "mode": "cm",
+      "name": "英文320px大字数完整可见",
+      "passed": true
+    },
+    {
+      "mode": "cm",
+      "name": "手动中文和恢复自动语言，中英切换即时生效",
+      "passed": true
+    },
+    {
+      "mode": "ace",
+      "name": "底栏显示初始章节与全文字数",
+      "passed": true
+    },
+    {
+      "mode": "ace",
+      "name": "底栏预留空间，正文没有覆盖",
+      "passed": true
+    },
+    {
+      "mode": "ace",
+      "name": "目录搜索点击跳转，文稿内容不变",
+      "passed": true
+    },
+    {
+      "mode": "ace",
+      "name": "编辑后实时刷新",
+      "passed": true
+    },
+    {
+      "mode": "ace",
+      "name": "持续输入时500ms内刷新",
+      "passed": true
+    },
+    {
+      "mode": "ace",
+      "name": "设置模板保存并应用",
+      "passed": true
+    },
+    {
+      "mode": "ace",
+      "name": "无效正则不能覆盖已保存设置",
+      "passed": true
+    },
+    {
+      "mode": "ace",
+      "name": "恢复默认和重载保留设置",
+      "passed": true
+    },
+    {
+      "mode": "ace",
+      "name": "320px屏幕的大字数可见",
+      "passed": true
+    },
+    {
+      "mode": "ace",
+      "name": "低高度窗口中的设置表单可滚动",
+      "passed": true
+    },
+    {
+      "mode": "ace",
+      "name": "切换文件不沿用上一文稿章节和字数",
+      "passed": true
+    },
+    {
+      "mode": "ace",
+      "name": "重复启用停用清理底栏、命令和返回栈",
+      "passed": true
+    },
+    {
+      "mode": "ace",
+      "name": "浅色模式：正文、底栏、目录、表单和错误提示清晰",
+      "passed": true
+    },
+    {
+      "mode": "ace",
+      "name": "已打开的设置弹窗随主题即时切换，深色保持可读",
+      "passed": true
+    },
+    {
+      "mode": "ace",
+      "name": "组合多种格式：添加模板与正则，停用单条规则并保存",
+      "passed": true
+    },
+    {
+      "mode": "ace",
+      "name": "组合规则验证、删除及空列表不会覆盖已保存设置",
+      "passed": true
+    },
+    {
+      "mode": "ace",
+      "name": "自动模式跟随Acode英语，目录保留文稿原始标题并跳转",
+      "passed": true
+    },
+    {
+      "mode": "ace",
+      "name": "英文设置、验证错误和空文稿标签",
+      "passed": true
+    },
+    {
+      "mode": "ace",
+      "name": "英文模板预览保存，大小写与英文数词支持",
+      "passed": true
+    },
+    {
+      "mode": "ace",
+      "name": "明确英文选择持久保存，Acode中文不会覆盖",
+      "passed": true
+    },
+    {
+      "mode": "ace",
+      "name": "英文320px大字数完整可见",
+      "passed": true
+    },
+    {
+      "mode": "ace",
+      "name": "手动中文和恢复自动语言，中英切换即时生效",
+      "passed": true
+    }
+  ],
+  "errors": []
+}

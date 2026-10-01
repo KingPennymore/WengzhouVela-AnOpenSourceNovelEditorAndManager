@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob:; style-src 'self' 'unsafe-inline' blob:; img-src 'self' data: blob:; font-src 'self' blob:; connect-src https://api.github.com blob:; frame-src 'self' blob:; object-src 'none'; base-uri 'none'; form-action 'none'">
+  <title>文舟 · 小说编辑器</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<div id="app">
+  <nav class="rail" aria-label="主导航">
+    <div class="brand" title="文舟"><svg viewBox="0 0 40 40"><path d="M8 27h25l-7 7H15zM20 6v18H9zM23 10l10 14H23z"/></svg></div>
+    <button class="nav-item active" data-view="write" title="写作" aria-label="写作"></button>
+    <button class="nav-item" data-view="github" title="GitHub 仓库" aria-label="GitHub 仓库"></button>
+    <div class="rail-bottom"><span class="rail-name">文舟</span></div>
+  </nav>
+  <aside class="library" id="library">
+    <div class="library-heading"><h1>文件</h1><div><button id="new-doc" title="新建小说文件" aria-label="新建小说文件">＋</button></div></div>
+    <label class="search-box"><span id="search-icon"></span><input id="doc-search" placeholder="搜索文稿…" aria-label="搜索文稿"><kbd>⌕</kbd></label>
+    <div class="workspace-controls"><strong id="workspace-name">本地文稿</strong><div><button id="setup-storage" class="text-button">储存目录</button><button id="open-folder" class="text-button">打开文件夹</button><button id="refresh-folder" class="text-button">刷新</button><button id="new-folder" class="text-button">新建文件夹</button></div></div>
+    <div class="library-label"><span>本地文件 <b id="doc-count">0</b></span><button id="import-doc" class="text-button">导入</button></div>
+    <div id="doc-list" class="doc-list"></div>
+    <button class="github-connect" id="github-shortcut"><span id="github-icon"></span><div><strong id="account-label">连接 GitHub</strong><small>仓库、分支与版本提交</small></div><span>↗</span></button>
+  </aside>
+  <main class="workspace" id="workspace-shell">
+    <header class="topbar"><div class="breadcrumb"><button id="mobile-library" title="文件侧栏" aria-label="打开文件侧栏" aria-expanded="false"></button><span class="app-name">文舟</span><span class="slash">/</span><strong id="current-name" title="双击重命名文件"></strong></div><div class="toolbar"><span class="saved" id="save-state" role="status">已保存到本机</span><button id="home-button" title="启动页" aria-label="启动页">⌂</button><button id="search-editor" title="查找与替换 (Ctrl+F)" aria-label="查找与替换"></button><button id="preview-toggle" title="预览 / 源码" aria-label="预览 / 源码"></button><button id="outline-toggle" title="章节目录" aria-label="章节目录" aria-expanded="false"></button><button id="focus-toggle" title="专注模式" aria-label="专注模式"></button><button id="theme" title="外观模式" aria-label="外观模式"></button><button id="commands" title="命令与快捷键" aria-label="命令与快捷键">⌘</button><button id="plugins" title="Acode 插件" aria-label="Acode 插件">⊞</button><button id="settings" title="编辑器设置" aria-label="编辑器设置"></button><button id="export-doc" title="导出小说文件" aria-label="导出小说文件"></button></div></header>
+    <section class="writing-view" id="write-view">
+    <div class="file-rowbar"><div class="document-tabs" id="document-tabs" role="tablist" aria-label="小说文件"></div><div id="display-options" class="display-options"></div></div>
+    <div class="writing-layout">
+      <section class="paper"><section id="start-page" hidden></section><div id="markdown-tools" class="markdown-tools" hidden><button id="md-bold"><b>B</b></button><button id="md-italic"><i>I</i></button><button id="md-strike"><s>S</s></button><button id="md-code">&lt;/&gt;</button><button id="md-heading">H1</button><button id="md-list">列表</button><button id="md-task">任务</button><button id="md-quote">引用</button></div><div id="editor" aria-label="小说编辑器"></div><article id="preview" class="markdown" hidden></article></section>
+      <aside class="outline" id="outline"><div class="outline-heading"><h2>章节目录 <span id="chapter-count"></span></h2><button id="close-outline" title="收起章节目录" aria-label="收起章节目录">×</button></div><input id="chapter-search" type="search" placeholder="筛选章节标题" aria-label="筛选章节标题"><div class="outline-actions"><button id="append-chapter" class="text-button">＋ 追加章节</button><button id="locate-chapter" class="text-button">定位当前章节</button></div><div id="outline-list"></div></aside>
+    </div>
+    <div class="quickbar" role="toolbar" aria-label="编辑快捷操作"><button id="quick-save" title="保存 (Ctrl+S)"><span>▣</span><small>保存</small></button><button id="quick-undo" title="撤回 (Ctrl+Z)"><span>↶</span><small>撤回</small></button><button id="quick-redo" title="重做 (Ctrl+Shift+Z)"><span>↷</span><small>重做</small></button><i></i><button id="quick-top" title="到文件顶部"><span>⇡</span><small>文件顶部</small></button><button id="quick-bottom" title="到文件底部"><span>⇣</span><small>文件底部</small></button><button id="quick-chapter-top" title="到章节顶部"><span>↥</span><small>章节顶部</small></button><button id="quick-chapter-bottom" title="到章节底部"><span>↧</span><small>章节底部</small></button><i></i><button id="quick-git" title="Git 仓库与提交"><span>⑂</span><small>Git</small></button></div>
+    <footer class="statusbar"><span id="current-chapter">全文</span><span id="word-count"></span><span class="status-right"><span id="selection-count"></span><span>UTF-8</span><span id="cursor-position">行 1，列 1</span></span></footer>
+    </section>
+    <section id="github-view" class="github-view" hidden></section>
+  </main>
+</div>
+<dialog id="dialog"><form id="dialog-form"><div class="dialog-heading"><h2 id="dialog-title"></h2><button type="button" id="dialog-close" aria-label="关闭">×</button></div><div id="dialog-body"></div><p id="dialog-error" class="error" role="alert"></p><div class="dialog-actions"><button type="button" id="dialog-cancel" class="secondary">取消</button><button type="submit" id="dialog-submit" class="primary">确定</button></div></form></dialog>
+<div id="toast" role="status" hidden></div>
+<input type="file" id="file-input" accept=".txt,.md,.markdown,.mdown,.mkd,.html,.htm,.csv" multiple hidden>
+<input type="file" id="plugin-input" accept=".zip" hidden>
+<script src="./licenses.js"></script>
+<script src="./app.js"></script>
+</body></html>

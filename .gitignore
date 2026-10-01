@@ -1,0 +1,12 @@
+node_modules/
+upstream/
+.hvigor/
+oh_modules/
+**/build/
+local.properties
+*.p12
+*.p7b
+*.cer
+*.keystore
+dist/
+test-results/
