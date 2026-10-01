@@ -13,7 +13,7 @@
 | 文件 | 用途 |
 | --- | --- |
 | `Vela-0.5.0-release-signed.hap` | 鸿蒙发布签名安装包 |
-| `Vela-0.5.0-release-signed.app` | 鸿蒙应用市场提交包 |
+| `Vela-0.5.0-release-signed.app.zip` | 解压获得鸿蒙应用市场提交用的 `.app`（GitHub 限制直接上传此后缀） |
 | `Vela-0.5.0-android.1-release-signed.apk` | 安卓发布签名安装包 |
 | `Vela-0.5.0-android.1-release-signed.aab` | 安卓应用商店提交包 |
 | `Vela-0.5.0-source.zip` | 完整源码，不含个人证书、私钥和令牌 |
