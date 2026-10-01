@@ -10,7 +10,7 @@ export async function transport(operation,payload={}) {
     if(!response.ok) throw new Error(response.error || `设备操作失败${response.code?'（错误码 '+response.code+'）':''}。`);
     return response.value;
   }
-  if(operation==='oauth') throw new Error('设备授权请在鸿蒙应用中使用。浏览器预览可使用个人访问令牌登录。');
+  if(operation==='oauth') throw new Error('设备授权请在文舟应用中使用。浏览器预览可使用个人访问令牌登录。');
   if(operation==='connection') {
     const result=await fetch('https://api.github.com',{redirect:'error',signal:AbortSignal.timeout(30000)});
     return {status:result.status,body:{}};

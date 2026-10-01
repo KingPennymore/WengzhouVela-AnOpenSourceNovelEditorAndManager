@@ -1,0 +1,41 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'me.wenzhou.write'
+    compileSdk 36
+    buildToolsVersion '36.0.0'
+    defaultConfig {
+        applicationId 'me.wenzhou.write'
+        minSdk 26
+        targetSdk 36
+        versionCode 10402
+        versionName '0.4.2-android.1'
+        testInstrumentationRunner 'me.wenzhou.write.PortInstrumentation'
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+        }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    implementation 'androidx.webkit:webkit:1.14.0'
+    implementation 'androidx.core:core:1.16.0'
+}
+
+def prepareEditor = tasks.register('prepareEditor', Exec) {
+    workingDir rootProject.projectDir.parentFile
+    commandLine 'node', 'scripts/build-android.mjs', '--assets-only'
+    inputs.dir '../../web'
+    inputs.dir '../../vendor/acode-writer/src'
+    inputs.dir '../../vendor/acode/src/cm'
+    inputs.files '../../package.json', '../../package-lock.json', '../../scripts/build-android.mjs', '../../scripts/build.mjs'
+    inputs.file '../APACHE-2.0.txt'
+    outputs.dir 'src/main/assets/web'
+}
+tasks.named('preBuild').configure { dependsOn prepareEditor }

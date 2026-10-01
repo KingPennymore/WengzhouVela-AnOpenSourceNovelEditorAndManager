@@ -5,6 +5,9 @@
   "description": "文舟：基于 Acode 编辑组件与 Writer 1.0.4 的 HarmonyOS NEXT 写作应用",
   "scripts": {
     "build": "node scripts/build.mjs",
+    "build:android": "node scripts/build-android.mjs",
+    "test:android": "node tests/android-browser.mjs",
+    "test:android:native": "node scripts/test-android-native.mjs",
     "dev": "node scripts/serve.mjs",
     "test": "node --test tests/*.test.mjs vendor/acode-writer/tests/*.test.cjs",
     "test:ui": "node tests/browser.mjs && node tests/features-browser.mjs && node tests/workspace-browser.mjs && node tests/file-manager-browser.mjs && node tests/sidebars-browser.mjs"

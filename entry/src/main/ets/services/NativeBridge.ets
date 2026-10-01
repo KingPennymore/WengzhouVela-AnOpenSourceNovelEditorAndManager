@@ -6,6 +6,7 @@ import { util } from '@kit.ArkTS';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { NativeOperationError, operationError, loginStatusError } from './NativeErrors';
 import { Runtime } from './Runtime';
+import { HtmlPreviewSession } from './HtmlPreviewSession';
 import { WorkspaceFiles, BinaryWorkspaceFile } from './WorkspaceFiles';
 import { decodeFileText, decodedFileName } from './FileText';
 
@@ -36,7 +37,7 @@ interface OAuthResult {
   error_description?: string;
 }
 interface AuthorizedResult { authorized: boolean; }
-interface ImportedFile { name: string; text: string; }
+interface ImportedFile { name: string; text?: string; data?: string; }
 interface ImportedPlugin { name: string; data: string; }
 interface WorkspaceHeader { version: number; documents: Object[]; }
 interface EmptyBody { message: string; }
@@ -217,6 +218,15 @@ export class NativeBridge {
       if (operation === 'restoreTrash') return this.success(this.workspaceFiles.restoreTrash(data.id || '', data.permanent === true));
       if (operation === 'refreshFolder') return this.success(this.workspaceFiles.scan());
       if (operation === 'readWorkspaceAsset') return this.success(this.workspaceFiles.readAsset(data.path || ''));
+      if (operation === 'previewHtml') {
+        this.workspaceFiles.readPreviewResource(data.path || '', true);
+        HtmlPreviewSession.files = this.workspaceFiles;
+        HtmlPreviewSession.path = data.path || '';
+        HtmlPreviewSession.dark = data.dark === true;
+        if (!Runtime.mainWindow) throw new Error('预览页面尚未准备好。');
+        await Runtime.mainWindow.getUIContext().getRouter().pushUrl({ url: 'pages/HtmlPreview' });
+        return this.success(true);
+      }
       if (operation === 'writeWorkspaceFiles') return this.success(this.workspaceFiles.writeFiles(data.files || [], data.folders || []));
       if (operation === 'connection') {
         return this.success(await this.request('https://api.github.com', 'GET', undefined));
@@ -304,7 +314,7 @@ export class NativeBridge {
           const file = fs.openSync(uri, fs.OpenMode.READ_ONLY);
           try {
             const size = fs.statSync(file.fd).size;
-            if (size > 8 * 1024 * 1024) throw new Error('请选择 8 MB 以内的 UTF-8 文稿。');
+            if (size > 8 * 1024 * 1024) throw new Error('请选择 8 MB 以内的文件。');
             const buffer = new ArrayBuffer(size);
             let offset = 0;
             while (offset < size) {
@@ -314,8 +324,9 @@ export class NativeBridge {
               new Uint8Array(buffer).set(new Uint8Array(piece, 0, count), offset);
               offset += count;
             }
-            const text = decodeFileText(new Uint8Array(buffer));
-            const imported: ImportedFile = { name: decodedFileName(new fileUri.FileUri(uri).name), text: text };
+            const imported: ImportedFile = { name: decodedFileName(new fileUri.FileUri(uri).name) };
+            try { imported.text = decodeFileText(new Uint8Array(buffer)); }
+            catch (error) { imported.data = new util.Base64Helper().encodeToStringSync(new Uint8Array(buffer)); }
             files.push(imported);
           } finally {
             fs.closeSync(file);

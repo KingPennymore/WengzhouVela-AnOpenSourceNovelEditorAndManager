@@ -37,6 +37,17 @@ test('整仓库批量写入保留二进制，写入中断后恢复已覆盖文�
 test('内部目录的 UTF-16 CSV 与图片可读取，图片路径不能越界',async t=>{
   const f=fixture(t),service=f.create(),initial=await service.initialize(),folder=path.join(initial.storage.root,'100%');fs.mkdirSync(folder);fs.writeFileSync(path.join(folder,'人物.CSV'),Buffer.concat([Buffer.from([255,254]),Buffer.from('姓名;身份\n文舟;作者','utf16le')]));fs.writeFileSync(path.join(folder,'封面.png'),Buffer.from([137,80,78,71]));const state=service.scan();assert.equal(state.documents.find(d=>d.name==='人物.CSV').text,'姓名;身份\n文舟;作者');assert.equal(service.readAsset('100%/封面.png'),'data:image/png;base64,iVBORw==');assert.throws(()=>service.readAsset('../封面.png'),/相对路径/);
 });
+test('原生 HTML 资源保留排版和相对路径，统一编码，禁止跨工作区和符号链接读取',async t=>{
+  const f=fixture(t),service=f.create(),state=await service.initialize(),base=state.storage.root;
+  const html='<html><head><meta charset="gb18030"><link rel="stylesheet" href="style.css"></head><body><form><button>提交</button></form><script src="script.js"></script></body></html>';
+  fs.writeFileSync(path.join(base,'页面.HTML'),Buffer.concat([Buffer.from([255,254]),Buffer.from(html,'utf16le')]));
+  fs.writeFileSync(path.join(base,'style.css'),'body{display:grid;color:green}');fs.writeFileSync(path.join(base,'图片.png'),Buffer.from([0,255]));
+  const page=service.readPreviewResource('页面.HTML');assert.equal(page.mime,'text/html');const text=Buffer.from(page.bytes).toString('utf8');assert.match(text,/charset="utf-8"/);assert.match(text,/name="viewport"/);assert.match(text,/<form>/);assert.match(text,/src="script.js"/);assert.match(text,/href="style.css"/);
+  assert.equal(service.readPreviewResource('style.css').mime,'text/css');assert.deepEqual(Buffer.from(service.readPreviewResource('图片.png').bytes),Buffer.from([0,255]));
+  assert.throws(()=>service.readPreviewResource('../workspace.json'),/相对路径/);assert.throws(()=>service.readPreviewResource('..\\workspace.json'),/相对路径/);
+  fs.writeFileSync(path.join(base,'片段.html'),'<!doctype html><h1>片段</h1>');assert.match(Buffer.from(service.readPreviewResource('片段.html').bytes).toString('utf8'),/^<!doctype html><meta/);
+  const outside=path.join(f.root,'outside');fs.mkdirSync(outside);fs.writeFileSync(path.join(outside,'私密.css'),'private');fs.symlinkSync(outside,path.join(base,'链接'),'junction');assert.throws(()=>service.readPreviewResource('链接/私密.css'),/符号链接/);
+});
 test('内部目录移动与复制保留二进制、空文件夹和编码，移动保留 ID，复制解除远端关联',async t=>{
   const f=fixture(t),service=f.create(),folder=await service.initialize(),base=folder.storage.root;
   service.mirror(JSON.stringify({version:1,storage:folder.storage,folders:['小说/空目录'],repositories:[{repo:'me/book',branch:'main',commit:'abc',folder:'小说'}],documents:[{id:'book',name:'小说.txt',path:'小说/小说.txt',text:'中文正文',updatedAt:1,remote:{repo:'me/book'}}]}));

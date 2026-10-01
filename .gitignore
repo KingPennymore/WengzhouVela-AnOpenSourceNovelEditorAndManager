@@ -10,3 +10,6 @@ local.properties
 *.keystore
 dist/
 test-results/
+**/.gradle/
+*.jks
+android/app/src/main/assets/web/

@@ -1,0 +1,23 @@
+import {execFileSync,spawn} from 'node:child_process';
+import {mkdir,writeFile} from 'node:fs/promises';
+import {fileURLToPath} from 'node:url';
+import {dirname,join} from 'node:path';
+
+const root=dirname(dirname(fileURLToPath(import.meta.url)));process.chdir(root);
+const registry=name=>process.platform==='win32'?execFileSync('powershell.exe',['-NoProfile','-Command',`[Environment]::GetEnvironmentVariable('${name}','User')`],{encoding:'utf8'}).trim():'';
+const sdk=process.env.ANDROID_HOME||registry('ANDROID_HOME'),java=process.env.ANDROID_JAVA_HOME||registry('ANDROID_JAVA_HOME')||process.env.JAVA_HOME;
+if(!sdk||!java)throw Error('请配置 ANDROID_HOME 和完整的 ANDROID_JAVA_HOME。');
+const serial=process.env.WENZHOU_ANDROID_SERIAL||'emulator-5582';
+if(!/^emulator-\d+$/.test(serial))throw Error('原生测试仅允许专用模拟器。');
+const adb=(...args)=>execFileSync(join(sdk,'platform-tools',process.platform==='win32'?'adb.exe':'adb'),['-s',serial,...args],{encoding:'utf8',timeout:120000,maxBuffer:8*1024*1024});
+if(adb('emu','avd','name').split(/\s+/)[0]!=='Wenzhou_QA_API36')throw Error('请先启动 Wenzhou_QA_API36 测试模拟器。');
+await writeFile('android/local.properties',`sdk.dir=${sdk.replaceAll('\\','/')}\n`);
+const env={...process.env,ANDROID_HOME:sdk,JAVA_HOME:java};
+const child=process.platform==='win32'?spawn('cmd.exe',['/d','/s','/c','gradlew.bat --no-daemon --console=plain assembleDebug assembleDebugAndroidTest'],{cwd:join(root,'android'),env,stdio:'inherit'}):spawn('./gradlew',['--no-daemon','--console=plain','assembleDebug','assembleDebugAndroidTest'],{cwd:join(root,'android'),env,stdio:'inherit'});
+const code=await new Promise((resolve,reject)=>{child.on('error',reject);child.on('exit',resolve);});
+if(code!==0)throw Error('原生测试构建失败。');
+for(const file of ['android/app/build/outputs/apk/debug/app-debug.apk','android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk'])console.log(adb('install','-r',join(root,file)).trim());
+adb('shell','am','force-stop','me.wenzhou.write');
+const result=adb('shell','am','instrument','-w','me.wenzhou.write.test/me.wenzhou.write.PortInstrumentation');
+await mkdir('test-results',{recursive:true});await writeFile('test-results/android-native-results.txt',result);console.log(result);
+if(!result.includes('INSTRUMENTATION_CODE: -1')||result.includes('failure='))throw Error('Android 原生检查失败。');

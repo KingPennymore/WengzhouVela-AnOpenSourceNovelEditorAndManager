@@ -1,10 +1,10 @@
-# 文舟 · HarmonyOS NEXT 小说编辑器
+# 文舟 · HarmonyOS NEXT / Android 小说编辑器
 
-文舟是一款面向 HarmonyOS NEXT 的长篇小说写作软件，以“一部小说写在一个 TXT / Markdown 文件中”为工作方式。界面参考 Acode 的文件标签、行号和编辑操作，并加入文件工作区、章节管理、GitHub 仓库同步和 Acode 插件支持。
+文舟是一款面向 HarmonyOS NEXT 和 Android 的长篇小说写作软件，以“一部小说写在一个 TXT / Markdown 文件中”为工作方式。界面参考 Acode 的文件标签、行号和编辑操作，并加入文件工作区、章节管理、GitHub 仓库同步和 Acode 插件支持。两端共享编辑器，分别使用平台原生文件服务、凭据存储和 Web 组件。
 
 文舟是独立项目，不是 Acode 官方应用，也不代表 Acode Foundation。项目复用了 Acode 的部分 CodeMirror 编辑组件和 Acode-Writer 1.0.4 的章节识别代码，具体版权与许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-当前版本：`0.4.2`。使用 HarmonyOS 6.1.1 / API 24 SDK 编译，兼容 API 12。仅使用内部工作区，不申请文件访问权限。79 项逻辑检查和 56 项界面检查通过，发布签名的 HAP 与 APP 已通过 SDK 签名验证，Profile 为应用市场发布类型。本次尚未在真机安装验收，源码包不含个人签名材料。验证范围见 [VALIDATION.md](VALIDATION.md)。
+当前版本：鸿蒙 `0.4.2`，安卓 `0.4.2-android.1`。鸿蒙使用 HarmonyOS 6.1.1 / API 24 SDK 编译，兼容 API 12；安卓使用 API 36 编译，最低 Android 8.0 / API 26，系统 WebView 需 Chromium 105 或更新版本。仅使用内部工作区，不申请文件访问权限。安卓已在 Android 16 模拟器验证；鸿蒙新增 HTML 页面已通过原生编译与签名构建，尚待真机体验验收。完整验证范围见 [VALIDATION.md](VALIDATION.md)。
 
 当前应用包名：`me.wenzhou.write`。签名 Profile 必须绑定同一包名，且与所选证书匹配。应用文稿与设置保存在自身沙箱中。
 
@@ -15,7 +15,7 @@
 - [Wenzhou-0.4.2-release-signed.app](dist/Wenzhou-0.4.2-release-signed.app)：使用同一发布签名配置的应用包，包含 entry 模块，供应用市场提交使用。
 - [release.json](dist/release.json)：本版产物的文件大小和 SHA-256 校验值。
 
-历史发行包已归档，构建输出通过 Hvigor 清理；当前发行目录仅保留本版发布产物，开发预览仍位于 `dist/web`。源码包保留可编译的内置编辑器资源，实际发布签名配置保存在本机 DevEco 工程中。
+安卓调试安装包：[`Wenzhou-0.4.2-android.1-debug.apk`](dist/Wenzhou-0.4.2-android.1-debug.apk)，校验记录为 [`android-debug.json`](dist/android-debug.json)，未签名 release APK 的记录为 [`android-release.json`](dist/android-release.json)。`dist` 为本机构建输出，不纳入 Git；上面的文件链接在本地工程中可用。实际鸿蒙发布签名配置保存在本机 DevEco 工程中，安卓正式分发需要另行配置自己的发布签名。
 
 ## 已实现
 
@@ -25,7 +25,8 @@
 - 底部八项快捷操作：保存、撤回、重做、文件顶部、文件底部、章节顶部、章节底部、Git。
 - GitHub 个人访问令牌登录为连接页的首选操作，保留设备授权；仓库列表与筛选、创建仓库、修改仓库名称 / 简介、分支列表 / 切换 / 创建、目录浏览、远端文本读取、单文件提交和远端文件删除。
 - 同仓库同路径重复拉取覆盖本地文件，保留文件 ID；不同仓库 / 路径的同名文件独立保存。整仓拉取按固定提交读取目录树和全部文件，包括二进制资源；再次拉取覆盖该仓库目录的对应文件，本地独有文件保留。提交保留读取时的 SHA，冲突时显示提示。
-- 鸿蒙原生文件导入导出、文稿原子保存与上一版备份、安全资产存储中的访问令牌、原生 HTTPS 请求。
+- 原生文件导入导出、文稿原子保存与上一版备份、原生 HTTPS 请求。鸿蒙凭据使用安全资产存储，安卓使用 Android Keystore 的 AES-GCM 加密；接口不向页面返回存储的令牌。安卓批量文件操作使用持久事务日志，在中断后恢复原文件。
+- 两端 HTML 使用独立的原生 Web 页面，保留原始布局、表单、本地 CSS、图片、字体与脚本。默认关闭脚本和联网，可单独开启；预览页面没有编辑器或 GitHub 原生桥，双指只调整文字缩放。
 - 默认绿色“青松”主题，可选“玉石、墨竹、麦田、石墨”，每套都有深浅色。外观默认跟随系统，可固定为浅色或深色；顶部按钮在跟随系统 → 浅色 → 深色之间轮换。正文、预览和表格字号可在设置中调整，双指缩放仅改变文字字号（10–40 px）。
 - Markdown 支持 .md / .markdown / .mdown / .mkd，标题、格式操作、表格、任务列表、代码块及工作区图片预览；文件标签旁可手动修正类型。顶部快捷按钮采用统一 SVG 和尺寸。
 - Tab 插入两个全角空格，Shift+Tab 取消行首缩进；选中多行时按行缩进。全部快捷操作都有快捷键，Ctrl+Shift+K 打开命令面板。
@@ -58,7 +59,18 @@ npm.cmd run build
 npm.cmd run dev
 ```
 
-浏览器预览地址：`http://127.0.0.1:4173`。浏览器使用本地存储保存文稿，令牌只在内存中；鸿蒙版将文稿写入所选工作区，设置、工作区索引和上一版备份使用沙箱文件，凭据使用安全资产存储。浏览器预览不能打开鸿蒙文件夹工作区或把整仓文件写入设备目录。
+浏览器预览地址：`http://127.0.0.1:4173`。浏览器使用本地存储保存文稿，令牌只在内存中；应用版将文稿写入内部工作区，设置、索引和备份保存在沙箱。浏览器预览使用受限 HTML iframe，完整原生 HTML 预览需要在应用中使用。
+
+### Android 构建
+
+需要 Android SDK（platforms;android-36、build-tools;36.0.0）、完整 JDK 17 或 21，以及 Node.js。设置 `ANDROID_HOME` 与 `ANDROID_JAVA_HOME`（或 `JAVA_HOME`），不要把缺少 jlink 的精简运行时作为 Android JDK。
+
+```powershell
+npm.cmd ci
+npm.cmd run build:android
+```
+
+脚本调用随仓库提供的 Gradle 8.13 Wrapper，并自动生成共享编辑器资源。使用 AGP 8.13.2；首次构建需要下载依赖。可在 Android Studio 中打开 `android/`。`node scripts/build-android.mjs --release` 生成未签名 APK / AAB；仓库没有发布私钥。调试安装包可直接安装，HarmonyOS 与 Android 的沙箱文稿和账号配置独立，通过导出备份或 GitHub 转移文稿。
 
 构建 HAP：
 
@@ -123,7 +135,7 @@ Git 功能使用 GitHub REST API 完成远端版本操作，没有本地完整 G
 | Ctrl+W | 关闭当前标签（保留文件） |
 | Ctrl+F / Ctrl+Shift+P | 查找替换 / 预览与源码 |
 | 左上角文件夹按钮 / Ctrl+Shift+O | 文件侧栏 / 章节目录 |
-| Ctrl+Alt+O / Ctrl+Alt+R / Ctrl+Alt+N | 打开文件夹 / 刷新工作区 / 新建文件夹 |
+| Ctrl+Alt+R / Ctrl+Alt+N | 刷新工作区 / 新建文件夹 |
 | Ctrl+B / Ctrl+I / Ctrl+Shift+X / Ctrl+Alt+C | Markdown 加粗 / 斜体 / 删除线 / 行内代码 |
 | Ctrl+Alt+1 / Ctrl+Alt+7 / Ctrl+Alt+8 / Ctrl+Alt+Q | Markdown 标题 / 列表 / 任务 / 引用 |
 | Ctrl+Alt+Enter / Ctrl+Alt+L | 追加章节 / 定位当前章节 |
@@ -131,7 +143,7 @@ Git 功能使用 GitHub REST API 完成远端版本操作，没有本地完整 G
 | Ctrl+Alt+H / Ctrl+Alt+P / Ctrl+Shift+K | 启动页 / 插件 / 命令面板 |
 | Ctrl+加号 / 减号 / 0 | 调整 / 重置文字字号 |
 
-HTML / HTM 默认打开源码，预览在无脚本、无外部资源的隔离页面显示文字、表格及文档内样式。CSV 扩展名不区分大小写，默认显示可编辑表格，自动识别逗号、分号、Tab 及 Excel 的 sep= 标记；支持带引号和换行的单元格，可手动指定分隔符，通过标签旁按钮切换原文。宽表按行和列分页，每页不超过 2000 个单元格。TXT 预览保留纯文本；Markdown 提供格式栏及阅读预览。分页只减少同时显示的单元格，不截断原文件。编辑后的表格仍保存为 CSV 文本。首次安装指南也列出全部快捷键。
+HTML / HTM 默认打开源码，应用中的预览使用 ArkWeb / Android WebView，保留原始样式而不强制套用编辑器主题。资源路径相对 HTML 所在目录解析，可引用同一工作区的上级目录；文件导入可添加图片和其他附件。单个文件上限 8 MB。脚本与联网默认关闭，可通过预览工具栏开启，远程资源仅允许 HTTPS；返回编辑可继续修改源码。CSV 扩展名不区分大小写，默认显示可编辑表格，自动识别逗号、分号、Tab 及 Excel 的 sep= 标记；支持带引号和换行的单元格及手动分隔符。宽表按行和列分页，每页不超过 2000 个单元格，保留全部数据。TXT 预览保留纯文本；Markdown 提供格式栏及阅读预览。首次安装指南列出全部快捷键。
 
 ## Acode 插件
 
@@ -153,6 +165,16 @@ npm.cmd run test:ui
 
 界面检查使用本机 Chrome，或通过 `WENZHOU_CHROME` 指定兼容浏览器。检查包含桌面 / 手机布局、八项快捷操作、章节边界与追加、保存和撤回历史、GitHub API 模拟、冲突保留，以及约 60 万字符 / 300 章的单文件编辑。所有远端写操作都使用模拟请求，没有修改真实 GitHub 仓库。
 
+安卓测试需先启动专用 AVD `Wenzhou_QA_API36`，默认连接 `emulator-5582`，可通过 `WENZHOU_ANDROID_SERIAL` 指定其他模拟器端口。测试拒绝在真机或其他 AVD 上运行；该 AVD 应仅用于测试。
+
+```powershell
+npx.cmd playwright install android
+npm.cmd run test:android:native
+npm.cmd run test:android
+```
+
+第一项构建并安装主包与原生检查包，验证加密存储、文件操作、中断恢复和 HTML 资源；第二项验证模拟器实际 WebView 与 HTML 预览。两项顺序执行，避免安装或停止进程中断界面测试。
+
 截图及结果位于 `test-results/`，包含用户文稿的真机截图不会进入发行源码包。本版尚未安装到真机；各种输入法、后台行为、第三方插件和真实远端写入仍需按使用场景验收。已有 GitHub 登录已由用户在真机确认，自动检查没有修改真实远端仓库。
 
 ## 来源与目录
@@ -163,6 +185,7 @@ npm.cmd run test:ui
 | --- | --- |
 | `web/` | 编辑器界面、文稿模型、GitHub 客户端 |
 | `entry/src/main/ets/` | 鸿蒙 ArkTS 应用入口、ArkWeb 与原生服务 |
+| `android/` | Android 应用、原生文件 / HTTPS / Keystore 服务与独立 HTML WebView |
 | `scripts/` | 编辑器构建、预览与 HAP 构建 |
 | `tests/` | 文稿 / GitHub 逻辑与浏览器集成检查 |
 | `vendor/` | Acode 与 Writer 原始源码、许可 |

@@ -2,6 +2,7 @@ import { common } from '@kit.AbilityKit';
 import { fileIo as fs } from '@kit.CoreFileKit';
 import { util } from '@kit.ArkTS';
 import { decodeFileText } from './FileText';
+import { PreviewResource, previewMime } from './PreviewResource';
 
 export interface StoredDocument { id: string; name: string; path?: string; kind?: string; delimiter?: string; text: string; updatedAt: number; remote: Object | null; }
 export interface StorageInfo { id: string; label: string; root: string; needsSetup: boolean; internal?: boolean; }
@@ -207,6 +208,24 @@ export class WorkspaceFiles {
       }
       throw error as Error;
     } finally { fs.rmdirSync(staging); }
+  }
+  readPreviewResource(relative: string, html: boolean = false): PreviewResource {
+    const mime = html ? 'text/html' : previewMime(relative);
+    let bytes = this.readBytes(this.target(relative), 8 * 1024 * 1024);
+    if (mime.startsWith('text/') || mime === 'image/svg+xml' || mime === 'application/json') {
+      let text = decodeFileText(bytes);
+      if (mime === 'text/html') {
+        text = text.replace(/(<meta\b[^>]*charset\s*=\s*["']?)[a-z0-9_-]+/gi, '$1utf-8');
+        if (!/<meta\b[^>]*name\s*=\s*["']?viewport\b/i.test(text)) {
+          const viewport = '<meta name="viewport" content="width=device-width,initial-scale=1">';
+          if (/<head\b[^>]*>/i.test(text)) text = text.replace(/(<head\b[^>]*>)/i, '$1' + viewport);
+          else if (/^\s*<!doctype\b[^>]*>/i.test(text)) text = text.replace(/^(\s*<!doctype\b[^>]*>)/i, '$1' + viewport);
+          else text = viewport + text;
+        }
+      }
+      bytes = this.encoder.encodeInto(text);
+    }
+    return { bytes: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), mime: mime };
   }
   readAsset(relative: string): string {
     const extension = relative.substring(relative.lastIndexOf('.') + 1).toLowerCase();

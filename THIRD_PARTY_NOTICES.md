@@ -20,3 +20,7 @@
 CodeMirror、Lezer、Markdown-it 及其解析依赖使用 MIT 许可。插件 ZIP 解析使用 fflate，许可为 MIT。DOMPurify 提供 Apache-2.0 / MPL-2.0 双许可，分发的完整许可来自依赖包。
 
 具体包与版本由 `package-lock.json` 固定。构建脚本根据实际打包模块复制每个运行时组件的完整许可至 `entry/src/main/resources/rawfile/web/licenses/`，并提供应用内“设置 → 开源许可”查看入口。上游版权与许可均随 HAP 保留。
+
+## Android 原生依赖
+
+AndroidX Core `1.16.0`、AndroidX WebKit `1.14.0` 及其传递依赖来自 Google Maven，使用 Apache License 2.0。完整许可位于 `android/APACHE-2.0.txt`，安卓资源构建时加入应用内开源许可。Gradle Wrapper 使用 Gradle `8.13`（Apache-2.0），构建工具 AGP `8.13.2` 仅用于构建。Android 系统 WebView 和鸿蒙 ArkWeb 由设备提供。

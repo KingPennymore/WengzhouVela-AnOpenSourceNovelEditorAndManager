@@ -2,6 +2,17 @@
 
 2026-10-01，包名 `me.wenzhou.write`，版本 `0.4.2` / `10402`。
 
+## Android 移植与双端 HTML 预览
+
+- Android 工程位于 `android/`，API 36 / 最低 API 26，AGP 8.13.2、Gradle 8.13、完整 JDK 21。独立调试 APK 构建、安装与运行通过；没有使用鸿蒙签名文件作为安卓密钥。
+- 共享编辑器保留 Tab 缩进、行号、章节、快捷操作、主题、文件标签、Markdown / CSV、GitHub REST API 与 Acode JavaScript 插件兼容层。内部文件管理和回收站通过原生 Android 文件服务实现；没有重新添加外部工作区或特殊存储权限。
+- Android API 36 专用模拟器 `Wenzhou_QA_API36` 验证应用实际 WebView：保存与撤回重做、系统主题、UTF-16 CSV 与本地图片、整批文件、移动复制和回收站、路径与桥隔离、插件运行及进程重启恢复。测试仅使用生成的样本文档与本地测试凭据，不使用真实 GitHub 令牌。
+- 双端独立 HTML 页面保留原始布局，通过工作区相对路径加载样式、图片、字体和脚本，统一文本资源编码。默认关闭脚本与联网；用户可开启。预览页面没有编辑器的 JavaScript 原生桥，文件与符号链接边界由工作区服务校验。
+- 鸿蒙新增 ArkTS 页面、路由与资源拦截通过实际 SDK 编译，HAP / APP 使用本机现有签名配置构建成功。未覆盖安装到鸿蒙真机；构建成功不能代替输入法、预览联网和触控的真机验收。
+- 80 项逻辑检查、56 项通用界面检查、10 项 Android 实际 WebView 检查、5 项 Android 原生检查全部通过。记录位于本机 `test-results/android-results.json`、`android-native-results.txt` 等文件。新增原生资源测试覆盖 HTML 编码、标记保留和路径边界。
+- Android 调试 APK 以及未签名 release APK / AAB 均构建成功；调试包用于试用，正式发布必须配置安卓发布密钥。没有上传应用市场。
+- 真实 GitHub 登录、授权浏览器返回和远端仓库写入未在此次安卓模拟器测试中操作；这些功能复用既有前端流程，原生请求和加密存储已实现。依赖 Acode 的 Cordova / Ace / 终端接口的插件仍不兼容。
+
 ## 发布签名构建
 
 - 按用户更新后的 DevEco 工程配置，以 release 模式清理重建 HAP 和 APP。Profile 的 `type` 为 `release`、分发类型为 `app_gallery`，包名和发布证书匹配；SDK Profile 校验通过。

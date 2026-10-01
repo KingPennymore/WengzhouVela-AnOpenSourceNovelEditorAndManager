@@ -4,6 +4,12 @@ from zipfile import ZipFile, ZIP_DEFLATED
 import hashlib
 import json
 import shutil
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument('--signed-hap', type=Path)
+parser.add_argument('--signed-app', type=Path)
+args = parser.parse_args()
 
 root = Path(__file__).resolve().parent.parent
 out = root / "dist"
@@ -28,8 +34,8 @@ for name, expected in state["outputs"].items():
         raise SystemExit(f"编辑器资源不完整，请重新构建：{name}")
 version = json.loads((root / "package.json").read_text(encoding="utf-8"))["version"]
 source = out / f"Wenzhou-{version}-source.zip"
-folders = ["web", "scripts", "tests", "vendor", "hvigor", "AppScope", "entry/src", "previews"]
-files = ["package.json", "package-lock.json", "oh-package.json5", "build-profile.json5", "hvigorfile.ts", ".gitignore", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "VALIDATION.md", "entry/oh-package.json5", "entry/build-profile.json5", "entry/hvigorfile.ts"]
+folders = ["web", "scripts", "tests", "vendor", "hvigor", "AppScope", "entry/src", "previews", "android"]
+files = ["package.json", "package-lock.json", "oh-package.json5", "build-profile.json5", "hvigorfile.ts", ".gitignore", ".gitattributes", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "VALIDATION.md", "entry/oh-package.json5", "entry/build-profile.json5", "entry/hvigorfile.ts"]
 with ZipFile(source, "w", ZIP_DEFLATED, compresslevel=9) as archive:
     for name in files:
         file = root / name
@@ -39,16 +45,25 @@ with ZipFile(source, "w", ZIP_DEFLATED, compresslevel=9) as archive:
             if not file.is_file():
                 continue
             relative = file.relative_to(root).as_posix()
-            if "/node_modules/" in relative or "/__pycache__/" in relative:
+            if any(part in file.relative_to(root).parts for part in ["node_modules", "__pycache__", ".gradle", "build"]):
+                continue
+            if relative == "android/local.properties" or relative.startswith("android/app/src/main/assets/web/"):
+                continue
+            if file.suffix.lower() in [".jks", ".keystore", ".p12", ".cer", ".p7b"]:
                 continue
             archive.write(file, "Wenzhou/" + relative)
-hap = root / "entry/build/default/outputs/default/entry-default-unsigned.hap"
+hap = args.signed_hap or root / "entry/build/default/outputs/default/entry-default-unsigned.hap"
 if not hap.is_file():
     raise SystemExit("请先构建 HAP。")
-target = out / f"Wenzhou-{version}-unsigned.hap"
+target = out / f"Wenzhou-{version}-{'release-signed' if args.signed_hap else 'unsigned'}.hap"
 shutil.copyfile(hap, target)
+outputs = [source, target]
+if args.signed_app:
+    app = out / f"Wenzhou-{version}-release-signed.app"
+    shutil.copyfile(args.signed_app, app)
+    outputs.append(app)
 manifest = []
-for file in [source, target]:
+for file in outputs:
     manifest.append({"file": file.name, "bytes": file.stat().st_size, "sha256": hashlib.sha256(file.read_bytes()).hexdigest()})
 (out / "release.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
 print(json.dumps(manifest, ensure_ascii=False, indent=2))
