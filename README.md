@@ -15,7 +15,7 @@
 - [Wenzhou-0.4.2-release-signed.app](dist/Wenzhou-0.4.2-release-signed.app)：使用同一发布签名配置的应用包，包含 entry 模块，供应用市场提交使用。
 - [release.json](dist/release.json)：本版产物的文件大小和 SHA-256 校验值。
 
-安卓调试安装包：[`Wenzhou-0.4.2-android.1-debug.apk`](dist/Wenzhou-0.4.2-android.1-debug.apk)，校验记录为 [`android-debug.json`](dist/android-debug.json)，未签名 release APK 的记录为 [`android-release.json`](dist/android-release.json)。`dist` 为本机构建输出，不纳入 Git；上面的文件链接在本地工程中可用。实际鸿蒙发布签名配置保存在本机 DevEco 工程中，安卓正式分发需要另行配置自己的发布签名。
+安卓发布签名包：[`APK`](dist/Wenzhou-0.4.2-android.1-release-signed.apk)、[`AAB`](dist/Wenzhou-0.4.2-android.1-release-signed.aab)，校验记录为 [`android-release-signed.json`](dist/android-release-signed.json)。调试安装包：[`Wenzhou-0.4.2-android.1-debug.apk`](dist/Wenzhou-0.4.2-android.1-debug.apk)，校验记录为 [`android-debug.json`](dist/android-debug.json)。`dist` 为本机构建输出，不纳入 Git；上面的文件链接在本地工程中可用。实际鸿蒙发布签名配置保存在本机 DevEco 工程中，安卓发布密钥和密码也保存在仓库外。
 
 ## 已实现
 
@@ -71,6 +71,17 @@ npm.cmd run build:android
 ```
 
 脚本调用随仓库提供的 Gradle 8.13 Wrapper，并自动生成共享编辑器资源。使用 AGP 8.13.2；首次构建需要下载依赖。可在 Android Studio 中打开 `android/`。`node scripts/build-android.mjs --release` 生成未签名 APK / AAB；仓库没有发布私钥。调试安装包可直接安装，HarmonyOS 与 Android 的沙箱文稿和账号配置独立，通过导出备份或 GitHub 转移文稿。
+
+Windows 下签名发布包：
+
+```powershell
+node scripts/build-android.mjs --release
+.\scripts\sign-android.ps1
+```
+
+本机发布密钥位于 `D:\Android\Signing\Wenzhou`。其他机器使用 `-SigningDirectory` 指定自己恢复的密钥目录；首次创建自己的密钥才使用 `-CreateKey`。脚本生成 RSA 4096 / SHA256withRSA 的 PKCS12 密钥，签署 APK v2 / v3 与 AAB，并校验签名和 APK 对齐。密钥、密码由当前 Windows 用户与 SYSTEM 访问；密码不会写进命令行、日志或仓库。
+
+请安全备份密钥目录中的 `Wenzhou-release.p12` 和 `keystore-password.txt`，更新版本沿用原密钥。不要把它们放入仓库或发给他人。发布签名与调试签名不同，发布包不能直接覆盖调试包；需先导出文稿备份，卸载调试包，再安装发布包。密钥使用原则参见 [Android 官方签名说明](https://developer.android.com/studio/publish/app-signing)。
 
 构建 HAP：
 
