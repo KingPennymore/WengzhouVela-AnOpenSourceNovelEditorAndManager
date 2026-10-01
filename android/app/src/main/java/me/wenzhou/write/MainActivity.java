@@ -65,6 +65,7 @@ public final class MainActivity extends Activity {
         settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         settings.setSupportZoom(false); settings.setBuiltInZoomControls(false); settings.setDisplayZoomControls(false);
         settings.setTextZoom(100); settings.setMediaPlaybackRequiresUserGesture(true);
+        web.setOnGenericMotionListener((view, event) -> { float factor = TextZoom.factor(event); if (factor == 1) return false; web.evaluateJavascript("window.wenzhouNativeScale&&window.wenzhouNativeScale(" + factor + ")", null); return true; });
         web.setBackgroundColor(Color.rgb(238, 243, 239));
         WebView.setWebContentsDebuggingEnabled((getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0);
         web.addJavascriptInterface(bridge, "WenzhouAndroid");
@@ -149,8 +150,8 @@ public final class MainActivity extends Activity {
         runOnUiThread(() -> { try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/login/device"))); result.complete(true); } catch (Exception error) { result.completeExceptionally(new IOException("未找到可用浏览器。")); } });
         result.get(10, java.util.concurrent.TimeUnit.SECONDS);
     }
-    void previewHtml(String path, boolean dark) {
-        runOnUiThread(() -> HtmlPreviewActivity.open(this, bridge.files, path, dark));
+    void previewHtml(String path, boolean dark, JSONObject options) {
+        runOnUiThread(() -> HtmlPreviewActivity.open(this, bridge.files, path, dark, options));
     }
     void pick(String id, String operation, JSONObject data) {
         runOnUiThread(() -> {
@@ -219,7 +220,7 @@ public final class MainActivity extends Activity {
     }
     private void handleBack() {
         if (web == null) { finish(); return; }
-        web.evaluateJavascript("(()=>{const d=document.querySelector('#dialog');if(d?.open){document.querySelector('#dialog-cancel')?.click();return 'handled';}const git=document.querySelector('#github-view');if(git&&!git.hidden){document.querySelector('[data-view=write]')?.click();return 'handled';}return window.wenzhouSave&&window.wenzhouSave()?'exit':'keep';})()", result -> { if ("\"exit\"".equals(result)) finish(); });
+        web.evaluateJavascript("(()=>{const d=document.querySelector('#dialog');if(d?.open){document.querySelector('#dialog-cancel')?.click();return 'handled';}if(window.wenzhouBack?.())return 'handled';const git=document.querySelector('#github-view');if(git&&!git.hidden){document.querySelector('[data-view=write]')?.click();return 'handled';}return window.wenzhouSave&&window.wenzhouSave()?'exit':'keep';})()", result -> { if ("\"exit\"".equals(result)) finish(); });
     }
     @Override public void onBackPressed() { handleBack(); }
     @Override public void onConfigurationChanged(Configuration configuration) { super.onConfigurationChanged(configuration); publishEnvironment(); ViewCompat.requestApplyInsets(root); }

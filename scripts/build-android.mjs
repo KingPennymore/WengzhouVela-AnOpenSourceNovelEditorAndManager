@@ -35,9 +35,9 @@ if(process.argv.includes('--assets-only')){
   const variant=release?'release':'debug',name=(await readFile('android/app/build.gradle','utf8')).match(/versionName '([^']+)'/)[1];
   const source=`android/app/build/outputs/apk/${variant}/app-${variant}${release?'-unsigned':''}.apk`;
   await mkdir('dist',{recursive:true});
-  const target=`dist/Wenzhou-${name}-${release?'release-unsigned':'debug'}.apk`;
+  const target=`dist/Vela-${name}-${release?'release-unsigned':'debug'}.apk`;
   await cp(source,target);
-  if(release)await cp('android/app/build/outputs/bundle/release/app-release.aab',`dist/Wenzhou-${name}-release-unsigned.aab`);
+  if(release)await cp('android/app/build/outputs/bundle/release/app-release.aab',`dist/Vela-${name}-release-unsigned.aab`);
   const bytes=await readFile(target);
   await writeFile(`dist/android-${variant}.json`,JSON.stringify({version:name,package:'me.wenzhou.write',variant,signed:!release,file:target.split('/').at(-1),bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')},null,2));
   console.log('安卓 APK：'+target+(release?'（未签名）':'（调试签名）'));

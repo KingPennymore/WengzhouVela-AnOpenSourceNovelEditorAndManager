@@ -1,31 +1,46 @@
 import {shortcuts} from './shortcuts.mjs';
-export const guide = `文舟操作指南
+export const previousGuideHash='d89f90181888735709f2de3b2d14da3c10b8b0437ffd39af8814e6192fe5eca7';
+export const guide = `文舟操作指南 · Vela 0.5.0
+开源小说创作 / 阅读工具
 
-一、文件与章节
-在“新建文件”中创建 TXT、Markdown、HTML 或 CSV 文件。整部小说可写在一个 TXT 文件中，使用“第一章 标题”等章节标题自动生成目录。Tab 在正文插入两个全角空格；Shift+Tab 取消行首缩进。
-标签右侧的 × 关闭标签，本地文件保留。文件及文件夹的“···”菜单支持重命名、移动、复制、剪切、副本、属性及回收站；删除后可从当前工作区回收站恢复。没有操作指南.txt 时，重启进入启动页，从最近文件继续写作。
-文件侧栏仅由左上角文件夹按钮展开或收起；切换文件、Git 页面和专注模式均保持侧栏状态。
+一、导航与内部文件夹
+顶栏依次提供写作、GitHub、订阅、阅读页面，切换按钮始终显示。文件夹按钮仅展开或收起文件面板，不受页面切换影响。
+本地文档保存在应用内部文件夹，无需特殊存储权限。卸载或清空应用数据会删除内部文件，请定期导出或同步 GitHub。文件菜单支持新建、重命名、移动、复制、剪切、副本、属性、导出和回收站。
 
-二、保存与 GitHub
-首次启动直接使用内部工作区，无需文件访问授权。内部文稿会随清空应用数据或卸载应用而删除，请定期导出或同步。全部本地文件保存在内部工作区；子目录和空文件夹显示在侧栏。Ctrl+S 保存到当前工作区；导出另存独立文件，设置中可导出全部文稿备份。
-章节始终自动识别中英标题及 Markdown 标题。可在设置中添加多个标题模板，每行一个，例如“幕{序号}：{标题}”和“Episode {number}: {title}”；这些模板与标准标题同时识别。
-底部 Git 用于连接 GitHub，推荐选择“使用访问令牌”，再选择仓库和提交当前文件；仓库页可拉取整个仓库。同仓库同路径文件再次拉取会覆盖本地内容，不同仓库或不同目录的同名文件保留独立文件。
+二、工作区与 .vela
+“新建工作区”创建文件夹及 .vela 配置。配置记录阅读文件清单、字号和章节标题模板。打开 .vela 默认显示设置界面，可切换源码与预览。阅读清单中的路径相对于 .vela 所在文件夹；新建文档会自动加入最近的工作区阅读清单；没有配置时可从设置创建新的 .vela 文件。普通文件夹中未配置 .vela 的文档也可阅读。
+配置示例：
+{"version":1,"name":"我的小说","fontSize":16,"titleTemplates":["幕 {number}：{title}"],"reading":{"files":["正文.txt","附录.md"]}}
+章节自动识别标准中文、英文及 Markdown 标题。额外模板只在工作区 .vela 中设置，支持 {序号}、{标题}、{number}、{title}，每行一个，最多 32 个。
 
-三、外观与阅读
-默认跟随系统深浅模式，也可在设置中固定浅色或深色，并选择青松、玉石、墨竹、麦田、石墨配色。双指在正文区域缩放只改变文字字号；工具栏大小不变。标签旁可切换源码与预览。鸿蒙和安卓版 HTML 预览使用独立的系统 Web 页面，保留原始布局，并加载同一工作区内的图片、样式和字体；可用“导入文件”添加附件。交互页面可打开“脚本”，需要远程资源时打开“联网”，返回编辑后继续修改源码。CSV 显示可编辑表格，并识别逗号、分号和 Tab 分隔。
-Markdown 支持 .md、.markdown、.mdown、.mkd 文件；可使用格式栏编辑标题、加粗、斜体、删除线、代码、列表和引用。预览支持表格、任务列表及工作区内的图片。扩展名错误时，可点击标签旁的文件类型手动指定格式。
+三、创作与自动补全
+整部小说可写在一个 TXT 或 Markdown 文件中，以“第一章 标题”等标题分章。行号、章节目录、字数与快捷跳转辅助长篇创作。Tab 插入两个全角空格；Shift+Tab 取消缩进。
+输入时可显示补全候选；Ctrl+Space 手动唤起，方向键选择，Enter 确认，Escape 关闭；Tab 始终执行小说缩进。HTML 支持标签及属性补全，文本使用当前文稿附近的词汇作为候选。双指捏合或触摸板捏合只调整文字字号，普通双指滑动继续滚动。
+文件标签的 × 仅关闭标签，不删除文件。CSV 使用表格预览，HTML 使用独立的系统 Web 组件，Markdown 支持格式工具、表格、任务列表和本地图片。
 
-四、Acode 插件
-打开“Acode 插件”，选择本地插件 ZIP 安装。支持 JavaScript 插件生命周期、CodeMirror、编辑器事件、命令、设置与包内资源。依赖 Acode 原生 Android / Cordova 接口、Ace 和未实现模块的插件无法直接运行；加载失败会显示具体原因。插件注册的命令在命令面板中可用。
+四、只读阅读
+点击阅读按钮进入书库，选择文档后书库向左滑动收起；再次点击阅读按钮返回书库。阅读不会修改文稿，文件标签不显示，CSV 表格也不可编辑。
+在设置中选择上下滑动或左右翻页。翻页可点击前后页按钮、左右滑动，或用方向键、PageUp / PageDown；双指调整字号。HTML 保持系统 Web 渲染；返回后继续在书库切换文档。
 
-五、快捷键
+五、GitHub 与订阅
+GitHub 推荐使用访问令牌登录；账号下方提供退出按钮，退出不会删除文稿。同仓库同路径文件重复拉取会覆盖本地，支持拉取整个仓库、分支管理和主动提交；“提交整个工作区”将配置、文稿与附件合为一次提交。
+订阅页输入 HTTPS 仓库首页地址，例如 https://github.com/owner/repository。可阅读 Release 与 Changelog；启动、进入页面和手动刷新会检查更新。公开仓库可匿名订阅；私有仓库需要已登录账号具有读取权限，未登录时 GitHub API 速率限制较低。
+页面按钮上的点表示尚未进入页面查看更新，进入页面后消失；仓库旁的点在打开仓库详情或忽略后消失。长按约半秒再向左滑动可忽略，也可勾选后批量忽略或删除订阅。删除订阅保留已经缓存到本机的文件。
+包含 .vela 的项目会保存配置，并只提示阅读清单内文件的更新；.vela 自身变化静默同步。拉取 .vela 项目时可勾选“仅拉取阅读清单”，保留原相对路径与配置，不平铺目录；未列入清单的图片、样式等附件可通过完整拉取获取。订阅文稿首次阅读时下载，已下载内容可离线阅读；刷新失败保留缓存和未读状态。本地修改过的订阅缓存在更新前会保留副本。
+
+六、外观、语言与插件
+默认跟随系统深浅模式，支持青松、玉石、墨竹、麦田、石墨配色。设置中切换简体中文或 English；英文品牌名为 Vela。
+本地 Acode 插件 ZIP 支持 JavaScript 生命周期、CodeMirror、编辑事件、命令、设置和包内资源；依赖 Cordova、Ace 或未实现的原生接口的插件可能无法运行。
+
+七、快捷键
 Tab：两个全角空格
 Shift+Tab：取消行首缩进
 ${shortcuts.map(([, ,key,name])=>`${key}：${name}`).join('\n')}
-Ctrl+加号 / 减号：增大 / 减小文字字号
-Ctrl+0：重置文字字号
+Ctrl+Space：自动补全
+Ctrl+加号 / 减号：调整文字字号；Ctrl+0：重置字号。
 
-可随时从启动页再次打开本操作指南。
+Vela — Open-source novel writing / reading tool
+Use the top bar to switch between Write, GitHub, Subscriptions and Read. The folder button only toggles the file panel. Create a workspace to add a .vela JSON configuration, then select reading files, font size and chapter templates in its preview editor. Read mode is read-only; click Read again to return to the library. Settings include English, system appearance and scrolling / paginated reading. Subscribe using a GitHub HTTPS repository URL; .vela projects notify only changes to their reading files. Keep backups: uninstalling clears internal documents. Tab always inserts two full-width spaces; Ctrl+Space opens completion suggestions.
 `;
 export async function isOriginalDemo(doc) {
   if(doc.name!=='长篇小说.txt'||doc.remote||doc.text.length!==846)return false;

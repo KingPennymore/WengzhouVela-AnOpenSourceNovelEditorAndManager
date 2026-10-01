@@ -4,7 +4,7 @@ import { util } from '@kit.ArkTS';
 import { decodeFileText } from './FileText';
 import { PreviewResource, previewMime } from './PreviewResource';
 
-export interface StoredDocument { id: string; name: string; path?: string; kind?: string; delimiter?: string; text: string; updatedAt: number; remote: Object | null; }
+export interface StoredDocument { id: string; name: string; path?: string; kind?: string; delimiter?: string; text: string; updatedAt: number; remote: Object | null; subscription?: Object; }
 export interface StorageInfo { id: string; label: string; root: string; needsSetup: boolean; internal?: boolean; }
 export interface FolderEntry { path: string; name: string; directory: boolean; size: number; editable: boolean; reason: string; }
 interface RepositoryLink { repo: string; branch: string; folder: string; commit: string; }
@@ -32,7 +32,7 @@ export class WorkspaceFiles {
   private cachePath(id: string): string { return this.contextValue().filesDir + '/folder-' + id + '.json'; }
   private info(): StorageInfo {
     const root = this.getRoot();
-    return { id: root?.id || '', label: root?.label || '内部工作区', root: root?.path || '', needsSetup: !root, internal: root?.path === this.internalPath() };
+    return { id: root?.id || '', label: root?.label || '内部文件夹', root: root?.path || '', needsSetup: !root, internal: root?.path === this.internalPath() };
   }
   private internalPath(): string { return this.contextValue().filesDir + '/workspaces/文舟'; }
   private ensureInternal(): FolderRoot {
@@ -40,7 +40,7 @@ export class WorkspaceFiles {
     if (!fs.accessSync(path)) fs.mkdirSync(path, true);
     let root = this.config.roots.find(item => item.path === path);
     if (!root) {
-      root = { id: util.generateRandomUUID(), uri: '', path: path, label: '内部工作区' };
+      root = { id: util.generateRandomUUID(), uri: '', path: path, label: '内部文件夹' };
       this.config.roots.push(root);
     }
     this.config.default = root.id;
@@ -92,7 +92,7 @@ export class WorkspaceFiles {
   }
   private target(relative: string): string {
     const root = this.getRoot();
-    if (!root) throw new Error('内部工作区尚未初始化。');
+    if (!root) throw new Error('内部文件夹尚未初始化。');
     const parts = this.relative(relative).split('/');
     let current = root.path;
     for (const part of parts) {
@@ -136,7 +136,7 @@ export class WorkspaceFiles {
       else if (stat.isFile()) {
         try {
           const text = this.readText(path), previous = old.find(doc => (doc.path || doc.name) === relative);
-          const doc: StoredDocument = { id: previous?.id || util.generateRandomUUID(), name: name, path: relative, kind: previous?.kind, delimiter: previous?.delimiter, text: text, updatedAt: previous?.text === text ? previous.updatedAt : Date.now(), remote: previous?.remote || null };
+          const doc: StoredDocument = { id: previous?.id || util.generateRandomUUID(), name: name, path: relative, kind: previous?.kind, delimiter: previous?.delimiter, text: text, updatedAt: previous?.text === text ? previous.updatedAt : Date.now(), remote: previous?.remote || null, subscription: previous?.subscription };
           documents.push(doc); entry.editable = true;
         } catch (error) { entry.reason = stat.size > 8 * 1024 * 1024 ? '超过 8 MB，保留在工作区中' : '二进制或不支持的文本编码，保留在工作区中'; }
       }
@@ -209,6 +209,7 @@ export class WorkspaceFiles {
       throw error as Error;
     } finally { fs.rmdirSync(staging); }
   }
+  readFileBase64(relative: string): string { return new util.Base64Helper().encodeToStringSync(this.readBytes(this.target(relative), 8 * 1024 * 1024)); }
   readPreviewResource(relative: string, html: boolean = false): PreviewResource {
     const mime = html ? 'text/html' : previewMime(relative);
     let bytes = this.readBytes(this.target(relative), 8 * 1024 * 1024);

@@ -23,9 +23,10 @@ export async function transport(operation,payload={}) {
     sessionToken=token;
     return result.json();
   }
-  if(operation==='api') {
-    if(!sessionToken) return {status:401,body:{}};
-    const result=await fetch('https://api.github.com'+payload.path,{method:payload.method,headers:headers(sessionToken),body:payload.body ? JSON.stringify(payload.body):undefined,redirect:'error',signal:AbortSignal.timeout(30000)});
+  if(operation==='api'||operation==='publicApi') {
+    if(operation==='publicApi'&&(!/^\/repos\/[\w.-]+\/[\w.-]+(?:[/?]|$)/.test(payload.path)||/[\r\n\\#]/.test(payload.path)||payload.path.includes('..')||payload.method!=='GET'))throw new Error('不允许的 GitHub 请求路径。');
+    if(!sessionToken&&operation!=='publicApi') return {status:401,body:{}};
+    const result=await fetch('https://api.github.com'+payload.path,{method:payload.method,headers:sessionToken?headers(sessionToken):{Accept:"application/vnd.github+json"},body:payload.body ? JSON.stringify(payload.body):undefined,redirect:'error',signal:AbortSignal.timeout(30000)});
     return {status:result.status,body:result.status===204?null:await result.json()};
   }
   throw new Error('当前环境不支持此操作。');

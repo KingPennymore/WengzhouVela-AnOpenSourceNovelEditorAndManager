@@ -35,7 +35,7 @@ final class WorkspaceFiles {
             id = UUID.randomUUID().toString();
             atomic(config, utf8(new JSONObject().put("id", id).toString()));
         }
-        if (!id.matches("[A-Za-z0-9_-]{1,80}")) throw new IOException("内部工作区标识损坏。");
+        if (!id.matches("[A-Za-z0-9_-]{1,80}")) throw new IOException("内部文件夹标识损坏。");
         workspace = new File(base, "workspace.json");
         cache = new File(base, "folder-" + id + ".json");
         trash = new File(base, "trash.json");
@@ -95,7 +95,7 @@ final class WorkspaceFiles {
         atomic(new File(base, "plugins.json"), utf8(data));
     }
     private JSONObject storage() throws Exception {
-        return new JSONObject().put("id", id).put("label", "内部工作区").put("root", root.getPath()).put("internal", true).put("needsSetup", false);
+        return new JSONObject().put("id", id).put("label", "内部文件夹").put("root", root.getPath()).put("internal", true).put("needsSetup", false);
     }
     synchronized JSONObject scan() throws Exception {
         JSONObject old = metadata();
@@ -109,7 +109,7 @@ final class WorkspaceFiles {
     private void walk(String directory, Map<String, JSONObject> previous, JSONArray docs, JSONArray folders, JSONArray entries) throws Exception {
         File folder = directory.isEmpty() ? root : target(directory);
         File[] files = folder.listFiles();
-        if (files == null) throw new IOException("无法读取内部工作区。");
+        if (files == null) throw new IOException("无法读取内部文件夹。");
         java.util.Arrays.sort(files, (a, b) -> a.getName().compareTo(b.getName()));
         for (File file : files) {
             String name = file.getName();
@@ -198,6 +198,7 @@ final class WorkspaceFiles {
         }
     }
 
+    synchronized String readFileBase64(String path) throws Exception {return Base64.encodeToString(read(target(path), FileText.MAX_BYTES), Base64.NO_WRAP);}
     synchronized PreviewResource readPreviewResource(String path, boolean html) throws Exception {
         String mime = html ? "text/html" : PreviewResource.mime(path);
         byte[] bytes = read(target(path), FileText.MAX_BYTES);

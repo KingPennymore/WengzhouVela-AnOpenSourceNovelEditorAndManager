@@ -29,7 +29,7 @@ public final class PortInstrumentation extends Instrumentation {
                 @Override public File getFilesDir() { return directory; }
                 @Override public File getNoBackupFilesDir() { return new File(directory, "no-backup"); }
             };
-            credentials(); workspace(); rollback(); crashRecovery(); htmlResources();
+            credentials(); workspace(); rollback(); crashRecovery(); htmlResources(); textZoom();
             result.putString("results", new JSONObject().put("passed", passed.length()).put("checks", passed).toString());
             finish(Activity.RESULT_OK, result);
         } catch (Throwable error) { result.putString("failure", error.getClass().getSimpleName() + ": " + error.getMessage()); finish(Activity.RESULT_CANCELED, result); }
@@ -112,4 +112,17 @@ public final class PortInstrumentation extends Instrumentation {
         require(rejected, "Preview cannot read app metadata outside workspace");
         passed.put("HTML encoding, original markup, relative resources and workspace confinement");
     }
+    private android.view.MotionEvent motion(int meta, float wheel, float pinch) {
+        android.view.MotionEvent.PointerProperties pointer = new android.view.MotionEvent.PointerProperties(); pointer.id=0; pointer.toolType=android.view.MotionEvent.TOOL_TYPE_MOUSE;
+        android.view.MotionEvent.PointerCoords coords = new android.view.MotionEvent.PointerCoords(); coords.setAxisValue(android.view.MotionEvent.AXIS_VSCROLL,wheel);
+        if(android.os.Build.VERSION.SDK_INT>=34)coords.setAxisValue(android.view.MotionEvent.AXIS_GESTURE_PINCH_SCALE_FACTOR,pinch);
+        return android.view.MotionEvent.obtain(0,1,android.view.MotionEvent.ACTION_SCROLL,1,new android.view.MotionEvent.PointerProperties[]{pointer},new android.view.MotionEvent.PointerCoords[]{coords},meta,0,1,1,0,0,android.view.InputDevice.SOURCE_MOUSE,0);
+    }
+    private void textZoom() {
+        android.view.MotionEvent scroll=motion(0,1,0),ctrl=motion(android.view.KeyEvent.META_CTRL_ON,1,0),pinch=motion(0,0,1.2f);
+        try{require(TextZoom.factor(scroll)==1,"Ordinary two-finger scrolling must not resize text");require(TextZoom.factor(ctrl)>1,"Ctrl-wheel trackpad pinch must resize text");if(android.os.Build.VERSION.SDK_INT>=34)require(Math.abs(TextZoom.factor(pinch)-1.2f)<.001f,"Native trackpad pinch axis must resize text");}
+        finally{scroll.recycle();ctrl.recycle();pinch.recycle();}
+        passed.put("Trackpad pinch and ctrl-wheel text zoom preserve normal scrolling");
+    }
+
 }

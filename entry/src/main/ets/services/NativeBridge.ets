@@ -18,6 +18,10 @@ interface BridgeRequest {
   name?: string;
   text?: string;
   dark?: boolean;
+  reading?: boolean;
+  readingMode?: string;
+  fontSize?: number;
+  language?: string;
   background?: string;
   foreground?: string;
   files?: BinaryWorkspaceFile[];
@@ -217,12 +221,17 @@ export class NativeBridge {
       if (operation === 'listTrash') return this.success(this.workspaceFiles.listTrash());
       if (operation === 'restoreTrash') return this.success(this.workspaceFiles.restoreTrash(data.id || '', data.permanent === true));
       if (operation === 'refreshFolder') return this.success(this.workspaceFiles.scan());
+      if (operation === 'readWorkspaceFile') return this.success(this.workspaceFiles.readFileBase64(data.path || ''));
       if (operation === 'readWorkspaceAsset') return this.success(this.workspaceFiles.readAsset(data.path || ''));
       if (operation === 'previewHtml') {
         this.workspaceFiles.readPreviewResource(data.path || '', true);
         HtmlPreviewSession.files = this.workspaceFiles;
         HtmlPreviewSession.path = data.path || '';
         HtmlPreviewSession.dark = data.dark === true;
+        HtmlPreviewSession.reading = data.reading === true;
+        HtmlPreviewSession.pages = data.readingMode === 'pages';
+        HtmlPreviewSession.english = data.language === 'en';
+        HtmlPreviewSession.fontSize = data.fontSize || 16;
         if (!Runtime.mainWindow) throw new Error('预览页面尚未准备好。');
         await Runtime.mainWindow.getUIContext().getRouter().pushUrl({ url: 'pages/HtmlPreview' });
         return this.success(true);
@@ -231,15 +240,16 @@ export class NativeBridge {
       if (operation === 'connection') {
         return this.success(await this.request('https://api.github.com', 'GET', undefined));
       }
-      if (operation === 'api') {
+      if (operation === 'api' || operation === 'publicApi') {
         const path = data.path || '';
         // Fixed origin, no arbitrary proxy URLs or credential access from the page.
         if (!/^\/(user(?:\?|$)|user\/repos(?:\?|$)|repos\/[\w.-]+\/[\w.-]+(?:\/|\?|$))/.test(path)
           || /[\r\n\\#]/.test(path) || path.includes('..')) {
           throw new Error('不允许的 GitHub 请求路径。');
         }
+        if (operation === 'publicApi' && ((data.method || 'GET') !== 'GET' || !path.startsWith('/repos/'))) throw new Error('Public repository reads only.');
         const token = await this.loadToken();
-        if (!token) {
+        if (!token && operation !== 'publicApi') {
           const empty: EmptyBody = { message: 'Not signed in' };
           const unauthorized: ApiResult = { status: 401, body: empty };
           return this.success(unauthorized);

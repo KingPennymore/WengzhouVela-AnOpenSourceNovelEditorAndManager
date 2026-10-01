@@ -28,22 +28,11 @@ struct Index {
         .zoomAccess(false)
         .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.BOTTOM])
         .onPageEnd(() => { Runtime.updateInsets(); Runtime.publishEnvironment(); })
-        .onTouch((event: TouchEvent) => {
-          if (event.touches.length === 2) {
-            const dx = event.touches[0].x - event.touches[1].x;
-            const dy = event.touches[0].y - event.touches[1].y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            if (this.pinchDistance === 0) {
-              this.pinchDistance = Math.max(1, distance);
-              this.controller.runJavaScript('window.wenzhouNativePinch && window.wenzhouNativePinch(1,"start")').catch(() => {});
-            } else {
-              this.controller.runJavaScript('window.wenzhouNativePinch && window.wenzhouNativePinch(' + distance / this.pinchDistance + ',"move")').catch(() => {});
-            }
-          } else if (this.pinchDistance > 0) {
-            this.pinchDistance = 0;
-            this.controller.runJavaScript('window.wenzhouNativePinch && window.wenzhouNativePinch(1,"end")').catch(() => {});
-          }
-        })
+        .parallelGesture(PinchGesture({ fingers: 2, distance: 3 })
+          .onActionStart(() => { this.controller.runJavaScript('window.wenzhouNativePinch?.(1,"start")').catch(() => {}); })
+          .onActionUpdate(event => { this.controller.runJavaScript('window.wenzhouNativePinch?.(' + event.scale + ',"move")').catch(() => {}); })
+          .onActionEnd(() => { this.controller.runJavaScript('window.wenzhouNativePinch?.(1,"end")').catch(() => {}); })
+          .onActionCancel(() => { this.controller.runJavaScript('window.wenzhouNativePinch?.(1,"end")').catch(() => {}); }))
         .javaScriptProxy({
           object: this.bridge,
           name: 'WenzhouNative',

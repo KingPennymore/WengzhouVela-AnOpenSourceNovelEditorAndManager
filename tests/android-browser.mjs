@@ -15,7 +15,7 @@ const devices=await _android.devices(),device=devices.find(d=>d.serial()===seria
 if(!device)throw new Error('请先启动 Wenzhou_QA_API36 测试模拟器。');
 let p,checks=[],errors=[],deviceClosed=false;
 await mkdir('test-results',{recursive:true});
-const connect=async()=>{const web=await device.webView({pkg:'me.wenzhou.write'});p=await web.page();p.on('pageerror',e=>errors.push(e.message));await p.waitForSelector('.cm-editor',{timeout:30000});};
+const connect=async()=>{const web=await device.webView({pkg:'me.wenzhou.write'});p=await web.page();p.on('pageerror',e=>errors.push(e.message));await p.waitForSelector('.cm-editor',{timeout:30000,state:'attached'});await p.waitForFunction(()=>typeof window.wenzhouSave==='function');};
 const check=async(name,run)=>{await run();checks.push(name);console.log('PASS '+name);};
 const invoke=async(op,payload={})=>{
   const result=await p.evaluate(async({op,payload})=>JSON.parse(await window.WenzhouNative.call(op,JSON.stringify(payload))),{op,payload});
@@ -61,7 +61,7 @@ try{
     await p.locator('#mobile-library').click();
   });
   await check('独立原生 HTML 预览：本地样式图片、脚本开关和桥隔离',async()=>{
-    await saved();const html='<!doctype html><html><head><link rel="stylesheet" href="样式.css"></head><body><h1 id="title">排版验证</h1><img id="cover" src="封面.png"><button id="action">交互按钮</button><script src="行为.js"></script></body></html>';
+    await saved();const html='<!doctype html><html><head><link rel="stylesheet" href="样式.css"></head><body><h1 id="title">排版验证</h1><img id="cover" src="封面.png"><button id="action">交互按钮</button><div contenteditable="true" id="editable">Editable</div><script src="行为.js"></script></body></html>';
     const state=await invoke('writeWorkspaceFiles',{files:[{path:prefix+'/预览.html',data:Buffer.from(html).toString('base64')},{path:prefix+'/样式.css',data:Buffer.from('h1{color:rgb(17,85,34);font-size:30px}body{margin:12px}').toString('base64')},{path:prefix+'/行为.js',data:Buffer.from("document.body.dataset.script='ready';document.querySelector('#action').onclick=()=>document.querySelector('#title').textContent='交互成功';").toString('base64')}]});
     await p.reload();await p.waitForSelector('.cm-editor');await p.locator('#mobile-library').click();const doc=(await saved()).documents.find(d=>d.path===prefix+'/预览.html');await p.locator(`[data-doc="${doc.id}"]`).click();
     const context=p.context(),wait=context.waitForEvent('page');await p.locator('[data-display="preview"]').click();const preview=await wait;await preview.waitForSelector('#title');
@@ -70,6 +70,13 @@ try{
     const blocked=await preview.evaluate(async()=>{try{return (await fetch('/../workspace.json')).status;}catch{return 0;}});assert.ok(blocked===403||blocked===0);
     await device.tap({text:'脚本：关'});await preview.waitForFunction(()=>document.body.dataset.script==='ready');await preview.locator('#action').click();assert.equal(await preview.locator('#title').innerText(),'交互成功');
     await device.tap({text:'返回编辑'});await p.locator('.cm-editor').waitFor();assert.equal(await p.locator('body').evaluate(b=>b.classList.contains('show-library')),true);await p.locator('#mobile-library').click();
+  });
+  await check('.vela GUI 原生保存、只读阅读、HTML 禁止编辑与双指字号状态',async()=>{
+    await saved();const config={version:1,name:'验证工作区',fontSize:21,titleTemplates:['【{number}】{title}'],reading:{files:['正文.txt','人物.CSV','预览.html','设定.md']}};
+    await invoke('writeWorkspaceFiles',{files:[{path:prefix+'/.vela',data:Buffer.from(JSON.stringify(config)).toString('base64')}]});await p.reload();await p.waitForSelector('.cm-editor');await p.locator('#mobile-library').click();const state=await saved(),manifest=state.documents.find(d=>d.path===prefix+'/.vela');await p.locator(`[data-doc="${manifest.id}"]`).click();await p.waitForSelector('#vela-form');await p.locator('#vela-form [name=fontSize]').fill('22');await p.locator('#vela-form .primary').click();assert.equal(JSON.parse(adb('shell','run-as','me.wenzhou.write','cat','files/workspaces/文舟/'+prefix+'/.vela')).fontSize,22);
+    await p.locator('#mobile-library').click();await p.locator('[data-view=reader]').click();const book=state.documents.find(d=>d.path===prefix+'/正文.txt');await p.locator(`[data-read="${book.id}"]`).click();await p.waitForFunction(()=>document.querySelector('.reader-content')?.textContent.includes('原始正文'));assert.equal(await p.locator('.reader-content [contenteditable],.reader-content textarea').count(),0);assert.equal(await p.locator('#document-tabs').isVisible(),false);const before=(await saved()).documents.find(d=>d.id===book.id).text;await p.keyboard.press('Control+z');assert.equal((await saved()).documents.find(d=>d.id===book.id).text,before);await p.evaluate(()=>window.wenzhouNativeScale(1.2));assert.ok(await p.locator('.reader-content').evaluate(el=>parseFloat(getComputedStyle(el).fontSize)>22));
+    await p.locator('[data-view=reader]').click();const html=state.documents.find(d=>d.path===prefix+'/预览.html'),wait=p.context().waitForEvent('page');await p.locator(`[data-read="${html.id}"]`).click();const preview=await wait;await preview.waitForSelector('#title');assert.equal(await preview.locator('#action').isDisabled(),true);assert.equal(await preview.locator('#editable').getAttribute('contenteditable'),null);assert.equal(await preview.evaluate(()=>typeof window.WenzhouNative+':'+typeof window.WenzhouAndroid),'undefined:undefined');await device.tap({text:'返回阅读'});await p.locator('.reader-header').waitFor();await p.locator('[data-view=write]').click();assert.equal(await invoke('readWorkspaceFile',{path:prefix+'/封面.png'}),png);
+    await assert.rejects(invoke('publicApi',{path:'/user',method:'GET'}),/repository|仓库/);await assert.rejects(invoke('publicApi',{path:'/repos/o/r',method:'POST'}),/repository|仓库/);
   });
   await check('移动复制、回收站恢复与永久删除，保留附件和空目录',async()=>{
     await saved();const initial=await invoke('refreshFolder'),original=initial.documents.find(d=>d.path===prefix+'/正文.txt');
@@ -98,7 +105,7 @@ try{
   });
   await check('进程退出后文稿、主题和插件重新加载',async()=>{
     const before=await saved();await device.close();deviceClosed=true;adb('shell','am','force-stop','me.wenzhou.write');adb('shell','am','start','-W','-n','me.wenzhou.write/.MainActivity');
-    const nextDevices=await _android.devices(),next=nextDevices.find(d=>d.serial()===serial);const web=await next.webView({pkg:'me.wenzhou.write'});p=await web.page();await p.waitForSelector('.cm-editor');
+    const nextDevices=await _android.devices(),next=nextDevices.find(d=>d.serial()===serial);const web=await next.webView({pkg:'me.wenzhou.write'});p=await web.page();await p.waitForSelector('.cm-editor',{state:'attached'});await p.waitForFunction(()=>document.querySelector('#preview')?.offsetWidth>0||document.querySelector('.cm-editor')?.offsetWidth>0);
     const after=await saved();assert.equal(after.documents.find(d=>d.path===prefix+'/正文.txt').text,before.documents.find(d=>d.path===prefix+'/正文.txt').text);assert.equal(after.settings.theme,before.settings.theme);await p.waitForFunction(()=>document.body.dataset.androidPlugin==='ready');await next.close();
   });
   assert.deepEqual(errors,[]);await writeFile('test-results/android-results.json',JSON.stringify({passed:checks.length,checks,pageErrors:errors},null,2));

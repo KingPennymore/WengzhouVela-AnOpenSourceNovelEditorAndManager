@@ -1,1 +1,1 @@
-{ "name": "entry", "version": "0.3.0", "description": "文舟写作主模块", "main": "", "author": "", "license": "MIT", "dependencies": {} }
+{ "name": "entry", "version": "0.5.0", "description": "文舟小说创作与阅读主模块", "main": "", "author": "", "license": "MIT", "dependencies": {} }

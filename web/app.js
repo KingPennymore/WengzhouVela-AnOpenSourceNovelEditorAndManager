@@ -4,18 +4,24 @@ import {history, historyKeymap, defaultKeymap, undo, redo, undoDepth, redoDepth}
 import {searchKeymap, openSearchPanel, highlightSelectionMatches} from '@codemirror/search';
 import {markdown} from '@codemirror/lang-markdown';
 import {html} from '@codemirror/lang-html';
+import {json} from '@codemirror/lang-json';
 import {syntaxHighlighting, defaultHighlightStyle} from '@codemirror/language';
 import MarkdownIt from 'markdown-it';
 import DOMPurify from 'dompurify';
 import Writer from '../vendor/acode-writer/src/core.js';
 import {indentedLineWrapping} from '../vendor/acode/src/cm/indentedLineWrapping.ts';
 import {scrollPastEndCustom} from '../vendor/acode/src/cm/scrollPastEnd.ts';
-import {newDocument,validateWorkspace,chapterPosition,normalizeText,fileName,fileKind,documentKind,repoPath,MAX_TEXT_BYTES} from './model.mjs';
+import {newDocument,validateWorkspace,chapterPosition,normalizeText,fileName,fileKind,documentKind,repoPath,MAX_TEXT_BYTES,encodeContent} from './model.mjs';
 import {GitHub,deviceLogin} from './github.mjs';
 import {native,transport,readWorkspace,saveWorkspace,exportText,openAuthorization,readEnvironment} from './platform.mjs';
-import {guide,isOriginalDemo} from './guide.mjs';
+import {guide,isOriginalDemo,previousGuideHash} from './guide.mjs';
 import {shortcuts,matchesKey} from './shortcuts.mjs';
 import {SidebarLayout} from './sidebars.mjs';
+import {Reader} from './reader.mjs';
+import {Subscriptions} from './subscriptions.mjs';
+import {parseVela,createVela,velaText,projectConfig,projectWriter,includeNewReadingFile,rewriteVelaFiles,configFolder,readable} from './vela.mjs';
+import {completionExtensions} from './completion.mjs';
+import {initI18n,setLanguage,t} from './i18n.mjs';
 import {fullWidthIndent} from './indent.mjs';
 import {paragraphSelection} from './selection.mjs';
 import {parseCsv,writeCsv,csvDelimiter} from './csv.mjs';
@@ -38,11 +44,12 @@ const paths={write:'M4 4h12v16H4zM8 8h5M8 12h5M14 17l6-6 2 2-6 6-3 1z',github:'M
 const icon=name=>name==='settings'?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.78 4.73L10.26 2.15L13.74 2.15L14.22 4.73L15.57 5.29L17.74 3.81L20.19 6.26L18.71 8.43L19.27 9.78L21.85 10.26L21.85 13.74L19.27 14.22L18.71 15.57L20.19 17.74L17.74 20.19L15.57 18.71L14.22 19.27L13.74 21.85L10.26 21.85L9.78 19.27L8.43 18.71L6.26 20.19L3.81 17.74L5.29 15.57L4.73 14.22L2.15 13.74L2.15 10.26L4.73 9.78L5.29 8.43L3.81 6.26L6.26 3.81L8.43 5.29Z"/><circle cx="12" cy="12" r="3.5"/></svg>':`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${paths[name]}"/></svg>`;
 Object.assign(paths,{files:'M3 5h7l2 2h9v13H3z',save:'M4 3h14l3 3v15H3V3zM7 3v6h10V3M7 21v-8h10v8',undo:'M8 4 3 9l5 5M3 9h10a7 7 0 0 1 0 14',redo:'M16 4l5 5-5 5M21 9H11a7 7 0 0 0 0 14',top:'M5 3h14M12 21V7M7 12l5-5 5 5',bottom:'M5 21h14M12 3v14M7 12l5 5 5-5',chapterTop:'M5 4h14M12 19V8M8 12l4-4 4 4M5 22h14',chapterBottom:'M5 20h14M12 5v11M8 12l4 4 4-4M5 2h14',git:'M6 3v13a3 3 0 0 0 6 0V9a3 3 0 0 1 3-3h3M6 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4M18 4a2 2 0 1 0 0 4 2 2 0 0 0 0-4'});
 Object.assign(paths,{home:'M3 11l9-8 9 8M5 9v12h14V9M9 21v-7h6v7',commands:'M3 5h18M3 12h10M3 19h18M17 9l4 3-4 3',plugins:'M3 3h6v6H3zM15 3h6v6h-6zM3 15h6v6H3zM15 15h6v6h-6z'});
+Object.assign(paths,{subscriptions:'M4 5h16v16H4zM8 2v6M16 2v6M4 10h16M8 14h8M8 18h5',reader:'M12 5C8 2 3 3 2 4v16c4-2 7-1 10 1 3-2 6-3 10-1V4c-4-2-7-1-10 1zM12 5v16'});
 paths.sun='M16 12a4 4 0 1 0-8 0 4 4 0 0 0 8 0M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M5 19l1.5-1.5M17.5 6.5 19 5';
 for(const [id,name] of Object.entries({'theme':'theme','settings':'settings','mobile-library':'files','search-icon':'search','github-icon':'github','search-editor':'search','preview-toggle':'preview','focus-toggle':'focus','outline-toggle':'outline','export-doc':'export'})) $('#'+id).innerHTML=icon(name);
 for(const id of ['home-button','commands','plugins'])$('#'+id).innerHTML=icon(id==='home-button'?'home':id);
 for(const [id,name] of Object.entries({'quick-save':'save','quick-undo':'undo','quick-redo':'redo','quick-top':'top','quick-bottom':'bottom','quick-chapter-top':'chapterTop','quick-chapter-bottom':'chapterBottom','quick-git':'git'})) $('#'+id+' span').innerHTML=icon(name);
-document.querySelectorAll('[data-view]').forEach(b=>b.innerHTML=icon(b.dataset.view));
+document.querySelectorAll('[data-view]').forEach(b=>b.innerHTML=icon(b.dataset.view)+(b.dataset.view==='subscriptions'?'<i class="update-dot" hidden></i>':''));
 const gh=new GitHub(transport), md=new MarkdownIt({html:false,linkify:false,breaks:true});
 // Local previews do not fetch remote images or open links inside the privileged WebView.
 md.use(taskLists);
@@ -51,10 +58,11 @@ let workspace,view,index,indexDoc,indexSettings='',saveTimer,statsTimer,toastTim
 let account=null,repositories=[],selectedRepo=null,selectedBranch='',selectedPath='',loadEpoch=0;
 let isPreview=false,dirty=false,bootFailed=false,dialogHandler=null,dialogCancel=null,dialogBusy=false;
 let plugins,home=false,csvRows=[],csvPage=0,csvColumnPage=0,environment=readEnvironment();
-let selectedFolder='';
+let textFontSize=16;
+let selectedFolder='',pageName='write',reader,subscriptions;
 const sidebars=new SidebarLayout(()=>view?.requestMeasure());
 let fileClipboard=null;
-const pluginKeys=new Compartment(),languages=new Compartment(),systemTheme=matchMedia('(prefers-color-scheme: dark)');
+const completer=new Compartment(),pluginKeys=new Compartment(),languages=new Compartment(),systemTheme=matchMedia('(prefers-color-scheme: dark)');
 const editorStates=new Map();
 const current=()=>workspace.documents.find(d=>d.id===workspace.activeId);
 function toast(message){$('#toast').textContent=message;$('#toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').hidden=true,4200);}
@@ -71,11 +79,11 @@ window.wenzhouSave=()=>save();
 window.addEventListener('pagehide',()=>{if(dirty)save();});
 window.addEventListener('blur',()=>{if(dirty)save();});
 window.addEventListener('beforeunload',e=>{if(dirty&&!save()){e.preventDefault();e.returnValue='';}});
-function ensureIndex(){const doc=view.state.doc,settings=JSON.stringify(workspace.settings.writer);if(doc!==indexDoc||settings!==indexSettings||!index){index=Writer.buildIndex(doc.toString(),workspace.settings.writer,chapterMatcher(workspace.settings.writer));indexDoc=doc;indexSettings=settings;outlineRevision='';}return index;}
+function ensureIndex(){const doc=view.state.doc,settings=JSON.stringify(projectWriter(workspace,current()));if(doc!==indexDoc||settings!==indexSettings||!index){index=Writer.buildIndex(doc.toString(),projectWriter(workspace,current()),chapterMatcher(projectWriter(workspace,current())));indexDoc=doc;indexSettings=settings;outlineRevision='';}return index;}
 function renderOutline(section){
   const idx=ensureIndex(),query=$('#chapter-search').value.trim().toLowerCase();
   const revision=JSON.stringify([current().id,query,idx.chapterCount,idx.total,idx.lineCount]);
-  if(revision!==outlineRevision){$('#outline-list').innerHTML=idx.sections.map((s,i)=>({s,i})).filter(({s})=>s.title.toLowerCase().includes(query)).map(({s,i})=>`<button class="chapter" data-row="${s.row}"><span class="chapter-number">${String(i+1).padStart(2,'0')}</span><span>${esc(s.title)}<small>${s.count.toLocaleString()} 字 · 行 ${s.row+1}</small></span></button>`).join('')||'<p class="blank">没有匹配的章节。</p>';outlineRevision=revision;}
+  if(revision!==outlineRevision){$('#outline-list').innerHTML=idx.sections.map((s,i)=>({s,i})).filter(({s})=>s.title.toLowerCase().includes(query)).map(({s,i})=>`<button class="chapter" data-row="${s.row}"><span class="chapter-number">${String(i+1).padStart(2,'0')}</span><span>${esc(s.title)}<small>${t(s.count.toLocaleString()+' 字 · 行 '+(s.row+1))}</small></span></button>`).join('')||'<p class="blank">没有匹配的章节。</p>';outlineRevision=revision;}
   $('#outline-list').querySelectorAll('[data-row]').forEach(b=>b.classList.toggle('active',Number(b.dataset.row)===section?.row));
 }
 function renderTabDirty(){const marker=$('.document-tab.active .tab-dirty');if(marker)marker.textContent=dirty?'●':'';}
@@ -90,9 +98,9 @@ function updateStats(){
   renderOutline(section);
   $('#quick-undo').disabled=undoDepth(view.state)===0;$('#quick-redo').disabled=redoDepth(view.state)===0;
 }
-function languageFor(doc){return documentKind(doc)==='HTML'?html():documentKind(doc)==='MD'?markdown():[];}
-function refreshFileType(doc){const effects=languages.reconfigure(languageFor(doc));if(workspace.activeId===doc.id&&view)view.dispatch({effects});else if(editorStates.has(doc.id))editorStates.set(doc.id,editorStates.get(doc.id).update({effects}).state);updateEditorVisibility();if(isPreview&&current())renderPreview();renderDocuments();}
-function makeState(doc){return EditorState.create({doc:doc.text,extensions:[history(),keymap.of([{key:'Tab',run:v=>fullWidthIndent(v)},{key:'Shift-Tab',run:v=>fullWidthIndent(v,true)},...defaultKeymap,...historyKeymap,...searchKeymap]),pluginKeys.of(keymap.of(plugins?.bindings()||[])),lineNumbers(),highlightActiveLine(),highlightActiveLineGutter(),paragraphSelection(),highlightSelectionMatches(),languages.of(languageFor(doc)),syntaxHighlighting(defaultHighlightStyle),indentedLineWrapping('same'),scrollPastEndCustom(.35),EditorView.contentAttributes.of({'aria-label':'文稿正文','spellcheck':'false'}),EditorView.updateListener.of(update=>{
+function languageFor(doc){return documentKind(doc)==='VELA'?json():documentKind(doc)==='HTML'?html():documentKind(doc)==='MD'?markdown():[];}
+function refreshFileType(doc){const effects=[languages.reconfigure(languageFor(doc)),completer.reconfigure(completionExtensions(doc))];if(workspace.activeId===doc.id&&view)view.dispatch({effects});else if(editorStates.has(doc.id))editorStates.set(doc.id,editorStates.get(doc.id).update({effects}).state);updateEditorVisibility();if(isPreview&&current())renderPreview();renderDocuments();}
+function makeState(doc){return EditorState.create({doc:doc.text,extensions:[history(),completer.of(completionExtensions(doc)),keymap.of([{key:'Tab',run:v=>fullWidthIndent(v)},{key:'Shift-Tab',run:v=>fullWidthIndent(v,true)},...defaultKeymap,...historyKeymap,...searchKeymap]),pluginKeys.of(keymap.of(plugins?.bindings()||[])),lineNumbers(),highlightActiveLine(),highlightActiveLineGutter(),paragraphSelection(),highlightSelectionMatches(),languages.of(languageFor(doc)),syntaxHighlighting(defaultHighlightStyle),indentedLineWrapping('same'),scrollPastEndCustom(.35),EditorView.contentAttributes.of({'aria-label':'文稿正文','spellcheck':'false'}),EditorView.updateListener.of(update=>{
   if(update.docChanged){const d=current();if(!d)return;d.text=update.state.doc.toString();d.updatedAt=Date.now();scheduleSave();plugins?.emit('file-content-changed',plugins.manager.activeFile);if(!statsTimer)statsTimer=setTimeout(()=>{statsTimer=null;updateStats();if(document.body.classList.contains('show-library'))renderDocuments();},200);}
   if(update.selectionSet&&!update.docChanged) updateStats();
   if(update.docChanged||update.selectionSet){$('#quick-undo').disabled=undoDepth(update.state)===0;$('#quick-redo').disabled=redoDepth(update.state)===0;}
@@ -101,7 +109,7 @@ function renderDocuments(){
   const query=$('#doc-search').value.toLowerCase();
   const docs=workspace.documents.filter(d=>documentPath(d).toLowerCase().includes(query)||d.text.toLowerCase().includes(query));
   $('#doc-count').textContent=workspace.documents.length;
-  $('#workspace-name').textContent=workspace.storage?.label||'内部工作区';
+  $('#workspace-name').textContent=workspace.storage?.label||'内部文件夹';
   $('#workspace-name').title=workspace.storage?.root||'';
   $('#selected-folder').textContent=selectedFolder||'/';$('#file-sort').value=workspace.settings.filesSort||'name';$('#paste-file').disabled=!fileClipboard;
   $('#document-tabs').innerHTML=workspace.openIds.map(id=>workspace.documents.find(d=>d.id===id)).filter(Boolean).map(d=>`<div class="document-tab ${d.id===workspace.activeId?'active':''}"><button class="tab-open" role="tab" aria-selected="${d.id===workspace.activeId}" data-tab="${esc(d.id)}"><span class="file-kind">${documentKind(d)}</span><strong>${esc(d.name)}</strong><span class="tab-dirty">${d.id===workspace.activeId&&dirty?'●':''}</span></button><button class="tab-close" data-close="${esc(d.id)}" title="关闭 ${esc(d.name)} (Ctrl+W)" aria-label="关闭 ${esc(d.name)}">×</button></div>`).join('');
@@ -113,9 +121,9 @@ function switchDocument(id){
   if(view){editorStates.set(workspace.activeId,view.state);if(dirty&&!save())return;}
   if(!workspace.openIds.includes(id))workspace.openIds.push(id);
   workspace.activeId=id;const doc=current();if(!doc)return;
-  home=false;csvPage=0;csvColumnPage=0;$('#start-page').hidden=true;isPreview=documentKind(doc)==='CSV';
+  home=false;csvPage=0;csvColumnPage=0;$('#start-page').hidden=true;isPreview=['CSV','VELA'].includes(documentKind(doc));
   if(view)view.setState(editorStates.get(id)||makeState(doc));else view=new EditorView({state:makeState(doc),parent:$('#editor')});
-  index=null;$('#current-name').textContent=doc.name;
+  index=null;setFontSize(projectConfig(workspace,doc)?.config?.fontSize??workspace.settings.fontSize,false);$('#current-name').textContent=doc.name;
   updateEditorVisibility();renderDocuments();updateStats();if(isPreview)renderPreview();save();showView('write');plugins?.emit('switch-file',plugins.manager.activeFile);
 }
 function closeDocument(id){
@@ -133,7 +141,7 @@ function renderDisplayOptions(){
   const doc=current();$('#display-options').hidden=home||!doc;if(!doc)return;
   const kind=documentKind(doc);$('#display-options').innerHTML=`<button data-format title="选择文件类型">${kind==='MD'?'Markdown':kind==='TXT'?'文本':kind}</button><button data-display="source" class="${!isPreview?'selected':''}">源码</button><button data-display="preview" class="${isPreview?'selected':''}">${kind==='CSV'?'表格':'预览'}</button>`;
 }
-$('#display-options').onclick=e=>{const mode=e.target.closest('[data-display]');if(mode){if(native&&documentKind(current())==='HTML'&&mode.dataset.display==='preview'){openNativeHtml();return;}isPreview=mode.dataset.display==='preview';updateEditorVisibility();if(isPreview)renderPreview();else view.focus();}if(e.target.closest('[data-format]')){const doc=current();openModal('文件类型',`<label>编辑格式<select name="kind">${[['','按扩展名识别'],['TXT','纯文本'],['MD','Markdown'],['HTML','HTML'],['CSV','CSV 表格']].map(([value,label])=>`<option value="${value}" ${value===(doc.kind||'')?'selected':''}>${label}</option>`).join('')}</select></label>`,f=>{doc.kind=f.get('kind')||undefined;isPreview=documentKind(doc)==='CSV';refreshFileType(doc);save();});}};
+$('#display-options').onclick=e=>{const mode=e.target.closest('[data-display]');if(mode){if(native&&documentKind(current())==='HTML'&&mode.dataset.display==='preview'){openNativeHtml();return;}isPreview=mode.dataset.display==='preview';updateEditorVisibility();if(isPreview)renderPreview();else view.focus();}if(e.target.closest('[data-format]')){const doc=current();openModal('文件类型',`<label>编辑格式<select name="kind">${[['','按扩展名识别'],['TXT','纯文本'],['MD','Markdown'],['HTML','HTML'],['CSV','CSV 表格'],['VELA','VELA 工作区配置']].map(([value,label])=>`<option value="${value}" ${value===(doc.kind||'')?'selected':''}>${label}</option>`).join('')}</select></label>`,f=>{doc.kind=f.get('kind')||undefined;isPreview=['CSV','VELA'].includes(documentKind(doc));refreshFileType(doc);save();});}};
 function showHome(){
   if(view){if(dirty&&!save())return;editorStates.set(workspace.activeId,view.state);view.destroy();view=null;}
   workspace.activeId=null;home=true;isPreview=false;index=null;$('#current-name').textContent='启动页';$('#start-page').hidden=false;updateEditorVisibility();renderHome();renderDocuments();updateStats();showView('write');setSidebar('outline',false);save();plugins?.emit('switch-file',null);
@@ -145,6 +153,8 @@ $('#start-page').onclick=e=>{const recent=e.target.closest('[data-recent]');if(r
 $('#home-button').onclick=showHome;
 function jump(position){if(!view)return;if(isPreview)togglePreview();view.dispatch({selection:{anchor:position},scrollIntoView:true});view.focus();updateStats();}
 function renderPreview(){
+  $('#preview').className='markdown';
+  if(documentKind(current())==='VELA'){renderVela();return;}
   const kind=documentKind(current()),text=view.state.doc.toString();$('#preview').classList.toggle('plain-preview',kind==='TXT');$('#preview').classList.toggle('csv-preview',kind==='CSV');$('#preview').classList.toggle('html-preview',kind==='HTML');
   if(kind==='CSV'){
     try{
@@ -158,7 +168,7 @@ function renderPreview(){
     }catch(e){$('#preview').innerHTML=`<p class="error">${esc(e.message)}</p><button class="secondary" id="csv-source">编辑 CSV 源码</button>`;$('#csv-source').onclick=togglePreview;}return;
   }
   if(kind==='HTML'){
-    const frame=document.createElement('iframe');frame.title='HTML 文件预览';frame.setAttribute('sandbox','');frame.srcdoc=htmlPreview(text,{dark:workspace.settings.dark,fontSize:workspace.settings.fontSize});$('#preview').replaceChildren(frame);return;
+    const frame=document.createElement('iframe');frame.title='HTML 文件预览';frame.setAttribute('sandbox','');frame.srcdoc=htmlPreview(text,{dark:workspace.settings.dark,fontSize:textFontSize});$('#preview').replaceChildren(frame);return;
   }
   if(kind==='TXT'){$('#preview').textContent=text;return;}
   $('#preview').innerHTML=DOMPurify.sanitize(md.render(text,{path:documentPath(current())}),{FORBID_TAGS:['iframe','form','input','button','video','audio','style'],FORBID_ATTR:['style']});
@@ -166,7 +176,7 @@ function renderPreview(){
 }
 function applyCsv(){const source=view.state.doc.toString(),separator=current().delimiter||csvDelimiter(source),prefix=/^\uFEFF?sep=([,;\t])\r?\n/i.test(source)?'sep='+separator+'\n':'';const text=prefix+writeCsv(csvRows,separator);if(text===view.state.doc.toString())return;view.dispatch({changes:{from:0,to:view.state.doc.length,insert:text}});updateStats();}
 $('#preview').addEventListener('input',e=>{const cell=e.target.closest('[data-cell-row]');if(!cell)return;const row=Number(cell.dataset.cellRow),column=Number(cell.dataset.cellColumn);while(csvRows[row].length<=column)csvRows[row].push('');csvRows[row][column]=cell.value;applyCsv();});
-async function openNativeHtml(){if(!save())return;try{await transport('previewHtml',{path:documentPath(current()),dark:workspace.settings.dark});}catch(error){fail(error);}}
+async function openNativeHtml(){if(!save())return;try{await transport('previewHtml',{path:documentPath(current()),dark:workspace.settings.dark,language:workspace.settings.language,fontSize:textFontSize});}catch(error){fail(error);}}
 function togglePreview(){if(!current()||!view)return;if(native&&documentKind(current())==='HTML'){openNativeHtml();return;}isPreview=!isPreview;updateEditorVisibility();if(isPreview)renderPreview();else view.focus();}
 for(const [id,mark] of [['md-bold','**'],['md-italic','*'],['md-strike','~~'],['md-code','`']])$('#'+id).onclick=()=>inlineMarkup(view,mark);
 for(const [id,prefix] of [['md-heading','# '],['md-list','- '],['md-task','- [ ] '],['md-quote','> ']])$('#'+id).onclick=()=>lineMarkup(view,prefix);
@@ -181,19 +191,20 @@ function closeModal(){if(dialogBusy)return;dialogCancel?.();dialogCancel=null;$(
 $('#dialog-close').onclick=closeModal;$('#dialog-cancel').onclick=closeModal;
 $('#dialog').addEventListener('cancel',e=>{e.preventDefault();closeModal();});
 $('#dialog-form').onsubmit=async e=>{e.preventDefault();if(dialogBusy)return;dialogBusy=true;$('#dialog-submit').disabled=true;try{const result=await dialogHandler?.(new FormData(e.target));if(result!==false){dialogCancel=null;$('#dialog').close();}}catch(err){$('#dialog-error').textContent=err.message;}finally{dialogBusy=false;$('#dialog-submit').disabled=false;}};
-function addDocument(doc){doc.path=uniquePath(doc.path||(selectedFolder?selectedFolder+'/':'')+doc.name,itemPaths(workspace));doc.name=doc.path.split('/').at(-1);workspace.documents.unshift(doc);switchDocument(doc.id);showView('write');plugins?.emit('new-file',plugins.file(doc));return doc;}
+function addDocument(doc){doc.path=uniquePath(doc.path||(selectedFolder?selectedFolder+'/':'')+doc.name,itemPaths(workspace));doc.name=doc.path.split('/').at(-1);workspace.documents.unshift(doc);switchDocument(doc.id);includeNewReadingFile(workspace,doc);for(const item of workspace.documents.filter(d=>documentKind(d)==='VELA'&&d.id!==workspace.activeId))editorStates.delete(item.id);save();showView('write');plugins?.emit('new-file',plugins.file(doc));return doc;}
 $('#new-doc').onclick=()=>openModal('新建文件','<label>文件名<input name="name" value="未命名小说.txt" required maxlength="160" autofocus></label><label>初始内容<select name="template"><option value="chapters">单文件章节模板</option><option value="empty">空白文件</option></select></label><small>支持 TXT、Markdown、HTML、CSV；TXT 小说的全部章节可写在同一文件中。</small>',form=>{addDocument(newDocument(fileName(form.get('name')),form.get('template')==='chapters'&&['TXT','MD'].includes(fileKind(fileName(form.get('name'))))?(fileKind(fileName(form.get('name')))==='MD'?'# 第一章\n\n\n# 第二章\n\n':'第一章\n\n\n第二章\n\n'):''));});
 $('#doc-search').oninput=renderDocuments;
-$('#doc-list').onclick=e=>{const pathMenu=e.target.closest('[data-path-menu]');if(pathMenu){e.preventDefault();e.stopPropagation();fileMenu(pathMenu.dataset.pathMenu,pathMenu.dataset.directory==='true');return;}const folder=e.target.closest('[data-folder]');if(folder){selectedFolder=folder.dataset.folder;$('#selected-folder').textContent=selectedFolder;$('#doc-list').querySelectorAll('summary').forEach(el=>el.classList.toggle('selected-folder',el.dataset.folder===selectedFolder));}const doc=e.target.closest('[data-doc]');if(doc){selectedFolder=parentPath(documentPath(workspace.documents.find(d=>d.id===doc.dataset.doc)));switchDocument(doc.dataset.doc);}const menu=e.target.closest('[data-menu]');if(menu)documentMenu(menu.dataset.menu);};
+$('#doc-list').onclick=e=>{const pathMenu=e.target.closest('[data-path-menu]');if(pathMenu){e.preventDefault();e.stopPropagation();fileMenu(pathMenu.dataset.pathMenu,pathMenu.dataset.directory==='true');return;}const folder=e.target.closest('[data-folder]');if(folder){selectedFolder=folder.dataset.folder;$('#selected-folder').textContent=selectedFolder;$('#doc-list').querySelectorAll('summary').forEach(el=>el.classList.toggle('selected-folder',el.dataset.folder===selectedFolder));}const doc=e.target.closest('[data-doc]');if(doc){selectedFolder=parentPath(documentPath(workspace.documents.find(d=>d.id===doc.dataset.doc)));loadSubscriptionDocument(workspace.documents.find(d=>d.id===doc.dataset.doc)).then(()=>switchDocument(doc.dataset.doc)).catch(fail);}const menu=e.target.closest('[data-menu]');if(menu)documentMenu(menu.dataset.menu);};
 $('#refresh-folder').onclick=async()=>{try{if(dirty&&!save())return;if(!native){renderDocuments();toast('工作区已刷新');return;}const result=await transport('refreshFolder');if(view){view.destroy();view=null;}editorStates.clear();adoptFolder(workspace,result);showHome();toast('工作区已刷新');}catch(error){fail(error);}};
 $('#new-folder').onclick=()=>newFolder(selectedFolder);
-function newFolder(parent=''){openModal('新建文件夹',`<label>相对路径<input name="path" value="${esc(parent?parent+'/':'')}" required placeholder="例如：小说/资料"></label>`,f=>{const path=repoPath(f.get('path'));if(itemPaths(workspace).has(path))throw new Error('此路径已存在。');const previous=workspace.folders,parts=path.split('/');workspace.folders=[...new Set([...(workspace.folders||[]),...parts.map((_,i)=>parts.slice(0,i+1).join('/'))])];if(!save()){workspace.folders=previous;throw new Error('文件夹创建失败。');}selectedFolder=path;renderDocuments();});}
+function newFolder(parent=''){openModal('新建工作区',`<label>相对路径<input name="path" value="${esc(parent?parent+'/':'')}" required placeholder="Novel/Volume-1"></label>`,f=>{const path=repoPath(f.get('path'));if(itemPaths(workspace).has(path))throw new Error('此路径已存在。');const previous=JSON.stringify(workspace),parts=path.split('/');workspace.folders=[...new Set([...(workspace.folders||[]),...parts.map((_,i)=>parts.slice(0,i+1).join('/'))])];const doc=newDocument('.vela',velaText(createVela(basename(path))));doc.path=path+'/.vela';workspace.documents.push(doc);if(!save()){workspace=JSON.parse(previous);throw new Error('文件夹创建失败。');}selectedFolder=path;renderDocuments();});}
+
 $('#workspace-root').onclick=()=>{selectedFolder='';renderDocuments();};
 $('#file-sort').onchange=e=>{workspace.settings.filesSort=e.target.value;renderDocuments();save();};
 $('#paste-file').onclick=async()=>{try{if(!fileClipboard)return;if(fileClipboard.workspaceId!==(workspace.storage?.id||''))throw new Error('请切回复制或剪切项目所在的工作区。');const destination=fileClipboard.cut?(selectedFolder?selectedFolder+'/':'')+basename(fileClipboard.path):copyDestination(workspace,fileClipboard.path,selectedFolder);if(destination!==fileClipboard.path)await manageFile(fileClipboard.cut?'move':'copy',fileClipboard.path,destination);if(fileClipboard.cut)fileClipboard=null;renderDocuments();}catch(error){fail(error);}};
 function documentMenu(id){const doc=workspace.documents.find(doc=>doc.id===id);if(doc)fileMenu(documentPath(doc),false,doc);}
 function fileMenu(path,directory=false,doc=workspace.documents.find(doc=>documentPath(doc)===path)){
-  openModal(directory?'文件夹操作':'文件操作',`<p>${esc(path)}</p><div class="button-row file-actions">${directory?'<button type="button" class="secondary" id="folder-new-file">新建文件</button><button type="button" class="secondary" id="folder-new-folder">新建文件夹</button>':''}<button type="button" class="secondary" id="rename-doc">重命名</button><button type="button" class="secondary" id="move-file">移动</button><button type="button" class="secondary" id="copy-file">复制</button><button type="button" class="secondary" id="cut-file">剪切</button><button type="button" class="secondary" id="duplicate-doc">保存副本</button>${doc?'<button type="button" class="secondary" id="menu-export">导出文件</button>':''}<button type="button" class="secondary" id="file-properties">属性</button><button type="button" class="danger" id="delete-doc">移入回收站</button></div>`,null,{noSubmit:true});
+  openModal(directory?'文件夹操作':'文件操作',`<p>${esc(path)}</p><div class="button-row file-actions">${directory?'<button type="button" class="secondary" id="folder-new-file">新建文件</button><button type="button" class="secondary" id="folder-new-folder">新建工作区</button>':''}<button type="button" class="secondary" id="rename-doc">重命名</button><button type="button" class="secondary" id="move-file">移动</button><button type="button" class="secondary" id="copy-file">复制</button><button type="button" class="secondary" id="cut-file">剪切</button><button type="button" class="secondary" id="duplicate-doc">保存副本</button>${doc?'<button type="button" class="secondary" id="menu-export">导出文件</button>':''}<button type="button" class="secondary" id="file-properties">属性</button><button type="button" class="danger" id="delete-doc">移入回收站</button></div>`,null,{noSubmit:true});
   if(directory){$('#folder-new-file').onclick=()=>{selectedFolder=path;$('#new-doc').click();};$('#folder-new-folder').onclick=()=>newFolder(path);}
   $('#rename-doc').onclick=()=>renameItem(path);
   $('#move-file').onclick=()=>openModal('移动项目',`<label>目标路径<input name="path" required value="${esc(path)}"></label><small>填写包含文件名或文件夹名称的相对路径。</small>`,async f=>manageFile('move',path,repoPath(f.get('path'))));
@@ -214,15 +225,17 @@ function applyFileState(result){
 }
 async function manageFile(action,path,destination=''){
   if(!save())throw new Error('请先保存或导出当前文稿。');
+  const before=structuredClone(workspace);
   if(native)applyFileState(await transport('manageFiles',{action,path,destination}));
   else{const previous=JSON.stringify(workspace);try{applyFileOperation(workspace,action,path,destination);const result={storage:workspace.storage,documents:workspace.documents,folders:workspace.folders,entries:workspace.entries,repositories:workspace.repositories};applyFileState(result);}catch(error){workspace=JSON.parse(previous);throw error;}}
+  rewriteVelaFiles(before,workspace,action,path,destination);for(const doc of workspace.documents.filter(doc=>documentKind(doc)==='VELA'))editorStates.delete(doc.id);if(current()&&documentKind(current())==='VELA'&&view){view.setState(makeState(current()));if(isPreview)renderPreview();}index=null;updateStats();save();
   toast(action==='delete'?'已移入回收站':action==='copy'?'已保存副本':'项目已移动或重命名');
 }
 async function showProperties(path,directory){
   if(!save())throw new Error('请先保存当前文稿。');const state=native?await transport('refreshFolder'):workspace;
   const entries=(state.entries||[]).filter(entry=>within(path,entry.path)),doc=workspace.documents.find(doc=>documentPath(doc)===path);
   const size=entries.reduce((sum,item)=>sum+(item.directory?0:item.size||0),0)||(!directory&&doc?new TextEncoder().encode(doc.text).length:0);
-  openModal('属性',`<p>名称：${esc(basename(path))}</p><p>路径：${esc(path)}</p><p>工作区：${esc(workspace.storage?.label||'内部工作区')}</p><p>类型：${directory?'文件夹':doc?documentKind(doc):'文件'}</p><p>大小：${size.toLocaleString()} 字节</p>${directory?`<p>文件：${entries.filter(item=>!item.directory).length}　文件夹：${entries.filter(item=>item.directory&&item.path!==path).length}</p>`:doc?`<p>修改时间：${esc(new Date(doc.updatedAt).toLocaleString('zh-CN'))}</p>`:''}`,null,{noSubmit:true});
+  openModal('属性',`<p>名称：${esc(basename(path))}</p><p>路径：${esc(path)}</p><p>工作区：${esc(workspace.storage?.label||'内部文件夹')}</p><p>类型：${directory?'文件夹':doc?documentKind(doc):'文件'}</p><p>大小：${size.toLocaleString()} 字节</p>${directory?`<p>文件：${entries.filter(item=>!item.directory).length}　文件夹：${entries.filter(item=>item.directory&&item.path!==path).length}</p>`:doc?`<p>修改时间：${esc(new Date(doc.updatedAt).toLocaleString('zh-CN'))}</p>`:''}`,null,{noSubmit:true});
 }
 $('#open-trash').onclick=()=>showTrash().catch(fail);
 async function showTrash(){
@@ -238,7 +251,7 @@ $('#document-tabs').onclick=e=>{const close=e.target.closest('[data-close]');if(
 $('#outline-list').onclick=e=>{const b=e.target.closest('[data-row]');if(b){jump(view.state.doc.line(Number(b.dataset.row)+1).from);if(innerWidth<=1000)setSidebar('outline',false);}};
 $('#chapter-search').oninput=()=>{outlineRevision='';updateStats();};
 $('#locate-chapter').onclick=()=>{$('#chapter-search').value='';outlineRevision='';updateStats();$('#outline-list .active')?.scrollIntoView({block:'center'});};
-$('#append-chapter').onclick=()=>{const idx=ensureIndex();openModal('追加章节',`<label>章节标题<input name="title" required value="第${idx.chapterCount+1}章" placeholder="例如：第四章 标题"></label><small>在当前小说文件的末尾追加章节，保留现有正文。</small>`,f=>{const title=f.get('title').trim();if(title.includes('\n')||!chapterMatcher(workspace.settings.writer)(title))throw new Error('未识别为章节标题，请使用标准标题或添加对应标题模板。');const end=view.state.doc.length,insert=(end?'\n\n':'')+title+'\n\n';if(isPreview)togglePreview();view.dispatch({changes:{from:end,insert},selection:{anchor:end+insert.length},scrollIntoView:true});view.focus();updateStats();});};
+$('#append-chapter').onclick=()=>{const idx=ensureIndex();openModal('追加章节',`<label>章节标题<input name="title" required value="第${idx.chapterCount+1}章" placeholder="例如：第四章 标题"></label><small>在当前小说文件的末尾追加章节，保留现有正文。</small>`,f=>{const title=f.get('title').trim();if(title.includes('\n')||!chapterMatcher(projectWriter(workspace,current()))(title))throw new Error('未识别为章节标题，请使用标准标题或添加对应标题模板。');const end=view.state.doc.length,insert=(end?'\n\n':'')+title+'\n\n';if(isPreview)togglePreview();view.dispatch({changes:{from:end,insert},selection:{anchor:end+insert.length},scrollIntoView:true});view.focus();updateStats();});};
 $('#search-editor').onclick=()=>{if(isPreview)togglePreview();openSearchPanel(view);};
 $('#preview-toggle').onclick=togglePreview;$('#focus-toggle').onclick=()=>{document.body.classList.toggle('focus');sidebars.update();};
 function setSidebar(name,open,animate=true){document.body.classList.toggle('show-'+name,open);if(open)document.body.classList.remove('focus');sidebars.update(animate);$('#mobile-library').setAttribute('aria-expanded',String(document.body.classList.contains('show-library')));$('#outline-toggle').setAttribute('aria-expanded',String(document.body.classList.contains('show-outline')));$('#mobile-library').classList.toggle('active-tool',document.body.classList.contains('show-library'));$('#outline-toggle').classList.toggle('active-tool',document.body.classList.contains('show-outline'));}
@@ -264,10 +277,11 @@ systemTheme.addEventListener('change',()=>{if(workspace?.settings.theme==='syste
 function applyEnvironment(value){environment=value;for(const edge of ['top','bottom','left','right'])document.documentElement.style.setProperty('--safe-'+edge,Math.max(0,Number(value?.[edge]||0))+'px');if(workspace?.settings.theme==='system')applyTheme();}
 window.addEventListener('wenzhouEnvironment',e=>applyEnvironment(e.detail));
 if(environment)applyEnvironment(environment);
-function setFontSize(value){const size=Math.max(10,Math.min(40,Math.round(Number.isFinite(value)?value:16)));workspace.settings.fontSize=size;document.documentElement.style.setProperty('--editor-font-size',size+'px');view?.requestMeasure();if(isPreview&&current()&&documentKind(current())==='HTML')renderPreview();}
-if(!native||environment?.platform==='android')bindTextZoom($('.paper'),()=>workspace?.settings.fontSize||16,setFontSize,()=>{save();toast('文字字号 '+workspace.settings.fontSize+' px');});
+function setFontSize(value,persist=true){const size=Math.max(10,Math.min(40,Math.round(Number.isFinite(value)?value:16)));textFontSize=size;if(persist){const project=current()&&documentKind(current())!=='VELA'?projectConfig(workspace,current()):null;if(project?.config){project.config.fontSize=size;project.doc.text=velaText(project.config);project.doc.updatedAt=Date.now();editorStates.delete(project.doc.id);}else workspace.settings.fontSize=size;}document.documentElement.style.setProperty('--editor-font-size',size+'px');view?.requestMeasure();if(isPreview&&current()&&documentKind(current())==='HTML')renderPreview();}
+if(!native||environment?.platform==='android')bindTextZoom($('.paper'),()=>textFontSize,setFontSize,()=>{save();toast('文字字号 '+textFontSize+' px');});
+window.wenzhouNativeScale=factor=>{if(!workspace||!Number.isFinite(factor)||factor<=0)return;if(pageName==='reader'&&reader?.id){reader.setSize(reader.size*factor);workspace.readerSizes={...workspace.readerSizes,[reader.id]:reader.size};}else if(pageName==='write')setFontSize(textFontSize*factor);save();};
 let nativePinchSize=16;
-window.wenzhouNativePinch=(ratio,phase)=>{if(!workspace)return;if(phase==='start')nativePinchSize=workspace.settings.fontSize;else if(phase==='move')setFontSize(nativePinchSize*ratio);else{save();toast('文字字号 '+workspace.settings.fontSize+' px');}};
+window.wenzhouNativePinch=(ratio,phase)=>{if(!workspace)return;if(pageName==='reader'){if(phase==='start')nativePinchSize=reader.size||16;else if(phase==='move'&&reader.id)reader.setSize(nativePinchSize*ratio);else if(reader.id){workspace.readerSizes={...workspace.readerSizes,[reader.id]:reader.size};save();}return;}if(pageName!=='write')return;if(phase==='start')nativePinchSize=textFontSize;else if(phase==='move')setFontSize(nativePinchSize*ratio);else{save();toast('文字字号 '+textFontSize+' px');}};
 $('#quick-save').onclick=()=>save(true);$('#quick-undo').onclick=()=>{if(!view)return;undo(view);if(isPreview)renderPreview();else view.focus();};$('#quick-redo').onclick=()=>{if(!view)return;redo(view);if(isPreview)renderPreview();else view.focus();};
 $('#quick-top').onclick=()=>jump(0);$('#quick-bottom').onclick=()=>jump(view.state.doc.length);
 $('#quick-chapter-top').onclick=()=>jump(chapterPosition(view.state.doc.toString(),ensureIndex(),view.state.selection.main.head,'top'));
@@ -277,25 +291,37 @@ document.querySelectorAll('.quickbar button').forEach(b=>b.addEventListener('mou
 $('#quick-git').onclick=()=>gitDocument();
 $('#settings').onclick=()=>{
   const s=workspace.settings.writer;
-  openModal('编辑器设置',`<label>外观<select name="theme">${[['system','跟随系统'],['light','浅色模式'],['dark','深色模式']].map(([value,label])=>`<option value="${value}" ${workspace.settings.theme===value?'selected':''}>${label}</option>`).join('')}</select></label><fieldset class="palette-options"><legend>配色方案</legend>${palettes.map(p=>`<label class="palette-choice"><input type="radio" name="palette" value="${p.id}" ${p.id===workspace.settings.palette?'checked':''}><span class="palette-swatches"><i style="background:${p.light.accent}"></i><i style="background:${p.light.soft}"></i><i style="background:${p.dark.paper}"></i></span><span>${p.name}</span></label>`).join('')}</fieldset><label>文字字号<input type="number" name="fontSize" min="10" max="40" value="${workspace.settings.fontSize}" required></label><label>标题模板<textarea name="titleTemplates" rows="4" placeholder="第{序号}节 {标题}">${esc(s.titleTemplates.join('\n'))}</textarea><small>每行一个模板，最多 32 个。使用 {序号}、{标题} 或 {number}、{title}；标准中英章节及 Markdown 标题始终自动识别。</small></label><label>字数规则<select name="countMode"><option value="nonspace" ${s.countMode==='nonspace'?'selected':''}>非空白字符（含标点）</option><option value="letters" ${s.countMode==='letters'?'selected':''}>仅文字与数字</option></select></label><label class="checkbox"><input name="includeHeading" type="checkbox" ${s.includeHeading?'checked':''}>字数包含章节标题</label><label>GitHub OAuth Client ID<input name="clientId" value="${esc(workspace.settings.clientId||'')}" placeholder="启用 Device Flow 的 OAuth App Client ID"><small>可留空并使用个人访问令牌。应用内不需要 Client Secret。</small></label><div class="notice">文舟 0.4.2 · Acode 编辑组件 + Writer 1.0.4<br>章节跳转以识别出的标题为边界；英文按字符统计。<br>文稿保存在本机，GitHub 提交由你主动发起。</div><p><button type="button" class="secondary" id="backup-all">导出全部文稿备份</button> <button type="button" class="secondary" id="show-licenses">开源许可</button></p>`,f=>{const writer=chapterSettings({...s,titleTemplates:f.get('titleTemplates').split(/\r?\n/),countMode:f.get('countMode'),includeHeading:f.has('includeHeading')});chapterMatcher(writer);workspace.settings.writer=writer;workspace.settings.clientId=f.get('clientId').trim();workspace.settings.palette=f.get('palette')||'pine';applyTheme(f.get('theme'));setFontSize(Number(f.get('fontSize')));index=null;save();updateStats();});
-  $('#backup-all').onclick=()=>exportText('文舟备份-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(workspace,null,2)).catch(fail);
+  openModal('编辑器设置',`<label>语言<select name="language"><option value="zh-CN" ${workspace.settings.language!=='en'?'selected':''}>简体中文</option><option value="en" ${workspace.settings.language==='en'?'selected':''}>English</option></select></label><label>外观<select name="theme">${[['system','跟随系统'],['light','浅色模式'],['dark','深色模式']].map(([value,label])=>`<option value="${value}" ${workspace.settings.theme===value?'selected':''}>${label}</option>`).join('')}</select></label><fieldset class="palette-options"><legend>配色方案</legend>${palettes.map(p=>`<label class="palette-choice"><input type="radio" name="palette" value="${p.id}" ${p.id===workspace.settings.palette?'checked':''}><span class="palette-swatches"><i style="background:${p.light.accent}"></i><i style="background:${p.light.soft}"></i><i style="background:${p.dark.paper}"></i></span><span>${p.name}</span></label>`).join('')}</fieldset><label>文字字号<input type="number" name="fontSize" min="10" max="40" value="${textFontSize}" required></label><label>阅读方式<select name="readingMode"><option value="scroll" ${workspace.settings.readingMode!=='pages'?'selected':''}>上下滑动</option><option value="pages" ${workspace.settings.readingMode==='pages'?'selected':''}>左右翻页</option></select></label><label>字数规则<select name="countMode"><option value="nonspace" ${s.countMode==='nonspace'?'selected':''}>非空白字符（含标点）</option><option value="letters" ${s.countMode==='letters'?'selected':''}>仅文字与数字</option></select></label><label class="checkbox"><input name="includeHeading" type="checkbox" ${s.includeHeading?'checked':''}>字数包含章节标题</label><p>自动识别标准中英章节标题；额外模板保存在工作区 .vela 配置中。</p><label>GitHub OAuth Client ID<input name="clientId" value="${esc(workspace.settings.clientId||'')}" placeholder="OAuth App Client ID"><small>可留空并使用个人访问令牌。应用内不需要 Client Secret。</small></label><div class="notice">文舟 0.5.0 · Acode + Writer 1.0.4<br>开源小说创作 / 阅读工具</div><p><button type="button" class="secondary" id="create-vela" ${workspace.documents.some(doc=>documentKind(doc)==='VELA'&&configFolder(documentPath(doc))===currentScope())?'disabled':''}>创建 .vela 配置</button></p><p><button type="button" class="secondary" id="backup-all">导出全部文稿备份</button> <button type="button" class="secondary" id="show-licenses">开源许可</button></p>`,f=>{workspace.settings.writer=chapterSettings({...s,titleTemplates:[],countMode:f.get('countMode'),includeHeading:f.has('includeHeading')});workspace.settings.clientId=f.get('clientId').trim();workspace.settings.language=f.get('language');workspace.settings.readingMode=f.get('readingMode');workspace.settings.palette=f.get('palette')||'pine';setLanguage(workspace.settings.language);reader?.localize();if(home)renderHome();applyTheme(f.get('theme'));setFontSize(Number(f.get('fontSize')));index=null;save();updateStats();reader?.layout();if(pageName==='subscriptions')subscriptions.render();});
+  $('#create-vela').onclick=()=>{const folder=currentScope();if(workspace.documents.some(doc=>documentKind(doc)==='VELA'&&configFolder(documentPath(doc))===folder))return;const config=createVela(folder?basename(folder):'内部文件夹');config.reading.files=workspace.documents.filter(doc=>readable(doc)&&(!folder||documentPath(doc).startsWith(folder+'/'))).map(doc=>documentPath(doc).slice(folder?folder.length+1:0));const doc=newDocument('.vela',velaText(config));doc.path=(folder?folder+'/':'')+'.vela';closeModal();addDocument(doc);};
+  $('#backup-all').onclick=()=>exportText('Vela-backup-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(workspace,null,2)).catch(fail);
   $('#show-licenses').onclick=()=>{const licenses=window.WENZHOU_LICENSES||[];openModal('开源许可',`<label>组件<select id="license-component">${licenses.map((item,i)=>`<option value="${i}">${esc(item.name)}</option>`).join('')}</select></label><textarea id="license-text" rows="15" readonly aria-label="许可全文" style="font-family:monospace;font-size:10px"></textarea>`,null,{noSubmit:true});const show=()=>{$('#license-text').value=licenses[Number($('#license-component').value)]?.text||'';};$('#license-component').onchange=show;show();};
 };
-function showView(name){document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===name));$('#write-view').hidden=name!=='write';$('#github-view').hidden=name!=='github';if(name==='github'){document.body.classList.remove('focus');renderGitHub();}sidebars.update();}
-document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>showView(b.dataset.view));$('#github-shortcut').onclick=()=>showView('github');
+
+function showView(name){
+  if(dirty&&!save())return;pageName=name;document.body.dataset.page=name;
+  document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===name));
+  for(const page of ['write','github','subscriptions','reader'])$('#'+page+'-view').hidden=page!==name;
+  $('#sidebar-logout').disabled=!account;
+  if(name==='github'){document.body.classList.remove('focus');renderGitHub();}
+  if(name==='subscriptions')subscriptions?.enter();else subscriptions?.leave();
+  if(name==='reader')reader?.home();else reader?.leave();
+  sidebars.update();
+}
+document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>showView(b.dataset.view));$('#github-shortcut').onclick=()=>showView('github');$('#sidebar-logout').onclick=logout;
+
 $('#github-view').addEventListener('click',e=>{if(e.target.closest('[data-return-write]'))showView('write');if(e.target.closest('[data-toggle-theme]'))cycleTheme();});
 const githubTopbar=()=>`<div class="github-topbar"><button class="secondary" data-return-write="true">← 返回编辑器</button><div class="button-row"><span>GitHub 仓库管理</span><button data-toggle-theme="true" title="${workspace.settings.dark?'切换到浅色模式':'切换到深色模式'}" aria-label="${workspace.settings.dark?'切换到浅色模式':'切换到深色模式'}">${icon(workspace.settings.dark?'sun':'theme')}</button></div></div>`;
 function renderGitHub(){
   const root=$('#github-view');
   if(!account){root.innerHTML=`${githubTopbar()}<div class="empty-state"><div class="large-icon">${icon('github')}</div><h2>连接 GitHub</h2><p>浏览与创建仓库、管理分支、读取文件并提交修改。</p><div class="button-row"><button class="primary" id="token-login">使用访问令牌</button><button class="secondary" id="device-login">设备授权登录</button><button class="secondary" id="check-connection">检测连接</button></div><p class="description">${native?(environment?.platform==='android'?'令牌使用 Android Keystore 加密保存在应用内部。':'令牌保存在鸿蒙安全资产存储中。'):'浏览器预览的令牌仅保留在内存中，刷新后需重新登录。'}</p></div>`;$('#device-login').onclick=loginDevice;$('#token-login').onclick=loginToken;$('#check-connection').onclick=checkGitHubConnection;return;}
   if(selectedRepo){renderRepository();return;}
-  root.innerHTML=`${githubTopbar()}<header class="page-header"><div><span class="page-kicker">GITHUB / ${esc(account.login)}</span><h1>仓库 <span class="count-badge">${repositories.length}</span></h1></div><div class="account-actions"><button class="secondary" id="refresh-repos">刷新</button><button class="primary" id="create-repo">＋ 新建仓库</button><button class="secondary" id="logout">退出登录</button></div></header><label class="search-box" style="max-width:400px;margin-bottom:24px">${icon('search')}<input id="repo-search" aria-label="搜索仓库" placeholder="搜索仓库名称…"></label><div id="repo-grid" class="repo-grid"></div>`;
+  root.innerHTML=`${githubTopbar()}<header class="page-header"><div><span class="page-kicker">GITHUB / ${esc(account.login)}</span><h1>仓库 <span class="count-badge">${repositories.length}</span></h1></div><div class="account-actions"><button class="secondary" id="refresh-repos">刷新</button><button class="primary" id="create-repo">＋ 新建仓库</button><button class="secondary" id="commit-workspace">提交整个工作区</button><button class="secondary" id="logout">退出登录</button></div></header><label class="search-box" style="max-width:400px;margin-bottom:24px">${icon('search')}<input id="repo-search" aria-label="搜索仓库" placeholder="搜索仓库名称…"></label><div id="repo-grid" class="repo-grid"></div>`;
   const list=()=>{$('#repo-grid').innerHTML=repositories.filter(r=>r.full_name.toLowerCase().includes($('#repo-search').value.toLowerCase())).map(r=>`<button class="repo-card" data-repo="${esc(r.full_name)}"><strong>⑂ ${esc(r.full_name)}</strong><p>${esc(r.description||'还没有仓库简介。')}</p><small>${r.private?'私有':'公开'} · ${esc(r.default_branch)}${r.archived?' · 已归档':''}</small></button>`).join('')||'<p class="blank">暂无仓库，或没有匹配结果。</p>';};list();$('#repo-search').oninput=list;
   $('#repo-grid').onclick=e=>{const b=e.target.closest('[data-repo]');if(b){selectedRepo=repositories.find(r=>r.full_name===b.dataset.repo);selectedBranch=selectedRepo.default_branch;selectedPath='';renderRepository();}};
-  $('#refresh-repos').onclick=()=>loadRepositories();$('#create-repo').onclick=createRepository;$('#logout').onclick=logout;
+  $('#refresh-repos').onclick=()=>loadRepositories();$('#create-repo').onclick=createRepository;$('#logout').onclick=logout;$('#commit-workspace').onclick=()=>commitWholeWorkspace().catch(fail);
 }
 async function loadRepositories(){const epoch=++loadEpoch;$('#github-view').innerHTML=githubTopbar()+'<p class="loading">正在读取 GitHub 仓库…</p>';try{const list=await gh.repositories();if(epoch!==loadEpoch)return;repositories=list;renderGitHub();}catch(e){if(epoch!==loadEpoch)return;renderGitHub();fail(e);}}
-async function signedIn(user){account=user;$('#account-label').textContent=user.login;selectedRepo=null;showView('github');await loadRepositories();}
+async function signedIn(user){account=user;$('#sidebar-logout').disabled=false;$('#account-label').textContent=user.login;selectedRepo=null;showView('github');await loadRepositories();}
 async function checkGitHubConnection(){
   openModal('检测 GitHub 连接','<p>正在检测连接…</p>',null,{noSubmit:true});
   try{const result=await transport('connection');if(result.status!==200)throw new Error('GitHub 返回 HTTP '+result.status+'，请检查网络后重试。');$('#dialog-body').textContent='GitHub 连接正常，可以继续登录。';}
@@ -314,13 +340,13 @@ async function runDeviceLogin(id){
     $('#dialog-body').innerHTML=`<p>请在 GitHub 页面输入以下授权码：</p><strong id="device-code">${esc(code.user_code)}</strong><button type="button" class="primary" id="open-auth">打开 GitHub 授权页面 ↗</button><p>请在 ${Math.ceil(code.expires_in/60)} 分钟内完成确认。完成后会自动登录。</p>`;$('#open-auth').onclick=()=>openAuthorization().catch(fail);
   },abort.signal);if(abort.signal.aborted)return;const user=await gh.user();dialogCancel=null;$('#dialog').close();await signedIn(user);}catch(e){if(!abort.signal.aborted)$('#dialog-error').textContent=e.message;}
 }
-async function logout(){try{await transport('logout',{});loadEpoch++;account=null;repositories=[];selectedRepo=null;$('#account-label').textContent='连接 GitHub';renderGitHub();toast('已退出，设备上的文稿保留。');}catch(e){fail(e);}}
+async function logout(){try{await transport('logout',{});loadEpoch++;account=null;$('#sidebar-logout').disabled=true;repositories=[];selectedRepo=null;$('#account-label').textContent='连接 GitHub';renderGitHub();toast('已退出，设备上的文稿保留。');}catch(e){fail(e);}}
 function createRepository(){openModal('新建 GitHub 仓库','<label>仓库名称<input name="name" pattern="[A-Za-z0-9_.-]+" required placeholder="my-writing"></label><label>简介<textarea name="description" rows="2" maxlength="350"></textarea></label><label class="checkbox"><input name="private" type="checkbox" checked>设为私有仓库</label><small>将在当前账号下新建仓库并初始化 README。</small>',async f=>{await gh.createRepository(f.get('name').trim(),f.get('description'),f.has('private'));await loadRepositories();},{label:'创建仓库'});}
 async function renderRepository(){
   const repo=selectedRepo,epoch=++loadEpoch,root=$('#github-view');if(!repo)return;
-  root.innerHTML=`${githubTopbar()}<header class="page-header"><div><button class="text-button" id="back-repos">← 返回仓库列表</button><h1>${esc(repo.name)}</h1><p>${esc(repo.full_name)} · ${repo.private?'私有仓库':'公开仓库'}</p></div><div class="button-row"><button class="secondary" id="repo-pull">拉取整个仓库</button><button class="secondary" id="repo-settings">仓库设置</button><button class="primary" id="repo-commit">提交当前文件</button></div></header><div class="repo-toolbar"><label>分支 <select id="branch-select" aria-label="选择分支"><option>${esc(selectedBranch)}</option></select></label><button class="secondary" id="create-branch">＋ 新建分支</button><button class="secondary" id="refresh-files">刷新</button></div><p class="path-label">${esc(selectedPath||'/')}</p><div class="file-list" id="file-list"><p class="loading">正在读取文件…</p></div>`;
+  root.innerHTML=`${githubTopbar()}<header class="page-header"><div><button class="text-button" id="back-repos">← 返回仓库列表</button><h1>${esc(repo.name)}</h1><p>${esc(repo.full_name)} · ${repo.private?'私有仓库':'公开仓库'}</p></div><div class="button-row"><button class="secondary" id="repo-pull">拉取整个仓库</button><button class="secondary" id="repo-settings">仓库设置</button><button class="secondary" id="repo-commit-workspace">提交整个工作区</button><button class="primary" id="repo-commit">提交当前文件</button></div></header><div class="repo-toolbar"><label>分支 <select id="branch-select" aria-label="选择分支"><option>${esc(selectedBranch)}</option></select></label><button class="secondary" id="create-branch">＋ 新建分支</button><button class="secondary" id="refresh-files">刷新</button></div><p class="path-label">${esc(selectedPath||'/')}</p><div class="file-list" id="file-list"><p class="loading">正在读取文件…</p></div>`;
   $('#back-repos').onclick=()=>{loadEpoch++;selectedRepo=null;renderGitHub();};$('#refresh-files').onclick=renderRepository;
-  $('#repo-commit').onclick=()=>commitDocument(repo.full_name,selectedBranch);$('#repo-pull').onclick=pullWholeRepository;
+  $('#repo-commit-workspace').onclick=()=>commitWholeWorkspace(repo.full_name,selectedBranch).catch(fail);$('#repo-commit').onclick=()=>commitDocument(repo.full_name,selectedBranch);$('#repo-pull').onclick=pullWholeRepository;
   $('#repo-settings').onclick=()=>openModal('仓库设置',`<label>仓库名称<input name="name" required pattern="[A-Za-z0-9_.-]+" value="${esc(repo.name)}"></label><label>简介<textarea name="description" rows="3">${esc(repo.description||'')}</textarea></label><small>修改会直接更新 GitHub 仓库的名称与简介。</small>`,async f=>{const old=repo.full_name;const updated=await gh.updateRepository(old,{name:f.get('name').trim(),description:f.get('description')});for(const d of workspace.documents)if(d.remote?.repo===old)d.remote.repo=updated.full_name;for(const item of workspace.repositories||[])if(item.repo===old)item.repo=updated.full_name;save();repositories=repositories.map(r=>r.full_name===old?updated:r);selectedRepo=updated;renderRepository();},{label:'保存到 GitHub'});
   $('#create-branch').onclick=()=>openModal('新建分支',`<p>从 ${esc(selectedBranch)} 创建分支。</p><label>分支名称<input name="name" placeholder="draft/chapter-one" required></label>`,async f=>{await gh.createBranch(repo.full_name,selectedBranch,f.get('name'));selectedBranch=f.get('name').trim();selectedPath='';renderRepository();},{label:'创建分支'});
   $('#branch-select').onchange=e=>{selectedBranch=e.target.value;selectedPath='';renderRepository();};
@@ -378,13 +404,13 @@ function commitDocument(suggestRepo,suggestBranch){
   if(remote)$('#read-remote').onclick=async()=>{try{await openRemote(remote.repo,remote.branch,remote.path);closeModal();}catch(e){$('#dialog-error').textContent=e.message;}};
 }
 
-function runAction(id){if(id==='close-active'){if(current())closeDocument(current().id);return true;}const button=$('#'+id);if(button&&!button.disabled)button.click();return true;}
+function runAction(id){if(pageName==='reader'&&!['settings','theme','mobile-library','commands','quick-git','plugins'].includes(id))return false;if(id==='close-active'){if(current())closeDocument(current().id);return true;}const button=$('#'+id);if(button&&!button.disabled)button.click();return true;}
 for(const [id,,keys,label] of shortcuts){const button=$('#'+id);if(button){button.title=`${label} (${keys})`;button.setAttribute('aria-keyshortcuts',keys.replaceAll('+','+'));}}
-document.addEventListener('keydown',e=>{
+document.addEventListener('keydown',e=>{if(pageName==='reader'&&!(e.ctrlKey||e.metaKey))return;
   if(e.defaultPrevented||e.isComposing||$('#dialog').open||e.target.closest('.plugin-page'))return;
   const inField=e.target.closest('input,textarea,select');
   if(inField&&!inField.matches('[data-cell-row]'))return;
-  if((e.ctrlKey||e.metaKey)&&!e.altKey&&['+','=','-','0'].includes(e.key)){e.preventDefault();e.stopPropagation();setFontSize(e.key==='0'?16:workspace.settings.fontSize+(['+','='].includes(e.key)?1:-1));save();return;}
+  if((e.ctrlKey||e.metaKey)&&!e.altKey&&['+','=','-','0'].includes(e.key)){e.preventDefault();e.stopPropagation();if(pageName==='reader'){if(reader?.id){reader.setSize(e.key==='0'?16:reader.size+(['+','='].includes(e.key)?1:-1));workspace.readerSizes={...workspace.readerSizes,[reader.id]:reader.size};save();}return;}setFontSize(e.key==='0'?16:textFontSize+(['+','='].includes(e.key)?1:-1));save();return;}
   const shortcut=shortcuts.find(([,key])=>matchesKey(e,key));if(shortcut){e.preventDefault();e.stopPropagation();runAction(shortcut[0]);}
 },true);
 $('#commands').onclick=()=>{
@@ -413,18 +439,71 @@ $('#plugins').onclick=showPlugins;
 $('#plugin-input').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;if(file.size>MAX_PLUGIN_BYTES)throw new Error('插件安装包不能超过 8 MB。');await installPluginBytes(new Uint8Array(await file.arrayBuffer()));}catch(error){$('#dialog-error').textContent=error.message;}finally{e.target.value='';}};
 function refreshPluginCommands(){if(view&&pluginKeys.get(view.state)!==undefined)view.dispatch({effects:pluginKeys.reconfigure(keymap.of(plugins?.bindings()||[]))});}
 function pluginDialog(title,message,kind,value=''){return new Promise(resolve=>openModal(title,kind==='prompt'?`<label>${esc(title)}<input name="value" value="${esc(value)}"></label>`:`<p>${esc(message)}</p>`,f=>{resolve(kind==='prompt'?f.get('value'):true);},{cancel:()=>resolve(kind==='prompt'?null:false)}));}
+function currentScope(){const project=projectConfig(workspace,current());if(project?.folder&&(!selectedFolder||within(project.folder,selectedFolder)))return project.folder;return selectedFolder|| (current()?parentPath(documentPath(current())):'');}
+async function commitWholeWorkspace(repo=selectedRepo?.full_name||'',branch=selectedBranch||''){
+  if(!account){showView('github');return;}if(!repositories.length){showView('github');toast('请先新建或获得一个可写仓库。');return;}if(!save())return;
+  const folder=currentScope();for(const doc of workspace.documents.filter(doc=>doc.subscription&&(!folder||documentPath(doc).startsWith(folder+'/'))))await loadSubscriptionDocument(doc);
+  const docs=workspace.documents.filter(doc=>!folder||documentPath(doc).startsWith(folder+'/'));
+  const others=(workspace.entries||[]).filter(entry=>!entry.directory&&!docs.some(doc=>documentPath(doc)===entry.path)&&(!folder||entry.path.startsWith(folder+'/')));
+  if(!docs.length&&!others.length){toast(t('当前工作区没有文件。'));return;}
+  openModal('提交整个工作区',`<p>${t('工作区')}：<span data-user-content>${esc(folder||'/')}</span> · ${docs.length+others.length} ${t('文件')}</p><label>${t('仓库')}<select name="repo" required>${repositories.map(item=>`<option value="${esc(item.full_name)}" ${item.full_name===repo?'selected':''}>${esc(item.full_name)}</option>`).join('')}</select></label><label>${t('分支')}<input name="branch" required value="${esc(branch||repositories.find(item=>item.full_name===repo)?.default_branch||repositories[0]?.default_branch||'main')}"></label><label>${t('仓库目录')}<input name="prefix" placeholder="${t('留空提交到仓库根目录')}"></label><label>${t('提交说明')}<input name="message" required value="Update workspace"></label><p>${t('包含配置、文稿和附件；同路径文件覆盖，仓库其他文件保留。')}</p>`,async form=>{
+    if(!save())throw new Error('请先保存文稿。');const files=docs.map(doc=>({path:documentPath(doc).slice(folder?folder.length+1:0),text:doc.text}));for(const entry of others){if(!native)throw new Error('浏览器不能读取此附件，请在应用中提交。');files.push({path:entry.path.slice(folder?folder.length+1:0),data:await transport('readWorkspaceFile',{path:entry.path})});}
+    const repository=form.get('repo'),targetBranch=form.get('branch').trim(),prefix=form.get('prefix').trim(),result=await gh.commitWorkspace({repo:repository,branch:targetBranch,files,message:form.get('message'),prefix});workspace.repositories=(workspace.repositories||[]).filter(item=>item.folder!==folder);workspace.repositories.push({repo:repository,branch:targetBranch,folder,commit:result.sha});save();toast(t('工作区已提交到 GitHub。'));
+  },{label:t('提交到 GitHub')});
+}
+function renderVela(){
+  const doc=current(),root=$('#preview');root.className='vela-preview';let config;
+  try{config=parseVela(doc.text);}catch(error){root.innerHTML=`<p class="error">${esc(error.message)}</p><p>配置无效，请切换源码修复。</p>`;return;}
+  const folder=configFolder(documentPath(doc)),files=workspace.documents.filter(file=>readable(file)&&(!folder||documentPath(file).startsWith(folder+'/'))).map(file=>documentPath(file).slice(folder?folder.length+1:0));
+  root.innerHTML=`<form id="vela-form"><h2 data-user-content>.vela · ${esc(config.name)}</h2><label>工作区名称<input name="name" value="${esc(config.name)}" maxlength="160" required></label><label>文字字号<input name="fontSize" type="number" min="10" max="40" required value="${config.fontSize}"></label><label>标题模板<textarea name="titleTemplates" rows="4" placeholder="Episode {number}: {title}">${esc(config.titleTemplates.join('\n'))}</textarea><small>每行一个模板，最多 32 个。使用 {序号}、{标题} 或 {number}、{title}。</small></label><fieldset><legend>阅读文件</legend>${[...new Set([...files,...config.reading.files])].map(path=>`<label class="checkbox"><input name="readingFiles" type="checkbox" value="${esc(path)}" ${config.reading.files.includes(path)?'checked':''}><span data-user-content>${esc(path)}</span></label>`).join('')||'<p>暂无文件</p>'}</fieldset><p class="error" id="vela-error"></p><button class="primary">保存配置</button></form>`;
+  $('#vela-form').onsubmit=e=>{e.preventDefault();try{const form=new FormData(e.target);const next={...config,name:form.get('name').trim(),fontSize:Number(form.get('fontSize')),titleTemplates:form.get('titleTemplates').split(/\r?\n/),reading:{...config.reading,files:form.getAll('readingFiles')}};const text=velaText(next);view.dispatch({changes:{from:0,to:view.state.doc.length,insert:text}});if(!save())throw new Error('保存失败');index=null;renderVela();toast('工作区配置已保存');}catch(error){$('#vela-error').textContent=error.message;}};
+}
+async function pullSubscription(item){
+  openModal('拉取文件',`<p data-user-content>${esc(item.repo)}</p>${item.snapshot.vela?'<label class="checkbox"><input name="readingOnly" type="checkbox" checked>仅拉取阅读清单</label>':''}<p>保存到内部文件夹；对应 .vela 配置会同时保留，同路径文件覆盖。</p>`,async form=>{
+    if(!save())throw new Error('请先保存当前文稿。');const folder='Subscriptions/'+item.repo;let result;
+    if(item.snapshot.vela&&form.has('readingOnly')){const snapshot=await subscriptions.api.snapshot(item.repo),files=[];for(const config of snapshot.configs)files.push({path:config.path,text:config.text,data:encodeContent(config.text),sha:config.sha});let total=0;for(const file of snapshot.files){const text=await subscriptions.api.blob(item.repo,file.sha);total+=new TextEncoder().encode(text).length;if(total>64*1024*1024)throw new Error('阅读文件合计不能超过 64 MB。');files.push({...file,text,data:encodeContent(text)});}result={repo:item.repo,branch:snapshot.branch,commit:'',files,folders:[]};}
+    else{const client=new GitHub((_operation,payload)=>transport('publicApi',payload));result=await client.pullRepository(item.repo,item.snapshot.branch);}
+    if(native){const materialized=await transport('writeWorkspaceFiles',{files:result.files.map(file=>({path:folder+'/'+file.path,data:file.data})),folders:[folder,...result.folders.map(path=>folder+'/'+path)]});if(view){view.destroy();view=null;}editorStates.clear();adoptFolder(workspace,materialized);}
+    else if(result.files.some(file=>file.text===null))throw new Error('含二进制附件的整个仓库请在应用中拉取。');
+    applyRepository(workspace,result,folder);for(const file of result.files){const doc=workspace.documents.find(doc=>documentPath(doc)===folder+'/'+file.path);if(doc){doc.subscription={repo:item.repo,path:file.path,sha:file.sha,loadedSha:file.sha,contentHash:await textHash(doc.text)};editorStates.delete(doc.id);}}
+    renderDocuments();if(workspace.activeId&&!view)switchDocument(workspace.activeId);save();showView('subscriptions');toast('文件已拉取到内部文件夹。');
+  },{label:t('拉取文件')});
+}
+async function cacheSubscription(item){
+  const prefix='Subscriptions/'+item.repo+'/';let changed=false;
+  for(const config of item.snapshot.configs){const path=prefix+config.path;let doc=workspace.documents.find(doc=>documentPath(doc)===path);if(!doc){doc=newDocument(basename(path),config.text);doc.path=path;workspace.documents.push(doc);}if(doc.text!==config.text||!doc.subscription){doc.text=config.text;doc.updatedAt=Date.now();doc.subscription={repo:item.repo,path:config.path,sha:config.sha,loadedSha:config.sha};editorStates.delete(doc.id);if(current()?.id===doc.id&&view){view.setState(makeState(doc));if(isPreview)renderPreview();}changed=true;}}
+  for(const file of item.snapshot.files){const path=prefix+file.path;let doc=workspace.documents.find(doc=>documentPath(doc)===path);if(!doc){doc=newDocument(basename(path),'');doc.path=path;workspace.documents.push(doc);changed=true;}doc.subscription={...doc.subscription,repo:item.repo,path:file.path,sha:file.sha};}
+  if(changed){preparePaths(workspace);renderDocuments();save();}
+}
+async function textHash(text){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text))),b=>b.toString(16).padStart(2,'0')).join('');}
+async function loadSubscriptionDocument(doc,attempt=0){
+  if(doc?.subscription&&doc.subscription.loadedSha!==doc.subscription.sha){
+    const target=doc.subscription.sha,initial=doc.text,hash=await textHash(initial),text=normalizeText(await subscriptions.api.blob(doc.subscription.repo,target));
+    if(doc.subscription.sha!==target){if(attempt>0)throw new Error('远端文件持续变化，请刷新后重试。');return loadSubscriptionDocument(doc,attempt+1);}
+    if(doc.text!==initial)throw new Error('读取期间本地文稿已修改，已保留本地内容，请重试。');
+    if(initial&&(!doc.subscription.loadedSha||doc.subscription.contentHash&&hash!==doc.subscription.contentHash)){const copy=newDocument(doc.name,initial);copy.path=uniquePath(documentPath(doc),itemPaths(workspace));copy.name=basename(copy.path);workspace.documents.push(copy);}
+    doc.text=text;doc.subscription.loadedSha=target;doc.subscription.contentHash=await textHash(text);doc.updatedAt=Date.now();editorStates.delete(doc.id);if(current()?.id===doc.id&&view){view.setState(makeState(doc));if(isPreview)renderPreview();updateStats();}if(!save())throw new Error('订阅文件保存失败。');
+  }return doc;
+}
+
 async function boot(){try{
   const raw=readWorkspace();
   if(raw)workspace=validateWorkspace(JSON.parse(raw));else{const doc=newDocument('操作指南.txt',guide);workspace={version:1,documents:[doc],openIds:[doc.id],activeId:doc.id,settings:{theme:'system'}};}
-  workspace.settings={theme:'system',palette:'pine',fontSize:16,clientId:'',...workspace.settings,writer:chapterSettings(workspace.settings?.writer)};
+  workspace.settings={language:'zh-CN',readingMode:'scroll',theme:'system',palette:'pine',fontSize:16,clientId:'',...workspace.settings,writer:chapterSettings(workspace.settings?.writer)};
   if(!['system','light','dark'].includes(workspace.settings.theme))workspace.settings.theme='system';
   preparePaths(workspace);
   if(native){const folder=await transport('initializeStorage');if(folder.storage.id){adoptFolder(workspace,folder,{migrate:!workspace.storage?.id});preparePaths(workspace);}else workspace.storage=folder.storage;}
   for(const doc of workspace.documents){const demo=await isOriginalDemo(doc);if(demo||doc.name==='未命名小说.txt'&&!doc.remote&&doc.text.startsWith('文舟操作指南\n')){const old=documentPath(doc),target=(parentPath(old)?parentPath(old)+'/':'')+'操作指南.txt';doc.path=uniquePath(target,new Set([...itemPaths(workspace)].filter(path=>path!==old)));doc.name=basename(doc.path);if(demo)doc.text=guide;editorStates.delete(doc.id);}}
+  for(const doc of workspace.documents.filter(doc=>doc.name==='操作指南.txt'&&!doc.remote)){const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(doc.text))),b=>b.toString(16).padStart(2,'0')).join('');if(hash===previousGuideHash){doc.text=guide;doc.updatedAt=Date.now();}}
+  if(workspace.settings.writer.titleTemplates.length&&!workspace.documents.some(doc=>documentPath(doc)==='.vela')){const config=createVela('内部文件夹');config.titleTemplates=workspace.settings.writer.titleTemplates;config.reading.files=workspace.documents.filter(readable).map(documentPath);const doc=newDocument('.vela',velaText(config));doc.path='.vela';workspace.documents.push(doc);}workspace.settings.writer=chapterSettings({...workspace.settings.writer,titleTemplates:[]});
   plugins=new PluginRuntime({getView:()=>view,getDoc:current,getFiles:()=>workspace.documents,addFile:(name,text)=>addDocument(newDocument(fileName(name),text)),toast,fail,refreshCommands:refreshPluginCommands,message:(title,message)=>pluginDialog(title,message,'alert'),confirm:(title,message)=>pluginDialog(title,message,'confirm'),prompt:(title,value)=>pluginDialog(title,'','prompt',value)});
-  chapterMatcher(workspace.settings.writer);applyTheme();setFontSize(workspace.settings.fontSize);setSidebar('library',workspace.settings.libraryOpen===true,false);
+  initI18n(workspace.settings.language);
+  reader=new Reader({root:$('#reader-view'),workspace:()=>workspace,markdown:md,sanitize:DOMPurify.sanitize,escape:esc,save,fail,load:loadSubscriptionDocument,html:async(doc,size)=>{if(native){if(save())await transport('previewHtml',{path:documentPath(doc),dark:workspace.settings.dark,reading:true,fontSize:size,readingMode:workspace.settings.readingMode,language:workspace.settings.language});}else{const content=$('#reader-view .reader-content');content.innerHTML='';const frame=document.createElement('iframe');frame.title='HTML';frame.sandbox='';frame.srcdoc=htmlPreview(doc.text,{dark:workspace.settings.dark,fontSize:size});content.append(frame);}}});
+  subscriptions=new Subscriptions({root:$('#subscriptions-view'),nav:$('[data-view=subscriptions]'),workspace:()=>workspace,transport,save,escape:esc,modal:openModal,fail,cache:cacheSubscription,pull:pullSubscription,renderMarkdown:text=>DOMPurify.sanitize(md.render(text),{FORBID_TAGS:['iframe','form','input','button','style'],FORBID_ATTR:['style']})});subscriptions.dot();subscriptions.refresh();
+  chapterMatcher(workspace.settings.writer);applyTheme();setFontSize(workspace.settings.fontSize,false);setSidebar('library',workspace.settings.libraryOpen===true,false);
   if(workspace.documents.some(d=>d.name==='操作指南.txt')&&workspace.openIds.includes(workspace.activeId))switchDocument(workspace.activeId);else showHome();
   try{await plugins.boot();}catch(error){toast('插件读取失败：'+error.message);}
-  if(native){try{const user=await gh.user();account=user;$('#account-label').textContent=user.login;repositories=await gh.repositories();}catch{/* Offline writing is available regardless of account state. */}}
+  if(native){try{const user=await gh.user();account=user;$('#sidebar-logout').disabled=false;$('#account-label').textContent=user.login;repositories=await gh.repositories();}catch{/* Offline writing is available regardless of account state. */}}
 }catch(e){bootFailed=true;$('#editor').innerHTML=`<div class="blank"><h2>无法读取本地文稿</h2><p>${esc(e.message)}</p><p>原始数据已保留，请勿清除应用数据。可先导出原始文件进行恢复。</p><button id="recover-data" class="primary">导出原始数据</button></div>`;$('#recover-data').onclick=()=>exportText('文舟-恢复数据.json',readWorkspace()||'').catch(fail);document.querySelectorAll('button').forEach(b=>{if(b.id!=='recover-data')b.disabled=true;});}}
+window.wenzhouBack=()=>{if(pageName==='reader'&&reader?.id){reader.home();return true;}if(pageName!=='write'){showView('write');return true;}return false;};
 boot();

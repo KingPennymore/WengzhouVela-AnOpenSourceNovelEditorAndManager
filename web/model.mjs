@@ -33,8 +33,8 @@ export function fileName(value) {
   if (!name || /[\\/\x00-\x1f]/.test(name) || name.length > 160) throw new Error('请输入有效文件名（不含斜杠，最多 160 字符）。');
   return /\.[^.]+$/.test(name) ? name : name + '.md';
 }
-export function fileKind(name) { return /\.csv$/i.test(name)?'CSV':/\.html?$/i.test(name)?'HTML':/\.(md|markdown|mdown|mkd)$/i.test(name)?'MD':'TXT'; }
-export function documentKind(doc){return ['TXT','MD','HTML','CSV'].includes(doc.kind)?doc.kind:fileKind(doc.name);}
+export function fileKind(name) { return /\.vela$/i.test(name)?'VELA':/\.csv$/i.test(name)?'CSV':/\.html?$/i.test(name)?'HTML':/\.(md|markdown|mdown|mkd)$/i.test(name)?'MD':'TXT'; }
+export function documentKind(doc){return ['TXT','MD','HTML','CSV','VELA'].includes(doc?.kind)?doc.kind:fileKind(doc?.name||'');}
 export function repoPath(value) {
   const path = value.trim();
   if (!path || path.startsWith('/') || /[\\\x00-\x1f]/.test(path) || path.split('/').some(p => !p || p === '.' || p === '..')) throw new Error('请填写有效的仓库相对路径，例如 chapters/第一章.md。');

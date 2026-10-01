@@ -1,16 +1,17 @@
 {
   "format": 1,
-  "source": "05699791ac52c40a02e339bec99272e43aa4d7b4a74ad4364bb2ca401b86cc51",
+  "source": "2edfe28e2a25b96f08bace45ad889230949a36be97aa6195de2fbd074000dae3",
   "outputs": {
-    "app.js": "d3d27ea8720b53064401665a1392a1afe5cc962fc8743b5ead7b538001de1441",
+    "app.js": "27e8dd2fa7d79e2ad7a7f0ae203e4ba49536f6d85d2133b960566de3e1eb76d2",
     "file-manager.css": "4c3ecef2f1b7f371bb7fb0bc94d7a0b932ae277caf4313a07ff21e42e3344964",
-    "index.html": "eebb9333443cadc12c6213efce1ab3be56d086b5854c98a69113a29a4728fb46",
-    "licenses.js": "3907f2025b4a4674d0fff6a173f4efae2f9dc94004f06133d59b6add010afde3",
+    "index.html": "118867ed9ab12420b104a3a343cea9404c9e996606f5ddc6fd830f3a96151a42",
+    "licenses.js": "1873f03dfa06d4eb56db9ea371fb9a4be72d71f926791cc0fdec334327055bc2",
     "licenses/@codemirror-autocomplete.txt": "05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07",
     "licenses/@codemirror-commands.txt": "05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07",
     "licenses/@codemirror-lang-css.txt": "05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07",
     "licenses/@codemirror-lang-html.txt": "05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07",
     "licenses/@codemirror-lang-javascript.txt": "05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07",
+    "licenses/@codemirror-lang-json.txt": "05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07",
     "licenses/@codemirror-lang-markdown.txt": "05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07",
     "licenses/@codemirror-language.txt": "05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07",
     "licenses/@codemirror-search.txt": "05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07",
@@ -21,6 +22,7 @@
     "licenses/@lezer-highlight.txt": "568902fb66eaf1f11750e966b33fd7b5d7c618e65af09f35ef843635bcf5f1ba",
     "licenses/@lezer-html.txt": "568902fb66eaf1f11750e966b33fd7b5d7c618e65af09f35ef843635bcf5f1ba",
     "licenses/@lezer-javascript.txt": "568902fb66eaf1f11750e966b33fd7b5d7c618e65af09f35ef843635bcf5f1ba",
+    "licenses/@lezer-json.txt": "7e744ae18ef84389d576469a5781172b0d50b7981111109f6da7cbc6b4188288",
     "licenses/@lezer-lr.txt": "568902fb66eaf1f11750e966b33fd7b5d7c618e65af09f35ef843635bcf5f1ba",
     "licenses/@lezer-markdown.txt": "54bd812a6d334e0c438b78a43cea74b67e882739fd3450115ddc7c52be5706c1",
     "licenses/@marijn-find-cluster-break.txt": "9360b00fdd091f05c783b568bdd46c679c41b72415599252de98949462ea1acb",
@@ -38,7 +40,7 @@
     "licenses/style-mod.txt": "cb4474e26547397169061d3586c00022cda5330a1b64fa13e872319f3b63aff1",
     "licenses/uc.micro.txt": "483acb265f182907d1caf6cff9c16c96f31325ed23792832cc5d8b12d5f88c8a",
     "licenses/w3c-keyname.txt": "869c30f368eb08735e779027b9f4bc9fea2f39624351856aebe42741f0bc0884",
-    "style.css": "9b87c9a1c3a35be1e30fcd2397da89ac2db116eb318034a9c318f6798bf60513",
-    "version.json": "52cef5d9c8eab3ddc3d8f9fa8fb809a21efaf1e884f53c606d61b6ab353e9a28"
+    "style.css": "e322e21927b52789d890d399ee43ac7d0c948e7c63795a43006690d5d63ee201",
+    "version.json": "aa795d91e67fa0851cfa0d55ba64476b67dc04ed117455a54182116a86d9f87a"
   }
 }

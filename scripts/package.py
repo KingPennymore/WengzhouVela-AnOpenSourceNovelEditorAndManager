@@ -33,13 +33,13 @@ for name, expected in state["outputs"].items():
     if not file.is_file() or hashlib.sha256(file.read_bytes()).hexdigest() != expected:
         raise SystemExit(f"编辑器资源不完整，请重新构建：{name}")
 version = json.loads((root / "package.json").read_text(encoding="utf-8"))["version"]
-source = out / f"Wenzhou-{version}-source.zip"
+source = out / f"Vela-{version}-source.zip"
 folders = ["web", "scripts", "tests", "vendor", "hvigor", "AppScope", "entry/src", "previews", "android"]
-files = ["package.json", "package-lock.json", "oh-package.json5", "build-profile.json5", "hvigorfile.ts", ".gitignore", ".gitattributes", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "VALIDATION.md", "entry/oh-package.json5", "entry/build-profile.json5", "entry/hvigorfile.ts"]
+files = ["package.json", "package-lock.json", "oh-package.json5", "build-profile.json5", "hvigorfile.ts", ".gitignore", ".gitattributes", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "VALIDATION.md", "RELEASE_NOTES.md", "entry/oh-package.json5", "entry/build-profile.json5", "entry/hvigorfile.ts"]
 with ZipFile(source, "w", ZIP_DEFLATED, compresslevel=9) as archive:
     for name in files:
         file = root / name
-        archive.write(file, f"Wenzhou/{name}")
+        archive.write(file, f"Vela/{name}")
     for name in folders:
         for file in sorted((root / name).rglob("*")):
             if not file.is_file():
@@ -51,15 +51,15 @@ with ZipFile(source, "w", ZIP_DEFLATED, compresslevel=9) as archive:
                 continue
             if file.suffix.lower() in [".jks", ".keystore", ".p12", ".cer", ".p7b"]:
                 continue
-            archive.write(file, "Wenzhou/" + relative)
+            archive.write(file, "Vela/" + relative)
 hap = args.signed_hap or root / "entry/build/default/outputs/default/entry-default-unsigned.hap"
 if not hap.is_file():
     raise SystemExit("请先构建 HAP。")
-target = out / f"Wenzhou-{version}-{'release-signed' if args.signed_hap else 'unsigned'}.hap"
+target = out / f"Vela-{version}-{'release-signed' if args.signed_hap else 'unsigned'}.hap"
 shutil.copyfile(hap, target)
 outputs = [source, target]
 if args.signed_app:
-    app = out / f"Wenzhou-{version}-release-signed.app"
+    app = out / f"Vela-{version}-release-signed.app"
     shutil.copyfile(args.signed_app, app)
     outputs.append(app)
 manifest = []

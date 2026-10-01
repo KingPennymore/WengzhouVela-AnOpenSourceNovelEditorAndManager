@@ -72,19 +72,21 @@ final class NativeBridge {
             case "manageFiles": return files.manage(data.optString("action"), data.optString("path"), data.optString("destination"));
             case "listTrash": return files.listTrash();
             case "restoreTrash": return files.restoreTrash(data.optString("id"), data.optBoolean("permanent"));
+            case "readWorkspaceFile": return files.readFileBase64(data.optString("path"));
             case "readWorkspaceAsset": return files.readAsset(data.optString("path"));
-            case "previewHtml": files.readPreviewResource(data.optString("path"), true); activity.previewHtml(data.optString("path"), data.optBoolean("dark")); return true;
+            case "previewHtml": files.readPreviewResource(data.optString("path"), true); activity.previewHtml(data.optString("path"), data.optBoolean("dark"), data); return true;
             case "writeWorkspaceFiles": return files.writeFiles(array(data, "files"), array(data, "folders"));
             case "appearance": activity.appearance(data.optBoolean("dark"), data.optString("background")); return true;
             case "openAuth": activity.openAuthorization(); return true;
             case "connection": return request("https://api.github.com", "GET", null, "");
-            case "api": {
+            case "publicApi": case "api": {
                 String path = data.optString("path"), method = data.optString("method", "GET");
                 if (!path.matches("^/(user(?:\\?.*|$)|user/repos(?:\\?.*|$)|repos/[\\w.-]+/[\\w.-]+(?:/.*|\\?.*|$))")
                     || path.matches("(?s).*[\\r\\n\\\\#].*") || path.contains("..")) throw new IOException("不允许的 GitHub 请求路径。");
                 if (!Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE").contains(method)) throw new IOException("不支持此请求方法。");
+                if (operation.equals("publicApi") && (!method.equals("GET") || !path.startsWith("/repos/"))) throw new IOException("Public repository reads only.");
                 String token = credentials.read();
-                if (token.isEmpty()) return new JSONObject().put("status", 401).put("body", new JSONObject());
+                if (token.isEmpty() && !operation.equals("publicApi")) return new JSONObject().put("status", 401).put("body", new JSONObject());
                 return request("https://api.github.com" + path, method, data.optJSONObject("body"), token);
             }
             case "login": {
@@ -130,7 +132,7 @@ final class NativeBridge {
         try {
             connection.setConnectTimeout(15000); connection.setReadTimeout(30000); connection.setInstanceFollowRedirects(false);
             connection.setRequestMethod(method); connection.setRequestProperty("Accept", "application/json");
-            connection.setRequestProperty("Content-Type", "application/json"); connection.setRequestProperty("User-Agent", "Wenzhou-Android/0.4.2");
+            connection.setRequestProperty("Content-Type", "application/json"); connection.setRequestProperty("User-Agent", "Vela-Android/0.5.0");
             if (!token.isEmpty()) {
                 connection.setRequestProperty("Authorization", "Bearer " + token);
                 connection.setRequestProperty("Accept", "application/vnd.github+json"); connection.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");

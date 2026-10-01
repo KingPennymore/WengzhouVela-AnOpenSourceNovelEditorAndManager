@@ -1,8 +1,8 @@
 {
   "name": "wenzhou-harmonyos",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "private": true,
-  "description": "文舟：基于 Acode 编辑组件与 Writer 1.0.4 的 HarmonyOS NEXT 写作应用",
+  "description": "文舟：基于 Acode 编辑组件与 Writer 1.0.4 的 HarmonyOS NEXT / Android 开源小说创作与阅读工具",
   "scripts": {
     "build": "node scripts/build.mjs",
     "build:android": "node scripts/build-android.mjs",
@@ -10,11 +10,13 @@
     "test:android:native": "node scripts/test-android-native.mjs",
     "dev": "node scripts/serve.mjs",
     "test": "node --test tests/*.test.mjs vendor/acode-writer/tests/*.test.cjs",
-    "test:ui": "node tests/browser.mjs && node tests/features-browser.mjs && node tests/workspace-browser.mjs && node tests/file-manager-browser.mjs && node tests/sidebars-browser.mjs"
+    "test:ui": "node tests/browser.mjs && node tests/features-browser.mjs && node tests/workspace-browser.mjs && node tests/file-manager-browser.mjs && node tests/sidebars-browser.mjs && node tests/studio-browser.mjs"
   },
   "dependencies": {
+    "@codemirror/autocomplete": "^6.20.0",
     "@codemirror/commands": "^6.10.0",
     "@codemirror/lang-html": "^6.4.12",
+    "@codemirror/lang-json": "^6.0.2",
     "@codemirror/lang-markdown": "^6.3.0",
     "@codemirror/language": "^6.11.0",
     "@codemirror/search": "^6.5.0",

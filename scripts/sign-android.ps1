@@ -15,8 +15,8 @@ $alias = 'wenzhou-release'
 $version = [regex]::Match((Get-Content -LiteralPath (Join-Path $repository 'android\app\build.gradle') -Raw), "versionName '([^']+)'").Groups[1].Value
 if (!$version) { throw '无法读取安卓版本。' }
 $distribution = Join-Path $repository 'dist'
-$inputApk = Join-Path $distribution "Wenzhou-$version-release-unsigned.apk"
-$inputBundle = Join-Path $distribution "Wenzhou-$version-release-unsigned.aab"
+$inputApk = Join-Path $distribution "Vela-$version-release-unsigned.apk"
+$inputBundle = Join-Path $distribution "Vela-$version-release-unsigned.aab"
 if (!(Test-Path -LiteralPath $inputApk) -or !(Test-Path -LiteralPath $inputBundle)) { throw '请先运行 node scripts/build-android.mjs --release。' }
 if (!(Test-Path -LiteralPath $key) -and !$CreateKey) { throw '发布密钥不存在。首次创建请显式使用 -CreateKey；更新版本必须使用原密钥。' }
 
@@ -59,8 +59,8 @@ try {
   }
   Protect-SigningPath $key
   Invoke-SigningTool $keytool @('-exportcert', '-alias', $alias, '-keystore', $key, '-storepass:env', 'WENZHOU_KEYSTORE_PASSWORD', '-file', $certificate)
-  $outputApk = Join-Path $distribution "Wenzhou-$version-release-signed.apk"
-  $outputBundle = Join-Path $distribution "Wenzhou-$version-release-signed.aab"
+  $outputApk = Join-Path $distribution "Vela-$version-release-signed.apk"
+  $outputBundle = Join-Path $distribution "Vela-$version-release-signed.aab"
   $tools = Join-Path $sdk 'build-tools\36.0.0'
   Invoke-SigningTool (Join-Path $tools 'apksigner.bat') @('sign', '--ks', $key, '--ks-key-alias', $alias, '--ks-pass', 'env:WENZHOU_KEYSTORE_PASSWORD', '--key-pass', 'env:WENZHOU_KEYSTORE_PASSWORD', '--v1-signing-enabled', 'false', '--v2-signing-enabled', 'true', '--v3-signing-enabled', 'true', '--v4-signing-enabled', 'false', '--out', $outputApk, $inputApk)
   Invoke-SigningTool (Join-Path $tools 'apksigner.bat') @('verify', '--verbose', '--print-certs', $outputApk)

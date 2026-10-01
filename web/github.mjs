@@ -96,6 +96,19 @@ export class GitHub {
     if(sha) body.sha=sha;
     return this.request(this.contentURL(repo,path),'PUT',body);
   }
+  async commitWorkspace({repo,branch,files,message,prefix=''}){
+    if(!message.trim())throw new Error('请填写提交说明。');
+    if(!Array.isArray(files)||!files.length||files.length>5000)throw new Error('工作区须包含 1–5000 个文件。');
+    if(prefix)prefix=repoPath(prefix);const paths=new Set();let size=0;
+    for(const file of files){repoPath(file.path);if(paths.has(file.path))throw new Error('工作区含重复文件路径。');paths.add(file.path);const bytes=typeof file.text==='string'?new TextEncoder().encode(file.text).length:typeof file.data==='string'?Math.floor(file.data.length*3/4):Infinity;if(bytes>MAX_TEXT_BYTES)throw new Error('工作区文件不能超过 8 MB。');size+=bytes;}
+    if(size>64*1024*1024)throw new Error('一次工作区提交不能超过 64 MB。');
+    const base=this.base(repo),refPath=base+'/git/refs/heads/'+encodeURIComponent(branch),head=await this.request(base+'/git/ref/heads/'+encodeURIComponent(branch)),parent=head.object.sha,commit=await this.request(base+'/git/commits/'+parent),tree=[];
+    for(const file of files){const entry={path:(prefix?prefix+'/':'')+file.path,mode:'100644',type:'blob'};if(typeof file.text==='string')entry.content=file.text;else{const blob=await this.request(base+'/git/blobs','POST',{content:file.data,encoding:'base64'});entry.sha=blob.sha;}tree.push(entry);}
+    const created=await this.request(base+'/git/trees','POST',{base_tree:commit.tree.sha,tree});
+    const next=await this.request(base+'/git/commits','POST',{message:message.trim(),tree:created.sha,parents:[parent]});
+    // Atomic branch update. A concurrent remote commit is never force-overwritten.
+    await this.request(refPath,'PATCH',{sha:next.sha,force:false});return next;
+  }
   deleteFile({repo,branch,path,sha,message}) { return this.request(this.contentURL(repo,path),'DELETE',{branch,sha,message}); }
 }
 export async function deviceLogin(transport, clientId, onCode, signal, sleep = abortableSleep, now = Date.now) {

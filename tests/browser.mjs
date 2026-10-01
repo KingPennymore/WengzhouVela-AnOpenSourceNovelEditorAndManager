@@ -62,8 +62,8 @@ try{
   });
   await check('查找替换面板、标题规则错误反馈和设置持久化',async()=>{
     await click('search-editor');assert.equal(await page.locator('.cm-search').isVisible(),true);await page.keyboard.press('Escape');
-    await click('settings');assert.equal(await page.locator('[name="format"]').count(),0);await page.locator('[name="titleTemplates"]').fill('没有占位符');await click('dialog-submit');await waitText('#dialog-error','模板需包含');
-    await page.locator('[name="titleTemplates"]').fill('第{序号}章 {标题}\n【{序号}】{标题}');await page.locator('[name="theme"]').selectOption('light');await click('dialog-submit');
+    await click('settings');assert.equal(await page.locator('[name="format"]').count(),0);assert.equal(await page.locator('[name="titleTemplates"]').count(),0);
+    await page.locator('[name="theme"]').selectOption('light');await click('dialog-submit');
     await page.reload();await page.waitForSelector('.cm-editor');assert.equal(await page.locator('#library').isVisible(),false);assert.equal(await page.locator('#outline').isVisible(),false);
     assert.equal(await page.locator('body').evaluate(el=>el.classList.contains('dark')),false);assert.equal(await page.locator('#theme').getAttribute('aria-label'),'切换到深色模式');
     await click('theme');assert.equal(await page.locator('body').evaluate(el=>el.classList.contains('dark')),true);await click('theme');assert.equal(await page.locator('body').evaluate(el=>el.classList.contains('dark')),false);
