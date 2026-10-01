@@ -4,7 +4,7 @@ import { recordBundle } from './frontend-state.mjs';
 const out = 'entry/src/main/resources/rawfile/web';
 await mkdir(out, { recursive: true });
 const bundle = await build({entryPoints:['web/app.js'],bundle:true,outfile:`${out}/app.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof',metafile:true});
-for(const name of ['index.html','style.css']) await copyFile(`web/${name}`,`${out}/${name}`);
+for(const name of ['index.html','style.css','file-manager.css']) await copyFile(`web/${name}`,`${out}/${name}`);
 await mkdir(`${out}/licenses`, {recursive:true});
 const licenses=[];
 for(const [name,path] of [['Acode','vendor/acode/LICENSE'],['Acode-Writer 1.0.4','vendor/acode-writer/LICENSE']]) {

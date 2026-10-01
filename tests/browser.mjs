@@ -18,7 +18,7 @@ const browser=await chromium.launch({headless:true,executablePath});
 const results=[],errors=[];
 await mkdir('test-results',{recursive:true});
 const seedText='序言\n\n第一章 开端\n甲乙丙\n\n第二章 转折\n丁戊己庚\n\n第三章 终局\n辛壬癸\n';
-const seed={version:1,activeId:'book',settings:{dark:true,theme:'dark'},documents:[{id:'book',name:'全书.txt',text:seedText,updatedAt:1,remote:null},{id:'other',name:'未命名小说.txt',text:'第一章\n另一部小说',updatedAt:1,remote:null}]};
+const seed={version:1,activeId:'book',settings:{dark:true,theme:'dark'},documents:[{id:'book',name:'全书.txt',text:seedText,updatedAt:1,remote:null},{id:'other',name:'操作指南.txt',text:'第一章\n另一部小说',updatedAt:1,remote:null}]};
 async function check(name,fn){await fn();results.push(name);console.log('PASS '+name);}
 const context=await browser.newContext({viewport:{width:1440,height:900}});
 await context.addInitScript(data=>{if(!localStorage.getItem('wenzhou.workspace'))localStorage.setItem('wenzhou.workspace',JSON.stringify(data));},seed);
@@ -62,8 +62,8 @@ try{
   });
   await check('查找替换面板、标题规则错误反馈和设置持久化',async()=>{
     await click('search-editor');assert.equal(await page.locator('.cm-search').isVisible(),true);await page.keyboard.press('Escape');
-    await click('settings');await page.locator('[name="format"]').selectOption('template');await page.locator('[name="template"]').fill('没有占位符');await click('dialog-submit');await waitText('#dialog-error','模板需包含');
-    await page.locator('[name="template"]').fill('第{序号}章 {标题}');await page.locator('[name="format"]').selectOption('auto');await page.locator('[name="theme"]').selectOption('light');await click('dialog-submit');
+    await click('settings');assert.equal(await page.locator('[name="format"]').count(),0);await page.locator('[name="titleTemplates"]').fill('没有占位符');await click('dialog-submit');await waitText('#dialog-error','模板需包含');
+    await page.locator('[name="titleTemplates"]').fill('第{序号}章 {标题}\n【{序号}】{标题}');await page.locator('[name="theme"]').selectOption('light');await click('dialog-submit');
     await page.reload();await page.waitForSelector('.cm-editor');assert.equal(await page.locator('#library').isVisible(),false);assert.equal(await page.locator('#outline').isVisible(),false);
     assert.equal(await page.locator('body').evaluate(el=>el.classList.contains('dark')),false);assert.equal(await page.locator('#theme').getAttribute('aria-label'),'切换到深色模式');
     await click('theme');assert.equal(await page.locator('body').evaluate(el=>el.classList.contains('dark')),true);await click('theme');assert.equal(await page.locator('body').evaluate(el=>el.classList.contains('dark')),false);
@@ -129,14 +129,14 @@ try{
       const rect=await m.locator('#'+id).boundingBox();assert.ok(rect.x>=0&&rect.x+rect.width<=390.5,id);
     }
     await m.locator('#mobile-library').click();assert.equal(await m.locator('#library').isVisible(),true);await m.locator('#mobile-library').click();
-    await m.locator('#outline-toggle').click();await m.locator('[data-row="5"]').click();assert.equal(await m.locator('#cursor-position').textContent(),'行 6，列 1');assert.equal(await m.locator('#outline').isVisible(),false);
+    await m.locator('#outline-toggle').click();await m.locator('[data-row="5"]').click();assert.equal(await m.locator('#cursor-position').textContent(),'行 6，列 1');await m.locator('#outline').waitFor({state:'hidden'});assert.equal(await m.locator('#outline').isVisible(),false);
     await m.locator('#theme').click();assert.equal(await m.locator('body').evaluate(el=>el.classList.contains('dark')),false);assert.equal(await m.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   });
   await m.screenshot({path:'test-results/mobile.png'});await mobile.close();
   // A 600,000-character novel checks virtualization and jumping across hundreds of chapters.
   const largeContext=await browser.newContext({viewport:{width:1440,height:900}});
   const largeText=Array.from({length:300},(_,i)=>`第${i+1}章 标题\n${'正文内容。'.repeat(400)}\n\n`).join('');
-  await largeContext.addInitScript(text=>localStorage.setItem('wenzhou.workspace',JSON.stringify({version:1,activeId:'large',settings:{dark:true,theme:'dark'},documents:[{id:'large',name:'未命名小说.txt',text,updatedAt:1,remote:null}]})),largeText);
+  await largeContext.addInitScript(text=>localStorage.setItem('wenzhou.workspace',JSON.stringify({version:1,activeId:'large',settings:{dark:true,theme:'dark'},documents:[{id:'large',name:'操作指南.txt',text,updatedAt:1,remote:null}]})),largeText);
   const large=await largeContext.newPage();large.on('pageerror',e=>errors.push(e.message));
   await check('60 万字符小说可统计 300 章并跳转末章，编辑器保持虚拟化',async()=>{
     await large.goto(url);await large.waitForSelector('.cm-editor');assert.equal(await large.locator('#chapter-count').textContent(),'300 章');

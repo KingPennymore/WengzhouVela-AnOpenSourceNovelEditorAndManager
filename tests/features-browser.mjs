@@ -24,7 +24,7 @@ async function context(seed,options={}){
 }
 const doc=(id,name,text)=>({id,name,text,updatedAt:1,remote:null});
 const saved=p=>p.evaluate(()=>{window.wenzhouSave();return JSON.parse(localStorage.getItem('wenzhou.workspace'));});
-const data={version:1,activeId:'book',settings:{theme:'system'},documents:[doc('book','未命名小说.txt','第一章 开始\n正文甲\n\n第二章 继续\n正文乙')],openIds:['book']};
+const data={version:1,activeId:'book',settings:{theme:'system'},documents:[doc('book','操作指南.txt','第一章 开始\n正文甲\n\n第二章 继续\n正文乙')],openIds:['book']};
 async function importFile(p,name,text){await p.locator('#file-input').setInputFiles({name,mimeType:'text/plain',buffer:Buffer.from(text)});await p.waitForFunction(name=>document.querySelector('#current-name').textContent===name,name);}
 try{
   const fresh=await context(null,{colorScheme:'dark'}),p=fresh.p;
@@ -82,7 +82,7 @@ try{
     assert.equal(await w.locator('.cm-editor').evaluate(el=>parseFloat(getComputedStyle(el).fontSize)),Math.round(font*1.5));assert.deepEqual(await w.locator('#quick-save').boundingBox(),before);assert.equal(await w.evaluate(()=>visualViewport.scale),1);
     await w.locator('.cm-content').focus();await w.keyboard.press('Control+0');assert.equal((await saved(w)).settings.fontSize,16);
   });
-  await check('没有未命名小说时启动显示最近文件页，已有正文不被修改',async()=>{
+  await check('没有操作指南时启动显示最近文件页，已有正文不被修改',async()=>{
     const existing=await context({version:1,activeId:'existing',documents:[doc('existing','我的小说.txt','私有正文')],settings:{}});
     assert.equal(await existing.p.locator('#start-page').isVisible(),true);assert.equal(await existing.p.locator('[data-recent="existing"]').innerText().then(t=>t.includes('我的小说.txt')),true);
     await existing.p.locator('[data-recent="existing"]').click();assert.equal((await saved(existing.p)).documents[0].text,'私有正文');await existing.ctx.close();
@@ -140,7 +140,7 @@ try{
   });
   await check('选区左右边界与段落一致，窄屏、深浅色、字号和部分文字选择保持准确',async()=>{
     const text='第一章 标题\n　　'+('正文，包含“引号”与标点。'.repeat(35))+'\n\n　　下一段落，选择到这里结束。\n第二章 标题';
-    const seed={...data,documents:[doc('book','未命名小说.txt',text)]};
+    const seed={...data,documents:[doc('book','操作指南.txt',text)]};
     const {ctx,p}=await context(seed);
     for(const [width,dark,ratio] of [[900,false,1],[390,true,1.5],[600,false,1.667]]){
       await p.setViewportSize({width,height:1000});await p.emulateMedia({colorScheme:dark?'dark':'light'});

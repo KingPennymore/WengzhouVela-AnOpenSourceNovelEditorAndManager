@@ -9,6 +9,8 @@
       "startWindowBackground": "$color:start_window_background", "exported": true,
       "skills": [{ "entities": ["entity.system.home"], "actions": ["ohos.want.action.home"] }]
     }],
-    "requestPermissions": [{ "name": "ohos.permission.INTERNET" }, { "name": "ohos.permission.FILE_ACCESS_PERSIST" }]
+    "requestPermissions": [
+      { "name": "ohos.permission.INTERNET" }
+    ]
   }
 }

@@ -22,7 +22,6 @@ export const shortcuts=[
   ['commands','Mod-Shift-k','Ctrl+Shift+K','命令与快捷键'],
   ['append-chapter','Mod-Alt-Enter','Ctrl+Alt+Enter','追加章节'],
   ['locate-chapter','Mod-Alt-l','Ctrl+Alt+L','定位当前章节'],
-  ['open-folder','Mod-Alt-o','Ctrl+Alt+O','打开文件夹工作区'],
   ['refresh-folder','Mod-Alt-r','Ctrl+Alt+R','刷新工作区'],
   ['new-folder','Mod-Alt-n','Ctrl+Alt+N','新建文件夹'],
   ['md-bold','Mod-b','Ctrl+B','Markdown 加粗'],

@@ -1,10 +1,10 @@
 import { common } from '@kit.AbilityKit';
-import { fileIo as fs, fileUri, picker, fileShare, Environment } from '@kit.CoreFileKit';
+import { fileIo as fs } from '@kit.CoreFileKit';
 import { util } from '@kit.ArkTS';
-import { decodeFileText, decodedFileName } from './FileText';
+import { decodeFileText } from './FileText';
 
 export interface StoredDocument { id: string; name: string; path?: string; kind?: string; delimiter?: string; text: string; updatedAt: number; remote: Object | null; }
-export interface StorageInfo { id: string; label: string; root: string; needsSetup: boolean; }
+export interface StorageInfo { id: string; label: string; root: string; needsSetup: boolean; internal?: boolean; }
 export interface FolderEntry { path: string; name: string; directory: boolean; size: number; editable: boolean; reason: string; }
 interface RepositoryLink { repo: string; branch: string; folder: string; commit: string; }
 export interface FolderState { storage: StorageInfo; documents: StoredDocument[]; folders: string[]; entries: FolderEntry[]; repositories: RepositoryLink[]; }
@@ -12,8 +12,10 @@ interface FolderRoot { id: string; uri: string; path: string; label: string; }
 interface FolderConfig { current: string; default: string; roots: FolderRoot[]; }
 interface SavedWorkspace { version: number; storage?: StorageInfo; documents: StoredDocument[]; folders?: string[]; repositories?: RepositoryLink[]; }
 export interface BinaryWorkspaceFile { path: string; data: string; }
+export interface TrashItem { id: string; path: string; directory: boolean; createdAt: number; }
+interface TrashRecord extends TrashItem { workspaceId: string; documents: StoredDocument[]; repositories: RepositoryLink[]; }
 
-// The chosen root is held by the native service. JavaScript only supplies relative paths.
+// Only the application sandbox workspace is accessible; JavaScript supplies relative paths.
 export class WorkspaceFiles {
   context: common.UIAbilityContext | undefined = undefined;
   private config: FolderConfig = { current: '', default: '', roots: [] };
@@ -29,7 +31,19 @@ export class WorkspaceFiles {
   private cachePath(id: string): string { return this.contextValue().filesDir + '/folder-' + id + '.json'; }
   private info(): StorageInfo {
     const root = this.getRoot();
-    return { id: root?.id || '', label: root?.label || '未设置文稿目录', root: root?.path || '', needsSetup: !root };
+    return { id: root?.id || '', label: root?.label || '内部工作区', root: root?.path || '', needsSetup: !root, internal: root?.path === this.internalPath() };
+  }
+  private internalPath(): string { return this.contextValue().filesDir + '/workspaces/文舟'; }
+  private ensureInternal(): FolderRoot {
+    const path = this.internalPath();
+    if (!fs.accessSync(path)) fs.mkdirSync(path, true);
+    let root = this.config.roots.find(item => item.path === path);
+    if (!root) {
+      root = { id: util.generateRandomUUID(), uri: '', path: path, label: '内部工作区' };
+      this.config.roots.push(root);
+    }
+    this.config.default = root.id;
+    return root;
   }
   private writeBytes(path: string, bytes: Uint8Array): void {
     const file = fs.openSync(path, fs.OpenMode.CREATE | fs.OpenMode.READ_WRITE | fs.OpenMode.TRUNC);
@@ -77,7 +91,7 @@ export class WorkspaceFiles {
   }
   private target(relative: string): string {
     const root = this.getRoot();
-    if (!root) throw new Error('请先设置文稿目录或打开文件夹。');
+    if (!root) throw new Error('内部工作区尚未初始化。');
     const parts = this.relative(relative).split('/');
     let current = root.path;
     for (const part of parts) {
@@ -90,57 +104,15 @@ export class WorkspaceFiles {
     const directory = path.substring(0, path.lastIndexOf('/'));
     if (!fs.accessSync(directory)) fs.mkdirSync(directory, true);
   }
-  private policy(uri: string): fileShare.PolicyInfo[] {
-    return [{ uri: uri, operationMode: fileShare.OperationMode.READ_MODE | fileShare.OperationMode.WRITE_MODE }];
-  }
   async initialize(): Promise<FolderState> {
     if (!this.ready) {
       if (fs.accessSync(this.configPath())) this.config = JSON.parse(fs.readTextSync(this.configPath())) as FolderConfig;
-      const root = this.getRoot();
-      if (root?.uri) await fileShare.activatePermission(this.policy(root.uri));
-      // 2in1 devices can supply a pre-authorized Downloads path. Tablets use the folder picker.
-      if (!root) {
-        try {
-          const path = Environment.getUserDownloadDir();
-          if (fs.accessSync(path)) {
-            const folder = path + '/文舟';
-            if (!fs.accessSync(folder)) fs.mkdirSync(folder);
-            const selected: FolderRoot = { id: util.generateRandomUUID(), uri: '', path: folder, label: '文舟' };
-            this.config.roots.push(selected); this.config.current = selected.id; this.config.default = selected.id;
-            this.text(this.configPath(), JSON.stringify(this.config));
-          }
-        } catch (_) { /* Public Downloads is not pre-authorized on phones/tablets. */ }
-      }
+      const internal = this.ensureInternal();
+      this.config = { current: internal.id, default: internal.id, roots: [internal] };
+      this.text(this.configPath(), JSON.stringify(this.config));
       this.ready = true;
     }
     return this.scan();
-  }
-  async choose(useDefault: boolean): Promise<FolderState | null> {
-    const selector = new picker.DocumentViewPicker(this.contextValue());
-    const options: picker.DocumentSelectOptions = { selectMode: picker.DocumentSelectMode.FOLDER, maxSelectNumber: 1 };
-    const uris = await selector.select(options);
-    if (!uris.length) return null;
-    await fileShare.persistPermission(this.policy(uris[0]));
-    const uri = new fileUri.FileUri(uris[0]);
-    const base = decodedFileName(uri.path).replace(/\/$/, '');
-    const path = useDefault ? base + '/文舟' : base;
-    if (!fs.accessSync(path)) fs.mkdirSync(path);
-    if (!fs.lstatSync(path).isDirectory() || fs.lstatSync(path).isSymbolicLink()) throw new Error('请选择有效的本地文件夹。');
-    let root = this.config.roots.find(item => item.path === path);
-    if (!root) {
-      root = { id: util.generateRandomUUID(), uri: uris[0], path: path, label: useDefault ? '文舟' : decodedFileName(uri.name) };
-      this.config.roots.push(root);
-    }
-    const previous = this.config.current, previousDefault = this.config.default;
-    this.config.current = root.id;
-    let result: FolderState;
-    try {
-      result = this.scan();
-      if (useDefault) this.config.default = root.id;
-      this.text(this.configPath(), JSON.stringify(this.config));
-    } catch (error) { this.config.current = previous; this.config.default = previousDefault; throw error as Error; }
-    this.ready = true;
-    return result;
   }
   scan(): FolderState {
     const root = this.getRoot(), documents: StoredDocument[] = [], folders: string[] = [], entries: FolderEntry[] = [];
@@ -248,5 +220,111 @@ export class WorkspaceFiles {
     }
     if (!type) throw new Error('预览图片格式不支持。');
     return 'data:' + type + ';base64,' + new util.Base64Helper().encodeToStringSync(this.readBytes(this.target(relative), 4 * 1024 * 1024));
+  }
+  private contains(parent: string, path: string): boolean { return path === parent || path.startsWith(parent + '/'); }
+  private remap(doc: StoredDocument, source: string, destination: string, copy: boolean): StoredDocument {
+    const path = destination + (doc.path || doc.name).substring(source.length);
+    return { id: copy ? util.generateRandomUUID() : doc.id, name: path.substring(path.lastIndexOf('/') + 1), path: path,
+      text: doc.text, kind: doc.kind, delimiter: doc.delimiter, updatedAt: doc.updatedAt, remote: copy ? null : doc.remote };
+  }
+  private cache(): SavedWorkspace {
+    const root = this.getRoot();
+    if (!root) throw new Error('工作区未初始化。');
+    if (fs.accessSync(this.cachePath(root.id))) return JSON.parse(fs.readTextSync(this.cachePath(root.id))) as SavedWorkspace;
+    const state = this.scan();
+    return { version: 1, storage: state.storage, documents: state.documents, folders: state.folders, repositories: state.repositories };
+  }
+  private copyTree(source: string, destination: string, count: number[]): void {
+    if (++count[0] > 5000) throw new Error('复制项目超过 5000 个。');
+    const stat = fs.lstatSync(source);
+    if (stat.isSymbolicLink()) throw new Error('不允许复制符号链接。');
+    if (stat.isDirectory()) {
+      fs.mkdirSync(destination);
+      for (const name of fs.listFileSync(source)) {
+        this.relative(name);
+        if (name === '.git' || name.endsWith('.wenzhou-tmp')) throw new Error('请先移除目录中的保留文件或选择其他目录。');
+        this.copyTree(source + '/' + name, destination + '/' + name, count);
+      }
+    } else if (stat.isFile()) fs.copyFileSync(source, destination);
+    else throw new Error('不支持此文件类型。');
+  }
+  private removeTree(path: string): void {
+    const stat = fs.lstatSync(path);
+    if (stat.isSymbolicLink()) throw new Error('不允许删除符号链接。');
+    if (stat.isDirectory()) fs.rmdirSync(path); else fs.unlinkSync(path);
+  }
+  private trashPath(): string { return this.contextValue().filesDir + '/trash.json'; }
+  private trashRecords(): TrashRecord[] { return fs.accessSync(this.trashPath()) ? JSON.parse(fs.readTextSync(this.trashPath())) as TrashRecord[] : []; }
+  private trashPayload(id: string): string {
+    if (!/^[A-Za-z0-9_-]{1,80}$/.test(id)) throw new Error('回收站标识无效。');
+    const root = this.getRoot();
+    if (!root) throw new Error('工作区未初始化。');
+    const path = root.path + '/.trash-' + id + '.wenzhou-tmp';
+    if (fs.accessSync(path) && fs.lstatSync(path).isSymbolicLink()) throw new Error('回收站内容无效。');
+    return path;
+  }
+  listTrash(): TrashItem[] {
+    return this.trashRecords().filter(item => item.workspaceId === this.getRoot()?.id)
+      .map((item): TrashItem => ({ id: item.id, path: item.path, directory: item.directory, createdAt: item.createdAt }));
+  }
+  manage(action: string, relative: string, destination: string): FolderState {
+    const root = this.getRoot();
+    if (!root) throw new Error('工作区未初始化。');
+    const source = this.target(relative), old = this.cache(), before = JSON.stringify(old);
+    if (!fs.accessSync(source)) throw new Error('文件或文件夹不存在，请刷新工作区。');
+    const records = this.trashRecords(), previousTrash = JSON.stringify(records);
+    let target = '', copied = false, moved = false;
+    try {
+      if (action === 'delete') {
+        if (records.length >= 100) throw new Error('回收站已有 100 项，请先恢复或永久删除部分项目。');
+        const id = util.generateRandomUUID(); target = this.trashPayload(id);
+        const documents = old.documents.filter(doc => this.contains(relative, doc.path || doc.name));
+        const repositories = (old.repositories || []).filter(item => this.contains(relative, item.folder));
+        records.push({ id: id, workspaceId: root.id, path: relative, directory: fs.lstatSync(source).isDirectory(), createdAt: Date.now(), documents: documents, repositories: repositories });
+        old.documents = old.documents.filter(doc => !this.contains(relative, doc.path || doc.name));
+        old.repositories = (old.repositories || []).filter(item => !this.contains(relative, item.folder));
+        fs.renameSync(source, target); moved = true;
+      } else if (action === 'move' || action === 'copy') {
+        target = this.target(destination);
+        if (this.contains(relative, destination)) throw new Error('不能将项目放入自身或其子目录。');
+        if (fs.accessSync(target)) throw new Error('目标已存在，请更改名称或目标目录。');
+        this.parent(target);
+        if (action === 'copy') {
+          copied = true; this.copyTree(source, target, [0]);
+          old.documents = old.documents.concat(old.documents.filter(doc => this.contains(relative, doc.path || doc.name)).map(doc => this.remap(doc, relative, destination, true)));
+        } else {
+          fs.renameSync(source, target); moved = true;
+          old.documents = old.documents.map(doc => this.contains(relative, doc.path || doc.name) ? this.remap(doc, relative, destination, false) : doc);
+          old.repositories = (old.repositories || []).map((item): RepositoryLink => ({ repo: item.repo, branch: item.branch, commit: item.commit,
+            folder: this.contains(relative, item.folder) ? destination + item.folder.substring(relative.length) : item.folder }));
+        }
+      } else throw new Error('文件操作无效。');
+      this.text(this.cachePath(root.id), JSON.stringify(old));
+      if (action === 'delete') this.text(this.trashPath(), JSON.stringify(records));
+      return this.scan();
+    } catch (error) {
+      if (moved && fs.accessSync(target)) fs.renameSync(target, source);
+      if (copied && fs.accessSync(target)) this.removeTree(target);
+      this.text(this.cachePath(root.id), before);
+      if (action === 'delete') this.text(this.trashPath(), previousTrash);
+      throw error as Error;
+    }
+  }
+  restoreTrash(id: string, permanent: boolean): FolderState {
+    const root = this.getRoot();
+    if (!root) throw new Error('工作区未初始化。');
+    const records = this.trashRecords(), item = records.find(value => value.id === id && value.workspaceId === root.id);
+    if (!item) throw new Error('回收站项目不存在。');
+    const source = this.trashPayload(id), old = this.cache(), before = JSON.stringify(old), previousTrash = JSON.stringify(records);
+    if (permanent) { if (fs.accessSync(source)) this.removeTree(source); this.text(this.trashPath(), JSON.stringify(records.filter(value => value.id !== id))); return this.scan(); }
+    if (!fs.accessSync(source)) throw new Error('回收站文件已在外部移除。');
+    const target = this.target(item.path);
+    if (fs.accessSync(target)) throw new Error('原路径已有同名项目，请先重命名后恢复。');
+    this.parent(target); fs.renameSync(source, target);
+    try {
+      old.documents = old.documents.concat(item.documents); old.repositories = (old.repositories || []).concat(item.repositories);
+      this.text(this.cachePath(root.id), JSON.stringify(old)); this.text(this.trashPath(), JSON.stringify(records.filter(value => value.id !== id)));
+      return this.scan();
+    } catch (error) { fs.renameSync(target, source); this.text(this.cachePath(root.id), before); this.text(this.trashPath(), previousTrash); throw error as Error; }
   }
 }

@@ -15,6 +15,7 @@ import {GitHub,deviceLogin} from './github.mjs';
 import {native,transport,readWorkspace,saveWorkspace,exportText,openAuthorization,readEnvironment} from './platform.mjs';
 import {guide,isOriginalDemo} from './guide.mjs';
 import {shortcuts,matchesKey} from './shortcuts.mjs';
+import {SidebarLayout} from './sidebars.mjs';
 import {fullWidthIndent} from './indent.mjs';
 import {paragraphSelection} from './selection.mjs';
 import {parseCsv,writeCsv,csvDelimiter} from './csv.mjs';
@@ -28,11 +29,13 @@ import {PluginRuntime} from './plugins.mjs';
 import {readPluginZip,fromBase64,MAX_PLUGIN_BYTES} from './plugin-package.mjs';
 import {documentPath,uniquePath,preparePaths,adoptFolder,folderTree} from './workspace.mjs';
 import {applyRemoteFile,repositoryFolder,applyRepository} from './git-workspace.mjs';
+import {chapterSettings,chapterMatcher} from './chapters.mjs';
+import {applyFileOperation,restoreFile,itemPaths,copyDestination,basename,parentPath,within} from './file-manager.mjs';
 
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const paths={write:'M4 4h12v16H4zM8 8h5M8 12h5M14 17l6-6 2 2-6 6-3 1z',github:'M9 19c-4 1-4-2-6-2m12 5v-4a3.5 3.5 0 0 0-1-3c4 0 7-2 7-6a5 5 0 0 0-1-3 5 5 0 0 0 0-4s-2 0-4 2a13 13 0 0 0-7 0C7 2 5 2 5 2a5 5 0 0 0 0 4 5 5 0 0 0-1 3c0 4 3 6 7 6a4 4 0 0 0-1 3v4',search:'M10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM15 15l6 6',preview:'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM15 12a3 3 0 1 0-6 0 3 3 0 0 0 6 0',focus:'M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5',outline:'M8 5h13M8 12h13M8 19h13M3 5h1M3 12h1M3 19h1',export:'M12 15V2M7 7l5-5 5 5M4 14v7h16v-7',theme:'M20 15A9 9 0 0 1 9 4a9 9 0 1 0 11 11',settings:'M12 8a4 4 0 1 0 0 8 4 4 0 0 0 0-8zM9 2h6l1 3 3 1 3 4-2 2 1 4-4 3-3-1-3 3-4-2v-4l-3-2 1-5 4-1z'};
-const icon=name=>`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${paths[name]}"/></svg>`;
+const icon=name=>name==='settings'?'<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9.78 4.73L10.26 2.15L13.74 2.15L14.22 4.73L15.57 5.29L17.74 3.81L20.19 6.26L18.71 8.43L19.27 9.78L21.85 10.26L21.85 13.74L19.27 14.22L18.71 15.57L20.19 17.74L17.74 20.19L15.57 18.71L14.22 19.27L13.74 21.85L10.26 21.85L9.78 19.27L8.43 18.71L6.26 20.19L3.81 17.74L5.29 15.57L4.73 14.22L2.15 13.74L2.15 10.26L4.73 9.78L5.29 8.43L3.81 6.26L6.26 3.81L8.43 5.29Z"/><circle cx="12" cy="12" r="3.5"/></svg>':`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${paths[name]}"/></svg>`;
 Object.assign(paths,{files:'M3 5h7l2 2h9v13H3z',save:'M4 3h14l3 3v15H3V3zM7 3v6h10V3M7 21v-8h10v8',undo:'M8 4 3 9l5 5M3 9h10a7 7 0 0 1 0 14',redo:'M16 4l5 5-5 5M21 9H11a7 7 0 0 0 0 14',top:'M5 3h14M12 21V7M7 12l5-5 5 5',bottom:'M5 21h14M12 3v14M7 12l5 5 5-5',chapterTop:'M5 4h14M12 19V8M8 12l4-4 4 4M5 22h14',chapterBottom:'M5 20h14M12 5v11M8 12l4 4 4-4M5 2h14',git:'M6 3v13a3 3 0 0 0 6 0V9a3 3 0 0 1 3-3h3M6 3a2 2 0 1 0 0 4 2 2 0 0 0 0-4M18 4a2 2 0 1 0 0 4 2 2 0 0 0 0-4'});
 Object.assign(paths,{home:'M3 11l9-8 9 8M5 9v12h14V9M9 21v-7h6v7',commands:'M3 5h18M3 12h10M3 19h18M17 9l4 3-4 3',plugins:'M3 3h6v6H3zM15 3h6v6h-6zM3 15h6v6H3zM15 15h6v6h-6z'});
 paths.sun='M16 12a4 4 0 1 0-8 0 4 4 0 0 0 8 0M12 2v2M12 20v2M2 12h2M20 12h2M5 5l1.5 1.5M17.5 17.5 19 19M5 19l1.5-1.5M17.5 6.5 19 5';
@@ -48,7 +51,9 @@ let workspace,view,index,indexDoc,indexSettings='',saveTimer,statsTimer,toastTim
 let account=null,repositories=[],selectedRepo=null,selectedBranch='',selectedPath='',loadEpoch=0;
 let isPreview=false,dirty=false,bootFailed=false,dialogHandler=null,dialogCancel=null,dialogBusy=false;
 let plugins,home=false,csvRows=[],csvPage=0,csvColumnPage=0,environment=readEnvironment();
-let selectedFolder='',storageFailure='';
+let selectedFolder='';
+const sidebars=new SidebarLayout(()=>view?.requestMeasure());
+let fileClipboard=null;
 const pluginKeys=new Compartment(),languages=new Compartment(),systemTheme=matchMedia('(prefers-color-scheme: dark)');
 const editorStates=new Map();
 const current=()=>workspace.documents.find(d=>d.id===workspace.activeId);
@@ -66,7 +71,7 @@ window.wenzhouSave=()=>save();
 window.addEventListener('pagehide',()=>{if(dirty)save();});
 window.addEventListener('blur',()=>{if(dirty)save();});
 window.addEventListener('beforeunload',e=>{if(dirty&&!save()){e.preventDefault();e.returnValue='';}});
-function ensureIndex(){const doc=view.state.doc,settings=JSON.stringify(workspace.settings.writer);if(doc!==indexDoc||settings!==indexSettings||!index){index=Writer.buildIndex(doc.toString(),workspace.settings.writer);indexDoc=doc;indexSettings=settings;outlineRevision='';}return index;}
+function ensureIndex(){const doc=view.state.doc,settings=JSON.stringify(workspace.settings.writer);if(doc!==indexDoc||settings!==indexSettings||!index){index=Writer.buildIndex(doc.toString(),workspace.settings.writer,chapterMatcher(workspace.settings.writer));indexDoc=doc;indexSettings=settings;outlineRevision='';}return index;}
 function renderOutline(section){
   const idx=ensureIndex(),query=$('#chapter-search').value.trim().toLowerCase();
   const revision=JSON.stringify([current().id,query,idx.chapterCount,idx.total,idx.lineCount]);
@@ -94,12 +99,13 @@ function makeState(doc){return EditorState.create({doc:doc.text,extensions:[hist
 })]});}
 function renderDocuments(){
   const query=$('#doc-search').value.toLowerCase();
-  const docs=workspace.documents.filter(d=>d.name.toLowerCase().includes(query)||d.text.toLowerCase().includes(query));
+  const docs=workspace.documents.filter(d=>documentPath(d).toLowerCase().includes(query)||d.text.toLowerCase().includes(query));
   $('#doc-count').textContent=workspace.documents.length;
-  $('#workspace-name').textContent=workspace.storage?.label||'本地文稿';
-  $('#workspace-name').title=workspace.storage?.root||storageFailure;
-  if(workspace.storage?.id){$('#doc-list').innerHTML=folderTree(workspace,docs,esc);return;}
+  $('#workspace-name').textContent=workspace.storage?.label||'内部工作区';
+  $('#workspace-name').title=workspace.storage?.root||'';
+  $('#selected-folder').textContent=selectedFolder||'/';$('#file-sort').value=workspace.settings.filesSort||'name';$('#paste-file').disabled=!fileClipboard;
   $('#document-tabs').innerHTML=workspace.openIds.map(id=>workspace.documents.find(d=>d.id===id)).filter(Boolean).map(d=>`<div class="document-tab ${d.id===workspace.activeId?'active':''}"><button class="tab-open" role="tab" aria-selected="${d.id===workspace.activeId}" data-tab="${esc(d.id)}"><span class="file-kind">${documentKind(d)}</span><strong>${esc(d.name)}</strong><span class="tab-dirty">${d.id===workspace.activeId&&dirty?'●':''}</span></button><button class="tab-close" data-close="${esc(d.id)}" title="关闭 ${esc(d.name)} (Ctrl+W)" aria-label="关闭 ${esc(d.name)}">×</button></div>`).join('');
+  if(workspace.storage?.id||workspace.folders?.length){$('#doc-list').innerHTML=folderTree(workspace,docs,esc,selectedFolder,workspace.settings.filesSort);return;}
   $('#doc-list').innerHTML=docs.map(d=>`<div class="doc-item ${d.id===workspace.activeId?'active':''}"><button class="doc-open" data-doc="${esc(d.id)}"><span class="doc-symbol">${documentKind(d)}</span><span class="doc-info"><strong>${esc(d.name)}</strong><small>${new Date(d.updatedAt).toLocaleDateString('zh-CN',{month:'2-digit',day:'2-digit'})} · ${Writer.countText(d.text).toLocaleString()} 字${d.remote?' · Git':''}</small></span></button><button class="doc-menu" data-menu="${esc(d.id)}" title="文稿操作" aria-label="${esc(d.name)} 文稿操作">···</button></div>`).join('')||'<p class="blank">没有找到文稿。</p>';
 }
 function switchDocument(id){
@@ -133,7 +139,7 @@ function showHome(){
   workspace.activeId=null;home=true;isPreview=false;index=null;$('#current-name').textContent='启动页';$('#start-page').hidden=false;updateEditorVisibility();renderHome();renderDocuments();updateStats();showView('write');setSidebar('outline',false);save();plugins?.emit('switch-file',null);
 }
 function renderHome(){
-  $('#start-page').innerHTML=`<div class="start-heading"><div>${icon('write')}<h1>文舟</h1><span>文件工作区</span></div><div class="button-row"><button class="primary" data-start="new-doc">新建文件</button><button class="secondary" data-start="import-doc">导入文件</button><button class="secondary" data-start="open-folder">打开文件夹</button><button class="secondary" data-start="quick-git">GitHub</button></div></div><div class="start-actions"><button data-start="guide">操作指南</button><button data-start="commands">命令与快捷键</button><button data-start="plugins">Acode 插件</button><button data-start="settings">设置</button><button data-start="setup-storage">储存目录</button></div><h2>最近文件</h2><div class="recent-files">${[...workspace.documents].sort((a,b)=>b.updatedAt-a.updatedAt).map(d=>`<button data-recent="${esc(d.id)}"><span class="file-kind">${documentKind(d)}</span><strong>${esc(d.name)}</strong><small>${new Date(d.updatedAt).toLocaleDateString('zh-CN')}</small></button>`).join('')||'<p class="blank">暂无本地文件</p>'}</div>`;
+  $('#start-page').innerHTML=`<div class="start-heading"><div>${icon('write')}<h1>文舟</h1><span>文件工作区</span></div><div class="button-row"><button class="primary" data-start="new-doc">新建文件</button><button class="secondary" data-start="import-doc">导入文件</button><button class="secondary" data-start="quick-git">GitHub</button></div></div><div class="start-actions"><button data-start="guide">操作指南</button><button data-start="commands">命令与快捷键</button><button data-start="plugins">Acode 插件</button><button data-start="settings">设置</button></div><h2>最近文件</h2><div class="recent-files">${[...workspace.documents].sort((a,b)=>b.updatedAt-a.updatedAt).map(d=>`<button data-recent="${esc(d.id)}"><span class="file-kind">${documentKind(d)}</span><strong>${esc(d.name)}</strong><small>${new Date(d.updatedAt).toLocaleDateString('zh-CN')}</small></button>`).join('')||'<p class="blank">暂无本地文件</p>'}</div>`;
 }
 $('#start-page').onclick=e=>{const recent=e.target.closest('[data-recent]');if(recent)switchDocument(recent.dataset.recent);const action=e.target.closest('[data-start]');if(action){if(action.dataset.start==='guide'){const existing=workspace.documents.find(d=>d.name==='操作指南.txt');if(existing)switchDocument(existing.id);else addDocument(newDocument('操作指南.txt',guide));}else runAction(action.dataset.start);}};
 $('#home-button').onclick=showHome;
@@ -174,54 +180,69 @@ function closeModal(){if(dialogBusy)return;dialogCancel?.();dialogCancel=null;$(
 $('#dialog-close').onclick=closeModal;$('#dialog-cancel').onclick=closeModal;
 $('#dialog').addEventListener('cancel',e=>{e.preventDefault();closeModal();});
 $('#dialog-form').onsubmit=async e=>{e.preventDefault();if(dialogBusy)return;dialogBusy=true;$('#dialog-submit').disabled=true;try{const result=await dialogHandler?.(new FormData(e.target));if(result!==false){dialogCancel=null;$('#dialog').close();}}catch(err){$('#dialog-error').textContent=err.message;}finally{dialogBusy=false;$('#dialog-submit').disabled=false;}};
-function addDocument(doc){doc.path=uniquePath(doc.path||(selectedFolder?selectedFolder+'/':'')+doc.name,new Set([...workspace.documents.map(documentPath),...(workspace.entries||[]).map(entry=>entry.path)]));doc.name=doc.path.split('/').at(-1);workspace.documents.unshift(doc);switchDocument(doc.id);showView('write');plugins?.emit('new-file',plugins.file(doc));return doc;}
+function addDocument(doc){doc.path=uniquePath(doc.path||(selectedFolder?selectedFolder+'/':'')+doc.name,itemPaths(workspace));doc.name=doc.path.split('/').at(-1);workspace.documents.unshift(doc);switchDocument(doc.id);showView('write');plugins?.emit('new-file',plugins.file(doc));return doc;}
 $('#new-doc').onclick=()=>openModal('新建文件','<label>文件名<input name="name" value="未命名小说.txt" required maxlength="160" autofocus></label><label>初始内容<select name="template"><option value="chapters">单文件章节模板</option><option value="empty">空白文件</option></select></label><small>支持 TXT、Markdown、HTML、CSV；TXT 小说的全部章节可写在同一文件中。</small>',form=>{addDocument(newDocument(fileName(form.get('name')),form.get('template')==='chapters'&&['TXT','MD'].includes(fileKind(fileName(form.get('name'))))?(fileKind(fileName(form.get('name')))==='MD'?'# 第一章\n\n\n# 第二章\n\n':'第一章\n\n\n第二章\n\n'):''));});
 $('#doc-search').oninput=renderDocuments;
-$('#doc-list').onclick=e=>{const folder=e.target.closest('[data-folder]');if(folder)selectedFolder=folder.dataset.folder;const doc=e.target.closest('[data-doc]');if(doc){selectedFolder=documentPath(workspace.documents.find(d=>d.id===doc.dataset.doc)).split('/').slice(0,-1).join('/');switchDocument(doc.dataset.doc);}const menu=e.target.closest('[data-menu]');if(menu)documentMenu(menu.dataset.menu);};
-async function chooseWorkspace(useDefault=false){
-  if(!native)throw new Error('文件夹工作区请在鸿蒙应用中使用。');
-  if(!save())throw new Error('请先保存或导出当前文稿。');
-  const migrate=useDefault&&!workspace.storage?.id;
-  const result=await transport(useDefault?'setupStorage':'openFolder');if(!result)return false;
-  if(view){view.destroy();view=null;}editorStates.clear();selectedFolder='';storageFailure='';
-  adoptFolder(workspace,result,{migrate});preparePaths(workspace);
-  if(!save())throw new Error('目录已选择，但文稿保存失败，请查看错误并保留应用数据。');
-  showHome();renderDocuments();toast('工作区：'+result.storage.label);return true;
+$('#doc-list').onclick=e=>{const pathMenu=e.target.closest('[data-path-menu]');if(pathMenu){e.preventDefault();e.stopPropagation();fileMenu(pathMenu.dataset.pathMenu,pathMenu.dataset.directory==='true');return;}const folder=e.target.closest('[data-folder]');if(folder){selectedFolder=folder.dataset.folder;$('#selected-folder').textContent=selectedFolder;$('#doc-list').querySelectorAll('summary').forEach(el=>el.classList.toggle('selected-folder',el.dataset.folder===selectedFolder));}const doc=e.target.closest('[data-doc]');if(doc){selectedFolder=parentPath(documentPath(workspace.documents.find(d=>d.id===doc.dataset.doc)));switchDocument(doc.dataset.doc);}const menu=e.target.closest('[data-menu]');if(menu)documentMenu(menu.dataset.menu);};
+$('#refresh-folder').onclick=async()=>{try{if(dirty&&!save())return;if(!native){renderDocuments();toast('工作区已刷新');return;}const result=await transport('refreshFolder');if(view){view.destroy();view=null;}editorStates.clear();adoptFolder(workspace,result);showHome();toast('工作区已刷新');}catch(error){fail(error);}};
+$('#new-folder').onclick=()=>newFolder(selectedFolder);
+function newFolder(parent=''){openModal('新建文件夹',`<label>相对路径<input name="path" value="${esc(parent?parent+'/':'')}" required placeholder="例如：小说/资料"></label>`,f=>{const path=repoPath(f.get('path'));if(itemPaths(workspace).has(path))throw new Error('此路径已存在。');const previous=workspace.folders,parts=path.split('/');workspace.folders=[...new Set([...(workspace.folders||[]),...parts.map((_,i)=>parts.slice(0,i+1).join('/'))])];if(!save()){workspace.folders=previous;throw new Error('文件夹创建失败。');}selectedFolder=path;renderDocuments();});}
+$('#workspace-root').onclick=()=>{selectedFolder='';renderDocuments();};
+$('#file-sort').onchange=e=>{workspace.settings.filesSort=e.target.value;renderDocuments();save();};
+$('#paste-file').onclick=async()=>{try{if(!fileClipboard)return;if(fileClipboard.workspaceId!==(workspace.storage?.id||''))throw new Error('请切回复制或剪切项目所在的工作区。');const destination=fileClipboard.cut?(selectedFolder?selectedFolder+'/':'')+basename(fileClipboard.path):copyDestination(workspace,fileClipboard.path,selectedFolder);if(destination!==fileClipboard.path)await manageFile(fileClipboard.cut?'move':'copy',fileClipboard.path,destination);if(fileClipboard.cut)fileClipboard=null;renderDocuments();}catch(error){fail(error);}};
+function documentMenu(id){const doc=workspace.documents.find(doc=>doc.id===id);if(doc)fileMenu(documentPath(doc),false,doc);}
+function fileMenu(path,directory=false,doc=workspace.documents.find(doc=>documentPath(doc)===path)){
+  openModal(directory?'文件夹操作':'文件操作',`<p>${esc(path)}</p><div class="button-row file-actions">${directory?'<button type="button" class="secondary" id="folder-new-file">新建文件</button><button type="button" class="secondary" id="folder-new-folder">新建文件夹</button>':''}<button type="button" class="secondary" id="rename-doc">重命名</button><button type="button" class="secondary" id="move-file">移动</button><button type="button" class="secondary" id="copy-file">复制</button><button type="button" class="secondary" id="cut-file">剪切</button><button type="button" class="secondary" id="duplicate-doc">保存副本</button>${doc?'<button type="button" class="secondary" id="menu-export">导出文件</button>':''}<button type="button" class="secondary" id="file-properties">属性</button><button type="button" class="danger" id="delete-doc">移入回收站</button></div>`,null,{noSubmit:true});
+  if(directory){$('#folder-new-file').onclick=()=>{selectedFolder=path;$('#new-doc').click();};$('#folder-new-folder').onclick=()=>newFolder(path);}
+  $('#rename-doc').onclick=()=>renameItem(path);
+  $('#move-file').onclick=()=>openModal('移动项目',`<label>目标路径<input name="path" required value="${esc(path)}"></label><small>填写包含文件名或文件夹名称的相对路径。</small>`,async f=>manageFile('move',path,repoPath(f.get('path'))));
+  for(const [id,cut] of [['copy-file',false],['cut-file',true]])$('#'+id).onclick=()=>{fileClipboard={workspaceId:workspace.storage?.id||'',path,cut};closeModal();renderDocuments();toast(cut?'已剪切，请选择目标文件夹后粘贴':'已复制，请选择目标文件夹后粘贴');};
+  $('#duplicate-doc').onclick=async()=>{try{await manageFile('copy',path,copyDestination(workspace,path));closeModal();}catch(error){$('#dialog-error').textContent=error.message;}};
+  if(doc)$('#menu-export').onclick=()=>exportText(doc.name,doc.text).catch(fail);
+  $('#file-properties').onclick=()=>showProperties(path,directory).catch(fail);
+  $('#delete-doc').onclick=()=>openModal('移入回收站',`<p>将“${esc(path)}”${directory?'及其中全部文件':''}移入回收站？可在当前工作区的回收站中恢复。</p><small>不会删除 GitHub 中的文件。</small>`,async()=>manageFile('delete',path),{label:'移入回收站'});
 }
-function setupStorage(){openModal('设置文稿目录','<p>请选择系统下载目录。文舟将在其中创建“文舟”文件夹，并将现有本地文稿迁入；以后自动保存到此文件夹。</p>',()=>chooseWorkspace(true),{label:'选择下载目录'});}
-$('#setup-storage').onclick=setupStorage;
-$('#open-folder').onclick=()=>chooseWorkspace().catch(fail);
-$('#refresh-folder').onclick=async()=>{try{if(!workspace.storage?.id)throw new Error('请先设置文稿目录或打开文件夹。');if(dirty&&!save())return;const result=await transport('refreshFolder');if(view){view.destroy();view=null;}editorStates.clear();adoptFolder(workspace,result);showHome();toast('工作区已刷新');}catch(error){fail(error);}};
-$('#new-folder').onclick=()=>openModal('新建文件夹',`<label>相对路径<input name="path" value="${esc(selectedFolder?selectedFolder+'/':'')}" required placeholder="例如：小说/资料"></label>`,f=>{const path=repoPath(f.get('path'));workspace.folders=[...new Set([...(workspace.folders||[]),path])];if(!save())throw new Error('文件夹创建失败。');selectedFolder=path;renderDocuments();});
-function documentMenu(id){
-  const doc=workspace.documents.find(d=>d.id===id);
-  openModal('文件操作',`<p>${esc(doc.name)}</p><div class="button-row"><button type="button" class="secondary" id="rename-doc">重命名</button><button type="button" class="secondary" id="duplicate-doc">保存副本</button><button type="button" class="secondary" id="menu-export">导出文件</button><button type="button" class="danger" id="delete-doc">删除本地文件</button></div><small>本地删除不影响 GitHub 中的文件。</small>`,null,{noSubmit:true});
-  $('#rename-doc').onclick=()=>renameDocument(doc);
-  $('#duplicate-doc').onclick=()=>{closeModal();addDocument(newDocument(fileName(doc.name.replace(/\.(md|txt|markdown|html?|csv)$/i,' - 副本.$1')),doc.text));};
-  $('#menu-export').onclick=()=>exportText(doc.name,doc.text).catch(fail);
-  $('#delete-doc').onclick=()=>openModal('删除本地文件',`<p>删除“${esc(doc.name)}”？此操作无法撤回，请先导出需要保留的内容。</p>`,()=>{
-    const previousDocuments=workspace.documents,previousOpen=workspace.openIds,previousActive=workspace.activeId;
-    workspace.documents=workspace.documents.filter(d=>d.id!==id);
-    workspace.openIds=workspace.openIds.filter(open=>open!==id);
-    if(previousActive===id)workspace.activeId=null;
-    if(!save()){workspace.documents=previousDocuments;workspace.openIds=previousOpen;workspace.activeId=previousActive;throw new Error('删除未完成，原文件已保留。请解决保存错误后重试。');}
-    editorStates.delete(id);
-    if(id===previousActive){if(view){view.destroy();view=null;}if(workspace.openIds.length)switchDocument(workspace.openIds[0]);else showHome();}else{renderDocuments();if(home)renderHome();}
-    plugins?.emit('remove-file',plugins.file(doc));
-  },{label:'确认删除'});
+function renameItem(path){openModal('重命名',`<label>名称<input name="name" required maxlength="160" value="${esc(basename(path))}"></label>`,async f=>{const name=repoPath(f.get('name'));if(name.includes('/'))throw new Error('名称不能包含斜杠。');const destination=(parentPath(path)?parentPath(path)+'/':'')+name;if(destination!==path)await manageFile('move',path,destination);});}
+function applyFileState(result){
+  const active=workspace.activeId,wasHome=home;if(view){editorStates.set(active,view.state);view.destroy();view=null;}
+  adoptFolder(workspace,result);preparePaths(workspace);
+  for(const id of editorStates.keys())if(!workspace.documents.some(doc=>doc.id===id))editorStates.delete(id);
+  if(selectedFolder&&!workspace.folders.includes(selectedFolder))selectedFolder='';
+  if(!wasHome&&workspace.documents.some(doc=>doc.id===active)){switchDocument(active);refreshFileType(current());}else showHome();
+  renderDocuments();if(!save())throw new Error('操作已完成，但工作区状态未保存，请保留应用数据并重试保存。');
+}
+async function manageFile(action,path,destination=''){
+  if(!save())throw new Error('请先保存或导出当前文稿。');
+  if(native)applyFileState(await transport('manageFiles',{action,path,destination}));
+  else{const previous=JSON.stringify(workspace);try{applyFileOperation(workspace,action,path,destination);const result={storage:workspace.storage,documents:workspace.documents,folders:workspace.folders,entries:workspace.entries,repositories:workspace.repositories};applyFileState(result);}catch(error){workspace=JSON.parse(previous);throw error;}}
+  toast(action==='delete'?'已移入回收站':action==='copy'?'已保存副本':'项目已移动或重命名');
+}
+async function showProperties(path,directory){
+  if(!save())throw new Error('请先保存当前文稿。');const state=native?await transport('refreshFolder'):workspace;
+  const entries=(state.entries||[]).filter(entry=>within(path,entry.path)),doc=workspace.documents.find(doc=>documentPath(doc)===path);
+  const size=entries.reduce((sum,item)=>sum+(item.directory?0:item.size||0),0)||(!directory&&doc?new TextEncoder().encode(doc.text).length:0);
+  openModal('属性',`<p>名称：${esc(basename(path))}</p><p>路径：${esc(path)}</p><p>工作区：${esc(workspace.storage?.label||'内部工作区')}</p><p>类型：${directory?'文件夹':doc?documentKind(doc):'文件'}</p><p>大小：${size.toLocaleString()} 字节</p>${directory?`<p>文件：${entries.filter(item=>!item.directory).length}　文件夹：${entries.filter(item=>item.directory&&item.path!==path).length}</p>`:doc?`<p>修改时间：${esc(new Date(doc.updatedAt).toLocaleString('zh-CN'))}</p>`:''}`,null,{noSubmit:true});
+}
+$('#open-trash').onclick=()=>showTrash().catch(fail);
+async function showTrash(){
+  const items=native?await transport('listTrash'):workspace.trash||[];
+  openModal('回收站',items.length?items.map(item=>`<div class="trash-row"><span>${esc(item.path)}<small>${esc(new Date(item.createdAt).toLocaleString('zh-CN'))}</small></span><button type="button" class="secondary" data-restore="${esc(item.id)}">恢复</button><button type="button" class="danger" data-permanent="${esc(item.id)}">永久删除</button></div>`).join(''):'<p>当前工作区的回收站为空。</p>',null,{noSubmit:true});
+  const restore=async(id,permanent=false)=>{if(!save())throw new Error('请先保存文稿。');if(native)applyFileState(await transport('restoreTrash',{id,permanent}));else{restoreFile(workspace,id,permanent);applyFileState({storage:workspace.storage,documents:workspace.documents,folders:workspace.folders,entries:workspace.entries,repositories:workspace.repositories});}};
+  $('#dialog-body').querySelectorAll('[data-restore]').forEach(button=>button.onclick=async()=>{button.disabled=true;try{await restore(button.dataset.restore);await showTrash();}catch(error){$('#dialog-error').textContent=error.message;button.disabled=false;}});
+  $('#dialog-body').querySelectorAll('[data-permanent]').forEach(button=>button.onclick=()=>openModal('永久删除',`<p>永久删除“${esc(items.find(item=>item.id===button.dataset.permanent).path)}”？此操作无法恢复。</p>`,async()=>{await restore(button.dataset.permanent,true);setTimeout(()=>showTrash().catch(fail),0);},{label:'永久删除'}));
 }
 $('#current-name').ondblclick=()=>{if(current())renameDocument(current());};
-function renameDocument(doc){openModal('重命名文件',`<label>文件名<input name="name" required maxlength="160" value="${esc(doc.name)}"></label>`,f=>{const name=fileName(f.get('name')),parent=documentPath(doc).split('/').slice(0,-1).join('/'),path=(parent?parent+'/':'')+name;if(workspace.documents.some(d=>d.id!==doc.id&&documentPath(d)===path))throw new Error('此文件夹已有同名文件。');doc.name=name;doc.path=path;doc.updatedAt=Date.now();if(current())$('#current-name').textContent=current().name;refreshFileType(doc);save();plugins?.emit('rename-file',plugins.file(doc));});}
+function renameDocument(doc){renameItem(documentPath(doc));}
 $('#document-tabs').onclick=e=>{const close=e.target.closest('[data-close]');if(close){closeDocument(close.dataset.close);return;}const b=e.target.closest('[data-tab]');if(b)switchDocument(b.dataset.tab);};
 $('#outline-list').onclick=e=>{const b=e.target.closest('[data-row]');if(b){jump(view.state.doc.line(Number(b.dataset.row)+1).from);if(innerWidth<=1000)setSidebar('outline',false);}};
 $('#chapter-search').oninput=()=>{outlineRevision='';updateStats();};
 $('#locate-chapter').onclick=()=>{$('#chapter-search').value='';outlineRevision='';updateStats();$('#outline-list .active')?.scrollIntoView({block:'center'});};
-$('#append-chapter').onclick=()=>{const idx=ensureIndex();openModal('追加章节',`<label>章节标题<input name="title" required value="第${idx.chapterCount+1}章" placeholder="例如：第四章 标题"></label><small>在当前小说文件的末尾追加章节，保留现有正文。</small>`,f=>{const title=f.get('title').trim();if(title.includes('\n')||!Writer.compileMatcher(workspace.settings.writer)(title))throw new Error('标题未匹配当前章节识别规则，请调整标题或编辑器设置。');const end=view.state.doc.length,insert=(end?'\n\n':'')+title+'\n\n';if(isPreview)togglePreview();view.dispatch({changes:{from:end,insert},selection:{anchor:end+insert.length},scrollIntoView:true});view.focus();updateStats();});};
+$('#append-chapter').onclick=()=>{const idx=ensureIndex();openModal('追加章节',`<label>章节标题<input name="title" required value="第${idx.chapterCount+1}章" placeholder="例如：第四章 标题"></label><small>在当前小说文件的末尾追加章节，保留现有正文。</small>`,f=>{const title=f.get('title').trim();if(title.includes('\n')||!chapterMatcher(workspace.settings.writer)(title))throw new Error('未识别为章节标题，请使用标准标题或添加对应标题模板。');const end=view.state.doc.length,insert=(end?'\n\n':'')+title+'\n\n';if(isPreview)togglePreview();view.dispatch({changes:{from:end,insert},selection:{anchor:end+insert.length},scrollIntoView:true});view.focus();updateStats();});};
 $('#search-editor').onclick=()=>{if(isPreview)togglePreview();openSearchPanel(view);};
-$('#preview-toggle').onclick=togglePreview;$('#focus-toggle').onclick=()=>{document.body.classList.toggle('focus');view?.requestMeasure();};
-function setSidebar(name,open){document.body.classList.toggle('show-'+name,open);if(open){document.body.classList.remove('focus');if(innerWidth<=1000&&name==='library')document.body.classList.remove('show-outline');}$('#mobile-library').setAttribute('aria-expanded',String(document.body.classList.contains('show-library')));$('#outline-toggle').setAttribute('aria-expanded',String(document.body.classList.contains('show-outline')));$('#mobile-library').classList.toggle('active-tool',document.body.classList.contains('show-library'));$('#outline-toggle').classList.toggle('active-tool',document.body.classList.contains('show-outline'));view?.requestMeasure();}
+$('#preview-toggle').onclick=togglePreview;$('#focus-toggle').onclick=()=>{document.body.classList.toggle('focus');sidebars.update();};
+function setSidebar(name,open,animate=true){document.body.classList.toggle('show-'+name,open);if(open)document.body.classList.remove('focus');sidebars.update(animate);$('#mobile-library').setAttribute('aria-expanded',String(document.body.classList.contains('show-library')));$('#outline-toggle').setAttribute('aria-expanded',String(document.body.classList.contains('show-outline')));$('#mobile-library').classList.toggle('active-tool',document.body.classList.contains('show-library'));$('#outline-toggle').classList.toggle('active-tool',document.body.classList.contains('show-outline'));}
 $('#outline-toggle').onclick=()=>setSidebar('outline',!document.body.classList.contains('show-outline'));
-$('#mobile-library').onclick=()=>{renderDocuments();workspace.settings.libraryOpen=!document.body.classList.contains('show-library');setSidebar('library',workspace.settings.libraryOpen);save();};
+$('#mobile-library').onclick=()=>{renderDocuments();workspace.settings.libraryOpen=!document.body.classList.contains('show-library');setSidebar('library',workspace.settings.libraryOpen,true);save();};
 $('#close-outline').onclick=()=>setSidebar('outline',false);
 $('#export-doc').onclick=()=>exportText(current().name,current().text).then(result=>{if(result!==false)toast('文稿已导出');}).catch(fail);
 $('#import-doc').onclick=async()=>{if(native){try{const result=await transport('import',{});for(const file of result)addDocument(newDocument(fileName(file.name),normalizeText(file.text)));}catch(e){fail(e);}}else $('#file-input').click();};
@@ -255,17 +276,17 @@ document.querySelectorAll('.quickbar button').forEach(b=>b.addEventListener('mou
 $('#quick-git').onclick=()=>gitDocument();
 $('#settings').onclick=()=>{
   const s=workspace.settings.writer;
-  openModal('编辑器设置',`<label>外观<select name="theme">${[['system','跟随系统'],['light','浅色模式'],['dark','深色模式']].map(([value,label])=>`<option value="${value}" ${workspace.settings.theme===value?'selected':''}>${label}</option>`).join('')}</select></label><fieldset class="palette-options"><legend>配色方案</legend>${palettes.map(p=>`<label class="palette-choice"><input type="radio" name="palette" value="${p.id}" ${p.id===workspace.settings.palette?'checked':''}><span class="palette-swatches"><i style="background:${p.light.accent}"></i><i style="background:${p.light.soft}"></i><i style="background:${p.dark.paper}"></i></span><span>${p.name}</span></label>`).join('')}</fieldset><label>文字字号<input type="number" name="fontSize" min="10" max="40" value="${workspace.settings.fontSize}" required></label><label>章节识别<select name="format">${[['auto','自动识别（中英标题 / Markdown）'],['chinese','一、标题'],['chapter','第一章 标题'],['markdown','# Markdown 标题'],['english','Chapter 1 / One / IV'],['number','1. 标题'],['template','自定义标题模板']].map(([v,t])=>`<option value="${v}" ${s.format===v?'selected':''}>${t}</option>`).join('')}</select></label><label>标题模板<input name="template" value="${esc(s.template)}"><small>例如：第{序号}章 {标题}。仅选择自定义模板时生效。</small></label><label>字数规则<select name="countMode"><option value="nonspace" ${s.countMode==='nonspace'?'selected':''}>非空白字符（含标点）</option><option value="letters" ${s.countMode==='letters'?'selected':''}>仅文字与数字</option></select></label><label class="checkbox"><input name="includeHeading" type="checkbox" ${s.includeHeading?'checked':''}>字数包含章节标题</label><label>GitHub OAuth Client ID<input name="clientId" value="${esc(workspace.settings.clientId||'')}" placeholder="启用 Device Flow 的 OAuth App Client ID"><small>可留空并使用个人访问令牌。应用内不需要 Client Secret。</small></label><div class="notice">文舟 0.3.0 · Acode 编辑组件 + Writer 1.0.4<br>章节跳转以识别出的标题为边界；英文按字符统计。<br>文稿保存在本机，GitHub 提交由你主动发起。</div><p><button type="button" class="secondary" id="backup-all">导出全部文稿备份</button> <button type="button" class="secondary" id="show-licenses">开源许可</button></p>`,f=>{const writer=Writer.normalizeSettings({...s,format:f.get('format'),template:f.get('template'),countMode:f.get('countMode'),includeHeading:f.has('includeHeading')});Writer.compileMatcher(writer);workspace.settings.writer=writer;workspace.settings.clientId=f.get('clientId').trim();workspace.settings.palette=f.get('palette')||'pine';applyTheme(f.get('theme'));setFontSize(Number(f.get('fontSize')));index=null;save();updateStats();});
+  openModal('编辑器设置',`<label>外观<select name="theme">${[['system','跟随系统'],['light','浅色模式'],['dark','深色模式']].map(([value,label])=>`<option value="${value}" ${workspace.settings.theme===value?'selected':''}>${label}</option>`).join('')}</select></label><fieldset class="palette-options"><legend>配色方案</legend>${palettes.map(p=>`<label class="palette-choice"><input type="radio" name="palette" value="${p.id}" ${p.id===workspace.settings.palette?'checked':''}><span class="palette-swatches"><i style="background:${p.light.accent}"></i><i style="background:${p.light.soft}"></i><i style="background:${p.dark.paper}"></i></span><span>${p.name}</span></label>`).join('')}</fieldset><label>文字字号<input type="number" name="fontSize" min="10" max="40" value="${workspace.settings.fontSize}" required></label><label>标题模板<textarea name="titleTemplates" rows="4" placeholder="第{序号}节 {标题}">${esc(s.titleTemplates.join('\n'))}</textarea><small>每行一个模板，最多 32 个。使用 {序号}、{标题} 或 {number}、{title}；标准中英章节及 Markdown 标题始终自动识别。</small></label><label>字数规则<select name="countMode"><option value="nonspace" ${s.countMode==='nonspace'?'selected':''}>非空白字符（含标点）</option><option value="letters" ${s.countMode==='letters'?'selected':''}>仅文字与数字</option></select></label><label class="checkbox"><input name="includeHeading" type="checkbox" ${s.includeHeading?'checked':''}>字数包含章节标题</label><label>GitHub OAuth Client ID<input name="clientId" value="${esc(workspace.settings.clientId||'')}" placeholder="启用 Device Flow 的 OAuth App Client ID"><small>可留空并使用个人访问令牌。应用内不需要 Client Secret。</small></label><div class="notice">文舟 0.4.2 · Acode 编辑组件 + Writer 1.0.4<br>章节跳转以识别出的标题为边界；英文按字符统计。<br>文稿保存在本机，GitHub 提交由你主动发起。</div><p><button type="button" class="secondary" id="backup-all">导出全部文稿备份</button> <button type="button" class="secondary" id="show-licenses">开源许可</button></p>`,f=>{const writer=chapterSettings({...s,titleTemplates:f.get('titleTemplates').split(/\r?\n/),countMode:f.get('countMode'),includeHeading:f.has('includeHeading')});chapterMatcher(writer);workspace.settings.writer=writer;workspace.settings.clientId=f.get('clientId').trim();workspace.settings.palette=f.get('palette')||'pine';applyTheme(f.get('theme'));setFontSize(Number(f.get('fontSize')));index=null;save();updateStats();});
   $('#backup-all').onclick=()=>exportText('文舟备份-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(workspace,null,2)).catch(fail);
   $('#show-licenses').onclick=()=>{const licenses=window.WENZHOU_LICENSES||[];openModal('开源许可',`<label>组件<select id="license-component">${licenses.map((item,i)=>`<option value="${i}">${esc(item.name)}</option>`).join('')}</select></label><textarea id="license-text" rows="15" readonly aria-label="许可全文" style="font-family:monospace;font-size:10px"></textarea>`,null,{noSubmit:true});const show=()=>{$('#license-text').value=licenses[Number($('#license-component').value)]?.text||'';};$('#license-component').onchange=show;show();};
 };
-function showView(name){document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===name));$('#write-view').hidden=name!=='write';$('#github-view').hidden=name!=='github';if(name==='github'){document.body.classList.remove('focus');renderGitHub();}else view?.requestMeasure();}
+function showView(name){document.querySelectorAll('[data-view]').forEach(b=>b.classList.toggle('active',b.dataset.view===name));$('#write-view').hidden=name!=='write';$('#github-view').hidden=name!=='github';if(name==='github'){document.body.classList.remove('focus');renderGitHub();}sidebars.update();}
 document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>showView(b.dataset.view));$('#github-shortcut').onclick=()=>showView('github');
 $('#github-view').addEventListener('click',e=>{if(e.target.closest('[data-return-write]'))showView('write');if(e.target.closest('[data-toggle-theme]'))cycleTheme();});
 const githubTopbar=()=>`<div class="github-topbar"><button class="secondary" data-return-write="true">← 返回编辑器</button><div class="button-row"><span>GitHub 仓库管理</span><button data-toggle-theme="true" title="${workspace.settings.dark?'切换到浅色模式':'切换到深色模式'}" aria-label="${workspace.settings.dark?'切换到浅色模式':'切换到深色模式'}">${icon(workspace.settings.dark?'sun':'theme')}</button></div></div>`;
 function renderGitHub(){
   const root=$('#github-view');
-  if(!account){root.innerHTML=`${githubTopbar()}<div class="empty-state"><div class="large-icon">${icon('github')}</div><h2>连接 GitHub</h2><p>浏览与创建仓库、管理分支、读取文件并提交修改。</p><div class="button-row"><button class="primary" id="device-login">设备授权登录</button><button class="secondary" id="token-login">使用访问令牌</button><button class="secondary" id="check-connection">检测连接</button></div><p class="description">${native?'令牌保存在鸿蒙安全资产存储中。':'浏览器预览的令牌仅保留在内存中，刷新后需重新登录。'}</p></div>`;$('#device-login').onclick=loginDevice;$('#token-login').onclick=loginToken;$('#check-connection').onclick=checkGitHubConnection;return;}
+  if(!account){root.innerHTML=`${githubTopbar()}<div class="empty-state"><div class="large-icon">${icon('github')}</div><h2>连接 GitHub</h2><p>浏览与创建仓库、管理分支、读取文件并提交修改。</p><div class="button-row"><button class="primary" id="token-login">使用访问令牌</button><button class="secondary" id="device-login">设备授权登录</button><button class="secondary" id="check-connection">检测连接</button></div><p class="description">${native?'令牌保存在鸿蒙安全资产存储中。':'浏览器预览的令牌仅保留在内存中，刷新后需重新登录。'}</p></div>`;$('#device-login').onclick=loginDevice;$('#token-login').onclick=loginToken;$('#check-connection').onclick=checkGitHubConnection;return;}
   if(selectedRepo){renderRepository();return;}
   root.innerHTML=`${githubTopbar()}<header class="page-header"><div><span class="page-kicker">GITHUB / ${esc(account.login)}</span><h1>仓库 <span class="count-badge">${repositories.length}</span></h1></div><div class="account-actions"><button class="secondary" id="refresh-repos">刷新</button><button class="primary" id="create-repo">＋ 新建仓库</button><button class="secondary" id="logout">退出登录</button></div></header><label class="search-box" style="max-width:400px;margin-bottom:24px">${icon('search')}<input id="repo-search" aria-label="搜索仓库" placeholder="搜索仓库名称…"></label><div id="repo-grid" class="repo-grid"></div>`;
   const list=()=>{$('#repo-grid').innerHTML=repositories.filter(r=>r.full_name.toLowerCase().includes($('#repo-search').value.toLowerCase())).map(r=>`<button class="repo-card" data-repo="${esc(r.full_name)}"><strong>⑂ ${esc(r.full_name)}</strong><p>${esc(r.description||'还没有仓库简介。')}</p><small>${r.private?'私有':'公开'} · ${esc(r.default_branch)}${r.archived?' · 已归档':''}</small></button>`).join('')||'<p class="blank">暂无仓库，或没有匹配结果。</p>';};list();$('#repo-search').oninput=list;
@@ -393,17 +414,16 @@ function refreshPluginCommands(){if(view&&pluginKeys.get(view.state)!==undefined
 function pluginDialog(title,message,kind,value=''){return new Promise(resolve=>openModal(title,kind==='prompt'?`<label>${esc(title)}<input name="value" value="${esc(value)}"></label>`:`<p>${esc(message)}</p>`,f=>{resolve(kind==='prompt'?f.get('value'):true);},{cancel:()=>resolve(kind==='prompt'?null:false)}));}
 async function boot(){try{
   const raw=readWorkspace();
-  if(raw)workspace=validateWorkspace(JSON.parse(raw));else{const doc=newDocument('未命名小说.txt',guide);workspace={version:1,documents:[doc],openIds:[doc.id],activeId:doc.id,settings:{theme:'system'}};}
-  for(const doc of workspace.documents)if(await isOriginalDemo(doc)){doc.name='未命名小说.txt';doc.text=guide;editorStates.delete(doc.id);}
-  workspace.settings={theme:'system',palette:'pine',fontSize:16,clientId:'',...workspace.settings,writer:Writer.normalizeSettings(workspace.settings?.writer)};
+  if(raw)workspace=validateWorkspace(JSON.parse(raw));else{const doc=newDocument('操作指南.txt',guide);workspace={version:1,documents:[doc],openIds:[doc.id],activeId:doc.id,settings:{theme:'system'}};}
+  workspace.settings={theme:'system',palette:'pine',fontSize:16,clientId:'',...workspace.settings,writer:chapterSettings(workspace.settings?.writer)};
   if(!['system','light','dark'].includes(workspace.settings.theme))workspace.settings.theme='system';
   preparePaths(workspace);
-  if(native){try{const folder=await transport('initializeStorage');if(folder.storage.id){adoptFolder(workspace,folder,{migrate:!workspace.storage?.id});preparePaths(workspace);}else workspace.storage=folder.storage;}catch(error){storageFailure='工作区授权不可用，请重新选择文件夹：'+error.message;toast(storageFailure);}}
+  if(native){const folder=await transport('initializeStorage');if(folder.storage.id){adoptFolder(workspace,folder,{migrate:!workspace.storage?.id});preparePaths(workspace);}else workspace.storage=folder.storage;}
+  for(const doc of workspace.documents){const demo=await isOriginalDemo(doc);if(demo||doc.name==='未命名小说.txt'&&!doc.remote&&doc.text.startsWith('文舟操作指南\n')){const old=documentPath(doc),target=(parentPath(old)?parentPath(old)+'/':'')+'操作指南.txt';doc.path=uniquePath(target,new Set([...itemPaths(workspace)].filter(path=>path!==old)));doc.name=basename(doc.path);if(demo)doc.text=guide;editorStates.delete(doc.id);}}
   plugins=new PluginRuntime({getView:()=>view,getDoc:current,getFiles:()=>workspace.documents,addFile:(name,text)=>addDocument(newDocument(fileName(name),text)),toast,fail,refreshCommands:refreshPluginCommands,message:(title,message)=>pluginDialog(title,message,'alert'),confirm:(title,message)=>pluginDialog(title,message,'confirm'),prompt:(title,value)=>pluginDialog(title,'','prompt',value)});
-  Writer.compileMatcher(workspace.settings.writer);applyTheme();setFontSize(workspace.settings.fontSize);setSidebar('library',workspace.settings.libraryOpen===true);
-  if(workspace.documents.some(d=>d.name==='未命名小说.txt')&&workspace.openIds.includes(workspace.activeId))switchDocument(workspace.activeId);else showHome();
+  chapterMatcher(workspace.settings.writer);applyTheme();setFontSize(workspace.settings.fontSize);setSidebar('library',workspace.settings.libraryOpen===true,false);
+  if(workspace.documents.some(d=>d.name==='操作指南.txt')&&workspace.openIds.includes(workspace.activeId))switchDocument(workspace.activeId);else showHome();
   try{await plugins.boot();}catch(error){toast('插件读取失败：'+error.message);}
-  if(native&&(workspace.storage?.needsSetup||storageFailure))setupStorage();
   if(native){try{const user=await gh.user();account=user;$('#account-label').textContent=user.login;repositories=await gh.repositories();}catch{/* Offline writing is available regardless of account state. */}}
 }catch(e){bootFailed=true;$('#editor').innerHTML=`<div class="blank"><h2>无法读取本地文稿</h2><p>${esc(e.message)}</p><p>原始数据已保留，请勿清除应用数据。可先导出原始文件进行恢复。</p><button id="recover-data" class="primary">导出原始数据</button></div>`;$('#recover-data').onclick=()=>exportText('文舟-恢复数据.json',readWorkspace()||'').catch(fail);document.querySelectorAll('button').forEach(b=>{if(b.id!=='recover-data')b.disabled=true;});}}
 boot();

@@ -21,6 +21,10 @@ interface BridgeRequest {
   foreground?: string;
   files?: BinaryWorkspaceFile[];
   folders?: string[];
+  action?: string;
+  destination?: string;
+  id?: string;
+  permanent?: boolean;
 }
 interface BridgeResult { ok: boolean; value?: Object; error?: string; code?: number; stage?: string; }
 interface ApiResult { status: number; body: Object; }
@@ -208,8 +212,9 @@ export class NativeBridge {
       const data = JSON.parse(json) as BridgeRequest;
       this.workspaceFiles.context = this.context;
       if (operation === 'initializeStorage') return this.success(await this.workspaceFiles.initialize());
-      if (operation === 'setupStorage') return this.success(await this.workspaceFiles.choose(true) || false);
-      if (operation === 'openFolder') return this.success(await this.workspaceFiles.choose(false) || false);
+      if (operation === 'manageFiles') return this.success(this.workspaceFiles.manage(data.action || '', data.path || '', data.destination || ''));
+      if (operation === 'listTrash') return this.success(this.workspaceFiles.listTrash());
+      if (operation === 'restoreTrash') return this.success(this.workspaceFiles.restoreTrash(data.id || '', data.permanent === true));
       if (operation === 'refreshFolder') return this.success(this.workspaceFiles.scan());
       if (operation === 'readWorkspaceAsset') return this.success(this.workspaceFiles.readAsset(data.path || ''));
       if (operation === 'writeWorkspaceFiles') return this.success(this.workspaceFiles.writeFiles(data.files || [], data.folders || []));

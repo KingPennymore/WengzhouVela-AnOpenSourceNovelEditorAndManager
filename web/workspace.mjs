@@ -28,15 +28,16 @@ export function adoptFolder(workspace,result,{migrate=false}={}){
   return workspace;
 }
 
-export function folderTree(workspace,docs,escape){
+export function folderTree(workspace,docs,escape,selected='',sort='name'){
   const folders=new Set(workspace.folders||[]);
+  for(const folder of [...folders]){const parts=folder.split('/');for(let i=1;i<parts.length;i++)folders.add(parts.slice(0,i).join('/'));}
   for(const doc of docs){const parts=documentPath(doc).split('/');for(let i=1;i<parts.length;i++)folders.add(parts.slice(0,i).join('/'));}
   const others=(workspace.entries||[]).filter(entry=>!entry.directory&&entry.editable!==true&&!docs.some(doc=>documentPath(doc)===entry.path)&&!workspace.documents.some(doc=>documentPath(doc)===entry.path));
   const render=prefix=>{
     const parent=path=>path.includes('/')?path.slice(0,path.lastIndexOf('/')):'';
-    const branches=[...folders].filter(path=>parent(path)===prefix).sort((a,b)=>a.localeCompare(b));
-    const files=docs.filter(doc=>parent(documentPath(doc))===prefix);
-    return branches.map(path=>`<details class="workspace-folder" open><summary data-folder="${escape(path)}">▸ ${escape(path.split('/').at(-1))}</summary>${render(path)}</details>`).join('')+files.map(doc=>`<div class="doc-item ${doc.id===workspace.activeId?'active':''}"><button class="doc-open" data-doc="${escape(doc.id)}"><span class="doc-info"><strong>${escape(doc.name)}</strong><small>${escape(documentPath(doc))}${doc.remote?' · Git':''}</small></span></button><button class="doc-menu" data-menu="${escape(doc.id)}" title="文件操作">···</button></div>`).join('')+others.filter(entry=>parent(entry.path)===prefix).map(entry=>`<div class="workspace-other" title="${escape(entry.reason||'保留在工作区中')}">${escape(entry.name)} <small>${escape(entry.reason||'文件')}</small></div>`).join('');
+    const branches=[...folders].filter(path=>parent(path)===prefix).sort((a,b)=>a.localeCompare(b,'zh-CN',{numeric:true}));
+    const files=docs.filter(doc=>parent(documentPath(doc))===prefix).sort((a,b)=>sort==='modified'?b.updatedAt-a.updatedAt:sort==='size'?b.text.length-a.text.length:a.name.localeCompare(b.name,'zh-CN',{numeric:true}));
+    return branches.map(path=>`<details class="workspace-folder" open><summary data-folder="${escape(path)}" class="${path===selected?'selected-folder':''}"><span>▸ ${escape(path.split('/').at(-1))}</span><button type="button" class="doc-menu" data-path-menu="${escape(path)}" data-directory="true" title="文件夹操作" aria-label="${escape(path)} 文件夹操作">···</button></summary>${render(path)}</details>`).join('')+files.map(doc=>`<div class="doc-item ${doc.id===workspace.activeId?'active':''}"><button class="doc-open" data-doc="${escape(doc.id)}"><span class="doc-info"><strong>${escape(doc.name)}</strong><small>${escape(documentPath(doc))}${doc.remote?' · Git':''}</small></span></button><button class="doc-menu" data-menu="${escape(doc.id)}" title="文件操作" aria-label="${escape(doc.name)} 文件操作">···</button></div>`).join('')+others.filter(entry=>parent(entry.path)===prefix).map(entry=>`<div class="doc-item workspace-other" title="${escape(entry.reason||'保留在工作区中')}"><span class="doc-info"><strong>${escape(entry.name)}</strong><small>${escape(entry.reason||'文件')}</small></span><button class="doc-menu" data-path-menu="${escape(entry.path)}" title="文件操作" aria-label="${escape(entry.name)} 文件操作">···</button></div>`).join('');
   };
   return render('');
 }

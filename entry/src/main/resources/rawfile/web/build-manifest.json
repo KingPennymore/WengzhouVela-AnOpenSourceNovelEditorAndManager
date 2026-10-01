@@ -1,9 +1,10 @@
 {
   "format": 1,
-  "source": "7450bc57aa5dd3d4d5ec52f990cf54f49fe0fcff183b112c9dbd1d46ec757941",
+  "source": "28bcd392f299111629e1a4b2d0252397f0ed668d8d79d57394dc80cde11e85a1",
   "outputs": {
-    "app.js": "8e5324df01bdc680c03dc0e021aeb2663a65f9d26122ee19c0ce236a03563375",
-    "index.html": "f6564561d7a6e055414394baf288cf9fb68068c6bb43f7c86880e7b341338812",
+    "app.js": "57075bff5789903aee5b0a1f88eb13e6a5266588c4aea7bde371195b1323b74e",
+    "file-manager.css": "4c3ecef2f1b7f371bb7fb0bc94d7a0b932ae277caf4313a07ff21e42e3344964",
+    "index.html": "eebb9333443cadc12c6213efce1ab3be56d086b5854c98a69113a29a4728fb46",
     "licenses.js": "3907f2025b4a4674d0fff6a173f4efae2f9dc94004f06133d59b6add010afde3",
     "licenses/@codemirror-autocomplete.txt": "05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07",
     "licenses/@codemirror-commands.txt": "05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07",
@@ -37,7 +38,7 @@
     "licenses/style-mod.txt": "cb4474e26547397169061d3586c00022cda5330a1b64fa13e872319f3b63aff1",
     "licenses/uc.micro.txt": "483acb265f182907d1caf6cff9c16c96f31325ed23792832cc5d8b12d5f88c8a",
     "licenses/w3c-keyname.txt": "869c30f368eb08735e779027b9f4bc9fea2f39624351856aebe42741f0bc0884",
-    "style.css": "9c60198ce619e080de47437c89c66d872873a77d9b247141cce590eeb59729a7",
-    "version.json": "5f534ab32f32c427eb178982c6085f3cae6f3f6e93dc237d14da2f4d8f31d1fe"
+    "style.css": "9b87c9a1c3a35be1e30fcd2397da89ac2db116eb318034a9c318f6798bf60513",
+    "version.json": "52cef5d9c8eab3ddc3d8f9fa8fb809a21efaf1e884f53c606d61b6ab353e9a28"
   }
 }

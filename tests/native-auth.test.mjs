@@ -101,3 +101,8 @@ test('HTML 错误响应保留 HTTP 状态，成功状态的无效 JSON 明确报
   const malformed = await fixture({ text: '<html>proxy</html>' }).call('login', { token });
   assert.equal(malformed.ok, false); assert.match(malformed.error, /响应格式/);
 });
+test('外部目录接口已撤销，桥接不会执行目录选择或权限申请',async()=>{
+  const f=fixture();
+  for(const operation of ['setupStorage','openFolder','internalStorage'])assert.equal((await f.call(operation)).ok,false);
+  assert.equal(f.requests.length,0);
+});

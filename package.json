@@ -1,13 +1,13 @@
 {
   "name": "wenzhou-harmonyos",
-  "version": "0.3.0",
+  "version": "0.4.2",
   "private": true,
   "description": "文舟：基于 Acode 编辑组件与 Writer 1.0.4 的 HarmonyOS NEXT 写作应用",
   "scripts": {
     "build": "node scripts/build.mjs",
     "dev": "node scripts/serve.mjs",
     "test": "node --test tests/*.test.mjs vendor/acode-writer/tests/*.test.cjs",
-    "test:ui": "node tests/browser.mjs && node tests/features-browser.mjs && node tests/workspace-browser.mjs"
+    "test:ui": "node tests/browser.mjs && node tests/features-browser.mjs && node tests/workspace-browser.mjs && node tests/file-manager-browser.mjs && node tests/sidebars-browser.mjs"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.0",
