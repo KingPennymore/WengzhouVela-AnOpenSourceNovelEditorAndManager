@@ -1,6 +1,7 @@
 import {shortcuts} from './shortcuts.mjs';
 export const previousGuideHash='64d887a7f0a3766af964913f9fbfa890e1e2bef6eb55d35dc3c70015e41f08dd';
-export const guide = `文舟操作指南 · Vela 0.6.0
+export const previousGuideHashes=[previousGuideHash,"d685b53b07b6f3a26cfe341060b5b736a93072c522b640c65e1a7945d1aaa397","46d5e7b7ec168f801f066ebc69e28831300695a89aa206aaed60f3713444b170"];
+export const guide = `文舟操作指南 · Vela 0.6.1
 开源小说创作 / 阅读工具
 
 一、导航与内部文件夹

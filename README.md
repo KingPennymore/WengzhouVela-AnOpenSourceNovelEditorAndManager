@@ -4,20 +4,20 @@
 
 文舟是独立项目，不是 Acode 官方应用，也不代表 Acode Foundation。项目复用了 Acode 的部分 CodeMirror 编辑组件和 Acode-Writer 1.0.4 的章节识别代码，具体版权与许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-当前版本：鸿蒙 `0.6.0`，安卓 `0.6.0-android.1`。鸿蒙使用 HarmonyOS 6.1.1 / API 24 SDK 编译，兼容 API 12；安卓使用 API 36 编译，最低 Android 8.0 / API 26，系统 WebView 需 Chromium 105 或更新版本。仅使用内部工作区，不申请文件访问权限。安卓已在 Android 16 模拟器验证；鸿蒙新增 HTML 页面已通过原生编译与签名构建，尚待鸿蒙真机体验验收。完整验证范围见 [VALIDATION.md](VALIDATION.md)。
+当前版本：鸿蒙 `0.6.1`，安卓 `0.6.1-android.1`。鸿蒙使用 HarmonyOS 6.1.1 / API 24 SDK 编译，兼容 API 12；安卓使用 API 36 编译，最低 Android 8.0 / API 26，系统 WebView 需 Chromium 105 或更新版本。仅使用内部工作区，不申请文件访问权限。安卓已在 Android 16 模拟器验证；鸿蒙新增 HTML 页面已通过原生编译与签名构建，尚待鸿蒙真机体验验收。完整验证范围见 [VALIDATION.md](VALIDATION.md)。
 
 当前应用包名：`me.wenzhou.write`。签名 Profile 必须绑定同一包名，且与所选证书匹配。应用文稿与设置保存在自身沙箱中。
 
-发行安装包与源码见 [GitHub Release v0.6.0](https://github.com/KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager/releases/tag/v0.6.0)：
+发行安装包与源码见 [GitHub Release v0.6.1](https://github.com/KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager/releases/tag/v0.6.1)：
 
 | 文件 | 用途 |
 | --- | --- |
-| `Vela-0.6.0-release-signed.hap` | 鸿蒙发布签名安装包 |
-| `Vela-0.6.0-release-signed.app.zip` | 解压获得鸿蒙应用市场提交用的 `.app`（GitHub 限制直接上传此后缀） |
-| `Vela-0.6.0-android.1-release-signed.apk` | 安卓发布签名安装包 |
-| `Vela-0.6.0-android.1-release-signed.aab` | 安卓应用商店提交包 |
-| `Vela-0.6.0-source.zip` | 完整源码，不含个人证书、私钥和令牌 |
-| `SHA256SUMS.txt` | 上述文件的 SHA-256 校验值 |
+| `Vela-0.6.1-release-signed.hap` | 鸿蒙发布签名安装包 |
+| `Vela-0.6.1-release-signed.app.zip` | 解压获得鸿蒙应用市场提交用的 `.app`（GitHub 限制直接上传此后缀） |
+| `Vela-0.6.1-android.1-release-signed.apk` | 安卓发布签名安装包 |
+| `Vela-0.6.1-android.1-release-signed.aab` | 安卓应用商店提交包 |
+| `Vela-0.6.1-source.zip` | 完整源码，不含个人证书、私钥和令牌 |
+| `SHA256SUMS-0.6.1.txt` | 上述文件的 SHA-256 校验值 |
 
 本机构建输出位于 `dist/`，不纳入 Git。发布签名材料保存在仓库外；两端本版沿用原发布签名。更新内容见 [RELEASE_NOTES.md](RELEASE_NOTES.md)。
 
@@ -239,7 +239,7 @@ npm.cmd run test:android
 许可和来源见 `THIRD_PARTY_NOTICES.md`。编辑器全部资源打包进 HAP，不依赖远程 CDN。
 
 
-## 0.6.0 阅读与排版
+## 0.6.1 阅读与排版
 
 TXT / Markdown 阅读进入时自动收起文件栏。点击正文左侧 30% 前进到上一页或向上滚动一屏，右侧 30% 下一页或向下滚动一屏，中间 40% 显示 / 隐藏顶部工具栏。底部显示淡化的时间、页码与百分比；每本书保存文本位置，重新打开自动恢复，字号与屏幕变化时保持附近文本。HTML 在独立原生 Web 页面提供同类只读控制，文档脚本被阻止；TeX 阅读使用生成的 PDF。
 

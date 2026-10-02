@@ -1,6 +1,6 @@
 {
   "name": "wenzhou-harmonyos",
-  "version": "0.6.0",
+  "version": "0.6.1",
   "private": true,
   "description": "文舟：基于 Acode 编辑组件与 Writer 1.0.4 的 HarmonyOS NEXT / Android 开源小说创作与阅读工具",
   "scripts": {
