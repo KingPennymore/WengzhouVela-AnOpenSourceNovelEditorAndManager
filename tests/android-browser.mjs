@@ -21,6 +21,7 @@ const invoke=async(op,payload={})=>{
   const result=await p.evaluate(async({op,payload})=>JSON.parse(await window.WenzhouNative.call(op,JSON.stringify(payload))),{op,payload});
   if(!result.ok)throw new Error(result.error);return result.value;
 };
+async function nav(name){if(await p.locator('body').evaluate(el=>el.classList.contains('reader-open')&&!el.classList.contains('reader-chrome-visible'))){await p.waitForTimeout(220);const box=await p.locator('.reader-viewport').boundingBox();await p.mouse.click(box.x+box.width/2,box.y+box.height/2);await p.waitForFunction(()=>document.body.classList.contains('reader-chrome-visible'));await p.waitForTimeout(180);}await p.locator(`[data-view=${name}]`).click();}
 const saved=()=>p.evaluate(()=>{if(!window.wenzhouSave())throw Error('Native save failed');return JSON.parse(window.WenzhouNative.readWorkspace());});
 const prefix='移植验证-'+Date.now();
 try{
@@ -32,7 +33,7 @@ try{
     assert.ok(layout.top>=layout.env.top-.5);assert.equal(await p.locator('#setup-storage,#open-folder').count(),0);
   });
   await p.evaluate(prefix=>{const state=JSON.parse(window.WenzhouNative.readWorkspace()),doc={id:crypto.randomUUID(),name:'正文.txt',path:prefix+'/正文.txt',text:'第一章 开始\n原始正文\n\n第二章 继续\n后续正文',updatedAt:Date.now(),remote:null};state.settings.theme='system';state.settings.libraryOpen=false;state.documents.unshift(doc);state.folders.push(prefix+'/空目录');state.activeId=doc.id;state.openIds.push(doc.id);const result=window.WenzhouNative.writeWorkspace(JSON.stringify(state));if(result!=='ok')throw Error(result);},prefix);
-  await p.reload();await p.waitForSelector('.cm-editor');
+  await p.reload();await p.waitForSelector('.cm-editor',{state:'attached'});
   await check('Tab 缩进、撤回重做、章节跳转和实际文件保存',async()=>{
     await p.locator('#quick-top').click();await p.keyboard.press('Tab');assert.ok((await saved()).documents.find(d=>d.path===prefix+'/正文.txt').text.startsWith('　　第一章'));
     await p.locator('#quick-undo').click();assert.ok((await saved()).documents.find(d=>d.path===prefix+'/正文.txt').text.startsWith('第一章'));
@@ -51,7 +52,7 @@ try{
     await saved();const files=[{path:prefix+'/人物.CSV',data:Buffer.concat([Buffer.from([255,254]),Buffer.from('姓名;身份\n甲;主角','utf16le')]).toString('base64')},{path:prefix+'/页面.HTML',data:Buffer.from('<!doctype html><h1>原生页面</h1>').toString('base64')},{path:prefix+'/设定.md',data:Buffer.from('# 设定\n\n- [ ] 场景\n\n![封面](封面.png)').toString('base64')},{path:prefix+'/封面.png',data:png}];
     const state=await invoke('writeWorkspaceFiles',{files,folders:[prefix+'/空目录']});assert.equal(state.documents.find(d=>d.path===prefix+'/人物.CSV').text,'姓名;身份\n甲;主角');assert.equal(state.entries.find(e=>e.path===prefix+'/封面.png').editable,false);assert.ok(state.folders.includes(prefix+'/空目录'));
     assert.equal(await invoke('readWorkspaceAsset',{path:prefix+'/封面.png'}),'data:image/png;base64,'+png);
-    await p.reload();await p.waitForSelector('.cm-editor');
+    await p.reload();await p.waitForSelector('.cm-editor',{state:'attached'});
   });
   await check('CSV 显示为可编辑表格，Markdown 工具栏与本地图片预览',async()=>{
     await p.locator('#mobile-library').click();const state=await saved(),csv=state.documents.find(d=>d.path===prefix+'/人物.CSV');
@@ -63,7 +64,7 @@ try{
   await check('独立原生 HTML 预览：本地样式图片、脚本开关和桥隔离',async()=>{
     await saved();const html='<!doctype html><html><head><link rel="stylesheet" href="样式.css"></head><body><h1 id="title">排版验证</h1><img id="cover" src="封面.png"><button id="action">交互按钮</button><div contenteditable="true" id="editable">Editable</div><script src="行为.js"></script></body></html>';
     const state=await invoke('writeWorkspaceFiles',{files:[{path:prefix+'/预览.html',data:Buffer.from(html).toString('base64')},{path:prefix+'/样式.css',data:Buffer.from('h1{color:rgb(17,85,34);font-size:30px}body{margin:12px}').toString('base64')},{path:prefix+'/行为.js',data:Buffer.from("document.body.dataset.script='ready';document.querySelector('#action').onclick=()=>document.querySelector('#title').textContent='交互成功';").toString('base64')}]});
-    await p.reload();await p.waitForSelector('.cm-editor');await p.locator('#mobile-library').click();const doc=(await saved()).documents.find(d=>d.path===prefix+'/预览.html');await p.locator(`[data-doc="${doc.id}"]`).click();
+    await p.reload();await p.waitForSelector('.cm-editor',{state:'attached'});await p.locator('#mobile-library').click();const doc=(await saved()).documents.find(d=>d.path===prefix+'/预览.html');await p.locator(`[data-doc="${doc.id}"]`).click();
     const context=p.context(),wait=context.waitForEvent('page');await p.locator('[data-display="preview"]').click();const preview=await wait;await preview.waitForSelector('#title');
     assert.ok(preview.url().startsWith('https://wenzhou-preview.local/'));assert.equal(await preview.locator('#title').evaluate(e=>getComputedStyle(e).color),'rgb(17, 85, 34)');await preview.waitForFunction(()=>document.querySelector('#cover').naturalWidth===1);
     assert.equal(await preview.evaluate(()=>document.body.dataset.script||''),'');assert.equal(await preview.evaluate(()=>typeof window.WenzhouNative+':'+typeof window.WenzhouAndroid),'undefined:undefined');
@@ -73,9 +74,9 @@ try{
   });
   await check('.vela GUI 原生保存、只读阅读、HTML 禁止编辑与双指字号状态',async()=>{
     await saved();const config={version:1,name:'验证工作区',fontSize:21,titleTemplates:['【{number}】{title}'],reading:{files:['正文.txt','人物.CSV','预览.html','设定.md']}};
-    await invoke('writeWorkspaceFiles',{files:[{path:prefix+'/.vela',data:Buffer.from(JSON.stringify(config)).toString('base64')}]});await p.reload();await p.waitForSelector('.cm-editor');await p.locator('#mobile-library').click();const state=await saved(),manifest=state.documents.find(d=>d.path===prefix+'/.vela');await p.locator(`[data-doc="${manifest.id}"]`).click();await p.waitForSelector('#vela-form');await p.locator('#vela-form [name=fontSize]').fill('22');await p.locator('#vela-form .primary').click();assert.equal(JSON.parse(adb('shell','run-as','me.wenzhou.write','cat','files/workspaces/文舟/'+prefix+'/.vela')).fontSize,22);
-    await p.locator('#mobile-library').click();await p.locator('[data-view=reader]').click();const book=state.documents.find(d=>d.path===prefix+'/正文.txt');await p.locator(`[data-read="${book.id}"]`).click();await p.waitForFunction(()=>document.querySelector('.reader-content')?.textContent.includes('原始正文'));assert.equal(await p.locator('.reader-content [contenteditable],.reader-content textarea').count(),0);assert.equal(await p.locator('#document-tabs').isVisible(),false);const before=(await saved()).documents.find(d=>d.id===book.id).text;await p.keyboard.press('Control+z');assert.equal((await saved()).documents.find(d=>d.id===book.id).text,before);await p.evaluate(()=>window.wenzhouNativeScale(1.2));assert.ok(await p.locator('.reader-content').evaluate(el=>parseFloat(getComputedStyle(el).fontSize)>22));
-    await p.locator('[data-view=reader]').click();const html=state.documents.find(d=>d.path===prefix+'/预览.html'),wait=p.context().waitForEvent('page');await p.locator(`[data-read="${html.id}"]`).click();const preview=await wait;await preview.waitForSelector('#title');assert.equal(await preview.locator('#action').isDisabled(),true);assert.equal(await preview.locator('#editable').getAttribute('contenteditable'),null);assert.equal(await preview.evaluate(()=>typeof window.WenzhouNative+':'+typeof window.WenzhouAndroid),'undefined:undefined');await device.tap({text:'返回阅读'});await p.locator('.reader-header').waitFor();await p.locator('[data-view=write]').click();assert.equal(await invoke('readWorkspaceFile',{path:prefix+'/封面.png'}),png);
+    await invoke('writeWorkspaceFiles',{files:[{path:prefix+'/.vela',data:Buffer.from(JSON.stringify(config)).toString('base64')}]});await p.reload();await p.waitForSelector('.cm-editor',{state:'attached'});await p.locator('#mobile-library').click();const state=await saved(),manifest=state.documents.find(d=>d.path===prefix+'/.vela');await p.locator(`[data-doc="${manifest.id}"]`).click();await p.waitForSelector('#vela-form');await p.locator('#vela-form [name=fontSize]').fill('22');await p.locator('#vela-form .primary').click();assert.equal(JSON.parse(adb('shell','run-as','me.wenzhou.write','cat','files/workspaces/文舟/'+prefix+'/.vela')).fontSize,22);
+    await p.locator('#mobile-library').click();await nav('reader');const book=state.documents.find(d=>d.path===prefix+'/正文.txt');await p.locator(`[data-read="${book.id}"]`).click();await p.waitForFunction(()=>document.querySelector('.reader-content')?.textContent.includes('原始正文'));assert.equal(await p.locator('.reader-content [contenteditable],.reader-content textarea').count(),0);assert.equal(await p.locator('#document-tabs').isVisible(),false);const before=(await saved()).documents.find(d=>d.id===book.id).text;await p.keyboard.press('Control+z');assert.equal((await saved()).documents.find(d=>d.id===book.id).text,before);await p.evaluate(()=>window.wenzhouNativeScale(1.2));assert.ok(await p.locator('.reader-content').evaluate(el=>parseFloat(getComputedStyle(el).fontSize)>22));
+    await nav('reader');const html=state.documents.find(d=>d.path===prefix+'/预览.html'),wait=p.context().waitForEvent('page');await p.locator(`[data-read="${html.id}"]`).click();const preview=await wait;await preview.waitForSelector('#title');assert.equal(await preview.locator('#action').isDisabled(),true);assert.equal(await preview.locator('#editable').getAttribute('contenteditable'),null);assert.equal(await preview.evaluate(()=>typeof window.WenzhouNative+':'+typeof window.WenzhouAndroid),'undefined:undefined');await preview.waitForFunction(()=>window.velaHtmlReaderReady===true);assert.equal(await preview.evaluate(()=>document.body.dataset.script||''),'');adb('shell','input','keyevent','4');await p.locator('.reader-header').waitFor({state:'attached'});await nav('write');assert.equal(await invoke('readWorkspaceFile',{path:prefix+'/封面.png'}),png);
     await assert.rejects(invoke('publicApi',{path:'/user',method:'GET'}),/repository|仓库/);await assert.rejects(invoke('publicApi',{path:'/repos/o/r',method:'POST'}),/repository|仓库/);
   });
   await check('移动复制、回收站恢复与永久删除，保留附件和空目录',async()=>{
@@ -103,6 +104,10 @@ try{
     await p.waitForFunction(()=>document.body.dataset.androidPlugin==='ready');assert.match(await p.evaluate(()=>window.WenzhouNative.readPlugins()),/wenzhou.qa/);
     await p.locator('#dialog-cancel').click();
   });
+  await check('Android WebView 本地 XeLaTeX 中文编译、PDF 渲染与宏包持久化',async()=>{
+    await saved();const source=String.raw`\documentclass{ctexart}\begin{document}\section{文舟}中文 PDF。\end{document}`;
+    const folder=await invoke('writeWorkspaceFiles',{files:[{path:prefix+'/main.tex',data:Buffer.from(source).toString('base64')}]});await p.reload();await p.waitForSelector('.cm-editor',{state:'attached'});if(!await p.locator('#library').isVisible())await p.locator('#mobile-library').click();const doc=(await saved()).documents.find(doc=>doc.path===prefix+'/main.tex');await p.locator(`[data-doc="${doc.id}"]`).click();await p.locator('#preview-toggle').click();await p.locator('.tex-compile').click();await p.waitForFunction(()=>!document.querySelector('.tex-compile').disabled,{},{timeout:180000});await writeFile('test-results/android-tex.log',await p.locator('.tex-log pre').textContent());assert.equal(await p.locator('.tex-status').textContent(),'编译完成');assert.ok(await p.locator('canvas').evaluate(canvas=>canvas.width>0));assert.match(await p.evaluate(()=>window.WenzhouNative.readPlugins()),/vela.tex.cjk/);await p.screenshot({path:'test-results/android-tex.png'});
+  });
   await check('进程退出后文稿、主题和插件重新加载',async()=>{
     const before=await saved();await device.close();deviceClosed=true;adb('shell','am','force-stop','me.wenzhou.write');adb('shell','am','start','-W','-n','me.wenzhou.write/.MainActivity');
     const nextDevices=await _android.devices(),next=nextDevices.find(d=>d.serial()===serial);const web=await next.webView({pkg:'me.wenzhou.write'});p=await web.page();await p.waitForSelector('.cm-editor',{state:'attached'});await p.waitForFunction(()=>document.querySelector('#preview')?.offsetWidth>0||document.querySelector('.cm-editor')?.offsetWidth>0);
@@ -110,4 +115,4 @@ try{
   });
   assert.deepEqual(errors,[]);await writeFile('test-results/android-results.json',JSON.stringify({passed:checks.length,checks,pageErrors:errors},null,2));
 }catch(error){if(p)await p.screenshot({path:'test-results/android-failure.png'}).catch(()=>{});throw error;}
-finally{if(!deviceClosed)await device.close().catch(()=>{});adb('shell','am','force-stop','com.microsoft.playwright.androiddriver');}
+finally{if(!deviceClosed)await device.close().catch(()=>{});try{adb('shell','am','force-stop','com.microsoft.playwright.androiddriver');}catch{}}

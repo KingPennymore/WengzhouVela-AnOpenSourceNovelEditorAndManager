@@ -1,0 +1,66 @@
+{
+  "schemaVersion": 1,
+  "generated": "2026-03-01T00:00:00.000Z",
+  "assets": [
+    {
+      "path": "SHA256SUMS",
+      "bytes": 735,
+      "sha256": "58bc32a8e985317272274ec2af1a6e6f4365bcb17a5063fb75e187446e6dc555",
+      "role": "checksums"
+    },
+    {
+      "path": "academic.data",
+      "bytes": 496587321,
+      "sha256": "fa5d69242ca935f4f7bcce4e4dbc060a6b92dffa2c35aa099504acd80eae74ee",
+      "role": "bundle-data"
+    },
+    {
+      "path": "academic.js",
+      "bytes": 9299806,
+      "sha256": "616bc4fb93995c28ac10e8a71d6d6668afe653a676d824e2554d3dae1e45ee7d",
+      "role": "bundle-js"
+    },
+    {
+      "path": "busytex.js",
+      "bytes": 273991,
+      "sha256": "81aa161c71d8cca6586c11b7dbd76ddedd48d7523300ff75fa9ba49703885678",
+      "role": "engine-js"
+    },
+    {
+      "path": "busytex.wasm",
+      "bytes": 27501925,
+      "sha256": "cbbbf1799b460218a089504a70f323190cab44695a766f1acdf991eb19ad037c",
+      "role": "engine-wasm"
+    },
+    {
+      "path": "core.data",
+      "bytes": 53619216,
+      "sha256": "1989128fa45214de38337a8ae44524ae711b0157d2e43aed06a1b418ca8d68ba",
+      "role": "bundle-data"
+    },
+    {
+      "path": "core.js",
+      "bytes": 1461481,
+      "sha256": "66b4b78561a20abfa0b5538a13cc1972fd5fdf332618e1c5a51bf0a1b74047df",
+      "role": "bundle-js"
+    },
+    {
+      "path": "formats/pdflatex.fmt",
+      "bytes": 2286660,
+      "sha256": "c0c98dbeb60ef522f1f4c8f3ced6b63ac302902098f1407c8131a20fcf20b48e",
+      "role": "format"
+    },
+    {
+      "path": "formats/xelatex.fmt",
+      "bytes": 4473127,
+      "sha256": "0bc57eb61e49d823c6abfd930de7669a60b8ca8f7c61507ea4a7ea805b436608",
+      "role": "format"
+    },
+    {
+      "path": "licenses.json",
+      "bytes": 320839,
+      "sha256": "224e88f928f76b4937620f2fa31a1642ee657dbc0cce4a19d9716a18405ec5b0",
+      "role": "license-inventory"
+    }
+  ]
+}

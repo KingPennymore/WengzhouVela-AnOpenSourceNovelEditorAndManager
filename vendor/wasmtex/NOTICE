@@ -1,0 +1,37 @@
+WasmTeX
+Copyright (c) 2026 Bofei Zhu
+
+WasmTeX's own code (build scripts, runtime library, tooling) is licensed under
+the MIT License; see the LICENSE file. This NOTICE preserves attribution for the
+upstream work WasmTeX derives from. The full inventory of third-party components
+distributed with WasmTeX — including the TeX Live programs, macro and font
+packages, and build dependencies — is in THIRD_PARTY_NOTICES.md.
+
+This product includes software developed by the busytex project.
+
+------------------------------------------------------------------------------
+busytex/busytex — MIT
+------------------------------------------------------------------------------
+
+WasmTeX's build machinery derives from busytex/busytex, the upstream project
+that established the multicall WebAssembly TeX binary and its Emscripten build
+approach (see DESIGN.md §2). WasmTeX gratefully acknowledges it.
+
+  Upstream:      https://github.com/busytex/busytex
+  Author:        Vadim Kantorov and contributors
+  Pinned commit: f2bd7b11ee1b7b093638321c1f3e5d70389d307b
+  License:       MIT
+
+The upstream repository has no top-level LICENSE file; its README "License"
+section is the license statement of record, reproduced here verbatim:
+
+  MIT - applies only to the code and scripts in the repo, not to the published
+  binaries (on the releases page). The binaries include linked TexLive code, so
+  the respective TexLived/dependencies licenses apply.
+
+The MIT terms above cover WasmTeX's engine build config under build/engines/,
+which was forked from the busytex build machinery at the TL-2026 rebase (M2
+item 3). Each derived file carries a derived-work provenance header naming this
+commit and license (the headers are the provenance record; the M0 staging area
+build/upstream/busytex/ and its manifest were retired). See
+THIRD_PARTY_NOTICES.md and build/engines/README.md.

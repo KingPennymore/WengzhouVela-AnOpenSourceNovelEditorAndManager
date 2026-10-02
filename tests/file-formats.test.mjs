@@ -4,7 +4,7 @@ import {decodeFileText} from '../web/file-text.mjs';
 import {csvDelimiter,parseCsv,writeCsv} from '../web/csv.mjs';
 import {fileName,fileKind,documentKind} from '../web/model.mjs';
 test('CSV、HTML、Markdown 的大小写扩展名及显式类型不会变成其他文件类型',()=>{
-  for(const [name,kind] of [['数据.CSV','CSV'],['网页.HTML','HTML'],['网页.HTM','HTML'],['正文.MARKDOWN','MD'],['正文.mdown','MD'],['正文.mkd','MD'],['data.json','TXT']]){assert.equal(fileName(name),name);assert.equal(fileKind(name),kind);}
+  for(const [name,kind] of [['数据.CSV','CSV'],['网页.HTML','HTML'],['网页.HTM','HTML'],['正文.MARKDOWN','MD'],['正文.mdown','MD'],['正文.mkd','MD'],['data.json','CODE'],['main.TEX','TEX'],['script.py','CODE'],['table.tsv','CSV']]){assert.equal(fileName(name),name);assert.equal(fileKind(name),kind);}
   assert.equal(documentKind({name:'网页.txt',kind:'HTML'}),'HTML');
 });
 test('UTF-8、UTF-16 和 GB18030 中文文本可打开，二进制被拒绝',()=>{

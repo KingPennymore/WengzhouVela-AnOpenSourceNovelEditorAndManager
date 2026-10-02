@@ -2,7 +2,7 @@ import {repoPath,documentKind} from './model.mjs';
 import {chapterSettings,chapterMatcher} from './chapters.mjs';
 import {documentPath} from './workspace.mjs';
 
-export const readable=doc=>['TXT','MD','HTML','CSV'].includes(documentKind(doc));
+export const readable=doc=>['TXT','MD','HTML','CSV','TEX','CODE'].includes(documentKind(doc));
 export function parseVela(text){
   if(typeof text!=='string'||text.length>262144)throw new Error('工作区配置不能超过 256 KB。');
   const raw=JSON.parse(text);

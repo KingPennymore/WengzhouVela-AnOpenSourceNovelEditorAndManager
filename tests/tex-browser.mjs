@@ -1,0 +1,25 @@
+import {chromium} from 'playwright';
+import assert from 'node:assert/strict';
+import {writeFile,mkdir} from 'node:fs/promises';
+import {zipSync,strToU8} from 'fflate';
+const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'}),page=await browser.newPage();
+const errors=[];page.on('pageerror',error=>errors.push(error.message));page.on('console',message=>{if(message.type()==='error')console.log('BROWSER '+message.text());});
+const source=String.raw`\documentclass{ctexart}
+\usepackage{amsmath}
+\begin{document}
+\section{文舟中文编译}
+小说创作与阅读。\[E=mc^2\]
+\end{document}`;
+await page.addInitScript(source=>localStorage.setItem('wenzhou.workspace',JSON.stringify({version:1,documents:[{id:'tex',name:'main.tex',text:source,updatedAt:1}],activeId:'tex',openIds:['tex'],settings:{theme:'light'}})),source);
+async function compile(engine='xetex'){await page.locator('.tex-engine').selectOption(engine);await page.locator('.tex-compile').click();await page.waitForFunction(()=>!document.querySelector('.tex-compile').disabled,{},{timeout:180000});}
+try{
+  await page.goto('http://127.0.0.1:4173');await page.locator('[data-recent=tex]').click();await page.waitForSelector('.cm-editor');await page.locator('#preview-toggle').click();await compile();const status=await page.locator('.tex-status').textContent(),log=await page.locator('.tex-log pre').textContent();await mkdir('test-results',{recursive:true});await writeFile('test-results/tex-compile.log',log);assert.equal(status,'编译完成');assert.equal(await page.locator('.tex-export').isEnabled(),true);assert.ok(await page.locator('canvas').evaluate(canvas=>canvas.width>0));await page.screenshot({path:'test-results/tex-preview.png'});console.log('PASS Chinese XeLaTeX and rendered PDF');
+  const download=page.waitForEvent('download');await page.locator('.tex-export').click();const pdf=await download;assert.equal(pdf.suggestedFilename(),'main.pdf');await pdf.saveAs('test-results/tex-chinese.pdf');console.log('PASS PDF export');
+  const plugin=zipSync({'plugin.json':strToU8(JSON.stringify({id:'test.tex.package',name:'Test macro',version:'1.0',vela:{type:'tex-package'}})),'texmf/tex/latex/testmacro/testmacro.sty':strToU8(String.raw`\ProvidesPackage{testmacro}\newcommand{\velatest}{Custom package is active.}`)});
+  await page.locator('#plugin-input').setInputFiles({name:'test-macro.zip',mimeType:'application/zip',buffer:Buffer.from(plugin)});await page.waitForFunction(()=>document.querySelector('.plugin-list')?.textContent.includes('Test macro'));await page.locator('#dialog-cancel').click();
+  const latin=String.raw`\documentclass{article}\usepackage{testmacro}\begin{document}\velatest\cite{vela}\bibliographystyle{plain}\bibliography{references}\end{document}`;
+  await page.locator('#file-input').setInputFiles({name:'references.bib',mimeType:'text/plain',buffer:Buffer.from('@book{vela,author={Vela Authors},title={Novel Writing},year={2026},publisher={Vela}}')});await page.locator('[data-tab=tex]').click();await page.evaluate(text=>{const editor=editorManager.editor;editor.dispatch({changes:{from:0,to:editor.state.doc.length,insert:text}});},latin);await page.locator('[data-display=preview]').click();await compile('pdftex');assert.equal(await page.locator('.tex-status').textContent(),'编译完成');const bibliographyLog=await page.locator('.tex-log pre').textContent();assert.match(bibliographyLog,/Database file #1: references.bib/);await writeFile('test-results/tex-bibliography.log',bibliographyLog);console.log('PASS custom macro plugin, pdfLaTeX and bibliography');
+  const canvas=await page.locator('canvas').evaluate(canvas=>canvas.toDataURL());await page.evaluate(()=>{const editor=editorManager.editor;editor.dispatch({changes:{from:0,to:editor.state.doc.length,insert:String.raw`\documentclass{article}\usepackage{missingvela}\begin{document}Fail\end{document}`}});});await compile('pdftex');assert.equal(await page.locator('.tex-status').textContent(),'编译失败');assert.equal(await page.locator('canvas').evaluate(canvas=>canvas.toDataURL()),canvas);assert.equal(await page.locator('.tex-export').isEnabled(),true);console.log('PASS failed compile preserves last PDF and source');
+  await page.evaluate(()=>{const editor=editorManager.editor;editor.dispatch({changes:{from:0,to:editor.state.doc.length,insert:String.raw`\documentclass{article}\begin{document}\loop\iftrue\repeat\end{document}`}});});await page.locator('.tex-compile').click();await page.locator('.tex-cancel').click();await page.waitForFunction(()=>!document.querySelector('.tex-compile').disabled,{},{timeout:15000});assert.equal(await page.locator('.tex-status').textContent(),'已取消');console.log('PASS cancellation stops runaway TeX');
+  assert.deepEqual(errors,[]);await writeFile('test-results/tex-060-results.json',JSON.stringify({passed:5,checks:['Chinese XeLaTeX PDF','PDF export','macro plugin, pdfTeX, BibTeX','failure retains PDF','cancellation'],errors},null,2));
+}finally{await browser.close();}

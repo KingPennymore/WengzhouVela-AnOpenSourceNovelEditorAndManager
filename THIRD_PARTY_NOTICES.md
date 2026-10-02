@@ -24,3 +24,13 @@ CodeMirror、Lezer、Markdown-it 及其解析依赖使用 MIT 许可。插件 ZI
 ## Android 原生依赖
 
 AndroidX Core `1.16.0`、AndroidX WebKit `1.14.0` 及其传递依赖来自 Google Maven，使用 Apache License 2.0。完整许可位于 `android/APACHE-2.0.txt`，安卓资源构建时加入应用内开源许可。Gradle Wrapper 使用 Gradle `8.13`（Apache-2.0），构建工具 AGP `8.13.2` 仅用于构建。Android 系统 WebView 和鸿蒙 ArkWeb 由设备提供。
+
+
+## LaTeX 与 PDF
+
+- WasmTeX 0.1.1（MIT）：https://github.com/bofeizhu/wasmtex 。npm 客户端与 Worker 来源固定于 package-lock.json。
+- TeX Live 2026 / BusyTeX WebAssembly 资源采用上游 0.1.1 发行快照，文件 SHA-256 由 vendor/wasmtex/manifest.json 固定。仅打包 core、XeTeX / pdfTeX 格式及提取的中文宏包插件，没有完整 academic 资源。
+- TeX Live 聚合了具有 LPPL、GPL、MIT、BSD、字体许可等不同许可的独立组件；版权、许可证、对应源码来源与重新分发说明见 vendor/wasmtex/NOTICE、THIRD_PARTY_NOTICES.md、licenses.json。它们作为独立虚拟文件系统数据和 Worker 引擎分发，未更改其源代码或许可证。
+- 中文宏包包含 ctex / xeCJK / fontspec 等及 Fandol 字体，保留其 LPPL / GPL 字体例外等许可及原始文件名。ZIP 内附许可清单和上游第三方声明。
+- PDF.js / pdfjs-dist 4.10.38：Apache-2.0，https://github.com/mozilla/pdf.js 。标准字体、CMap 的许可随资源目录分发。
+- KaTeX：MIT，https://github.com/KaTeX/KaTeX ，用于 Markdown 数学公式。完整许可随应用资源保留。

@@ -63,27 +63,35 @@ public final class HtmlPreviewActivity extends Activity {
         Button reload = button(toolbar, english?"Refresh":"刷新", foreground); reload.setOnClickListener(view -> reload());
         Button script = button(toolbar, english?"Scripts: off":"脚本：关", foreground); script.setOnClickListener(view -> { scripts = !scripts; script.setText(english ? (scripts?"Scripts: on":"Scripts: off") : (scripts ? "脚本：开" : "脚本：关")); web.getSettings().setJavaScriptEnabled(scripts); reload(); });
         Button net = button(toolbar, english?"Network: off":"联网：关", foreground); net.setOnClickListener(view -> { network = !network; net.setText(english ? (network?"Network: on":"Network: off") : (network ? "联网：开" : "联网：关")); reload(); });
-        if(reading){reload.setVisibility(android.view.View.GONE);script.setVisibility(android.view.View.GONE);net.setVisibility(android.view.View.GONE);if(pages){Button previous=button(toolbar,english?"Previous":"上一页",foreground);previous.setOnClickListener(view->web.scrollBy(-web.getWidth(),0));Button next=button(toolbar,english?"Next":"下一页",foreground);next.setOnClickListener(view->web.scrollBy(web.getWidth(),0));}}
+        if(reading){reload.setVisibility(android.view.View.GONE);script.setVisibility(android.view.View.GONE);net.setVisibility(android.view.View.GONE);title.setVisibility(android.view.View.GONE);scroll.setVisibility(android.view.View.GONE);}
         web = new WebView(this); root.addView(web, new LinearLayout.LayoutParams(-1, 0, 1)); web.setBackgroundColor(Color.WHITE);
-        WebSettings settings = web.getSettings(); settings.setJavaScriptEnabled(false); settings.setDomStorageEnabled(false);
+        WebSettings settings = web.getSettings(); settings.setJavaScriptEnabled(reading); settings.setDomStorageEnabled(reading);
         settings.setAllowFileAccess(false); settings.setAllowContentAccess(false); settings.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
-        settings.setTextZoom(textZoom); settings.setSupportZoom(false); settings.setBuiltInZoomControls(false); settings.setMediaPlaybackRequiresUserGesture(true);
+        settings.setTextZoom(reading ? 100 : textZoom); settings.setSupportZoom(false); settings.setBuiltInZoomControls(false); settings.setMediaPlaybackRequiresUserGesture(true);
         web.setWebViewClient(new WebViewClient() {
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
+                if (reading && "wenzhou-reader.local".equals(uri.getHost()) && "/reader.js".equals(uri.getPath())) {
+                    try { return new WebResourceResponse("text/javascript", "UTF-8", getAssets().open("web/html-reader.js")); } catch (Exception error) { return blocked(); }
+                }
                 if (HOST.equals(uri.getHost()) && "https".equals(uri.getScheme())) {
                     try {
                         String resourcePath = uri.getPath().substring(1);
                         PreviewResource resource = files.readPreviewResource(resourcePath, resourcePath.equals(path));
                         byte[] bytes=resource.bytes;
-                        if(reading&&resourcePath.equals(path)){String html=new String(bytes,StandardCharsets.UTF_8).replaceAll("(?i)\\scontenteditable(?:\\s*=\\s*(?:[\"'][^\"']*[\"']|[^\\s>]+))?", "").replaceAll("(?i)<(input|textarea|select|button)(?=[\\s>])", "<$1 disabled readonly");String css="<style>html{touch-action:pan-y}input,textarea,select,button{pointer-events:none}"+(pages?"html{overflow-x:auto;overflow-y:hidden}body{box-sizing:border-box!important;width:100vw!important;height:100vh!important;max-width:none!important;margin:0!important;padding:24px!important;column-width:calc(100vw - 48px)!important;column-gap:48px!important;column-fill:auto!important}":"")+"</style>";html=html.replaceFirst("(?i)<head([^>]*)>","<head$1>"+css);if(!html.contains(css))html=html.replaceFirst("(?is)^(<!doctype[^>]*>)?", "$0"+css);bytes=html.getBytes(StandardCharsets.UTF_8);}
-                        return new WebResourceResponse(resource.mime, resource.mime.startsWith("text/") ? "UTF-8" : null, 200, "OK", Collections.singletonMap("Cache-Control", "no-store"), new ByteArrayInputStream(bytes));
+                        if(reading&&resourcePath.equals(path)){String html=new String(bytes,StandardCharsets.UTF_8).replaceAll("(?i)\\scontenteditable(?:\\s*=\\s*(?:[\"'][^\"']*[\"']|[^\\s>]+))?", "").replaceAll("(?i)<(input|textarea|select|button)(?=[\\s>])", "<$1 disabled readonly");String config=new JSONObject().put("path",path).put("english",english).put("dark",dark).put("pages",pages).put("fontSize",getIntent().getIntExtra("fontSize",16)).toString();
+                        html=html.replaceAll("(?is)<meta[^>]*http-equiv\\s*=\\s*['\"]?Content-Security-Policy[^>]*>", "");
+                        html += "<script src=\"https://wenzhou-reader.local/reader.js?config=" + Uri.encode(config) + "\"></script>";
+                        bytes=html.getBytes(StandardCharsets.UTF_8);}
+                        return new WebResourceResponse(resource.mime, resource.mime.startsWith("text/") ? "UTF-8" : null, 200, "OK", previewHeaders(), new ByteArrayInputStream(bytes));
                     } catch (Exception error) { return blocked(); }
                 }
                 return network && "https".equals(uri.getScheme()) ? null : blocked();
             }
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
+                if (reading && "https://wenzhou-reader.local/back".equals(uri.toString())) { finish(); return true; }
+                if (reading) return !page.equals(uri.toString());
                 if (HOST.equals(uri.getHost()) && "https".equals(uri.getScheme())) return false;
                 if (network && request.isForMainFrame() && "https".equals(uri.getScheme())) {
                     try { startActivity(new Intent(Intent.ACTION_VIEW, uri)); } catch (Exception ignored) { }
@@ -94,12 +102,14 @@ public final class HtmlPreviewActivity extends Activity {
         ScaleGestureDetector zoom = new ScaleGestureDetector(this, new ScaleGestureDetector.SimpleOnScaleGestureListener() {
             private float size;
             @Override public boolean onScaleBegin(ScaleGestureDetector detector) { size = textZoom; return true; }
-            @Override public boolean onScale(ScaleGestureDetector detector) { size = Math.max(50, Math.min(300, size * detector.getScaleFactor())); textZoom = Math.round(size); web.getSettings().setTextZoom(textZoom); return true; }
+            @Override public boolean onScale(ScaleGestureDetector detector) { size = Math.max(50, Math.min(300, size * detector.getScaleFactor())); textZoom = Math.round(size); applyTextZoom(); return true; }
         });
-        web.setOnGenericMotionListener((view,event)->{float factor=TextZoom.factor(event);if(factor==1)return false;textZoom=Math.round(Math.max(50,Math.min(300,textZoom*factor)));web.getSettings().setTextZoom(textZoom);return true;});
+        web.setOnGenericMotionListener((view,event)->{float factor=TextZoom.factor(event);if(factor==1)return false;textZoom=Math.round(Math.max(50,Math.min(300,textZoom*factor)));applyTextZoom();return true;});
         web.setOnTouchListener((view, event) -> { zoom.onTouchEvent(event); return event.getPointerCount() > 1; });
         ViewCompat.requestApplyInsets(root); web.loadUrl(page);
     }
+    private java.util.Map<String,String> previewHeaders() { java.util.Map<String,String> headers=new java.util.HashMap<>();headers.put("Cache-Control","no-store");if(reading)headers.put("Content-Security-Policy","default-src 'none'; script-src https://wenzhou-reader.local; style-src 'unsafe-inline' https://wenzhou-preview.local; img-src data: https://wenzhou-preview.local; font-src https://wenzhou-preview.local; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'");return headers; }
+    private void applyTextZoom() { if(reading) web.evaluateJavascript("window.velaHtmlReaderZoom&&window.velaHtmlReaderZoom("+textZoom+")",null); else web.getSettings().setTextZoom(textZoom); }
     private Button button(LinearLayout toolbar, String label, int color) {
         Button button = new Button(this); button.setText(label); button.setTextSize(13); button.setTextColor(color); button.setAllCaps(false); toolbar.addView(button); return button;
     }

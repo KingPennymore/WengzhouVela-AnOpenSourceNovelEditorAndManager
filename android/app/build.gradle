@@ -8,8 +8,8 @@ android {
         applicationId 'me.wenzhou.write'
         minSdk 26
         targetSdk 36
-        versionCode 10500
-        versionName '0.5.0-android.1'
+        versionCode 10600
+        versionName '0.6.0-android.1'
         testInstrumentationRunner 'me.wenzhou.write.PortInstrumentation'
     }
     buildTypes {
@@ -34,7 +34,8 @@ def prepareEditor = tasks.register('prepareEditor', Exec) {
     inputs.dir '../../web'
     inputs.dir '../../vendor/acode-writer/src'
     inputs.dir '../../vendor/acode/src/cm'
-    inputs.files '../../package.json', '../../package-lock.json', '../../scripts/build-android.mjs', '../../scripts/build.mjs'
+    inputs.dir '../../vendor/wasmtex'
+    inputs.files '../../package.json', '../../package-lock.json', '../../scripts/build-android.mjs', '../../scripts/build.mjs', '../../scripts/tex-assets.mjs', '../../scripts/frontend-state.mjs'
     inputs.file '../APACHE-2.0.txt'
     outputs.dir 'src/main/assets/web'
 }

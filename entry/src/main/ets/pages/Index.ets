@@ -1,4 +1,5 @@
 import { webview } from '@kit.ArkWeb';
+import { url } from '@kit.ArkTS';
 import { common } from '@kit.AbilityKit';
 import { NativeBridge } from '../services/NativeBridge';
 import { Runtime } from '../services/Runtime';
@@ -15,9 +16,24 @@ struct Index {
     Runtime.controller = this.controller;
   }
 
+  private resource(request: WebResourceRequest): WebResourceResponse | null {
+    try {
+      const parsed = new url.URL(request.getRequestUrl());
+      if (parsed.protocol !== 'https:' || parsed.hostname !== 'wenzhou-editor.local') return null;
+      const path = decodeURIComponent(parsed.pathname.substring(1));
+      if (!path.startsWith('web/') || path.includes('\\') || path.split('/').some(part => part === '..' || part === '.')) return null;
+      const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
+      const bytes = context.resourceManager.getRawFileContentSync(path);
+      const buffer = new ArrayBuffer(bytes.byteLength); new Uint8Array(buffer).set(bytes);
+      const response = new WebResourceResponse(); response.setResponseData(buffer);
+      const mime = path.endsWith('.html') ? 'text/html' : /\.m?js$/.test(path) ? 'text/javascript' : path.endsWith('.wasm') ? 'application/wasm' : path.endsWith('.css') ? 'text/css' : path.endsWith('.json') ? 'application/json' : path.endsWith('.woff2') ? 'font/woff2' : path.endsWith('.woff') ? 'font/woff' : 'application/octet-stream';
+      response.setResponseMimeType(mime); response.setResponseEncoding('UTF-8'); response.setResponseCode(200); response.setReasonMessage('OK'); response.setResponseIsReady(true); return response;
+    } catch (error) { return null; }
+  }
+
   build() {
     Column() {
-      Web({ src: $rawfile('web/index.html'), controller: this.controller })
+      Web({ src: 'https://wenzhou-editor.local/web/index.html', controller: this.controller })
         .width('100%')
         .height('100%')
         .javaScriptAccess(true)
@@ -40,10 +56,11 @@ struct Index {
           methodList: ['readWorkspace', 'writeWorkspace', 'readPlugins', 'writePlugins', 'readEnvironment', 'call'],
           controller: this.controller
         })
+        .onInterceptRequest(event => this.resource(event.request)!)
         .onOverrideUrlLoading((request: WebResourceRequest): boolean => {
           if (!request.isMainFrame() && ['about:srcdoc', 'about:blank'].includes(request.getRequestUrl())) return false;
           // The privileged view must never navigate to GitHub or user-provided content.
-          return request.getRequestUrl() !== 'resource://rawfile/web/index.html';
+          return request.getRequestUrl() !== 'https://wenzhou-editor.local/web/index.html';
         })
     }
     .width('100%')

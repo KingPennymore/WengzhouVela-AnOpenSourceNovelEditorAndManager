@@ -29,3 +29,10 @@ test('整仓库落盘后的文档与 Git 关联合并，不产生同名副本且
   const result={repo:'a/book',branch:'main',commit:'c',folders:['chapters'],files:[{path:'chapters/a.md',text:'新',sha:'s'}]};applyRepository(workspace,result,'book');
   assert.equal(workspace.documents.length,1);assert.equal(workspace.documents[0].id,'original');assert.equal(workspace.documents[0].path,'book/chapters/a.md');assert.equal(workspace.documents[0].text,'新');assert.equal(repositoryFolder(workspace,'a/book'),'book');
 });
+
+test('多选目录拉取包含后代、去除重叠项，保留路径并跳过未选子模块及大文件',async()=>{
+  const requested=[],tree=[{type:'tree',path:'book',sha:'dir'},{type:'tree',path:'book/part',sha:'sub'},{type:'blob',path:'book/part/a.txt',sha:'a',size:4},{type:'blob',path:'cover.txt',sha:'b',size:4},{type:'commit',path:'ignored',mode:'160000'},{type:'blob',path:'large.bin',sha:'huge',size:20*1024*1024}];
+  const github=new GitHub(async(_operation,request)=>{requested.push(request.path);const body=request.path.includes('/git/ref/')?{object:{sha:'c'}}:request.path.includes('/git/commits/')?{tree:{sha:'root'}}:request.path.includes('/git/trees/')?{tree}: {encoding:'base64',content:Buffer.from('test').toString('base64')};return {status:200,body};});
+  const result=await github.pullRepository('a/book','main',{selection:['book','book/part/a.txt','cover.txt']});assert.deepEqual(result.files.map(file=>file.path),['book/part/a.txt','cover.txt']);assert.ok(!requested.some(path=>path.endsWith('/huge')));assert.ok(result.folders.includes('book/part'));
+  await assert.rejects(github.pullRepository('a/book','main',{selection:['missing']}),/不存在/);
+});

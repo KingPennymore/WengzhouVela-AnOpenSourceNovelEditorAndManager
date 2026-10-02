@@ -17,8 +17,8 @@ out.mkdir(exist_ok=True)
 # Refuse to publish a source archive without its ready-to-build editor resources.
 resources = root / "entry/src/main/resources/rawfile/web"
 state = json.loads((resources / "build-manifest.json").read_text(encoding="utf-8"))
-inputs = [file.relative_to(root).as_posix() for directory in ["web", "vendor/acode/src/cm"] for file in (root / directory).rglob("*") if file.is_file()]
-inputs += ["vendor/acode/LICENSE", "vendor/acode-writer/src/core.js", "vendor/acode-writer/LICENSE", "package.json", "package-lock.json", "scripts/build.mjs", "scripts/frontend-state.mjs"]
+inputs = [file.relative_to(root).as_posix() for directory in ["web", "vendor/acode/src/cm", "vendor/wasmtex"] for file in (root / directory).rglob("*") if file.is_file()]
+inputs += ["vendor/acode/LICENSE", "vendor/acode-writer/src/core.js", "vendor/acode-writer/LICENSE", "package.json", "package-lock.json", "scripts/build.mjs", "scripts/frontend-state.mjs", "scripts/tex-assets.mjs"]
 source_hash = hashlib.sha256()
 for name in sorted(inputs):
     checksum = hashlib.sha256((root / name).read_bytes()).hexdigest()
@@ -34,7 +34,7 @@ for name, expected in state["outputs"].items():
         raise SystemExit(f"编辑器资源不完整，请重新构建：{name}")
 version = json.loads((root / "package.json").read_text(encoding="utf-8"))["version"]
 source = out / f"Vela-{version}-source.zip"
-folders = ["web", "scripts", "tests", "vendor", "hvigor", "AppScope", "entry/src", "previews", "android"]
+folders = ["web", "scripts", "tests", "vendor", "hvigor", "AppScope", "entry/src", "previews", "android", "docs"]
 files = ["package.json", "package-lock.json", "oh-package.json5", "build-profile.json5", "hvigorfile.ts", ".gitignore", ".gitattributes", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "VALIDATION.md", "RELEASE_NOTES.md", "entry/oh-package.json5", "entry/build-profile.json5", "entry/hvigorfile.ts"]
 with ZipFile(source, "w", ZIP_DEFLATED, compresslevel=9) as archive:
     for name in files:

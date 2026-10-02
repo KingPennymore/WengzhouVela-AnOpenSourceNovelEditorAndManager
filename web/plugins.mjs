@@ -3,21 +3,27 @@ import * as view from '@codemirror/view';
 import * as commands from '@codemirror/commands';
 import * as language from '@codemirror/language';
 import * as search from '@codemirror/search';
-import {fromBase64,assetPath,validatePluginStore} from './plugin-package.mjs';
+import * as autocomplete from '@codemirror/autocomplete';
+import {registerCompletion,removeCompletions} from './completion.mjs';
+import {fromBase64,toBase64,assetPath,validatePluginStore} from './plugin-package.mjs';
 import {readPluginStore,writePluginStore} from './platform.mjs';
+import {isTexPackage,storeTexPackage,removeTexPackage} from './tex-packages.mjs';
 
 const mime=name=>/\.css$/i.test(name)?'text/css':/\.js$/i.test(name)?'text/javascript':/\.json$/i.test(name)?'application/json':/\.svg$/i.test(name)?'image/svg+xml':/\.png$/i.test(name)?'image/png':/\.jpe?g$/i.test(name)?'image/jpeg':/\.woff2?$/i.test(name)?'font/woff2':'text/plain';
 class Events {
   listeners=new Map();
-  on(event,fn){if(!this.listeners.has(event))this.listeners.set(event,new Set());this.listeners.get(event).add(fn);}
+  owned=[];
+  on(event,fn){if(typeof fn!=='function')throw new Error('事件监听器必须是函数');if(!this.listeners.has(event))this.listeners.set(event,new Set());this.listeners.get(event).add(fn);const owner=this.owner?.();if(owner)this.owned.push({owner,event,fn});}
   off(event,fn){this.listeners.get(event)?.delete(fn);}
   removeListener(event,fn){this.off(event,fn);}
-  emit(event,...args){for(const fn of this.listeners.get(event)||[])fn(...args);}
+  cleanup(owner){for(const item of this.owned.filter(item=>item.owner===owner))this.off(item.event,item.fn);this.owned=this.owned.filter(item=>item.owner!==owner);}
+  emit(event,...args){for(const fn of this.listeners.get(event)||[])try{fn(...args);}catch(error){this.fail?.(error);}}
 }
 export class PluginRuntime {
   records=[];running=new Map();commands=new Map();modules=new Map();initializers=new Map();unmounts=new Map();settingsPages=new Map();assetUrls=new Map();fileObjects=new Map();manager=new Events();settings=new Events();
   constructor(host) {
     this.host=host;
+    this.queue=Promise.resolve();for(const events of [this.manager,this.settings]){events.owner=()=>this.loadingId;events.fail=host.fail;}
     Object.defineProperties(this.manager,{
       editor:{get:()=>host.getView()},activeFile:{get:()=>this.file(host.getDoc())},
       files:{get:()=>host.getFiles().map(d=>this.file(d))},container:{get:()=>document.querySelector('#editor')}
@@ -36,9 +42,9 @@ export class PluginRuntime {
     class Page {
       constructor(title){const page=document.createElement('section');page.className='plugin-page';page.hidden=true;page.setAttribute('aria-label',title||'插件');const heading=document.createElement('header');const close=document.createElement('button');close.textContent='← 返回文舟';close.onclick=()=>page.hide();const h=document.createElement('h2');h.textContent=title||'插件';heading.append(close,h);const body=document.createElement('div');body.className='plugin-page-body';page.append(heading,body);Object.assign(page,{body,content:body,show(){page.hidden=false;},hide(){page.hidden=true;},settitle(value){h.textContent=value;}});document.body.append(page);runtime.running.get(runtime.loadingId)?.nodes.push(page);return page;}
     }
-    const codemirror=Object.freeze({state,view,commands,language,search});
+    const codemirror=Object.freeze({state,view,commands,language,search,autocomplete});
     this.modules=new Map(Object.entries({codemirror,commands:commandApi,settings:this.settings,page:Page,
-      '@codemirror/state':state,'@codemirror/view':view,'@codemirror/commands':commands,'@codemirror/language':language,'@codemirror/search':search,
+      '@codemirror/state':state,'@codemirror/view':view,'@codemirror/commands':commands,'@codemirror/language':language,'@codemirror/search':search,'@codemirror/autocomplete':autocomplete,
       toast:host.toast,alert:async(title,message)=>host.message(title,message),confirm:async(title,message)=>host.confirm(title,message),prompt:async(title,value)=>host.prompt(title,value),
       actionStack:{push:()=>{},pop:()=>{},remove:()=>{}},
       helpers:{getText:()=>host.getDoc()?.text||'',toInternalUri:url=>this.resolve(url)},
@@ -49,7 +55,7 @@ export class PluginRuntime {
     const register=(map,id,fn)=>{if(id!==this.loadingId)throw new Error('插件注册 id 与 plugin.json 不一致。');if(typeof fn!=='function')throw new Error('插件生命周期必须是函数。');map.set(id,fn);};
     window.editorManager=this.manager;
     window.acode={
-      require:name=>{if(!this.modules.has(name))throw new Error(`文舟尚未支持 Acode 模块：${name}。`);return this.modules.get(name);},
+      require:name=>{if(name==='vela')return this.service(this.loadingId);if(!this.modules.has(name))throw new Error(`文舟尚未支持 Acode 模块：${name}。`);return this.modules.get(name);},
       define:(name,module)=>this.modules.set(name,module),
       setPluginInit:(id,fn,settings)=>{register(this.initializers,id,fn);if(settings)this.settingsPages.set(id,settings);},
       setPluginUnmount:(id,fn)=>register(this.unmounts,id,fn),
@@ -65,8 +71,25 @@ export class PluginRuntime {
   }
   file(doc) {
     if(!doc)return null;
-    if(!this.fileObjects.has(doc.id))this.fileObjects.set(doc.id,{id:doc.id,get filename(){return doc.name;},get name(){return doc.name;},get uri(){return `wenzhou-file://${doc.id}`;},get isUnsaved(){return false;},get text(){return doc.text;},get session(){return null;}});
+    const id=doc.id,runtime=this,get=()=>runtime.host.getFiles().find(item=>item.id===id);
+    if(!this.fileObjects.has(id))this.fileObjects.set(id,{id,get filename(){return get()?.name;},get name(){return get()?.name;},get uri(){return `wenzhou-file://${id}`;},get isUnsaved(){return false;},get text(){return get()?.text;},get session(){return null;}});
     return this.fileObjects.get(doc.id);
+  }
+  enqueue(task){const next=this.queue.then(task);this.queue=next.catch(()=>{});return next;}
+  extensions(){return [...this.running.values()].flatMap(item=>[...item.extensions.values()]);}
+  service(id){if(!id||!this.running.has(id))throw new Error('请在插件初始化期间获取 vela API');const runtime=this,resources=this.running.get(id),alive=()=>{if(runtime.running.get(id)!==resources)throw new Error('插件已停止');};
+    return Object.freeze({version:1,platform:window.WenzhouNative?.platform||'browser',
+      addExtension(extension){alive();const key=Symbol();resources.extensions.set(key,extension);runtime.host.refreshCommands();return ()=>{resources.extensions.delete(key);runtime.host.refreshCommands();};},
+      addCompletion(source,kinds=[]){alive();const dispose=registerCompletion(id,source,kinds);resources.disposers.push(dispose);return dispose;},
+      on(event,fn){alive();runtime.manager.on(event,fn);const dispose=()=>runtime.manager.off(event,fn);resources.disposers.push(dispose);return dispose;},
+      getFiles:()=>runtime.host.getFiles().map(doc=>({id:doc.id,name:doc.name,path:doc.path||doc.name})),
+      readText:async id=>{alive();const doc=runtime.host.getFiles().find(doc=>doc.id===id);if(!doc)throw new Error('文稿不存在');return doc.text;},
+      writeText:async(id,text)=>{alive();if(typeof text!=='string')throw new Error('正文必须为字符串');return runtime.host.setText(id,text);},
+      compileTex:async(fileId,options={})=>{alive();if(runtime.loadingId===id)throw new Error('请在初始化完成后的用户操作中编译');const doc=runtime.host.getFiles().find(doc=>doc.id===fileId);if(!doc)throw new Error('文稿不存在');const controller=new AbortController(),cancel=()=>controller.abort();resources.disposers.push(cancel);options.signal?.addEventListener('abort',cancel,{once:true});try{return await runtime.host.compileTex(doc,{engine:options.engine||'xetex',onLog:options.onLog,signal:controller.signal});}finally{options.signal?.removeEventListener('abort',cancel);resources.disposers=resources.disposers.filter(fn=>fn!==cancel);}},
+      getSettings:()=>structuredClone(runtime.records.find(record=>record.manifest.id===id)?.settings||{}),
+      updateSettings(value){alive();const record=runtime.records.find(record=>record.manifest.id===id),previous=record.settings;record.settings={...record.settings,...value};try{runtime.save();}catch(error){record.settings=previous;throw error;}},
+      dispose(fn){alive();if(typeof fn!=='function')throw new Error('清理器必须是函数');resources.disposers.push(fn);return fn;}
+    });
   }
   resolve(value) {return typeof value==='string'?(this.assetUrls.get(value)||value):value;}
   installAssetResolver() {
@@ -80,10 +103,11 @@ export class PluginRuntime {
     }
   }
   fs(uri) {
+    if(uri.startsWith('wenzhou-file://')){const id=uri.slice('wenzhou-file://'.length),get=()=>this.host.getFiles().find(doc=>doc.id===id);return {exists:async()=>!!get(),readFile:async(encoding='utf-8')=>{const doc=get();if(!doc)throw new Error('文稿不存在');return encoding===null?new TextEncoder().encode(doc.text):doc.text;},writeFile:async text=>{if(!get())throw new Error('文稿不存在');return this.host.setText(id,typeof text==='string'?text:new TextDecoder('utf-8',{fatal:true}).decode(text));}};}
     const record=this.records.find(p=>uri.startsWith(`wenzhou-plugin://${p.manifest.id}/`));
     const prefix=record?`wenzhou-plugin://${record.manifest.id}/`:'';
     const path=prefix?assetPath(uri.slice(prefix.length)):'';
-    return {readFile:async(encoding='utf-8')=>{if(!record?.files[path])throw new Error('插件资源不存在。');const bytes=fromBase64(record.files[path]);return encoding===null?bytes:new TextDecoder().decode(bytes);},writeFile:async text=>{if(!record||!path.startsWith('cache/'))throw new Error('插件只能写入自身 cache 目录。');const bytes=new TextEncoder().encode(text);let s='';for(const b of bytes)s+=String.fromCharCode(b);record.files[path]=btoa(s);this.save();},exists:async()=>!!record?.files[path]};
+    return {readFile:async(encoding='utf-8')=>{if(!record?.files[path])throw new Error('插件资源不存在。');const bytes=fromBase64(record.files[path]);return encoding===null?bytes:new TextDecoder().decode(bytes);},writeFile:async text=>{if(!record||!path.startsWith('cache/'))throw new Error('插件只能写入自身 cache 目录。');const bytes=typeof text==='string'?new TextEncoder().encode(text):new Uint8Array(text);if(bytes.length>MAX_PLUGIN_BYTES)throw new Error('缓存文件超过 8 MB');const previous=record.files[path];record.files[path]=toBase64(bytes);try{this.save();}catch(error){if(previous===undefined)delete record.files[path];else record.files[path]=previous;throw error;}const base=prefix+path,old=this.assetUrls.get(base),url=URL.createObjectURL(new Blob([bytes],{type:mime(path)}));if(old?.startsWith('blob:'))URL.revokeObjectURL(old);this.assetUrls.set(base,url);this.running.get(record.manifest.id)?.urls.push(url);},exists:async()=>!!record?.files[path]};
   }
   save(){if(this.records[0])this.records[0].hostSettings={...this.settings.value};writePluginStore(this.records);}
   async boot() {
@@ -93,17 +117,21 @@ export class PluginRuntime {
     if(this.records.length)this.save();
   }
   bindings(){return [...this.commands.values()].flatMap(c=>{let key=typeof c.bindKey==='string'?c.bindKey:c.bindKey?.win;key=key?.replace(/^Ctrl-/i,'Mod-').replace(/-([a-z])$/i,(_,s)=>'-'+s.toLowerCase());return key?[{key,run:v=>{Promise.resolve(c.exec(v)).catch(this.host.fail);return true;}}]:[];});}
-  async install(record) {
+  install(record){return this.enqueue(()=>this.installNow(record));}
+  async installNow(record) {
+    if(isTexPackage(record))await storeTexPackage(record);
     const old=this.records.find(p=>p.manifest.id===record.manifest.id);
     if(old){await this.unload(old.manifest.id);this.records=this.records.filter(p=>p!==old);}
     this.records.push(record);
     try{await this.load(record);}catch(e){record.enabled=false;record.error=e.message;}
-    this.save();return record;
+    try{this.save();}catch(error){await this.unload(record.manifest.id);this.records=this.records.filter(item=>item!==record);if(isTexPackage(record))await removeTexPackage(record);if(old){this.records.push(old);if(old.enabled)await this.load(old);}throw error;}
+    if(old&&isTexPackage(old))await removeTexPackage(old);return record;
   }
   async load(record) {
     const id=record.manifest.id;if(this.running.has(id))return;
-    const resources={urls:[],nodes:[],page:null};this.running.set(id,resources);this.loadingId=id;
+    const resources={urls:[],nodes:[],page:null,extensions:new Map(),disposers:[]};this.running.set(id,resources);this.loadingId=id;
     try {
+      if(isTexPackage(record)){record.enabled=true;record.error='';return;}
       const base=`wenzhou-plugin://${id}/`;
       for(const [name,data] of Object.entries(record.files)){
         if(/\.css$/i.test(name))continue;
@@ -122,13 +150,14 @@ export class PluginRuntime {
       if(scriptError)throw scriptError;
       if(!this.initializers.has(id))throw new Error('插件未注册 acode.setPluginInit，或入口执行失败。');
       const page=new (this.modules.get('page'))(record.manifest.name);resources.page=page;
-      await this.initializers.get(id)(base,page,{cacheFile:this.fs(base+'cache/data.json'),cacheFileUrl:base+'cache/data.json',wenzhou:true});
+      await bounded(this.initializers.get(id)(base,page,{cacheFile:this.fs(base+'cache/data.json'),cacheFileUrl:base+'cache/data.json',wenzhou:true,vela:this.service(id)}),15000,'插件初始化超时');
       record.error='';record.enabled=true;
     } catch(error) {await this.unload(id);throw error;}finally{this.loadingId=null;}
   }
   async unload(id) {
     const resources=this.running.get(id);if(!resources)return;
-    try{await this.unmounts.get(id)?.();}finally{
+    try{await bounded(this.unmounts.get(id)?.(),5000,'插件卸载超时');}catch(error){this.host.fail(error);}finally{
+      for(const dispose of resources.disposers)try{dispose();}catch(error){this.host.fail(error);}this.manager.cleanup(id);this.settings.cleanup(id);removeCompletions(id);
       for(const node of resources.nodes)node.remove();for(const url of resources.urls)URL.revokeObjectURL(url);
       for(const key of this.assetUrls.keys())if(key.startsWith(`wenzhou-plugin://${id}/`))this.assetUrls.delete(key);
       this.initializers.delete(id);this.unmounts.delete(id);this.settingsPages.delete(id);this.running.delete(id);
@@ -136,7 +165,9 @@ export class PluginRuntime {
       this.host.refreshCommands();
     }
   }
-  async enable(record,enabled){if(enabled)await this.load(record);else await this.unload(record.manifest.id);record.enabled=enabled;record.error='';this.save();}
-  async remove(record){await this.unload(record.manifest.id);this.records=this.records.filter(p=>p!==record);this.save();}
+  enable(record,enabled){return this.enqueue(async()=>{if(enabled)await this.load(record);else await this.unload(record.manifest.id);record.enabled=enabled;record.error='';this.save();});}
+  remove(record){return this.enqueue(async()=>{await this.unload(record.manifest.id);this.records=this.records.filter(p=>p!==record);this.save();if(isTexPackage(record))await removeTexPackage(record);});}
   emit(event,...args){try{this.manager.emit(event,...args);}catch(e){this.host.fail(e);}}
 }
+
+function bounded(task,ms,message){let timer;return Promise.race([Promise.resolve(task),new Promise((_,reject)=>timer=setTimeout(()=>reject(new Error(message)),ms))]).finally(()=>clearTimeout(timer));}

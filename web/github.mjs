@@ -51,7 +51,8 @@ export class GitHub {
     if(text.includes('\0')) throw new Error('此文件是二进制文件，无法作为文稿打开。');
     return {text,sha:file.sha};
   }
-  async pullRepository(repo,branch,{signal,onProgress=()=>{}}={}) {
+  async pullRepository(repo,branch,{signal,onProgress=()=>{},selection=null}={}) {
+    if(selection!==null){if(!Array.isArray(selection)||!selection.length||selection.length>5000)throw new Error('请选择 1–5000 个文件或文件夹。');selection=[...new Set(selection.map(repoPath))];}
     const cancelled=()=>{if(signal?.aborted)throw new Error('已取消拉取，工作区未修改。');};
     const base=this.base(repo);cancelled();
     const ref=await this.request(`${base}/git/ref/heads/${encodeURIComponent(branch)}`);cancelled();
@@ -67,6 +68,7 @@ export class GitHub {
       }
     }
     if(!Array.isArray(entries)||entries.length>5000)throw new Error('仓库目录无效或超过 5000 项，工作区未修改。');
+    if(selection){for(const path of selection)if(!entries.some(entry=>entry.path===path))throw new Error('选中的路径已不存在：'+path);entries=entries.filter(entry=>selection.some(path=>entry.path===path||entry.path.startsWith(path+'/')));}
     let total=0;const paths=new Set(),folders=[],blobs=[];
     for(const entry of entries){
       repoPath(entry.path);if(paths.has(entry.path))throw new Error('仓库存在重复路径。');paths.add(entry.path);

@@ -60,7 +60,7 @@ final class NativeBridge {
             try {
                 if (json == null || json.length() > 100 * 1024 * 1024) throw new IOException("请求数据过大。");
                 JSONObject data = new JSONObject(json);
-                if (Arrays.asList("import", "export", "importPlugin").contains(operation)) { activity.pick(requestId, operation, data); return; }
+                if (Arrays.asList("import", "export", "exportPdf", "importPlugin").contains(operation)) { activity.pick(requestId, operation, data); return; }
                 Object value = dispatch(operation, data, generation);
                 activity.deliver(requestId, success(value));
             } catch (Exception error) { activity.deliver(requestId, failure(error)); }

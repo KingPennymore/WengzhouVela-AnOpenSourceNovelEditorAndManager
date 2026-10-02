@@ -80,6 +80,8 @@ public final class MainActivity extends Activity {
                         catch (IOException error) { return blocked(); }
                     }
                     WebResourceResponse response = assets.shouldInterceptRequest(uri);
+                    if (response != null && uri.getPath().endsWith(".wasm")) response.setMimeType("application/wasm");
+                    if (response != null && uri.getPath().endsWith(".mjs")) response.setMimeType("text/javascript");
                     return response == null ? blocked() : response;
                 }
                 return blocked();
@@ -118,9 +120,9 @@ public final class MainActivity extends Activity {
             + "window.wenzhouAndroidResolve=(id,raw)=>{const task=pending.get(id);if(task){clearTimeout(task.timer);pending.delete(id);task.resolve(raw);}};"
             + "window.WenzhouNative={platform:'android',readEnvironment:()=>WenzhouAndroid.readEnvironment(secret),readWorkspace:()=>WenzhouAndroid.readWorkspace(secret),"
             + "writeWorkspace:data=>WenzhouAndroid.writeWorkspace(secret,data),readPlugins:()=>WenzhouAndroid.readPlugins(secret),writePlugins:data=>WenzhouAndroid.writePlugins(secret,data),"
-            + "call:(op,json)=>new Promise((resolve,reject)=>{const id=crypto.randomUUID();const timer=setTimeout(()=>{pending.delete(id);reject(new Error('设备操作超时，请重试。'));},['import','export','importPlugin'].includes(op)?600000:120000);"
+            + "call:(op,json)=>new Promise((resolve,reject)=>{const id=crypto.randomUUID();const timer=setTimeout(()=>{pending.delete(id);reject(new Error('设备操作超时，请重试。'));},['import','export','exportPdf','importPlugin'].includes(op)?600000:120000);"
             + "pending.set(id,{resolve,reject,timer});try{WenzhouAndroid.post(secret,id,op,json);}catch(error){clearTimeout(timer);pending.delete(id);reject(error);}})};})();";
-        html = html.replace("script-src 'self' blob:;", "script-src 'self' blob: 'nonce-" + capability + "';");
+        html = html.replace("script-src 'self' blob:", "script-src 'self' blob: 'nonce-" + capability + "'");
         html = html.replace("<script src=\"./licenses.js\">", "<script nonce=\"" + capability + "\">" + script + "</script><script src=\"./licenses.js\">");
         return html.getBytes(StandardCharsets.UTF_8);
     }
@@ -158,7 +160,7 @@ public final class MainActivity extends Activity {
             if (pickerId != null) { deliver(id, NativeBridge.failure(new IOException("请先完成当前文件选择。"))); return; }
             try {
                 Intent intent;
-                if (operation.equals("export")) {
+                if ((operation.equals("export") || operation.equals("exportPdf"))) {
                     String name = data.optString("name", "文稿.txt");
                     if (name.isEmpty() || name.matches("(?s).*[\\\\/\u0000-\u001f].*")) throw new IOException("文件名无效。");
                     intent = new Intent(Intent.ACTION_CREATE_DOCUMENT).setType(mime(name)); intent.putExtra(Intent.EXTRA_TITLE, name);
@@ -174,7 +176,7 @@ public final class MainActivity extends Activity {
     }
     private String mime(String name) {
         String lower = name.toLowerCase(java.util.Locale.ROOT);
-        return lower.endsWith(".csv") ? "text/csv" : lower.endsWith(".html") || lower.endsWith(".htm") ? "text/html" : lower.endsWith(".md") ? "text/markdown" : "text/plain";
+        return lower.endsWith(".pdf") ? "application/pdf" : lower.endsWith(".csv") ? "text/csv" : lower.endsWith(".html") || lower.endsWith(".htm") ? "text/html" : lower.endsWith(".md") ? "text/markdown" : "text/plain";
     }
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
@@ -189,13 +191,15 @@ public final class MainActivity extends Activity {
             try {
                 if (uris.isEmpty()) throw new IOException("未选择文件。");
                 Object value;
-                if (operation.equals("export")) {
+                if ((operation.equals("export") || operation.equals("exportPdf"))) {
                     try (OutputStream stream = getContentResolver().openOutputStream(uris.get(0), "wt")) {
                         if (stream == null) throw new IOException("无法写入所选文件。");
-                        stream.write(payload.optString("text").getBytes(StandardCharsets.UTF_8)); stream.flush();
+                        byte[] output = operation.equals("exportPdf") ? android.util.Base64.decode(payload.optString("data"), android.util.Base64.DEFAULT) : payload.optString("text").getBytes(StandardCharsets.UTF_8);
+                        if (operation.equals("exportPdf") && (output.length < 5 || output.length > 32 * 1024 * 1024 || !new String(output, 0, 5, StandardCharsets.US_ASCII).equals("%PDF-"))) throw new IOException("PDF 无效或超过 32 MB。");
+                        stream.write(output); stream.flush();
                     }
                     value = true;
-                } else if (operation.equals("importPlugin")) value = new JSONObject().put("name", displayName(uris.get(0))).put("data", android.util.Base64.encodeToString(documentBytes(uris.get(0)), android.util.Base64.NO_WRAP));
+                } else if (operation.equals("importPlugin")) value = new JSONObject().put("name", displayName(uris.get(0))).put("data", android.util.Base64.encodeToString(documentBytes(uris.get(0), 64 * 1024 * 1024), android.util.Base64.NO_WRAP));
                 else {
                     JSONArray files = new JSONArray();
                     for (Uri uri : uris) {
@@ -210,8 +214,9 @@ public final class MainActivity extends Activity {
             } catch (Exception error) { deliver(id, NativeBridge.failure(error)); }
         });
     }
-    private byte[] documentBytes(Uri uri) throws IOException {
-        try (InputStream stream = getContentResolver().openInputStream(uri)) { if (stream == null) throw new IOException("无法读取所选文件。"); return NativeBridge.readStream(stream, FileText.MAX_BYTES); }
+    private byte[] documentBytes(Uri uri) throws IOException { return documentBytes(uri, FileText.MAX_BYTES); }
+    private byte[] documentBytes(Uri uri, int limit) throws IOException {
+        try (InputStream stream = getContentResolver().openInputStream(uri)) { if (stream == null) throw new IOException("无法读取所选文件。"); return NativeBridge.readStream(stream, limit); }
     }
     private String displayName(Uri uri) {
         try (Cursor cursor = getContentResolver().query(uri, new String[]{OpenableColumns.DISPLAY_NAME}, null, null, null)) { if (cursor != null && cursor.moveToFirst()) return cursor.getString(0); }

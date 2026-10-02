@@ -99,7 +99,7 @@ try{
     assert.equal(await page.locator('#dialog').isVisible(),false);assert.equal(await page.evaluate(()=>localStorage.getItem('wenzhou.workspace').includes('test-token')),false);
     await page.locator('.repo-card').click();await page.waitForSelector('[data-file]');await page.locator('#branch-select').selectOption('draft');await page.waitForSelector('[data-file]');
     await click('create-branch');await page.locator('[name="name"]').fill('draft/revision');await click('dialog-submit');await page.waitForSelector('[data-file]');
-    await page.locator('[data-file]').click();await page.waitForSelector('#write-view:not([hidden])');assert.ok((await content()).includes('远端'));
+    const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')).activeId);await page.locator('[data-file]').click();await page.waitForFunction(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')).documents.some(doc=>doc.remote?.path==='全书.txt'));assert.equal(await page.locator('#github-view').isVisible(),true);assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')).activeId),before);const id=await page.evaluate(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')).documents.find(doc=>doc.remote?.path==='全书.txt').id);await page.locator(`[data-doc="${id}"]`).click();await page.waitForSelector('#write-view:not([hidden])');assert.ok((await content()).includes('远端'));
   });
   await check('文稿提交绑定原 SHA，版本冲突显示提示并保留本地正文',async()=>{
     await click('quick-git');await click('dialog-submit');await page.waitForFunction(()=>!document.querySelector('#dialog').open);

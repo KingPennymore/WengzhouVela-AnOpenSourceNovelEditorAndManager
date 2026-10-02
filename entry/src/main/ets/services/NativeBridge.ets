@@ -17,6 +17,7 @@ interface BridgeRequest {
   token?: string;
   name?: string;
   text?: string;
+  data?: string;
   dark?: boolean;
   reading?: boolean;
   readingMode?: string;
@@ -305,14 +306,19 @@ export class NativeBridge {
         await this.getContext().startAbility({ action: 'ohos.want.action.viewData', uri: 'https://github.com/login/device' });
         return this.success(true);
       }
-      if (operation === 'export') {
+      if (operation === 'export' || operation === 'exportPdf') {
         const name = data.name || '文稿.txt';
         if (/[\\/\x00-\x1f]/.test(name)) throw new Error('文件名无效。');
         const documentPicker = new picker.DocumentViewPicker(this.getContext());
         const options: picker.DocumentSaveOptions = { newFileNames: [name] };
         const uris = await documentPicker.save(options);
         if (uris.length === 0) return this.success(false);
-        this.writeFile(uris[0], data.text || '');
+        if (operation === 'exportPdf') {
+          const bytes = new util.Base64Helper().decodeSync(data.data || '');
+          if (bytes.length < 5 || bytes.length > 32 * 1024 * 1024 || new util.TextDecoder('utf-8').decodeToString(bytes.slice(0, 5)) !== '%PDF-') throw new Error('PDF 无效或超过 32 MB。');
+          const file = fs.openSync(uris[0], fs.OpenMode.WRITE_ONLY | fs.OpenMode.CREATE | fs.OpenMode.TRUNC);
+          try { const buffer = new ArrayBuffer(bytes.byteLength); new Uint8Array(buffer).set(bytes); fs.writeSync(file.fd, buffer); } finally { fs.closeSync(file); }
+        } else this.writeFile(uris[0], data.text || '');
         return this.success(true);
       }
       if (operation === 'import') {
@@ -355,7 +361,7 @@ export class NativeBridge {
         const file = fs.openSync(uris[0], fs.OpenMode.READ_ONLY);
         try {
           const size = fs.statSync(file.fd).size;
-          if (size > 8 * 1024 * 1024) throw new Error('插件 ZIP 不能超过 8 MB。');
+          if (size > 64 * 1024 * 1024) throw new Error('宏包 ZIP 不能超过 64 MB。');
           const buffer = new Uint8Array(size);
           let offset = 0;
           while (offset < size) {
