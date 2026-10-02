@@ -1,4 +1,5 @@
 export const shortcuts=[
+  ['add-glossary','Mod-Alt-g','Ctrl+Alt+G','选中词加入术语库'],
   ['quick-save','Mod-s','Ctrl+S','保存'],
   ['quick-undo','Mod-z','Ctrl+Z','撤回'],
   ['quick-redo','Mod-Shift-z','Ctrl+Shift+Z','重做'],

@@ -14,6 +14,8 @@
     "test:ui": "node tests/browser.mjs && node tests/features-browser.mjs && node tests/workspace-browser.mjs && node tests/file-manager-browser.mjs && node tests/sidebars-browser.mjs && node tests/studio-browser.mjs",
     "test:reading": "node tests/reading-browser.mjs && node tests/reading-config-browser.mjs && node tests/double-reading-browser.mjs",
     "test:tex": "node tests/tex-browser.mjs",
+    "test:ui:platforms": "node tests/ui-overhaul-browser.mjs",
+    "test:glossary": "node tests/glossary-browser.mjs",
     "build:windows": "node scripts/build-windows.mjs",
     "test:windows": "node tests/windows-browser.mjs"
   },

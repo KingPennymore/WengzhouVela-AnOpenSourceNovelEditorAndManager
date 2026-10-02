@@ -126,7 +126,7 @@ try{
     assert.equal(await m.locator('#library').isVisible(),false);assert.equal(await m.locator('#outline').isVisible(),false);
     assert.equal(await m.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     for(const id of ['quick-save','quick-undo','quick-redo','quick-top','quick-bottom','quick-chapter-top','quick-chapter-bottom','quick-git']){
-      const rect=await m.locator('#'+id).boundingBox();assert.ok(rect.x>=0&&rect.x+rect.width<=390.5,id);
+      await m.locator('#'+id).scrollIntoViewIfNeeded();const rect=await m.locator('#'+id).boundingBox();assert.ok(rect.x>=0&&rect.x+rect.width<=390.5,id);
     }
     await m.locator('#mobile-library').click();assert.equal(await m.locator('#library').isVisible(),true);await m.locator('#mobile-library').click();
     await m.locator('#outline-toggle').click();await m.locator('[data-row="5"]').click();assert.equal(await m.locator('#cursor-position').textContent(),'行 6，列 1');await m.locator('#outline').waitFor({state:'hidden'});assert.equal(await m.locator('#outline').isVisible(),false);

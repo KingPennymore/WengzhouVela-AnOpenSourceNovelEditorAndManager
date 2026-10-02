@@ -8,6 +8,7 @@
   <link rel="stylesheet" href="./style.css">
   <link rel="stylesheet" href="./file-manager.css">
   <link rel="stylesheet" href="./katex.min.css">
+  <link rel="stylesheet" href="./ui.css">
 </head>
 <body>
 <div id="app">
@@ -23,7 +24,7 @@
   </aside>
   </div></div>
   <main class="workspace" id="workspace-shell">
-    <header class="topbar"><div class="breadcrumb"><button id="mobile-library" title="文件侧栏" aria-label="打开文件侧栏" aria-expanded="false"></button><i class="nav-separator" aria-hidden="true"></i><nav class="page-navigation" aria-label="主导航"><button class="nav-item active" data-view="write" title="写作" aria-label="写作"></button><button class="nav-item" data-view="github" title="GitHub 仓库" aria-label="GitHub 仓库"></button><button class="nav-item" data-view="subscriptions" title="订阅" aria-label="订阅"><i class="update-dot" hidden></i></button><button class="nav-item" data-view="reader" title="阅读" aria-label="阅读"></button></nav><span class="app-name">文舟</span><span class="slash">/</span><strong id="current-name" title="双击重命名文件"></strong></div><div class="toolbar"><span class="saved" id="save-state" role="status">已保存到本机</span><button id="home-button" title="启动页" aria-label="启动页">⌂</button><button id="search-editor" title="查找与替换 (Ctrl+F)" aria-label="查找与替换"></button><button id="preview-toggle" title="预览 / 源码" aria-label="预览 / 源码"></button><button id="outline-toggle" title="章节目录" aria-label="章节目录" aria-expanded="false"></button><button id="focus-toggle" title="专注模式" aria-label="专注模式"></button><button id="theme" title="外观模式" aria-label="外观模式"></button><button id="commands" title="命令与快捷键" aria-label="命令与快捷键">⌘</button><button id="plugins" title="Acode 插件" aria-label="Acode 插件">⊞</button><button id="settings" title="编辑器设置" aria-label="编辑器设置"></button><button id="export-doc" title="导出小说文件" aria-label="导出小说文件"></button></div></header>
+    <header class="topbar"><div class="breadcrumb"><button id="mobile-library" title="文件侧栏" aria-label="打开文件侧栏" aria-expanded="false"></button><i class="nav-separator" aria-hidden="true"></i><nav class="page-navigation" aria-label="主导航"><button class="nav-item active" data-view="write" title="写作" aria-label="写作"></button><button class="nav-item" data-view="github" title="GitHub 仓库" aria-label="GitHub 仓库"></button><button class="nav-item" data-view="subscriptions" title="订阅" aria-label="订阅"><i class="update-dot" hidden></i></button><button class="nav-item" data-view="reader" title="阅读" aria-label="阅读"></button></nav><span class="app-name">文舟</span><span class="slash">/</span><strong id="current-name" title="双击重命名文件"></strong></div><div class="toolbar"><span class="saved" id="save-state" role="status">已保存到本机</span><button id="home-button" title="启动页" aria-label="启动页">⌂</button><button id="search-editor" title="查找与替换 (Ctrl+F)" aria-label="查找与替换"></button><button id="preview-toggle" title="预览 / 源码" aria-label="预览 / 源码"></button><button id="outline-toggle" title="章节目录" aria-label="章节目录" aria-expanded="false"></button><button id="focus-toggle" title="专注模式" aria-label="专注模式"></button><button id="theme" title="外观模式" aria-label="外观模式"></button><button id="add-glossary" title="选中词加入术语库 (Ctrl+Alt+G)" aria-label="选中词加入术语库">＋</button><button id="commands" title="命令与快捷键" aria-label="命令与快捷键">⌘</button><button id="plugins" title="Acode 插件" aria-label="Acode 插件">⊞</button><button id="settings" title="编辑器设置" aria-label="编辑器设置"></button><button id="export-doc" title="导出小说文件" aria-label="导出小说文件"></button></div></header>
     <section class="writing-view" id="write-view">
     <div class="file-rowbar"><div class="document-tabs" id="document-tabs" role="tablist" aria-label="小说文件"></div><div id="display-options" class="display-options"></div></div>
     <div class="writing-layout">
@@ -41,7 +42,7 @@
 </div>
 <dialog id="dialog"><form id="dialog-form"><div class="dialog-heading"><h2 id="dialog-title"></h2><button type="button" id="dialog-close" aria-label="关闭">×</button></div><div id="dialog-body"></div><p id="dialog-error" class="error" role="alert"></p><div class="dialog-actions"><button type="button" id="dialog-cancel" class="secondary">取消</button><button type="submit" id="dialog-submit" class="primary">确定</button></div></form></dialog>
 <div id="toast" role="status" hidden></div>
-<input type="file" id="file-input" accept="text/*,.txt,.md,.markdown,.vela,.html,.htm,.csv,.tsv,.tex,.latex,.bib,.json,.json5,.js,.jsx,.ts,.tsx,.py,.css,.scss,.xml,.svg,.yaml,.yml,.toml,.ini,.sh,.java,.c,.cpp,.h,.rs,.go,.kt,.sql,.log,.conf,.diff" multiple hidden>
+<input type="file" id="file-input" accept="text/*,.txt,.md,.markdown,.vela,.gly,.glossary,.html,.htm,.csv,.tsv,.tex,.latex,.bib,.json,.json5,.js,.jsx,.ts,.tsx,.py,.css,.scss,.xml,.svg,.yaml,.yml,.toml,.ini,.sh,.java,.c,.cpp,.h,.rs,.go,.kt,.sql,.log,.conf,.diff" multiple hidden>
 <input type="file" id="plugin-input" accept=".zip" hidden>
 <script src="./licenses.js"></script>
 <script src="./app.js"></script>

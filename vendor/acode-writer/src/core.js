@@ -31,8 +31,8 @@ const WriterCore = (() => {
   function templatePattern(template) {
     if (!/\{(?:序号|标题|number|title)\}/.test(template)) throw ruleError('template', '模板需包含 {序号} 或 {标题}。');
     return template.split(/(\{序号\}|\{标题\}|\{number\}|\{title\})/).map(part => {
-      if (part === '{number}') return EN_NUM;
-      if (part === '{序号}') return `[${NUM}]+`;
+      // Both languages share the same placeholder semantics, independent of UI language.
+      if (part === '{number}' || part === '{序号}') return `(?:${EN_NUM}|[${NUM}]+)`;
       if (part === '{标题}' || part === '{title}') return '.+';
       return part.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/\s+/g, '\\s*');
     }).join('');

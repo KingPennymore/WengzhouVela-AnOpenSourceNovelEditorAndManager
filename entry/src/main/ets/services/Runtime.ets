@@ -2,13 +2,13 @@ import { webview } from '@kit.ArkWeb';
 import { window } from '@kit.ArkUI';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 
-interface EditorEnvironment { dark: boolean; top: number; bottom: number; left: number; right: number; }
+interface EditorEnvironment { platform: string; dark: boolean; top: number; bottom: number; left: number; right: number; }
 
 export class Runtime {
   static controller: webview.WebviewController | undefined = undefined;
   static mainWindow: window.Window | undefined = undefined;
   static immersive: boolean = false;
-  static environment: EditorEnvironment = { dark: false, top: 0, bottom: 0, left: 0, right: 0 };
+  static environment: EditorEnvironment = { platform: 'harmonyos', dark: false, top: 0, bottom: 0, left: 0, right: 0 };
 
   static readEnvironment(): string { return JSON.stringify(Runtime.environment); }
 

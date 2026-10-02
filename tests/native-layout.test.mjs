@@ -12,7 +12,7 @@ function fixture(){
   return {Runtime,warnings,scripts,properties,setReady:value=>ready=value};
 }
 test('原生底部避让按窗口密度转换，顶部由 ArkUI 避让，窗口暂不可用时保留上次结果',()=>{
-  const f=fixture();f.Runtime.updateInsets();assert.deepEqual(JSON.parse(f.Runtime.readEnvironment()),{dark:false,top:0,bottom:22,left:0,right:0});assert.ok(f.scripts[0].includes('"bottom":22'));
+  const f=fixture();f.Runtime.updateInsets();assert.deepEqual(JSON.parse(f.Runtime.readEnvironment()),{platform:'harmonyos',dark:false,top:0,bottom:22,left:0,right:0});assert.ok(f.scripts[0].includes('"bottom":22'));
   f.setReady(false);f.Runtime.updateInsets();assert.equal(JSON.parse(f.Runtime.readEnvironment()).bottom,22);assert.equal(f.warnings.length,1);
 });
 test('系统主题通知与窗口配色分离，手动外观不会改变系统深浅状态',async()=>{

@@ -20,3 +20,13 @@ test('保留旧模板并去重，拒绝没有占位符或超过限额的模板',
   assert.throws(()=>chapterSettings({titleTemplates:Array.from({length:33},(_,i)=>`${i} {标题}`)}),/32/);
   assert.throws(()=>chapterSettings({titleTemplates:['a'.repeat(257)]}),/256/);
 });
+
+test('中英文序号及标题标签共享识别语义，混用标签不受界面语言影响',()=>{
+  for(const number of ['序号','number'])for(const title of ['标题','title']){
+    const matches=chapterMatcher({titleTemplates:[`幕 {${number}} — {${title}}`]});
+    for(const value of ['十二','１２','12','IV','Three','twenty-one'])assert.equal(matches(`幕 ${value} — 起航`),true,value);
+    assert.equal(matches('幕 unknown — 起航'),false);
+    assert.equal(matches('幕  — 起航'),false);
+    assert.equal(matches('幕 12 — '),false);
+  }
+});

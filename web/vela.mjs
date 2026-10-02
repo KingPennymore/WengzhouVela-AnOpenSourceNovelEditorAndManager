@@ -82,6 +82,7 @@ export function rewriteVelaFiles(before,after,action,path,destination=''){
         const container=config.kind==='global'?config.library:config.reading;
         if(container?.items)container.items=container.items.flatMap(item=>{const next=rewrite(item.path);return next===null?[]:[{...item,path:next}];});
         if(config.files)config.files=Object.fromEntries(Object.entries(config.files).flatMap(([key,value])=>{const next=rewrite(key);return next===null?[]:[[next,value]];}));
+        for(const editor of [config.editor,config.workspaceDefaults?.editor,...Object.values(config.files||{}).map(value=>value.editor)])if(editor?.glossaries)editor.glossaries=editor.glossaries.map(rewrite).filter(path=>path!==null);
         for(const [object,key] of [[config.project,'cover'],[config.formats?.latex,'main'],[config.publishing,'changelog']])if(object?.[key]){const next=rewrite(object[key]);if(next===null)delete object[key];else object[key]=next;}
       }
       const text=velaText(config);if(text!==doc.text){doc.text=text;doc.updatedAt=Date.now();}
