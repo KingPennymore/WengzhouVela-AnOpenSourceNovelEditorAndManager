@@ -9,3 +9,4 @@ entry/src/main/resources/rawfile/web/tex/** binary
 *.data binary
 *.fmt binary
 android/gradlew.bat text eol=crlf
+entry/src/main/resources/rawfile/web/** -text
