@@ -1,8 +1,8 @@
 {
   "format": 1,
-  "source": "e17a08bc6fddfc370e80ba9c2b9529a0fe41e7aeb131e2d28b5d145ed31926a2",
+  "source": "c6a67b9d7a58f1abd47dac2d45d7b85c7c54c521c620e37a1ab9f551bae008ff",
   "outputs": {
-    "app.js": "b832f08da3708c0cb1e2dcc8034309ac76e699dd0e5228df1599e80c0f0d895f",
+    "app.js": "f40592d0a0738cdfe2c174fd216bed9babd004169c8a36045bc4d4a5b3426e6d",
     "file-manager.css": "4c3ecef2f1b7f371bb7fb0bc94d7a0b932ae277caf4313a07ff21e42e3344964",
     "fonts/KaTeX_AMS-Regular.ttf": "68534840bcfdd2bffb6f0e8deb48684dd01e7f04ea2813267577afb906de1d13",
     "fonts/KaTeX_AMS-Regular.woff": "30da91e84c893f875e252689faebdc590b2871145e8adc7f9a9d4dbd8ce0b251",
@@ -318,7 +318,7 @@
     "pdf/fonts/LiberationSans-Italic.ttf": "832b4406dbef23628800d3aaad21048534ac84d7e3ad955be83b8172ed8ef512",
     "pdf/fonts/LiberationSans-Regular.ttf": "f8ace1f892b2bd9dc1792ba7f097fa7588f84fed48321480e04de5390828221f",
     "pdf/pdf.worker.mjs": "bd88805178a26c729db8c0107a5b630cb900ec070f4d8c7529a3e45530afd41d",
-    "style.css": "9d7b198c3bdd162f7302c18e4eafbf371c1edafaa585dd8971480cc48dde8982",
+    "style.css": "bfaac608bb1fbbba539d2b7f6664fbca937ec8dc86d49b71ee87ff5b65422fc8",
     "tex/NOTICE": "4c2c2c5272626e1074b7d7fdf3e6898f0a2886ebcc70310ef6fa4b29ec11f341",
     "tex/THIRD_PARTY_NOTICES.md": "f8864b80293837e63ff7f71ab3efb5fe5d121d9f85bfce0cd1bf81846ac8255d",
     "tex/busytex.js": "81aa161c71d8cca6586c11b7dbd76ddedd48d7523300ff75fa9ba49703885678",
