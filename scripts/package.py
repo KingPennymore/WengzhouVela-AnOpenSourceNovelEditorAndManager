@@ -32,7 +32,8 @@ for name, expected in state["outputs"].items():
     file = resources / name
     if not file.is_file() or hashlib.sha256(file.read_bytes()).hexdigest() != expected:
         raise SystemExit(f"编辑器资源不完整，请重新构建：{name}")
-version = json.loads((root / "package.json").read_text(encoding="utf-8"))["version"]
+package_info = json.loads((root / "package.json").read_text(encoding="utf-8"))
+version = package_info.get("harmonyVersion", package_info["version"])
 source = out / f"Vela-{version}-source.zip"
 folders = ["web", "scripts", "tests", "vendor", "hvigor", "AppScope", "entry/src", "previews", "android", "docs", "测试文件"]
 files = ["package.json", "package-lock.json", "oh-package.json5", "build-profile.json5", "hvigorfile.ts", ".gitignore", ".gitattributes", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "VALIDATION.md", "RELEASE_NOTES.md", "entry/oh-package.json5", "entry/build-profile.json5", "entry/hvigorfile.ts"]

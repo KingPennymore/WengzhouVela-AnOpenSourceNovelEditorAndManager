@@ -4,11 +4,13 @@
 
 文舟是独立项目，不是 Acode 官方应用，也不代表 Acode Foundation。项目复用了 Acode 的部分 CodeMirror 编辑组件和 Acode-Writer 1.0.4 的章节识别代码，具体版权与许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-当前版本：鸿蒙 `0.6.1`，安卓 `0.6.1-android.1`。鸿蒙使用 HarmonyOS 6.1.1 / API 24 SDK 编译，兼容 API 12；安卓使用 API 36 编译，最低 Android 8.0 / API 26，系统 WebView 需 Chromium 105 或更新版本。仅使用内部工作区，不申请文件访问权限。安卓已在 Android 16 模拟器验证；鸿蒙新增 HTML 页面已通过原生编译与签名构建，尚待鸿蒙真机体验验收。完整验证范围见 [VALIDATION.md](VALIDATION.md)。
+当前版本：鸿蒙 `0.6.1.1`，安卓 `0.6.1-android.1`。鸿蒙使用 HarmonyOS 6.1.1 / API 24 SDK 编译，兼容 API 12；安卓使用 API 36 编译，最低 Android 8.0 / API 26，系统 WebView 需 Chromium 105 或更新版本。仅使用内部工作区，不申请文件访问权限。安卓已在 Android 16 模拟器验证；鸿蒙新增 HTML 页面已通过原生编译与签名构建，尚待鸿蒙真机体验验收。完整验证范围见 [VALIDATION.md](VALIDATION.md)。
 
 当前应用包名：`me.wenzhou.write`。签名 Profile 必须绑定同一包名，且与所选证书匹配。应用文稿与设置保存在自身沙箱中。
 
-发行安装包与源码见 [GitHub Release v0.6.1](https://github.com/KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager/releases/tag/v0.6.1)：
+鸿蒙修复版单独发布在 [GitHub Release v0.6.1.1](https://github.com/KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager/releases/tag/v0.6.1.1)，提供 `Vela-0.6.1.1-release-signed.hap` 与 `SHA256SUMS-0.6.1.1.txt`。修复订阅空文件保存及平板 PDF 显示范围，沿用发布签名。应用市场发布签名 HAP 的直接安装受鸿蒙来源校验限制，调试安装须使用调试签名。
+
+安卓安装包及原版完整发行文件见 [GitHub Release v0.6.1](https://github.com/KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager/releases/tag/v0.6.1)：
 
 | 文件 | 用途 |
 | --- | --- |
