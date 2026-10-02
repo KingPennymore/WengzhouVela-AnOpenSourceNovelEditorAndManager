@@ -7,17 +7,42 @@ import os from 'node:os';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 const compiled=await build({entryPoints:['entry/src/main/ets/services/WorkspaceFiles.ets'],bundle:true,write:false,platform:'node',format:'cjs',resolveExtensions:['.ets','.js'],loader:{'.ets':'ts'},plugins:[{name:'sdk',setup(p){p.onResolve({filter:/^@kit\./},args=>({path:args.path,namespace:'kit'}));p.onLoad({filter:/.*/,namespace:'kit'},args=>({contents:`module.exports=globalThis.sdk[${JSON.stringify(args.path)}];`}));}}]});
-function fixture(t){
+function fixture(t,{emptyCodecResult=false}={}){
   const root=fs.mkdtempSync(path.join(os.tmpdir(),'wenzhou-storage-')),sandbox=path.join(root,'sandbox');fs.mkdirSync(sandbox);
   t.after(()=>{assert.ok(path.resolve(root).startsWith(path.resolve(os.tmpdir())+path.sep));fs.rmSync(root,{recursive:true,force:true});});
   let failRename='',blockReads=false;
   const sdk={'@kit.AbilityKit':{},'@kit.CoreFileKit':{
     fileIo:{OpenMode:{CREATE:1,READ_WRITE:2,TRUNC:4,READ_ONLY:0},accessSync:p=>fs.existsSync(p),readTextSync:p=>fs.readFileSync(p,'utf8'),openSync:(p,mode)=>({fd:fs.openSync(p,mode?'w':'r')}),writeSync:(fd,b)=>fs.writeSync(fd,new Uint8Array(b)),readSync:(fd,b)=>fs.readSync(fd,new Uint8Array(b)),statSync:fd=>fs.fstatSync(fd),lstatSync:p=>fs.lstatSync(p),closeSync:f=>fs.closeSync(f.fd),fsyncSync:fd=>fs.fsyncSync(fd),copyFileSync:(a,b)=>fs.copyFileSync(a,b),renameSync:(a,b)=>{if(failRename&&b.endsWith(failRename)){failRename='';throw new Error('模拟磁盘写入失败');}fs.renameSync(a,b);},mkdirSync:(p,recursive)=>fs.mkdirSync(p,{recursive:!!recursive}),rmdirSync:p=>{assert.ok(path.resolve(p).startsWith(path.resolve(root)+path.sep));fs.rmSync(p,{recursive:true});},unlinkSync:p=>fs.unlinkSync(p),listFileSync:p=>{if(blockReads)throw new Error('工作区授权不可用');return fs.readdirSync(p);}}
-  },'@kit.ArkTS':{util:{generateRandomUUID:randomUUID,TextEncoder:class{encodeInto(s){return new TextEncoder().encode(s);}},TextDecoder:{create:(encoding,options)=>({decodeToString:bytes=>new TextDecoder(encoding,options).decode(bytes)})},Base64Helper:class{decodeSync(s){return new Uint8Array(Buffer.from(s,'base64'));}encodeToStringSync(bytes){return Buffer.from(bytes).toString('base64');}}}}};
+  },'@kit.ArkTS':{util:{generateRandomUUID:randomUUID,TextEncoder:class{encodeInto(s){return emptyCodecResult&&s===''?undefined:new TextEncoder().encode(s);}},TextDecoder:{create:(encoding,options)=>({decodeToString:bytes=>emptyCodecResult&&bytes.length===0?undefined:new TextDecoder(encoding,options).decode(bytes)})},Base64Helper:class{decodeSync(s){return emptyCodecResult&&s===''?undefined:new Uint8Array(Buffer.from(s,'base64'));}encodeToStringSync(bytes){return emptyCodecResult&&bytes.length===0?undefined:Buffer.from(bytes).toString('base64');}}}}};
   const module={exports:{}},context=vm.createContext({sdk,module,exports:module.exports,Error,Uint8Array,ArrayBuffer,Date,decodeURIComponent});new vm.Script(compiled.outputFiles[0].text).runInContext(context);
   const create=()=>{const service=new module.exports.WorkspaceFiles();service.context={filesDir:sandbox};return service;};
   return {create,root,sandbox,blockReads:()=>{blockReads=true;},failOnce:suffix=>{failRename=suffix;}};
 }
+
+test('鸿蒙空编码结果不会阻断订阅占位文档、下载正文、清空正文及重启恢复',async t=>{
+  const f=fixture(t,{emptyCodecResult:true}),service=f.create(),folder=await service.initialize();
+  const documents=Array.from({length:54},(_,i)=>({id:'subscription-'+i,name:`文件${i}.txt`,path:`Subscriptions/author/book/测试文件/文件${i}.txt`,text:'',updatedAt:1,remote:null,subscription:{repo:'author/book',path:`测试文件/文件${i}.txt`,sha:'sha-'+i}}));
+  const state={version:1,storage:folder.storage,documents};
+  service.mirror(JSON.stringify(state));assert.equal(service.scan().documents.length,54);
+  documents[0].text='第一章 开始\n订阅正文';documents[0].subscription.loadedSha='sha-0';
+  service.mirror(JSON.stringify(state));assert.equal(fs.readFileSync(path.join(f.sandbox,'previous-subscription-0.txt'),'utf8'),'');
+  let resumed=await f.create().initialize();assert.equal(resumed.documents.find(d=>d.id==='subscription-0').text,documents[0].text);assert.equal(resumed.documents.find(d=>d.id==='subscription-0').subscription.loadedSha,'sha-0');
+  documents[0].text='';service.mirror(JSON.stringify(state));resumed=await f.create().initialize();assert.equal(resumed.documents.length,54);assert.equal(resumed.documents.find(d=>d.id==='subscription-0').text,'');
+});
+
+test('空文件批量拉取、Base64 导出与空 CSS 预览不依赖系统的空编码返回值',async t=>{
+  const f=fixture(t,{emptyCodecResult:true}),service=f.create(),folder=await service.initialize();
+  const state=service.writeFiles([{path:'测试/空文件.txt',data:''},{path:'测试/空样式.css',data:''}],[]);
+  assert.equal(state.documents.length,2);assert.ok(state.documents.every(d=>d.text===''));assert.equal(fs.statSync(path.join(folder.storage.root,'测试/空文件.txt')).size,0);
+  assert.equal(service.readFileBase64('测试/空文件.txt'),'');assert.equal(service.readPreviewResource('测试/空样式.css').bytes.byteLength,0);
+});
+
+test('无效文稿文本在任何文件改写前拒绝，保留原正文与缓存',async t=>{
+  const f=fixture(t),service=f.create(),folder=await service.initialize();
+  const state={version:1,storage:folder.storage,documents:[{id:'book',name:'正文.txt',text:'原正文',updatedAt:1,remote:null}]};
+  service.mirror(JSON.stringify(state));state.documents[0].text='新正文';state.documents.push({id:'invalid',name:'错误.txt',updatedAt:1,remote:null});
+  assert.throws(()=>service.mirror(JSON.stringify(state)),/文稿文本无效/);assert.equal(fs.readFileSync(path.join(folder.storage.root,'正文.txt'),'utf8'),'原正文');assert.equal(service.scan().documents.length,1);
+});
 
 test('内部工作区直接创建实文件及空目录，重启保留标识，不依赖权限或目录选择器',async t=>{
   const f=fixture(t),service=f.create(),folder=await service.initialize();assert.equal(folder.storage.internal,true);assert.equal(folder.storage.needsSetup,false);assert.equal(path.resolve(folder.storage.root),path.join(f.sandbox,'workspaces','文舟'));assert.equal(service.choose,undefined);

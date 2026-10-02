@@ -9,7 +9,7 @@ import { Runtime } from './Runtime';
 import { HtmlPreviewSession } from './HtmlPreviewSession';
 import { PreviewResource } from './PreviewResource';
 import { WorkspaceFiles, BinaryWorkspaceFile } from './WorkspaceFiles';
-import { decodeFileText, decodedFileName } from './FileText';
+import { decodeFileText, decodedFileName, encodeFileText } from './FileText';
 
 interface BridgeRequest {
   path?: string;
@@ -116,9 +116,9 @@ export class NativeBridge {
   }
 
   private writeFile(path: string, text: string): void {
+    const bytes = encodeFileText(text);
     const file = fs.openSync(path, fs.OpenMode.CREATE | fs.OpenMode.READ_WRITE | fs.OpenMode.TRUNC);
     try {
-      const bytes = this.encoder.encodeInto(text);
       let offset = 0;
       while (offset < bytes.byteLength) {
         const written = fs.writeSync(file.fd, bytes.buffer.slice(offset));

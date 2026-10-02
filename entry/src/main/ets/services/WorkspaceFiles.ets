@@ -1,7 +1,7 @@
 import { common } from '@kit.AbilityKit';
 import { fileIo as fs } from '@kit.CoreFileKit';
 import { util } from '@kit.ArkTS';
-import { decodeFileText } from './FileText';
+import { decodeFileText, encodeFileText } from './FileText';
 import { PreviewResource, previewMime } from './PreviewResource';
 
 export interface StoredDocument { id: string; name: string; path?: string; kind?: string; delimiter?: string; text: string; updatedAt: number; remote: Object | null; subscription?: Object; }
@@ -21,7 +21,6 @@ export class WorkspaceFiles {
   context: common.UIAbilityContext | undefined = undefined;
   private config: FolderConfig = { current: '', default: '', roots: [] };
   private ready: boolean = false;
-  private encoder: util.TextEncoder = new util.TextEncoder();
 
   private contextValue(): common.UIAbilityContext {
     if (!this.context) throw new Error('文件服务尚未准备好。');
@@ -63,7 +62,7 @@ export class WorkspaceFiles {
     this.writeBytes(temp, bytes);
     fs.renameSync(temp, path);
   }
-  private text(path: string, value: string): void { this.atomic(path, this.encoder.encodeInto(value)); }
+  private text(path: string, value: string): void { this.atomic(path, encodeFileText(value)); }
   private readBytes(path: string, limit: number): Uint8Array {
     const file = fs.openSync(path, fs.OpenMode.READ_ONLY);
     try {
@@ -149,6 +148,7 @@ export class WorkspaceFiles {
     const old: SavedWorkspace | undefined = fs.accessSync(this.cachePath(root.id)) ? JSON.parse(fs.readTextSync(this.cachePath(root.id))) as SavedWorkspace : undefined;
     const previous = old?.documents || [], paths: string[] = [];
     for (const doc of value.documents) {
+      if (typeof doc.text !== 'string') throw new Error('文稿文本无效，原文件已保留。');
       if (!/^[A-Za-z0-9_-]{1,80}$/.test(doc.id)) throw new Error('文件标识无效。');
       const relative = this.relative(doc.path || doc.name), path = this.target(relative);
       if (paths.includes(relative)) throw new Error('工作区存在同名路径，请重命名文件。');
@@ -192,7 +192,7 @@ export class WorkspaceFiles {
         const path = this.target(files[i].path);
         existed.push(fs.accessSync(path));
         if (existed[i]) this.writeBytes(staging + '/old-' + i, this.readBytes(path, 8 * 1024 * 1024));
-        this.writeBytes(staging + '/new-' + i, new util.Base64Helper().decodeSync(files[i].data));
+        this.writeBytes(staging + '/new-' + i, files[i].data === '' ? new Uint8Array(0) : new util.Base64Helper().decodeSync(files[i].data));
       }
       for (const folder of folders) { const path = this.target(folder); if (!fs.accessSync(path)) fs.mkdirSync(path, true); }
       for (let i = 0; i < files.length; i++) {
@@ -209,7 +209,10 @@ export class WorkspaceFiles {
       throw error as Error;
     } finally { fs.rmdirSync(staging); }
   }
-  readFileBase64(relative: string): string { return new util.Base64Helper().encodeToStringSync(this.readBytes(this.target(relative), 8 * 1024 * 1024)); }
+  readFileBase64(relative: string): string {
+    const bytes = this.readBytes(this.target(relative), 8 * 1024 * 1024);
+    return bytes.byteLength === 0 ? '' : new util.Base64Helper().encodeToStringSync(bytes);
+  }
   readPreviewResource(relative: string, html: boolean = false): PreviewResource {
     const mime = html ? 'text/html' : previewMime(relative);
     let bytes = this.readBytes(this.target(relative), 8 * 1024 * 1024);
@@ -224,7 +227,7 @@ export class WorkspaceFiles {
           else text = viewport + text;
         }
       }
-      bytes = this.encoder.encodeInto(text);
+      bytes = encodeFileText(text);
     }
     return { bytes: bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength), mime: mime };
   }
