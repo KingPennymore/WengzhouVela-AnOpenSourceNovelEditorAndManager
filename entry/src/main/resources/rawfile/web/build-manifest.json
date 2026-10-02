@@ -1,8 +1,8 @@
 {
   "format": 1,
-  "source": "7b67f7ac49ad2210b5325c9f499bf0dba50b20586573b78a51d79506014d03ea",
+  "source": "a5d3364147cf3c1e109d6c1099b8e725bd74ee4d90ade9b7017db5e181b98590",
   "outputs": {
-    "app.js": "4cdf46d8a48cc4167ec4f8125e1059546d5f253bec63a69ca71fc78207d04cf2",
+    "app.js": "dbaa4a5e3d2f3d1478fe99becfb8955eeee7b7789cadbafc3ccb277d6177df0b",
     "file-manager.css": "4c3ecef2f1b7f371bb7fb0bc94d7a0b932ae277caf4313a07ff21e42e3344964",
     "fonts/KaTeX_AMS-Regular.ttf": "68534840bcfdd2bffb6f0e8deb48684dd01e7f04ea2813267577afb906de1d13",
     "fonts/KaTeX_AMS-Regular.woff": "30da91e84c893f875e252689faebdc590b2871145e8adc7f9a9d4dbd8ce0b251",
@@ -332,6 +332,6 @@
     "tex/vela-tex-cjk.zip": "e4f97354707194653bd219fdf7257f824643744718451d386b4346e7f6b6c80e",
     "tex/worker.js": "5b0b03d6957d79b9016ccf72b193f865f980a2971565d9cd793ece9147541905",
     "ui.css": "d7dd102b3949d995cf327824a30f8290a770de9549f089aeda4e9d5523df4940",
-    "version.json": "c45afbabe37c156d2dc930ec7a7247b9d4f3d6cfd25f89c5ba7dbbbdae1b2215"
+    "version.json": "f9af501dd03e6847d9cfaac2cd05b35b890d8c715fe32770f762a75546b0fbc0"
   }
 }
