@@ -44,7 +44,7 @@ function previewResponse(url,options={},embedded=false){
     if(url.hostname==='wenzhou-reader.local'&&url.pathname==='/reader.js'&&options.reading)return new Response(fs.readFileSync(path.join(assets,'html-reader.js')),{headers:{'Content-Type':'text/javascript'}});
     if(url.hostname!=='wenzhou-preview.local')return new Response('',{status:403});const relative=decodeURIComponent(url.pathname.slice(1)),resource=files.resource(relative,/\.html?$/i.test(relative));let bytes=resource.bytes;
     if(resource.mime==='text/html'){
-      let text=bytes.toString('utf8');if(options.reading&&relative===options.path){text=text.replace(/\scontenteditable(?:\s*=\s*(?:["'][^"']*["']|[^\s>]+))?/gi,'').replace(/<(input|textarea|select|button)(?=[\s>])/gi,'<$1 disabled readonly').replace(/<meta[^>]*http-equiv\s*=\s*['"]?Content-Security-Policy[^>]*>/gi,'');text+='<script src="https://wenzhou-reader.local/reader.js?config='+encodeURIComponent(JSON.stringify({...options,pages:options.readingMode==='pages',english:options.language==='en'}))+'"></script>';}
+      let text=bytes.toString('utf8');if(options.reading&&relative===options.path){text=text.replace(/\scontenteditable(?:\s*=\s*(?:["'][^"']*["']|[^\s>]+))?/gi,'').replace(/<(input|textarea|select|button)(?=[\s>])/gi,'<$1 disabled readonly').replace(/<meta[^>]*http-equiv\s*=\s*['"]?Content-Security-Policy[^>]*>/gi,'');text+='<script src="https://wenzhou-reader.local/reader.js?config='+encodeURIComponent(JSON.stringify({...options,pages:['pages','double'].includes(options.readingMode),spread:options.readingMode==='double',english:options.language==='en'}))+'"></script>';}
       if(embedded)text+='<style>html{color-scheme:'+ (url.searchParams.get('dark')==='true'?'dark':'light')+'}body{font-family:system-ui;font-size:'+Math.max(10,Math.min(40,Number(url.searchParams.get('fontSize'))||16))+'px;overflow-wrap:anywhere}</style>';bytes=Buffer.from(text);
     }
     return new Response(bytes,{headers:{'Content-Type':resource.mime,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':options.reading?readingPolicy:embedded||!options.scripts?embeddedPolicy:"default-src 'none'; script-src 'unsafe-inline' https://wenzhou-preview.local; style-src 'unsafe-inline' https://wenzhou-preview.local; img-src data: https://wenzhou-preview.local; font-src https://wenzhou-preview.local; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'"}});
@@ -79,22 +79,20 @@ async function dispatch(operation,data){
     case 'readWorkspaceAsset':return files.asset(data.path);
     case 'previewHtml':return previewHtml(data);
     case 'appearance':if(/^#[\da-f]{6}$/i.test(data.background))main.setBackgroundColor(data.background);return true;
-    case 'fullscreen':main.setFullScreen(data.enabled===true);main.setMenuBarVisibility(data.enabled!==true);return true;
+    case 'fullscreen':main.setFullScreen(data.enabled===true);return true;
     case 'openAuth':await shell.openExternal('https://github.com/login/device');return true;
     case 'import':case 'export':case 'exportPdf':case 'importPlugin':return picker(operation,data);
     default:return github.call(operation,data);
   }
-}
-function mainMenu(){
-  const click=id=>()=>main.webContents.executeJavaScript(`document.getElementById(${JSON.stringify(id)})?.click()`);
-  return Menu.buildFromTemplate([{label:'File / 文件',submenu:[{label:'New / 新建',accelerator:'Ctrl+N',click:click('new-doc')},{label:'Import / 导入',click:click('import-doc')},{label:'Save / 保存',accelerator:'Ctrl+S',click:click('quick-save')},{label:'Export / 导出',click:click('export-doc')},{type:'separator'},{role:'quit'}]},{label:'Edit / 编辑',submenu:[{label:'Undo / 撤回',accelerator:'Ctrl+Z',click:click('quick-undo')},{label:'Redo / 重做',accelerator:'Ctrl+Shift+Z',click:click('quick-redo')},{type:'separator'},{role:'cut'},{role:'copy'},{role:'paste'},{role:'selectAll'}]},{label:'View / 视图',submenu:[{label:'Settings / 设置',click:click('settings')},{label:'Toggle fullscreen / 切换全屏',accelerator:'F11',click:()=>main.setFullScreen(!main.isFullScreen())}]}]);
 }
 if(!qa&&!app.requestSingleInstanceLock())app.quit();else{
   app.on('second-instance',()=>{if(main){if(main.isMinimized())main.restore();main.focus();}});
   app.whenReady().then(async()=>{files=new WorkspaceStorage(app.getPath('userData'));github=new GitHubBridge({request,credentials:credentials()});
   readerSession=session.fromPartition('persist:vela-reader');readerSession.protocol.handle('https',request=>{const url=new URL(request.url);return previewResponse(url,readerOptions.get(decodeURIComponent(url.pathname.slice(1)))||{reading:true});});
   const editorSession=session.fromPartition('persist:vela-editor');editorSession.protocol.handle('vela',request=>assetResponse(new URL(request.url)));editorSession.protocol.handle('https',request=>previewResponse(new URL(request.url),{},true));
-  main=new BrowserWindow({title:'Vela 文舟',width:1280,height:850,minWidth:720,minHeight:480,show:!qa,icon,backgroundColor:'#eef3ef',webPreferences:{partition:'persist:vela-editor',preload:path.join(directory,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});secureWindow(main);Menu.setApplicationMenu(mainMenu());
+  Menu.setApplicationMenu(null);
+  main=new BrowserWindow({title:'Vela 文舟',width:1280,height:850,minWidth:720,minHeight:480,show:!qa,icon,backgroundColor:'#eef3ef',webPreferences:{partition:'persist:vela-editor',preload:path.join(directory,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});secureWindow(main);main.setMenu(null);
+  main.webContents.on('before-input-event',(event,input)=>{if(input.key==='F11'){event.preventDefault();if(input.type==='keyDown'&&!input.isAutoRepeat)main.setFullScreen(!main.isFullScreen());}});
   ipcMain.on('vela:sync',(event,operation,data)=>{if(!trusted(event)){event.returnValue={error:'不允许的调用来源。',value:'不允许的调用来源。'};return;}try{let value;if(operation==='readWorkspace')value=files.readWorkspace();else if(operation==='readPlugins')value=files.readPlugins();else if(operation==='readEnvironment')value=environment();else if(operation==='writeWorkspace'){files.saveWorkspace(data);value='ok';}else if(operation==='writePlugins'){files.writePlugins(data);value='ok';}else throw new Error('不支持此操作。');event.returnValue={value};}catch(error){event.returnValue={error:error.message,value:error.message};}});
   ipcMain.handle('vela:call',async(event,operation,json)=>{if(!trusted(event))return failure(new Error('不允许的调用来源。'));try{if(typeof json!=='string'||json.length>100*1024*1024)throw new Error('请求数据无效或过大。');const data=JSON.parse(json);if(!data||typeof data!=='object'||Array.isArray(data))throw new Error('请求数据无效。');return success(await dispatch(operation,data));}catch(error){return failure(error);}});
   nativeTheme.on('updated',()=>{if(main&&!main.isDestroyed())main.webContents.executeJavaScript('window.dispatchEvent(new CustomEvent("wenzhouEnvironment",{detail:'+environment()+'}))').catch(()=>{});});

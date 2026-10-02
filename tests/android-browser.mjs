@@ -94,6 +94,14 @@ try{
     const box=await p.locator('.reader-viewport').boundingBox(),scale=await p.evaluate(()=>devicePixelRatio);const x=Math.round((box.x+box.width/2)*scale),y=Math.round((box.y+box.height/2)*scale),dx=Math.round(box.width*.25*scale),dy=Math.round(box.height*.2*scale);
     const pageNumber=async()=>Number((await p.locator('#reader-position').textContent()).split('/')[0]);const start=await pageNumber();adb('shell','input','swipe',String(x+dx),String(y),String(x-dx),String(y),'220');await p.waitForTimeout(300);assert.equal(await pageNumber(),start+1);adb('shell','input','swipe',String(x),String(y+dy),String(x),String(y-dy),'220');await p.waitForTimeout(300);assert.equal(await pageNumber(),start+2);adb('shell','input','swipe',String(x-dx),String(y),String(x+dx),String(y),'220');await p.waitForTimeout(300);assert.equal(await pageNumber(),start+1);adb('shell','input','swipe',String(x),String(y-dy),String(x),String(y+dy),'220');await p.waitForTimeout(300);assert.equal(await pageNumber(),start);await nav('write');
   });
+  await check('Android 双页阅读横屏展开、竖屏回退，以及原生 HTML 双页配置',async()=>{
+    await p.locator('#settings').click();await p.locator('[name=readingMode]').selectOption('double');await p.locator('#dialog-submit').click();await nav('reader');const book=(await saved()).documents.find(d=>d.path===prefix+'/正文.txt');await p.locator(`[data-read="${book.id}"]`).click();await p.waitForTimeout(300);assert.equal(await p.locator('.reader-double').count(),0);
+    try{
+      adb('shell','settings','put','system','accelerometer_rotation','0');adb('shell','settings','put','system','user_rotation','1');await p.waitForSelector('.reader-double');assert.match(await p.locator('#reader-position').textContent(),/\d+–\d+ \/ /);
+      const opened=p.context().waitForEvent('page');await invoke('previewHtml',{path:prefix+'/预览.html',reading:true,readingMode:'double'});const preview=await opened;await preview.waitForSelector('.vela-reader-spread');assert.equal(await preview.evaluate(()=>typeof window.WenzhouNative+':'+typeof window.WenzhouAndroid),'undefined:undefined');adb('shell','input','keyevent','4');await p.waitForFunction(()=>document.visibilityState==='visible');
+    }finally{adb('shell','settings','put','system','user_rotation','0');}
+    await p.waitForFunction(()=>!document.querySelector('.reader-double'));assert.match(await p.locator('#reader-position').textContent(),/^\d+ \/ \d+$/);await nav('write');
+  });
   await check('移动复制、回收站恢复与永久删除，保留附件和空目录',async()=>{
     await saved();const initial=await invoke('refreshFolder'),original=initial.documents.find(d=>d.path===prefix+'/正文.txt');
     const copied=await invoke('manageFiles',{action:'copy',path:prefix,destination:prefix+'-副本'});const clone=copied.documents.find(d=>d.path===prefix+'-副本/正文.txt');assert.notEqual(clone.id,original.id);

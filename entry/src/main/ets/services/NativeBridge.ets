@@ -240,7 +240,8 @@ export class NativeBridge {
         HtmlPreviewSession.path = data.path || '';
         HtmlPreviewSession.dark = data.dark === true;
         HtmlPreviewSession.reading = data.reading === true;
-        HtmlPreviewSession.pages = data.readingMode === 'pages';
+        HtmlPreviewSession.pages = data.readingMode === 'pages' || data.readingMode === 'double';
+        HtmlPreviewSession.spread = data.readingMode === 'double';
         HtmlPreviewSession.english = data.language === 'en';
         HtmlPreviewSession.fontSize = data.fontSize || 16;
         HtmlPreviewSession.layout = data.layout || { lineHeight: 1.9, marginTop: 24, marginBottom: 24, marginLeft: 35, marginRight: 35 };

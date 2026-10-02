@@ -16,3 +16,5 @@ function translateDOM(){scheduled=false;if(!document.body)return;observer?.disco
   observer?.observe(document.body,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['title','aria-label','placeholder']});}
 export function setLanguage(value){language=value==='en'?'en':'zh-CN';document.documentElement.lang=language;document.title=language==='en'?'Vela · Novel writing and reading':'文舟 · 小说创作与阅读';translateDOM();}
 export function initI18n(value){observer=new MutationObserver(records=>{if(records.every(record=>skip(record.target.nodeType===1?record.target:record.target.parentElement)))return;if(!scheduled){scheduled=true;queueMicrotask(translateDOM);}});setLanguage(value);}
+
+Object.assign(dictionary,{'双页阅读':'Two-page reading'});

@@ -1,7 +1,7 @@
 import {shortcuts} from './shortcuts.mjs';
 export const previousGuideHash='64d887a7f0a3766af964913f9fbfa890e1e2bef6eb55d35dc3c70015e41f08dd';
-export const previousGuideHashes=[previousGuideHash,"6a06e8f9cd3abc519ad80ee8704281d145ab5ec3a16f5b78d6b7df6b8cf4f775","d685b53b07b6f3a26cfe341060b5b736a93072c522b640c65e1a7945d1aaa397","46d5e7b7ec168f801f066ebc69e28831300695a89aa206aaed60f3713444b170"];
-export const guide = `文舟操作指南 · Vela 0.7.0
+export const previousGuideHashes=[previousGuideHash,"d4945f9104ff48f9421881b54a658e65f774bf6757a8bef59cbe8fa033c581b5","6a06e8f9cd3abc519ad80ee8704281d145ab5ec3a16f5b78d6b7df6b8cf4f775","d685b53b07b6f3a26cfe341060b5b736a93072c522b640c65e1a7945d1aaa397","46d5e7b7ec168f801f066ebc69e28831300695a89aa206aaed60f3713444b170"];
+export const guide = `文舟操作指南 · Vela 0.7.1
 开源小说创作 / 阅读工具
 
 一、导航与内部文件夹
@@ -21,7 +21,7 @@ export const guide = `文舟操作指南 · Vela 0.7.0
 
 四、只读阅读
 点击阅读按钮进入书库，选择文档后书库向左滑动收起；再次点击阅读按钮返回书库。阅读不会修改文稿，文件标签不显示，CSV 表格也不可编辑。
-在设置中选择上下滑动或左右翻页。点击正文左侧 30% 向前翻页或上滚一屏，右侧 30% 向后翻页或下滚一屏；中间 40% 展开或收起顶部工具栏。左右模式可横向或纵向滑动翻页，并提供覆盖滑动动画；方向键、PageUp / PageDown 同样可翻页，双指调整字号。阅读时隐藏系统状态栏与导航栏，返回书库恢复。底部两侧向内留白，左侧时间、右侧页码及百分比，中间显示去掉尾部标点的章节名。上下模式的页数以当前窗口一屏估算。章节按钮打开只读目录；左右模式的章节标题单独一页并居中，上下模式的章节标题前留出一行。排版可以在 .vela 预览中修改；PDF 按 TeX 源码排版。每本文稿分别保存阅读位置，重新打开时恢复；字号变化和窗口大小变化时尽量保持相同文本位置。HTML 保持系统 Web 渲染；返回后继续在书库切换文档。
+在设置中选择上下滑动、左右翻页或双页阅读。双页阅读在宽屏上同时显示左右两页，一次翻动两页，底部显示页码范围；可用宽度不足 760px 时自动显示单页，旋转或改变窗口宽度后保留附近的阅读位置。TXT、Markdown、HTML 和 PDF 均支持双页。点击正文左侧 30% 向前翻页或上滚一屏，右侧 30% 向后翻页或下滚一屏；中间 40% 展开或收起顶部工具栏。左右模式可横向或纵向滑动翻页，并提供覆盖滑动动画；方向键、PageUp / PageDown 同样可翻页，双指调整字号。阅读时隐藏系统状态栏与导航栏，返回书库恢复。底部两侧向内留白，左侧时间、右侧页码及百分比，中间显示去掉尾部标点的章节名。上下模式的页数以当前窗口一屏估算。章节按钮打开只读目录；左右模式的章节标题单独一页并居中，上下模式的章节标题前留出一行。排版可以在 .vela 预览中修改；PDF 按 TeX 源码排版。每本文稿分别保存阅读位置，重新打开时恢复；字号变化和窗口大小变化时尽量保持相同文本位置。HTML 保持系统 Web 渲染；返回后继续在书库切换文档。
 
 五、GitHub 与订阅
 GitHub 推荐使用访问令牌登录；账号下方提供退出按钮，退出不会删除文稿。拉取文件后保持当前页面和已打开的文稿，不自动打开新文件。长按远端文件或文件夹进入多选，也可点击“多选”；选中文件夹会包含其全部子目录，路径保持不变。同仓库同路径文件重复拉取会覆盖本地，支持拉取整个仓库、分支管理和主动提交；“提交整个工作区”将配置、文稿与附件合为一次提交。
@@ -38,7 +38,7 @@ GitHub 推荐使用访问令牌登录；账号下方提供退出按钮，退出�
 可以通过插件导入额外 .sty、.cls、.bst、字体及其依赖。宏包 ZIP 根目录需要 plugin.json，声明 vela.type 为 tex-package，TeX 资源放在 texmf/ 下。普通 JS 插件限 8 MB；宏包 ZIP 限 64 MB、解压限 128 MB。宏包可在插件页启停或删除。引擎支持 XeTeX 和 pdfTeX；LuaTeX、Biber 和外部 shell 工具不提供，需相应工具的工程不能直接编译。完整的插件 API、兼容范围和宏包示例见仓库 docs/PLUGINS.md 与 docs/LATEX.md。
 
 八、Windows
-Windows 版本提供 x64 安装包与 ZIP，复用编辑、阅读、订阅、GitHub、插件与本地 PDF 编译功能。系统菜单提供新建、保存、导入、导出等操作，F11 切换全屏。ZIP 版同样使用 Windows 用户应用数据目录保存文稿；卸载默认保留文稿。令牌使用 Windows 安全存储加密。
+Windows 版本提供 x64 安装包与 ZIP，复用编辑、阅读、订阅、GitHub、插件与本地 PDF 编译功能。主窗口不显示系统菜单栏，文件及编辑操作通过应用内按钮和快捷键完成，F11 切换全屏。ZIP 版同样使用 Windows 用户应用数据目录保存文稿；卸载默认保留文稿。令牌使用 Windows 安全存储加密。
 
 九、快捷键
 Tab：两个全角空格
@@ -48,7 +48,7 @@ Ctrl+Space：自动补全
 Ctrl+加号 / 减号：调整文字字号；Ctrl+0：重置字号。
 
 Vela — Open-source novel writing / reading tool
-Use the top bar to switch between Write, GitHub, Subscriptions and Read. The folder button only toggles the file panel. Create a workspace to add a .vela JSON configuration, then select reading files, font size and chapter templates in its preview editor. Read mode is read-only; click Read again to return to the library. Settings include English, system appearance and scrolling / paginated reading. Subscribe using a GitHub HTTPS repository URL; .vela projects notify only changes to their reading files. Global .vela is available in Settings as a fallback or an override of regional reading lists and typography. Reading includes fullscreen, swipe animation, centered chapter names and chapter title pages. Subscribing creates no empty files and asks whether to pull now. Windows includes native import/export, fullscreen and encrypted GitHub credentials. Keep backups: mobile uninstalling clears internal documents. Tab always inserts two full-width spaces; Ctrl+Space opens completion suggestions.
+Use the top bar to switch between Write, GitHub, Subscriptions and Read. The folder button only toggles the file panel. Create a workspace to add a .vela JSON configuration, then select reading files, font size and chapter templates in its preview editor. Read mode is read-only; click Read again to return to the library. Settings include English, system appearance and scrolling / single-page / two-page reading. Two-page mode shows page ranges and turns a spread at a time; narrow windows automatically show one page. Subscribe using a GitHub HTTPS repository URL; .vela projects notify only changes to their reading files. Global .vela is available in Settings as a fallback or an override of regional reading lists and typography. Reading includes fullscreen, swipe animation, centered chapter names and chapter title pages. Subscribing creates no empty files and asks whether to pull now. Windows includes native import/export, fullscreen and encrypted GitHub credentials; its main window has no menu bar. Keep backups: mobile uninstalling clears internal documents. Tab always inserts two full-width spaces; Ctrl+Space opens completion suggestions.
 `;
 export async function isOriginalDemo(doc) {
   if(doc.name!=='长篇小说.txt'||doc.remote||doc.text.length!==846)return false;

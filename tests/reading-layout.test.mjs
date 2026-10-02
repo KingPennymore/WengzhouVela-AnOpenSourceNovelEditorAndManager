@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {displayChapterTitle,fitReadingLayout,swipeDirection,readingPageInfo} from '../web/reader-layout.mjs';
+import {displayChapterTitle,fitReadingLayout,swipeDirection,readingPageInfo,readingGeometry,spreadStart} from '../web/reader-layout.mjs';
 import {createVela,parseVela,velaText,projectConfig,readingDocuments,GLOBAL_VELA_PATH} from '../web/vela.mjs';
 
 test('阅读 footer 去掉尾部标点，保留章节内部标点和 Unicode 内容',()=>{
@@ -8,6 +8,16 @@ test('阅读 footer 去掉尾部标点，保留章节内部标点和 Unicode 内
 });
 test('四方向手势只在达到阈值时翻页',()=>{
   assert.equal(swipeDirection(5,20),0);assert.equal(swipeDirection(-80,20),1);assert.equal(swipeDirection(80,20),-1);assert.equal(swipeDirection(20,-80),1);assert.equal(swipeDirection(20,80),-1);
+});
+
+test('双页使用独立页宽与跨页间隙，窄屏切回单页',()=>{
+  const geometry=readingGeometry('double',1200);assert.equal(geometry.columns,2);assert.equal(geometry.pageWidth*2+geometry.gap,1200);assert.equal(geometry.stride*2,1200+geometry.gap);
+  assert.equal(readingGeometry('double',759).columns,1);assert.equal(readingGeometry('pages',1200).columns,1);assert.equal(readingGeometry('scroll',1200).paged,false);
+});
+
+test('双页末页、单页书籍与反向操作不会重复或越界',()=>{
+  assert.equal(spreadStart(3,9,2),2);assert.equal(spreadStart(10,9,2),8);assert.equal(spreadStart(-2,9,2),0);
+  assert.deepEqual(readingPageInfo({paged:true,page:8,pages:9,columns:2}),{page:9,end:9,pages:9,ratio:1});assert.deepEqual(readingPageInfo({paged:true,page:0,pages:1,columns:2}),{page:1,end:1,pages:1,ratio:1});assert.equal(readingPageInfo({paged:true,page:2,pages:10,columns:2}).end,4);
 });
 test('上下模式显示屏幕页数，单页进度和尾页范围正确',()=>{
   assert.deepEqual(readingPageInfo({paged:true,page:0,pages:1}),{page:1,pages:1,ratio:1});assert.deepEqual(readingPageInfo({paged:false,scrollTop:1600,scrollHeight:2400,height:800}),{page:3,pages:3,ratio:1});

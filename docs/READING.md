@@ -1,6 +1,8 @@
 # 阅读与 .vela 配置
 
-Vela 0.7.0 支持 HarmonyOS NEXT、Android 和 Windows。阅读模式保持文稿只读，进入正文会收起文件栏、隐藏系统栏；点击中间显示应用工具栏，点击两侧翻页。左右分页支持横向或纵向滑动以及方向键、PageUp / PageDown。上下阅读使用自然滚动，也可点击两侧或按键滚动一屏。双指捏合或 Ctrl + 滚轮只调整字号。
+Vela 0.7.1 支持 HarmonyOS NEXT、Android 和 Windows。阅读模式保持文稿只读，进入正文会收起文件栏、隐藏系统栏；点击中间显示应用工具栏，点击两侧翻页。左右分页支持横向或纵向滑动以及方向键、PageUp / PageDown。上下阅读使用自然滚动，也可点击两侧或按键滚动一屏。双指捏合或 Ctrl + 滚轮只调整字号。
+
+设置中的“双页阅读”在可用宽度至少 760 CSS px 时并排显示两页，窄屏自动退回单页。一次点击、滑动或方向键翻动一组页面，底部显示例如“3–4 / 21”的范围。末尾不足两页时保留最后一页，空白页不计入页数。改变窗口宽度和阅读方式后，按正文位置恢复附近页面。TXT、Markdown、HTML 和 PDF 均支持双页，PDF 中的两页同时适应预览区宽度与高度。
 
 左右模式将识别出的章节标题单独排成一页，居中显示；上下模式在标题前留出一行。底部显示时间、章节、页数和百分比。上下模式的页数按照当前窗口一屏的高度估算，改变窗口、字号或排版会重新计算；保存的进度仍以正文位置为准。章节显示会去掉末尾标点，原文保持不变。LaTeX 使用编译后的 PDF 自身分页，章节排版由 TeX 源码控制。
 
@@ -36,3 +38,5 @@ Vela 0.7.0 支持 HarmonyOS NEXT、Android 和 Windows。阅读模式保持文�
 Read mode is read-only and fullscreen. Tap the center to reveal the toolbar; tap either side to move a page. Horizontal pagination supports horizontal and vertical swipes, arrow keys and PageUp / PageDown. Scroll mode uses natural scrolling and screen-sized keyboard/tap navigation. The footer displays time, chapter, page count and progress. Scroll-mode pages depend on the current viewport; progress is stored as a text position.
 
 The nearest regional `.vela` controls the reading list and typography. Settings can edit `.global.vela`, which lists files relative to the internal folder root. It acts as a fallback; enabling global override restricts the library and typography to that configuration. The GUI edits font size, line spacing and four margins without changing source text. PDF typography is controlled by its TeX source.
+
+Two-page reading shows a spread on viewports at least 760 CSS pixels wide and falls back to one page on narrow screens. Text, Markdown, HTML and PDF support spreads, page ranges and two-page turns. Reading positions survive layout changes.

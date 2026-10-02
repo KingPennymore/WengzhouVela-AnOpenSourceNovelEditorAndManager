@@ -256,3 +256,5 @@ LaTeX 使用真正的 XeTeX / pdfTeX、BibTeX8 / MakeIndex，多遍编译、工�
 阅读支持全屏、四方向滑动翻页、覆盖动画、章节标题独立页，以及按文本位置保存进度。`.vela` 可设置字号、行距和四边留白；设置中的 `.global.vela` 可以回退或覆盖区域配置。订阅添加后询问是否拉取，不创建空文件。
 
 Windows x64 安装包与 ZIP、移动安装包可在 GitHub Releases 获取。详细说明：[阅读与配置](docs/READING.md)、[Windows](docs/WINDOWS.md)。Windows 包目前未进行 Authenticode 签名，移动端沿用发布签名。
+
+0.7.1 新增双页阅读，支持 TXT、Markdown、HTML 和 PDF；窄屏自动切回单页，保留阅读位置。该版本同时修复翻页虚影和配置页保存按钮，并移除 Windows 主窗口菜单栏。

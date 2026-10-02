@@ -1,7 +1,7 @@
 {
   "name": "wenzhou-harmonyos",
-  "version": "0.7.0",
-  "harmonyVersion": "0.7.0",
+  "version": "0.7.1",
+  "harmonyVersion": "0.7.1",
   "private": true,
   "description": "文舟 Vela：HarmonyOS NEXT / Android / Windows 开源小说创作与阅读工具",
   "scripts": {
@@ -12,7 +12,7 @@
     "dev": "node scripts/serve.mjs",
     "test": "node --test tests/*.test.mjs vendor/acode-writer/tests/*.test.cjs",
     "test:ui": "node tests/browser.mjs && node tests/features-browser.mjs && node tests/workspace-browser.mjs && node tests/file-manager-browser.mjs && node tests/sidebars-browser.mjs && node tests/studio-browser.mjs",
-    "test:reading": "node tests/reading-browser.mjs && node tests/reading-config-browser.mjs",
+    "test:reading": "node tests/reading-browser.mjs && node tests/reading-config-browser.mjs && node tests/double-reading-browser.mjs",
     "test:tex": "node tests/tex-browser.mjs",
     "build:windows": "node scripts/build-windows.mjs",
     "test:windows": "node tests/windows-browser.mjs"
