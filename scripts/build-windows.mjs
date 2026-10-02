@@ -1,0 +1,9 @@
+import {spawn} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+import path from 'node:path';
+const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');process.chdir(root);
+await import('./build.mjs');
+const program=process.platform==='win32'?'cmd.exe':'npm';
+const args=process.platform==='win32'?['/d','/s','/c','npm run package']:['run','package'];
+const child=spawn(program,args,{cwd:path.join(root,'windows'),env:{...process.env,CSC_IDENTITY_AUTO_DISCOVERY:'false'},stdio:'inherit'});
+const code=await new Promise((resolve,reject)=>{child.on('error',reject);child.on('exit',resolve);});if(code!==0)throw new Error('Windows 构建失败。');

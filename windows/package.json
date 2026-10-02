@@ -1,0 +1,22 @@
+{
+  "name": "vela-windows",
+  "version": "0.7.0",
+  "description": "Vela — open-source novel writing and reading tool",
+  "author": "KingPennymore",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "main": "main.mjs",
+  "scripts": {"start": "electron .", "package": "electron-builder --win nsis zip --x64"},
+  "devDependencies": {"electron": "44.5.1", "electron-builder": "26.15.3"},
+  "build": {
+    "electronDist": "node_modules/electron/dist",
+    "appId": "me.wenzhou.write",
+    "productName": "Vela",
+    "directories": {"output": "../dist/windows"},
+    "files": ["*.mjs", "*.cjs", "package.json"],
+    "extraResources": [{"from": "../dist/web", "to": "web"}, {"from": "../AppScope/resources/base/media/app_icon_1024.png", "to": "icon.png"}],
+    "win": {"icon": "../AppScope/resources/base/media/app_icon_1024.png", "artifactName": "Vela-${version}-windows-${arch}.${ext}", "signAndEditExecutable": true},
+    "nsis": {"oneClick": false, "perMachine": false, "allowToChangeInstallationDirectory": true, "deleteAppDataOnUninstall": false, "artifactName": "Vela-${version}-windows-setup-${arch}.${ext}", "shortcutName": "Vela 文舟"}
+  }
+}

@@ -30,7 +30,7 @@ public final class HtmlPreviewActivity extends Activity {
     private static WorkspaceFiles activeWorkspace;
     static void open(Activity activity, WorkspaceFiles workspace, String path, boolean dark, JSONObject options) {
         activeWorkspace = workspace;
-        activity.startActivity(new Intent(activity, HtmlPreviewActivity.class).putExtra("path", path).putExtra("dark", dark).putExtra("reading", options.optBoolean("reading")).putExtra("pages", "pages".equals(options.optString("readingMode"))).putExtra("en", "en".equals(options.optString("language"))).putExtra("fontSize", options.optInt("fontSize", 16)));
+        activity.startActivity(new Intent(activity, HtmlPreviewActivity.class).putExtra("path", path).putExtra("dark", dark).putExtra("reading", options.optBoolean("reading")).putExtra("pages", "pages".equals(options.optString("readingMode"))).putExtra("en", "en".equals(options.optString("language"))).putExtra("layout",options.optJSONObject("layout")==null?"{}":options.optJSONObject("layout").toString()).putExtra("fontSize", options.optInt("fontSize", 16)));
     }
     private WebView web;
     private WorkspaceFiles files;
@@ -46,6 +46,11 @@ public final class HtmlPreviewActivity extends Activity {
         int background = dark ? Color.rgb(22,30,26) : Color.rgb(238,243,239);
         int foreground = dark ? Color.rgb(226,235,229) : Color.rgb(26,43,32);
         LinearLayout root = new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setBackgroundColor(background); setContentView(root);
+        if (reading) {
+            androidx.core.view.WindowInsetsControllerCompat controller=WindowCompat.getInsetsController(getWindow(),root);
+            controller.setSystemBarsBehavior(androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            controller.hide(WindowInsetsCompat.Type.systemBars());
+        }
         ViewCompat.setOnApplyWindowInsetsListener(root, (view, insets) -> {
             androidx.core.graphics.Insets safe = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
             root.setPadding(safe.left, safe.top, safe.right, safe.bottom); return insets;
@@ -79,7 +84,7 @@ public final class HtmlPreviewActivity extends Activity {
                         String resourcePath = uri.getPath().substring(1);
                         PreviewResource resource = files.readPreviewResource(resourcePath, resourcePath.equals(path));
                         byte[] bytes=resource.bytes;
-                        if(reading&&resourcePath.equals(path)){String html=new String(bytes,StandardCharsets.UTF_8).replaceAll("(?i)\\scontenteditable(?:\\s*=\\s*(?:[\"'][^\"']*[\"']|[^\\s>]+))?", "").replaceAll("(?i)<(input|textarea|select|button)(?=[\\s>])", "<$1 disabled readonly");String config=new JSONObject().put("path",path).put("english",english).put("dark",dark).put("pages",pages).put("fontSize",getIntent().getIntExtra("fontSize",16)).toString();
+                        if(reading&&resourcePath.equals(path)){String html=new String(bytes,StandardCharsets.UTF_8).replaceAll("(?i)\\scontenteditable(?:\\s*=\\s*(?:[\"'][^\"']*[\"']|[^\\s>]+))?", "").replaceAll("(?i)<(input|textarea|select|button)(?=[\\s>])", "<$1 disabled readonly");String config=new JSONObject().put("path",path).put("english",english).put("dark",dark).put("pages",pages).put("fontSize",getIntent().getIntExtra("fontSize",16)).put("layout",new JSONObject(getIntent().getStringExtra("layout")==null?"{}":getIntent().getStringExtra("layout"))).toString();
                         html=html.replaceAll("(?is)<meta[^>]*http-equiv\\s*=\\s*['\"]?Content-Security-Policy[^>]*>", "");
                         html += "<script src=\"https://wenzhou-reader.local/reader.js?config=" + Uri.encode(config) + "\"></script>";
                         bytes=html.getBytes(StandardCharsets.UTF_8);}

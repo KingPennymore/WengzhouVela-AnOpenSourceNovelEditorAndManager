@@ -34,3 +34,8 @@ AndroidX Core `1.16.0`、AndroidX WebKit `1.14.0` 及其传递依赖来自 Googl
 - 中文宏包包含 ctex / xeCJK / fontspec 等及 Fandol 字体，保留其 LPPL / GPL 字体例外等许可及原始文件名。ZIP 内附许可清单和上游第三方声明。
 - PDF.js / pdfjs-dist 4.10.38：Apache-2.0，https://github.com/mozilla/pdf.js 。标准字体、CMap 的许可随资源目录分发。
 - KaTeX：MIT，https://github.com/KaTeX/KaTeX ，用于 Markdown 数学公式。完整许可随应用资源保留。
+
+## Windows
+
+- Electron 44.5.1（MIT）：https://github.com/electron/electron 。Windows 安装包与 ZIP 中保留 `LICENSE.electron.txt`、`LICENSES.chromium.html`，涵盖 Chromium、Node.js 及其第三方组件。
+- electron-builder 26.15.3（MIT）：https://github.com/electron-userland/electron-builder ，仅用于 Windows 构建与打包。

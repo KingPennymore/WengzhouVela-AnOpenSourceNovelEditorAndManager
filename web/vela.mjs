@@ -3,6 +3,18 @@ import {chapterSettings,chapterMatcher} from './chapters.mjs';
 import {documentPath} from './workspace.mjs';
 
 export const readable=doc=>['TXT','MD','HTML','CSV','TEX','CODE'].includes(documentKind(doc));
+export const GLOBAL_VELA_PATH='.global.vela';
+export const readingLayoutDefaults=Object.freeze({lineHeight:1.9,marginTop:24,marginBottom:24,marginLeft:35,marginRight:35});
+export function readingLayout(value={}){
+  if(!value||Array.isArray(value)||typeof value!=='object')throw new Error('reading.layout 必须是对象。');
+  const result={...value};
+  for(const [key,fallback] of Object.entries(readingLayoutDefaults)){
+    const number=Object.hasOwn(value,key)?value[key]:fallback,min=key==='lineHeight'?1:0,max=key==='lineHeight'?3.5:240;
+    if(!Number.isFinite(number)||number<min||number>max)throw new Error(key==='lineHeight'?'行距须在 1–3.5 之间。':'阅读边距须在 0–240 px 之间。');
+    result[key]=number;
+  }
+  return result;
+}
 export function parseVela(text){
   if(typeof text!=='string'||text.length>262144)throw new Error('工作区配置不能超过 256 KB。');
   const raw=JSON.parse(text);
@@ -14,15 +26,22 @@ export function parseVela(text){
   const files=[...new Set(raw.reading.files.map(path=>{if(typeof path!=='string')throw new Error('阅读文件路径必须为字符串。');const safe=repoPath(path);if(!readable({name:safe}))throw new Error('阅读清单只支持 TXT、Markdown、HTML、CSV、LaTeX 和代码文件。');return safe;} ))];
   if(raw.titleTemplates!==undefined&&(!Array.isArray(raw.titleTemplates)||raw.titleTemplates.some(item=>typeof item!=='string')))throw new Error('titleTemplates 必须是字符串数组。');
   const settings=chapterSettings({titleTemplates:raw.titleTemplates??[]});chapterMatcher(settings);
-  return {...raw,version:1,name:raw.name,fontSize:size,titleTemplates:settings.titleTemplates,reading:{...raw.reading,files}};
+  if(raw.scope!==undefined&&raw.scope!=='global')throw new Error('scope 仅支持 global。');
+  return {...raw,version:1,name:raw.name,fontSize:size,titleTemplates:settings.titleTemplates,reading:{...raw.reading,files,layout:readingLayout(raw.reading.layout)}};
 }
-export function createVela(name){return {version:1,name,fontSize:16,titleTemplates:[],reading:{files:[]}};}
+export function createVela(name){return {version:1,name,fontSize:16,titleTemplates:[],reading:{files:[],layout:{...readingLayoutDefaults}}};}
 export const velaText=value=>JSON.stringify(parseVela(JSON.stringify(value)),null,2)+'\n';
 export const configFolder=path=>path.split('/').slice(0,-1).join('/');
+export function globalConfig(workspace){
+  const doc=workspace.documents.find(item=>documentPath(item)===GLOBAL_VELA_PATH);
+  if(!doc)return null;
+  try{return {doc,folder:'',global:true,config:parseVela(doc.text)};}catch(error){return {doc,folder:'',global:true,error};}
+}
 export function projectConfig(workspace,doc){
   if(!doc)return null;const path=documentPath(doc);
-  const candidates=workspace.documents.filter(item=>documentKind(item)==='VELA').map(item=>({doc:item,folder:configFolder(documentPath(item))})).filter(item=>!item.folder||path.startsWith(item.folder+'/')).sort((a,b)=>b.folder.length-a.folder.length||documentPath(a.doc).localeCompare(documentPath(b.doc)));
-  if(!candidates.length)return null;const item=candidates[0];
+  const global=globalConfig(workspace);if(workspace.settings?.globalVelaOverride)return global||{folder:'',global:true,error:new Error('请创建全局 .vela 配置。')};
+  const candidates=workspace.documents.filter(item=>documentKind(item)==='VELA'&&documentPath(item)!==GLOBAL_VELA_PATH).map(item=>({doc:item,folder:configFolder(documentPath(item))})).filter(item=>!item.folder||path.startsWith(item.folder+'/')).sort((a,b)=>b.folder.length-a.folder.length||documentPath(a.doc).localeCompare(documentPath(b.doc)));
+  if(!candidates.length)return global;const item=candidates[0];
   try{return {...item,config:parseVela(item.doc.text)};}catch(error){return {...item,error};}
 }
 export function readingDocuments(workspace){return workspace.documents.filter(doc=>{

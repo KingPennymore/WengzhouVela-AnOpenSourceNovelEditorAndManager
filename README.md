@@ -250,3 +250,9 @@ LaTeX 使用真正的 XeTeX / pdfTeX、BibTeX8 / MakeIndex，多遍编译、工�
 常见 JS / TS、Python、C / C++、Java、Rust、Go、SQL、CSS、JSON、XML、YAML 等文件使用对应语言语法高亮与补全。LaTeX 提供命令、环境、宏包、标签和引用候选。Tab 继续用于小说缩进，Enter 确认补全。插件可增加 CodeMirror 扩展、补全来源和编辑事件，停用后统一清理。
 
 仓库拉取后保持当前页面与已打开文稿；长按文件 / 文件夹或使用“多选”选择项目，选中文件夹包含全部后代，目录相对路径保持不变。
+
+## 0.7.0 阅读与桌面更新
+
+阅读支持全屏、四方向滑动翻页、覆盖动画、章节标题独立页，以及按文本位置保存进度。`.vela` 可设置字号、行距和四边留白；设置中的 `.global.vela` 可以回退或覆盖区域配置。订阅添加后询问是否拉取，不创建空文件。
+
+Windows x64 安装包与 ZIP、移动安装包可在 GitHub Releases 获取。详细说明：[阅读与配置](docs/READING.md)、[Windows](docs/WINDOWS.md)。Windows 包目前未进行 Authenticode 签名，移动端沿用发布签名。

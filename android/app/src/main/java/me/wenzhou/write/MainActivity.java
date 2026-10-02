@@ -166,6 +166,15 @@ public final class MainActivity extends Activity {
             controller.setAppearanceLightStatusBars(!dark); controller.setAppearanceLightNavigationBars(!dark);
         });
     }
+    void fullscreen(boolean enabled) {
+        runOnUiThread(() -> {
+            androidx.core.view.WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(getWindow(), root);
+            controller.setSystemBarsBehavior(androidx.core.view.WindowInsetsControllerCompat.BEHAVIOR_SHOW_TRANSIENT_BARS_BY_SWIPE);
+            if (enabled) controller.hide(WindowInsetsCompat.Type.systemBars());
+            else controller.show(WindowInsetsCompat.Type.systemBars());
+            ViewCompat.requestApplyInsets(root);
+        });
+    }
     void deliver(String id, String response) {
         runOnUiThread(() -> { if (!isFinishing() && web != null) web.evaluateJavascript("window.wenzhouAndroidResolve&&window.wenzhouAndroidResolve(" + JSONObject.quote(id) + "," + JSONObject.quote(response) + ")", null); });
     }

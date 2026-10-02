@@ -6,7 +6,7 @@ import { util } from '@kit.ArkTS';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { NativeOperationError, operationError, loginStatusError } from './NativeErrors';
 import { Runtime } from './Runtime';
-import { HtmlPreviewSession } from './HtmlPreviewSession';
+import { HtmlPreviewSession, ReaderLayout } from './HtmlPreviewSession';
 import { PreviewResource } from './PreviewResource';
 import { WorkspaceFiles, BinaryWorkspaceFile } from './WorkspaceFiles';
 import { decodeFileText, decodedFileName, encodeFileText } from './FileText';
@@ -33,6 +33,8 @@ interface BridgeRequest {
   destination?: string;
   id?: string;
   permanent?: boolean;
+  enabled?: boolean;
+  layout?: ReaderLayout;
 }
 interface BridgeResult { ok: boolean; value?: Object; error?: string; code?: number; stage?: string; }
 interface ApiResult { status: number; body: Object; }
@@ -241,6 +243,7 @@ export class NativeBridge {
         HtmlPreviewSession.pages = data.readingMode === 'pages';
         HtmlPreviewSession.english = data.language === 'en';
         HtmlPreviewSession.fontSize = data.fontSize || 16;
+        HtmlPreviewSession.layout = data.layout || { lineHeight: 1.9, marginTop: 24, marginBottom: 24, marginLeft: 35, marginRight: 35 };
         if (!Runtime.mainWindow) throw new Error('预览页面尚未准备好。');
         await Runtime.mainWindow.getUIContext().getRouter().pushUrl({ url: 'pages/HtmlPreview' });
         return this.success(true);
@@ -360,6 +363,10 @@ export class NativeBridge {
       }
       if (operation === 'appearance') {
         await Runtime.applyAppearance(data.dark === true, data.background, data.foreground);
+        return this.success(true);
+      }
+      if (operation === 'fullscreen') {
+        await Runtime.fullscreen(data.enabled === true);
         return this.success(true);
       }
       if (operation === 'importPlugin') {

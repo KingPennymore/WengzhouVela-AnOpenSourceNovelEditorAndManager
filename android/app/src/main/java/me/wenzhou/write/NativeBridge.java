@@ -80,6 +80,7 @@ final class NativeBridge {
                 activity.previewHtml(data.optString("path"), data.optBoolean("dark"), data); return true;
             case "writeWorkspaceFiles": return files.writeFiles(array(data, "files"), array(data, "folders"));
             case "appearance": activity.appearance(data.optBoolean("dark"), data.optString("background")); return true;
+            case "fullscreen": activity.fullscreen(data.optBoolean("enabled")); return true;
             case "openAuth": activity.openAuthorization(); return true;
             case "connection": return request("https://api.github.com", "GET", null, "");
             case "publicApi": case "api": {

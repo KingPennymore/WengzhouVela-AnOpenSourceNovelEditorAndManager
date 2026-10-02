@@ -7,6 +7,7 @@ interface EditorEnvironment { dark: boolean; top: number; bottom: number; left: 
 export class Runtime {
   static controller: webview.WebviewController | undefined = undefined;
   static mainWindow: window.Window | undefined = undefined;
+  static immersive: boolean = false;
   static environment: EditorEnvironment = { dark: false, top: 0, bottom: 0, left: 0, right: 0 };
 
   static readEnvironment(): string { return JSON.stringify(Runtime.environment); }
@@ -28,7 +29,7 @@ export class Runtime {
       // ArkUI reserves the top system area. Only the bottom is extended into the indicator.
       const navigation = main.getWindowAvoidArea(window.AvoidAreaType.TYPE_NAVIGATION_INDICATOR);
       Runtime.environment.top = 0;
-      Runtime.environment.bottom = ui.px2vp(navigation.bottomRect.height);
+      Runtime.environment.bottom = Runtime.immersive ? 0 : ui.px2vp(navigation.bottomRect.height);
       Runtime.environment.left = 0;
       Runtime.environment.right = 0;
       Runtime.publishEnvironment();
@@ -42,6 +43,17 @@ export class Runtime {
     const content = foreground && /^#[0-9a-f]{6}$/i.test(foreground) ? foreground : dark ? '#d5e5db' : '#28372f';
     main.setWindowBackgroundColor(background);
     await main.setWindowSystemBarProperties({ statusBarColor: '#00000000', navigationBarColor: '#00000000', statusBarContentColor: content, navigationBarContentColor: content });
+  }
+
+  static async fullscreen(enabled: boolean): Promise<void> {
+    const main = Runtime.mainWindow;
+    if (!main) throw new Error('应用窗口尚未准备好。');
+    await main.setWindowLayoutFullScreen(enabled);
+    const bars: Array<'status' | 'navigation'> = enabled ? [] : ['status', 'navigation'];
+    await main.setWindowSystemBarEnable(bars);
+    await main.setSpecificSystemBarEnabled('navigationIndicator', !enabled);
+    Runtime.immersive = enabled;
+    Runtime.updateInsets();
   }
 
   static flush(): void {

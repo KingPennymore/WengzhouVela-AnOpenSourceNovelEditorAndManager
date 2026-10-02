@@ -1,10 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {parseVela,createVela,velaText,readingDocuments,projectWriter,velaVisiblePaths,includeNewReadingFile,rewriteVelaFiles} from '../web/vela.mjs';
-import {subscriptionRepo,subscriptionChanged,SubscriptionAPI} from '../web/subscriptions.mjs';
+import {subscriptionRepo,subscriptionChanged,SubscriptionAPI,Subscriptions} from '../web/subscriptions.mjs';
 import {GitHub} from '../web/github.mjs';
 import {encodeContent} from '../web/model.mjs';
 const config=(files=[],templates=[])=>({...createVela('Book'),reading:{files},titleTemplates:templates});
+test('添加订阅只保存仓库信息，不写入本地文件缓存',async()=>{
+  const workspace={documents:[],subscriptions:[]};let cacheCalls=0,saves=0;
+  const manager=new Subscriptions({workspace:()=>workspace,cache:()=>cacheCalls++,save:()=>saves++,transport:()=>{}});manager.render=()=>{};manager.api.snapshot=async()=>({configs:[{path:'.vela'}],files:[{path:'book.txt'}]});
+  const item=await manager.add('https://github.com/owner/repo');assert.equal(item.repo,'owner/repo');assert.equal(cacheCalls,0);assert.equal(saves,1);assert.deepEqual(workspace.documents,[]);assert.equal(workspace.subscriptions.length,1);
+});
 test('.vela 配置校验、未知字段保留及路径越界拒绝',()=>{
   assert.equal(parseVela(velaText({...config(['正文.txt']),custom:{keep:true}})).custom.keep,true);
   for(const value of [{...config(),version:2},{...config(),fontSize:100},{...config(),titleTemplates:'bad'},config(['../secret.txt']),config(['.vela']),config(['a.txt'],['没有占位符'])])assert.throws(()=>parseVela(JSON.stringify(value)));
