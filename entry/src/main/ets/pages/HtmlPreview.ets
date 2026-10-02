@@ -4,7 +4,7 @@ import { util } from '@kit.ArkTS';
 import { url } from '@kit.ArkTS';
 import { HtmlPreviewSession, ReaderLayout } from '../services/HtmlPreviewSession';
 
-interface HtmlReaderOptions { path: string; english: boolean; dark: boolean; pages: boolean; spread: boolean; fontSize: number; layout: ReaderLayout; }
+interface HtmlReaderOptions { path: string; english: boolean; dark: boolean; pages: boolean; spread: boolean; titlePage: boolean; motion: string; fontSize: number; layout: ReaderLayout; }
 
 @Entry
 @Component
@@ -41,7 +41,7 @@ struct HtmlPreview {
         if (HtmlPreviewSession.reading && path === HtmlPreviewSession.path) {
           let text = new util.TextDecoder('utf-8').decodeToString(new Uint8Array(bytes));
           text = text.replace(/\scontenteditable(?:\s*=\s*(?:["'][^"']*["']|[^\s>]+))?/gi, '').replace(/<(input|textarea|select|button)(?=[\s>])/gi, '<$1 disabled readonly');
-          const options: HtmlReaderOptions = { path: HtmlPreviewSession.path, english: HtmlPreviewSession.english, dark: HtmlPreviewSession.dark, pages: HtmlPreviewSession.pages, spread: HtmlPreviewSession.spread, fontSize: HtmlPreviewSession.fontSize, layout: HtmlPreviewSession.layout };
+          const options: HtmlReaderOptions = { path: HtmlPreviewSession.path, english: HtmlPreviewSession.english, dark: HtmlPreviewSession.dark, pages: HtmlPreviewSession.pages, spread: HtmlPreviewSession.spread, titlePage: HtmlPreviewSession.titlePage, motion: HtmlPreviewSession.motion, fontSize: HtmlPreviewSession.fontSize, layout: HtmlPreviewSession.layout };
           text = text.replace(/<meta[^>]*http-equiv\s*=\s*['"]?Content-Security-Policy[^>]*>/gi, '');
           text += '<script src="https://wenzhou-reader.local/reader.js?config=' + encodeURIComponent(JSON.stringify(options)) + '"></script>';
           response.setResponseHeader([{ headerKey: 'Content-Security-Policy', headerValue: "default-src 'none'; script-src https://wenzhou-reader.local; style-src 'unsafe-inline' https://wenzhou-preview.local; img-src data: https://wenzhou-preview.local; font-src https://wenzhou-preview.local; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'" }]);

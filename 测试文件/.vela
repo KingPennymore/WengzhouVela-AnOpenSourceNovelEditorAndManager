@@ -1,66 +1,239 @@
 {
-  "version": 1,
-  "name": "文舟格式与阅读测试",
-  "fontSize": 18,
-  "titleTemplates": [
-    "【{number}】{title}"
-  ],
+  "version": 2,
+  "kind": "workspace",
+  "id": "80c943fd-9702-44dd-8738-ba0c39648d92",
+  "project": {
+    "name": "文舟格式与阅读测试"
+  },
+  "editor": {
+    "fontSize": 18
+  },
+  "chapters": {
+    "templates": [
+      "【{number}】{title}"
+    ]
+  },
   "reading": {
-    "files": [
-      "HTML/assets/cover.svg",
-      "HTML/index.html",
-      "HTML/scripts/counter.js",
-      "HTML/styles/page.css",
-      "HTML/styles/palette.css",
-      "HTML/交互测试.html",
-      "LaTeX/chapters/story.tex",
-      "LaTeX/latin.tex",
-      "LaTeX/macros/vela-demo.sty",
-      "LaTeX/main.tex",
-      "LaTeX/references.bib",
-      "README.md",
-      "代码/CMakeLists.txt",
-      "代码/Dockerfile",
-      "代码/Example.cs",
-      "代码/Example.java",
-      "代码/Makefile",
-      "代码/example.c",
-      "代码/example.cpp",
-      "代码/example.css",
-      "代码/example.diff",
-      "代码/example.go",
-      "代码/example.h",
-      "代码/example.hpp",
-      "代码/example.ini",
-      "代码/example.js",
-      "代码/example.json",
-      "代码/example.json5",
-      "代码/example.jsonl",
-      "代码/example.jsx",
-      "代码/example.kt",
-      "代码/example.less",
-      "代码/example.lua",
-      "代码/example.php",
-      "代码/example.py",
-      "代码/example.r",
-      "代码/example.rb",
-      "代码/example.rs",
-      "代码/example.sass",
-      "代码/example.scss",
-      "代码/example.sh",
-      "代码/example.sql",
-      "代码/example.svelte",
-      "代码/example.swift",
-      "代码/example.toml",
-      "代码/example.ts",
-      "代码/example.tsx",
-      "代码/example.vue",
-      "代码/example.xml",
-      "代码/example.yaml",
-      "正文/人物.csv",
-      "正文/年表.tsv",
-      "正文/航路.txt",
-      "正文/设定.md"
+    "layout": {
+      "fontSize": 18
+    },
+    "items": [
+      {
+        "id": "file-0",
+        "path": "HTML/assets/cover.svg"
+      },
+      {
+        "id": "file-1",
+        "path": "HTML/index.html"
+      },
+      {
+        "id": "file-2",
+        "path": "HTML/scripts/counter.js"
+      },
+      {
+        "id": "file-3",
+        "path": "HTML/styles/page.css"
+      },
+      {
+        "id": "file-4",
+        "path": "HTML/styles/palette.css"
+      },
+      {
+        "id": "file-5",
+        "path": "HTML/交互测试.html"
+      },
+      {
+        "id": "file-6",
+        "path": "LaTeX/chapters/story.tex"
+      },
+      {
+        "id": "file-7",
+        "path": "LaTeX/latin.tex"
+      },
+      {
+        "id": "file-8",
+        "path": "LaTeX/macros/vela-demo.sty"
+      },
+      {
+        "id": "file-9",
+        "path": "LaTeX/main.tex"
+      },
+      {
+        "id": "file-10",
+        "path": "LaTeX/references.bib"
+      },
+      {
+        "id": "file-11",
+        "path": "README.md"
+      },
+      {
+        "id": "file-12",
+        "path": "代码/CMakeLists.txt"
+      },
+      {
+        "id": "file-13",
+        "path": "代码/Dockerfile"
+      },
+      {
+        "id": "file-14",
+        "path": "代码/Example.cs"
+      },
+      {
+        "id": "file-15",
+        "path": "代码/Example.java"
+      },
+      {
+        "id": "file-16",
+        "path": "代码/Makefile"
+      },
+      {
+        "id": "file-17",
+        "path": "代码/example.c"
+      },
+      {
+        "id": "file-18",
+        "path": "代码/example.cpp"
+      },
+      {
+        "id": "file-19",
+        "path": "代码/example.css"
+      },
+      {
+        "id": "file-20",
+        "path": "代码/example.diff"
+      },
+      {
+        "id": "file-21",
+        "path": "代码/example.go"
+      },
+      {
+        "id": "file-22",
+        "path": "代码/example.h"
+      },
+      {
+        "id": "file-23",
+        "path": "代码/example.hpp"
+      },
+      {
+        "id": "file-24",
+        "path": "代码/example.ini"
+      },
+      {
+        "id": "file-25",
+        "path": "代码/example.js"
+      },
+      {
+        "id": "file-26",
+        "path": "代码/example.json"
+      },
+      {
+        "id": "file-27",
+        "path": "代码/example.json5"
+      },
+      {
+        "id": "file-28",
+        "path": "代码/example.jsonl"
+      },
+      {
+        "id": "file-29",
+        "path": "代码/example.jsx"
+      },
+      {
+        "id": "file-30",
+        "path": "代码/example.kt"
+      },
+      {
+        "id": "file-31",
+        "path": "代码/example.less"
+      },
+      {
+        "id": "file-32",
+        "path": "代码/example.lua"
+      },
+      {
+        "id": "file-33",
+        "path": "代码/example.php"
+      },
+      {
+        "id": "file-34",
+        "path": "代码/example.py"
+      },
+      {
+        "id": "file-35",
+        "path": "代码/example.r"
+      },
+      {
+        "id": "file-36",
+        "path": "代码/example.rb"
+      },
+      {
+        "id": "file-37",
+        "path": "代码/example.rs"
+      },
+      {
+        "id": "file-38",
+        "path": "代码/example.sass"
+      },
+      {
+        "id": "file-39",
+        "path": "代码/example.scss"
+      },
+      {
+        "id": "file-40",
+        "path": "代码/example.sh"
+      },
+      {
+        "id": "file-41",
+        "path": "代码/example.sql"
+      },
+      {
+        "id": "file-42",
+        "path": "代码/example.svelte"
+      },
+      {
+        "id": "file-43",
+        "path": "代码/example.swift"
+      },
+      {
+        "id": "file-44",
+        "path": "代码/example.toml"
+      },
+      {
+        "id": "file-45",
+        "path": "代码/example.ts"
+      },
+      {
+        "id": "file-46",
+        "path": "代码/example.tsx"
+      },
+      {
+        "id": "file-47",
+        "path": "代码/example.vue"
+      },
+      {
+        "id": "file-48",
+        "path": "代码/example.xml"
+      },
+      {
+        "id": "file-49",
+        "path": "代码/example.yaml"
+      },
+      {
+        "id": "file-50",
+        "path": "正文/人物.csv"
+      },
+      {
+        "id": "file-51",
+        "path": "正文/年表.tsv"
+      },
+      {
+        "id": "file-52",
+        "path": "正文/航路.txt"
+      },
+      {
+        "id": "file-53",
+        "path": "正文/设定.md"
+      }
     ]
   }
 }

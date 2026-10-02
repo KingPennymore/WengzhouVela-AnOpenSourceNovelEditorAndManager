@@ -20,7 +20,7 @@ class Events {
   emit(event,...args){for(const fn of this.listeners.get(event)||[])try{fn(...args);}catch(error){this.fail?.(error);}}
 }
 export class PluginRuntime {
-  records=[];running=new Map();commands=new Map();modules=new Map();initializers=new Map();unmounts=new Map();settingsPages=new Map();assetUrls=new Map();fileObjects=new Map();manager=new Events();settings=new Events();
+  records=[];running=new Map();commands=new Map();modules=new Map();moduleOwners=new Map();initializers=new Map();unmounts=new Map();settingsPages=new Map();assetUrls=new Map();fileObjects=new Map();manager=new Events();settings=new Events();
   constructor(host) {
     this.host=host;
     this.queue=Promise.resolve();for(const events of [this.manager,this.settings]){events.owner=()=>this.loadingId;events.fail=host.fail;}
@@ -56,7 +56,7 @@ export class PluginRuntime {
     window.editorManager=this.manager;
     window.acode={
       require:name=>{if(name==='vela')return this.service(this.loadingId);if(!this.modules.has(name))throw new Error(`文舟尚未支持 Acode 模块：${name}。`);return this.modules.get(name);},
-      define:(name,module)=>this.modules.set(name,module),
+      define:(name,module)=>{if(!this.loadingId||typeof name!=='string'||!name||name.length>160)throw Error('请在插件初始化期间注册有效模块名称。');if(this.modules.has(name)&&this.moduleOwners.get(name)!==this.loadingId)throw Error('模块已由宿主或其他插件提供：'+name);this.modules.set(name,module);this.moduleOwners.set(name,this.loadingId);},
       setPluginInit:(id,fn,settings)=>{register(this.initializers,id,fn);if(settings)this.settingsPages.set(id,settings);},
       setPluginUnmount:(id,fn)=>register(this.unmounts,id,fn),
       addCommand:commandApi.addCommand,exec:commandApi.exec,
@@ -78,13 +78,17 @@ export class PluginRuntime {
   enqueue(task){const next=this.queue.then(task);this.queue=next.catch(()=>{});return next;}
   extensions(){return [...this.running.values()].flatMap(item=>[...item.extensions.values()]);}
   service(id){if(!id||!this.running.has(id))throw new Error('请在插件初始化期间获取 vela API');const runtime=this,resources=this.running.get(id),alive=()=>{if(runtime.running.get(id)!==resources)throw new Error('插件已停止');};
-    return Object.freeze({version:1,platform:window.WenzhouNative?.platform||'browser',
+    return Object.freeze({version:2,platform:window.WenzhouNative?.platform||'browser',capabilities:Object.freeze(['editor-extensions','completion','documents','configuration-v2','chapters','local-history','tex']),
       addExtension(extension){alive();const key=Symbol();resources.extensions.set(key,extension);runtime.host.refreshCommands();return ()=>{resources.extensions.delete(key);runtime.host.refreshCommands();};},
       addCompletion(source,kinds=[]){alive();const dispose=registerCompletion(id,source,kinds);resources.disposers.push(dispose);return dispose;},
       on(event,fn){alive();runtime.manager.on(event,fn);const dispose=()=>runtime.manager.off(event,fn);resources.disposers.push(dispose);return dispose;},
-      getFiles:()=>runtime.host.getFiles().map(doc=>({id:doc.id,name:doc.name,path:doc.path||doc.name})),
+      getFiles:()=>{alive();return runtime.host.getFiles().map(doc=>({id:doc.id,name:doc.name,path:doc.path||doc.name}));},
       readText:async id=>{alive();const doc=runtime.host.getFiles().find(doc=>doc.id===id);if(!doc)throw new Error('文稿不存在');return doc.text;},
       writeText:async(id,text)=>{alive();if(typeof text!=='string')throw new Error('正文必须为字符串');return runtime.host.setText(id,text);},
+      getDocumentInfo(fileId){alive();const doc=runtime.host.getFiles().find(doc=>doc.id===fileId);if(!doc)throw Error('文稿不存在');return structuredClone(runtime.host.documentInfo(doc));},
+      getHistory(fileId){alive();const doc=runtime.host.getFiles().find(doc=>doc.id===fileId);if(!doc)throw Error('文稿不存在');return (runtime.host.documentHistory?.(doc)||[]).map(entry=>({revision:entry.revision,createdAt:entry.createdAt,characters:entry.text.length}));},
+      getConfig(fileId){alive();const doc=runtime.host.getFiles().find(doc=>doc.id===fileId);if(!doc)throw Error('文稿不存在');return JSON.parse(JSON.stringify(runtime.host.configuration(doc)||{}));},
+      getChapters(fileId){alive();const doc=runtime.host.getFiles().find(doc=>doc.id===fileId);if(!doc)throw Error('文稿不存在');return structuredClone(runtime.host.chapters(doc));},
       compileTex:async(fileId,options={})=>{alive();if(runtime.loadingId===id)throw new Error('请在初始化完成后的用户操作中编译');const doc=runtime.host.getFiles().find(doc=>doc.id===fileId);if(!doc)throw new Error('文稿不存在');const controller=new AbortController(),cancel=()=>controller.abort();resources.disposers.push(cancel);options.signal?.addEventListener('abort',cancel,{once:true});try{return await runtime.host.compileTex(doc,{engine:options.engine||'xetex',onLog:options.onLog,signal:controller.signal});}finally{options.signal?.removeEventListener('abort',cancel);resources.disposers=resources.disposers.filter(fn=>fn!==cancel);}},
       getSettings:()=>structuredClone(runtime.records.find(record=>record.manifest.id===id)?.settings||{}),
       updateSettings(value){alive();const record=runtime.records.find(record=>record.manifest.id===id),previous=record.settings;record.settings={...record.settings,...value};try{runtime.save();}catch(error){record.settings=previous;throw error;}},
@@ -161,6 +165,7 @@ export class PluginRuntime {
       for(const node of resources.nodes)node.remove();for(const url of resources.urls)URL.revokeObjectURL(url);
       for(const key of this.assetUrls.keys())if(key.startsWith(`wenzhou-plugin://${id}/`))this.assetUrls.delete(key);
       this.initializers.delete(id);this.unmounts.delete(id);this.settingsPages.delete(id);this.running.delete(id);
+      for(const [name,owner] of this.moduleOwners)if(owner===id){this.modules.delete(name);this.moduleOwners.delete(name);}
       for(const [name,command] of this.commands)if(command.owner===id||name.startsWith(id+'.'))this.commands.delete(name);
       this.host.refreshCommands();
     }

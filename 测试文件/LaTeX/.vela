@@ -1,15 +1,41 @@
 {
-  "version": 1,
-  "name": "LaTeX 编译测试",
-  "fontSize": 18,
-  "titleTemplates": [],
+  "version": 2,
+  "kind": "workspace",
+  "id": "47e22c97-7147-4e43-b50e-326d4b658e97",
+  "project": {
+    "name": "LaTeX 编译测试"
+  },
+  "editor": {
+    "fontSize": 18
+  },
+  "chapters": {
+    "templates": []
+  },
   "reading": {
-    "files": [
-      "chapters/story.tex",
-      "latin.tex",
-      "macros/vela-demo.sty",
-      "main.tex",
-      "references.bib"
+    "layout": {
+      "fontSize": 18
+    },
+    "items": [
+      {
+        "id": "file-0",
+        "path": "chapters/story.tex"
+      },
+      {
+        "id": "file-1",
+        "path": "latin.tex"
+      },
+      {
+        "id": "file-2",
+        "path": "macros/vela-demo.sty"
+      },
+      {
+        "id": "file-3",
+        "path": "main.tex"
+      },
+      {
+        "id": "file-4",
+        "path": "references.bib"
+      }
     ]
   }
 }

@@ -34,7 +34,7 @@ export function fileName(value) {
   return /\.[^.]+$/.test(name) ? name : name + '.md';
 }
 export function fileKind(name) { return /\.vela$/i.test(name)?'VELA':/\.(csv|tsv)$/i.test(name)?'CSV':/\.html?$/i.test(name)?'HTML':/\.(md|markdown|mdown|mkd)$/i.test(name)?'MD':/\.(tex|latex|ltx)$/i.test(name)?'TEX':/\.(js|jsx|mjs|cjs|ts|tsx|py|pyw|css|scss|sass|less|json|json5|jsonl|xml|svg|yaml|yml|toml|ini|conf|cfg|sh|bash|zsh|java|c|cpp|cc|h|hpp|cs|rs|go|kt|kts|sql|php|rb|lua|diff|patch|bib|r|swift|vue|svelte|dockerfile)$/i.test(name)||/^(Dockerfile|Makefile|CMakeLists\.txt)$/i.test(name)?'CODE':'TXT'; }
-export function documentKind(doc){return ['TXT','MD','HTML','CSV','VELA','TEX','CODE'].includes(doc?.kind)?doc.kind:fileKind(doc?.name||'');}
+export function documentKind(doc){return /\.pdf$/i.test(doc?.name||'')||doc?.kind==='PDF'?'PDF':['TXT','MD','HTML','CSV','VELA','TEX','CODE'].includes(doc?.kind)?doc.kind:fileKind(doc?.name||'');}
 export function repoPath(value) {
   const path = value.trim();
   if (!path || path.startsWith('/') || /[\\\x00-\x1f]/.test(path) || path.split('/').some(p => !p || p === '.' || p === '..')) throw new Error('请填写有效的仓库相对路径，例如 chapters/第一章.md。');

@@ -17,7 +17,7 @@ export class TexCompiler {
     const add=(name,data)=>{total+=typeof data==='string'?new TextEncoder().encode(data).length:data.byteLength;if(total>160*1024*1024)throw new Error('TeX 工程和宏包超过 160 MB');files[name]=data;};
     for(const item of workspace.documents.filter(item=>!prefix||documentPath(item).startsWith(prefix))){if(/\.(tex|ltx|latex|sty|cls|bib|bst|def|cfg|clo|fd|ist|csv|txt|tsv|dat)$/i.test(item.name))add(documentPath(item).slice(prefix.length),item.text);}
     if(native)for(const item of (workspace.entries||[]).filter(item=>!item.directory&&(!prefix||item.path.startsWith(prefix))&&/\.(png|jpe?g|pdf|eps|svg|otf|ttf|woff|sty|cls|bib|bst|def|cfg|clo|fd|ist|tex|dat)$/i.test(item.path))){if(files[item.path.slice(prefix.length)]!==undefined)continue;add(item.path.slice(prefix.length),fromBase64(await transport('readWorkspaceFile',{path:item.path})));}
-    const main=entry.replace(/\.(tex|ltx|latex)$/i,'.tex');files[main]=doc.text;return {files,entry:main};
+    const main=config?.config?.formats?.latex?.main||entry.replace(/\.(tex|ltx|latex)$/i,'.tex');if(main===entry||!config?.config?.formats?.latex?.main)files[main]=doc.text;if(files[main]===undefined)throw Error('配置中的 LaTeX 主文件不存在：'+main);return {files,entry:main};
   }
   async compile(doc,{engine='xetex',onLog=()=>{},signal}={}){
     if(signal?.aborted)throw new Error('编译已取消');await this.installChinese();const project=await this.project(doc),typesetter=await this.engine();if(signal?.aborted)throw new Error('编译已取消');

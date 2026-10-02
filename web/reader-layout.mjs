@@ -1,13 +1,14 @@
 export const displayChapterTitle=value=>String(value||'').replace(/[\p{P}\p{Z}\s]+$/gu,'');
-export function chapterOffset(text,row){return text.split('\n').slice(0,row).join('\n').length+(row?1:0);}
+export function lineOffsets(text){const offsets=[0];for(let i=0;i<text.length;i++)if(text.charCodeAt(i)===10)offsets.push(i+1);return offsets;}
+export function chapterOffset(text,row,offsets){return (offsets||lineOffsets(text))[row]??text.length;}
 export function renderPlainChapters(root,text,sections){
-  root.replaceChildren();let cursor=0;
+  root.replaceChildren();let cursor=0;const offsets=lineOffsets(text),fragment=document.createDocumentFragment();
   for(const section of sections.filter(section=>section.heading)){
-    const start=chapterOffset(text,section.row),end=text.indexOf('\n',start),stop=end<0?text.length:end+1;
-    if(start>cursor)root.append(document.createTextNode(text.slice(cursor,start)));
-    const heading=document.createElement('h2');heading.className='reader-section-title';heading.textContent=text.slice(start,stop);root.append(heading);cursor=stop;
+    const start=chapterOffset(text,section.row,offsets),end=text.indexOf('\n',start),stop=end<0?text.length:end+1;
+    if(start>cursor)fragment.append(document.createTextNode(text.slice(cursor,start)));
+    const heading=document.createElement('h2');heading.className='reader-section-title';heading.textContent=text.slice(start,stop);fragment.append(heading);cursor=stop;
   }
-  if(cursor<text.length)root.append(document.createTextNode(text.slice(cursor)));
+  if(cursor<text.length)fragment.append(document.createTextNode(text.slice(cursor)));root.append(fragment);
 }
 export function fitReadingLayout(layout,width,height){
   const result={...layout},horizontal=Math.max(0,width-80),vertical=Math.max(0,height-80);

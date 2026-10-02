@@ -23,6 +23,8 @@ interface BridgeRequest {
   reading?: boolean;
   embedded?: boolean;
   readingMode?: string;
+  titlePage?: boolean;
+  motion?: string;
   fontSize?: number;
   language?: string;
   background?: string;
@@ -242,6 +244,8 @@ export class NativeBridge {
         HtmlPreviewSession.reading = data.reading === true;
         HtmlPreviewSession.pages = data.readingMode === 'pages' || data.readingMode === 'double';
         HtmlPreviewSession.spread = data.readingMode === 'double';
+        HtmlPreviewSession.titlePage = data.titlePage !== false;
+        HtmlPreviewSession.motion = data.motion || 'system';
         HtmlPreviewSession.english = data.language === 'en';
         HtmlPreviewSession.fontSize = data.fontSize || 16;
         HtmlPreviewSession.layout = data.layout || { lineHeight: 1.9, marginTop: 24, marginBottom: 24, marginLeft: 35, marginRight: 35 };

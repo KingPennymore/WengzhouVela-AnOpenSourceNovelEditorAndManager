@@ -36,7 +36,11 @@ export function readWorkspace() { return native ? window.WenzhouNative.readWorks
 export function saveWorkspace(value) {
   const data=JSON.stringify(value);
   if(native) { const result=window.WenzhouNative.writeWorkspace(data); if(result!=='ok') throw new Error(result); }
-  else localStorage.setItem('wenzhou.workspace',data);
+  else try{localStorage.setItem('wenzhou.workspace',data);}catch(error){
+    if(error.name!=='QuotaExceededError'||!value.localHistory||!Object.values(value.localHistory).some(list=>list.length))throw error;
+    // Evict recoverable snapshots only; current documents must never be omitted.
+    localStorage.setItem('wenzhou.workspace',JSON.stringify({...value,localHistory:{}}));value.localHistory={};
+  }
 }
 export function readPluginStore(){return native?window.WenzhouNative.readPlugins():localStorage.getItem('wenzhou.plugins');}
 export function writePluginStore(value){const data=JSON.stringify(value);if(native){const result=window.WenzhouNative.writePlugins(data);if(result!=='ok')throw new Error(result);}else localStorage.setItem('wenzhou.plugins',data);}

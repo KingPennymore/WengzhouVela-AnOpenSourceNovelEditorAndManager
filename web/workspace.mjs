@@ -7,6 +7,7 @@ export function uniquePath(path,paths){
   for(let i=2;;i++){const candidate=stem+' ('+i+')'+ext;if(!paths.has(candidate))return candidate;}
 }
 export function preparePaths(workspace){
+  workspace.treeRevision=(workspace.treeRevision||0)+1;
   const paths=new Set();workspace.folders=workspace.folders||[];
   for(const doc of workspace.documents){doc.path=uniquePath(repoPath(documentPath(doc)),paths);doc.name=doc.path.split('/').at(-1);paths.add(doc.path);}
   return workspace;

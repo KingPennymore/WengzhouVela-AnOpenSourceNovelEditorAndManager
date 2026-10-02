@@ -1,42 +1,17 @@
-# 阅读与 .vela 配置
+# 阅读
 
-Vela 0.7.1 支持 HarmonyOS NEXT、Android 和 Windows。阅读模式保持文稿只读，进入正文会收起文件栏、隐藏系统栏；点击中间显示应用工具栏，点击两侧翻页。左右分页支持横向或纵向滑动以及方向键、PageUp / PageDown。上下阅读使用自然滚动，也可点击两侧或按键滚动一屏。双指捏合或 Ctrl + 滚轮只调整字号。
+Vela 0.8.0 提供只读书库、滚动、单页和双页阅读。进入正文自动收起文件栏、隐藏系统栏；再次点击阅读入口返回书库。点正文左侧 30% 前一页/上一屏，右侧 30% 后一页/下一屏，中间显示工具栏；选区操作优先于手势和点击翻页。横向或纵向单指滑动翻页，双指捏合或 Ctrl+滚轮只改字号，Shift+方向键保留选区行为。
 
-设置中的“双页阅读”在可用宽度至少 760 CSS px 时并排显示两页，窄屏自动退回单页。一次点击、滑动或方向键翻动一组页面，底部显示例如“3–4 / 21”的范围。末尾不足两页时保留最后一页，空白页不计入页数。改变窗口宽度和阅读方式后，按正文位置恢复附近页面。TXT、Markdown、HTML 和 PDF 均支持双页，PDF 中的两页同时适应预览区宽度与高度。
+双页在可用宽度至少 760 CSS px 时展示两页，翻动一组，末尾不足两页不重复最后一页；窄屏回到单页。自动模式在宽屏选择双页、窄屏选择滚动。章节标题页可关闭，动画可跟随系统或关闭，系统减少动态效果优先。底部显示时间、章节和进度，章节名仅在显示时去掉末尾标点。
 
-左右模式将识别出的章节标题单独排成一页，居中显示；上下模式在标题前留出一行。底部显示时间、章节、页数和百分比。上下模式的页数按照当前窗口一屏的高度估算，改变窗口、字号或排版会重新计算；保存的进度仍以正文位置为准。章节显示会去掉末尾标点，原文保持不变。LaTeX 使用编译后的 PDF 自身分页，章节排版由 TeX 源码控制。
+作品阅读字号、行距和四边留白来自第二版配置；编辑字号独立。边距在小窗口按比例缩减保证正文空间。全局个人排版只覆盖阅读布局，自动/自选书库与作品清单分别处理，详见 [VELA.md](VELA.md)。仅支持 version: 2 配置；旧格式需重新创建。
 
-`.vela` 中的路径相对于配置所在文件夹，最近的祖先配置优先。配置预览提供阅读清单筛选、全选、字号、行距和边距设置；源码和预览可以互相切换。边距以 CSS px 记录，小窗口在需要时按比例缩减，确保正文仍有可用空间。
+“搜索与标记”可全文搜索、加书签/批注、查看和删除标记。纯文本标记和编辑标记共享文档 ID，重命名不失去进度。选择文字时按实际 DOM 选区记录位置，重复文本不会简单定位到首个匹配。编辑覆盖标记文本后会标为待确认；对照上下文仍无法唯一定位时不自动跳转。
 
-```json
-{
-  "version": 1,
-  "name": "航路",
-  "fontSize": 18,
-  "titleTemplates": ["幕 {number}：{title}"],
-  "reading": {
-    "files": ["正文.txt", "附录.md"],
-    "layout": {
-      "lineHeight": 1.9,
-      "marginTop": 24,
-      "marginBottom": 24,
-      "marginLeft": 35,
-      "marginRight": 35
-    }
-  }
-}
-```
+长篇 TXT/代码窗口化显示：滚动只渲染附近最多三个区块，分页按区块显示并渐进计算总页数。未知页码或总页数使用省略号，滚动页数按当前视口估算，位置按文本锚点存储。字体、窗口和单双页变化尽量保留附近文字。详见 [PERFORMANCE.md](PERFORMANCE.md)。
 
-行距范围 1–3.5，四边留白范围 0–240 px，字号范围 10–40 px。旧配置无需修改，缺少的排版字段自动使用默认值。配置不会改写小说正文。
+Markdown 安全渲染，可搜索/标记渲染后的文字，修改 Markdown 源码后这些位置可能需要确认。CSV 保持表格只读和行列分页，位置包含行列分页状态。HTML 使用隔离原生 Web 页面，禁止文档脚本/联网，可读本地资源，提供目录、搜索、书签、批注、手势、双页和恢复；其位置与标记在隔离阅读器中保存，不与主工作区标记混存。
 
-设置中的“编辑全局 .vela”创建或打开内部文件夹根目录的 `.global.vela`，并展示内部文件夹所有可读文档。该配置带有 `"scope": "global"`。没有区域配置时使用全局配置；开启“使用全局 .vela 覆盖区域配置”后，书库仅显示全局清单，区域内配置不参与阅读筛选与排版。关闭覆盖后恢复区域配置优先。全局清单的路径相对于内部文件夹根目录。字号手动缩放可保留到下次阅读；全局覆盖启用时每次打开优先使用全局字号。
+PDF 直接使用 PDF.js，只渲染当前一至两页，页面完整适应预览宽高，放大在内部滚动。PDF 支持已有目录、文字层选择、按页全文搜索、页级书签/批注和进度恢复；扫描 PDF 没有文字层时不能搜索，不提供 OCR。LaTeX 编译得到同样的 PDF 视图，其标题排版由源工程决定，详见 [LATEX.md](LATEX.md)。PDF 屏幕字体缩放表现为页面缩放，不重排源 PDF。
 
-订阅仓库只保存仓库信息、Release、Changelog 和远端配置快照，不创建空文稿。添加后询问是否立即拉取，取消后可以在订阅详情中拉取。已拉取的 `.vela` 会随订阅刷新静默更新；文稿更新提示只针对阅读清单内文件。仅拉取阅读清单时保留相对路径；HTML 图片、样式等附件需要完整拉取。
-
-## English
-
-Read mode is read-only and fullscreen. Tap the center to reveal the toolbar; tap either side to move a page. Horizontal pagination supports horizontal and vertical swipes, arrow keys and PageUp / PageDown. Scroll mode uses natural scrolling and screen-sized keyboard/tap navigation. The footer displays time, chapter, page count and progress. Scroll-mode pages depend on the current viewport; progress is stored as a text position.
-
-The nearest regional `.vela` controls the reading list and typography. Settings can edit `.global.vela`, which lists files relative to the internal folder root. It acts as a fallback; enabling global override restricts the library and typography to that configuration. The GUI edits font size, line spacing and four margins without changing source text. PDF typography is controlled by its TeX source.
-
-Two-page reading shows a spread on viewports at least 760 CSS pixels wide and falls back to one page on narrow screens. Text, Markdown, HTML and PDF support spreads, page ranges and two-page turns. Reading positions survive layout changes.
+位置、标记和历史保存在本机；移动应用卸载会删除它们，请导出备份。正文不会因阅读操作被改写。

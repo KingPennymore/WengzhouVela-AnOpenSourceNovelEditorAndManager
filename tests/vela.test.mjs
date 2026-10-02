@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {parseVela,createVela,velaText,readingDocuments,projectWriter,velaVisiblePaths,includeNewReadingFile,rewriteVelaFiles} from '../web/vela.mjs';
+import {parseVela,createVelaV2,readingItems,velaText,readingDocuments,projectWriter,velaVisiblePaths,includeNewReadingFile,rewriteVelaFiles} from '../web/vela.mjs';
 import {subscriptionRepo,subscriptionChanged,SubscriptionAPI,Subscriptions} from '../web/subscriptions.mjs';
 import {GitHub} from '../web/github.mjs';
 import {encodeContent} from '../web/model.mjs';
-const config=(files=[],templates=[])=>({...createVela('Book'),reading:{files},titleTemplates:templates});
+const config=(files=[],templates=[])=>({...createVelaV2('Book'),reading:{items:files.map((path,i)=>({id:'item-'+i,path}))},chapters:{templates}});
 test('添加订阅只保存仓库信息，不写入本地文件缓存',async()=>{
   const workspace={documents:[],subscriptions:[]};let cacheCalls=0,saves=0;
   const manager=new Subscriptions({workspace:()=>workspace,cache:()=>cacheCalls++,save:()=>saves++,transport:()=>{}});manager.render=()=>{};manager.api.snapshot=async()=>({configs:[{path:'.vela'}],files:[{path:'book.txt'}]});
@@ -12,16 +12,16 @@ test('添加订阅只保存仓库信息，不写入本地文件缓存',async()=>
 });
 test('.vela 配置校验、未知字段保留及路径越界拒绝',()=>{
   assert.equal(parseVela(velaText({...config(['正文.txt']),custom:{keep:true}})).custom.keep,true);
-  for(const value of [{...config(),version:2},{...config(),fontSize:100},{...config(),titleTemplates:'bad'},config(['../secret.txt']),config(['.vela']),config(['a.txt'],['没有占位符'])])assert.throws(()=>parseVela(JSON.stringify(value)));
+  for(const value of [{...config(),version:1},{...config(),editor:{fontSize:100}},{...config(),chapters:{templates:'bad'}},config(['../secret.txt']),config(['.vela']),config(['a.txt'],['没有占位符'])])assert.throws(()=>parseVela(JSON.stringify(value)));
 });
 test('最近工作区控制阅读清单和标题模板，不把全局模板应用到其他小说',()=>{
   const docs=[{id:'root',name:'.vela',text:velaText(config(['outside.txt','Sub/a.txt'],['【{title}】']))},{id:'sub',name:'.vela',path:'Sub/.vela',text:velaText(config(['a.txt'],['幕 {number}: {title}']))},{id:'a',name:'a.txt',path:'Sub/a.txt',text:''},{id:'b',name:'b.txt',path:'Sub/b.txt',text:''},{id:'c',name:'outside.txt',text:''}];
   const workspace={documents:docs,settings:{writer:{titleTemplates:['不适用{title}']}}};
   assert.deepEqual(readingDocuments(workspace).map(doc=>doc.id),['a','c']);assert.deepEqual(projectWriter(workspace,docs[2]).titleTemplates,['幕 {number}: {title}']);
-  docs[1].text='invalid';assert.deepEqual(readingDocuments(workspace).map(doc=>doc.id),['c']);
+  docs[1].text='invalid';assert.deepEqual(readingDocuments(workspace).map(doc=>doc.id),['a','c']);
 });
 test('新文稿自动进入所属工作区的阅读清单，其他工作区不变',()=>{
-  const manifest={id:'config',name:'.vela',path:'Novel/.vela',text:velaText(config())},doc={name:'a.md',path:'Novel/a.md'};const workspace={documents:[manifest,doc]};includeNewReadingFile(workspace,doc);includeNewReadingFile(workspace,doc);assert.deepEqual(parseVela(manifest.text).reading.files,['a.md']);
+  const manifest={id:'config',name:'.vela',path:'Novel/.vela',text:velaText(config())},doc={name:'a.md',path:'Novel/a.md'};const workspace={documents:[manifest,doc]};includeNewReadingFile(workspace,doc);includeNewReadingFile(workspace,doc);assert.deepEqual(readingItems(parseVela(manifest.text)).map(item=>item.path),['a.md']);
 });
 test('订阅只接受 HTTPS 仓库首页，拒绝凭据、代理、查询与多余路径',()=>{
   assert.equal(subscriptionRepo('https://github.com/owner/repo.git/'),'owner/repo');
@@ -51,7 +51,7 @@ test('远端分支冲突不会强推重试，非法批量路径在网络请求�
 
 test('移动与复制工作区保持配置相对路径，文件更名和删除更新阅读清单',()=>{
  const manifest={id:'config',name:'.vela',path:'Novel/.vela',text:velaText(config(['正文/book.txt']))},book={id:'book',name:'book.txt',path:'Novel/正文/book.txt',text:'body'};const before={documents:[manifest,book]};
- const moved=structuredClone(before);moved.documents[1].path='Novel/正文/renamed.txt';rewriteVelaFiles(before,moved,'move','Novel/正文/book.txt','Novel/正文/renamed.txt');assert.deepEqual(parseVela(moved.documents[0].text).reading.files,['正文/renamed.txt']);
- const folder=structuredClone(before);for(const doc of folder.documents)doc.path=doc.path.replace('Novel/','Renamed/');rewriteVelaFiles(before,folder,'move','Novel','Renamed');assert.deepEqual(parseVela(folder.documents[0].text).reading.files,['正文/book.txt']);
- const deleted={documents:[structuredClone(manifest)]};rewriteVelaFiles(before,deleted,'delete',book.path);assert.deepEqual(parseVela(deleted.documents[0].text).reading.files,[]);
+ const moved=structuredClone(before);moved.documents[1].path='Novel/正文/renamed.txt';rewriteVelaFiles(before,moved,'move','Novel/正文/book.txt','Novel/正文/renamed.txt');assert.deepEqual(readingItems(parseVela(moved.documents[0].text)).map(item=>item.path),['正文/renamed.txt']);
+ const folder=structuredClone(before);for(const doc of folder.documents)doc.path=doc.path.replace('Novel/','Renamed/');rewriteVelaFiles(before,folder,'move','Novel','Renamed');assert.deepEqual(readingItems(parseVela(folder.documents[0].text)).map(item=>item.path),['正文/book.txt']);
+ const deleted={documents:[structuredClone(manifest)]};rewriteVelaFiles(before,deleted,'delete',book.path);assert.deepEqual(readingItems(parseVela(deleted.documents[0].text)).map(item=>item.path),['正文/book.txt']);
 });

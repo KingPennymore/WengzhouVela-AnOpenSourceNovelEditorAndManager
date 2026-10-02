@@ -71,3 +71,9 @@ acode.setPluginUnmount(id, async () => { /* 释放插件自己建立的定时器
 资源使用 IndexedDB 保存，插件清单保存于内部配置；停用不删除资源，删除后移除资源。内置 `vela.tex.cjk` 在首次编译时安装，包含 ctex、xeCJK、fontspec 和 Fandol 字体。内置包的各组件许可见 `vendor/wasmtex/THIRD_PARTY_NOTICES.md` 与 ZIP 内许可清单。
 
 更多编译说明见 [LATEX.md](LATEX.md)。
+
+## 0.8.0 配置与文档服务
+
+`acode.require('vela')` 的服务版本为 2，`capabilities` 列出可用能力；原有写文本/扩展/补全接口保持。新增 `getConfig(fileId)` 返回第二版生效配置副本，`getDocumentInfo(fileId)` 返回稳定 ID、当前修订、已保存修订、修改状态与历史数量，`getChapters(fileId)` 返回自动章节索引，`getHistory(fileId)` 返回历史的修订/时间/字符数摘要（不返回整个快照正文）。修改文稿仍通过 `writeText`，不绕开保存和锚点检查。
+
+服务停止后拒绝继续读写。插件设置与扩展字段不自动进入 GitHub 文件；需要作品随行设置时使用 `extensions.<plugin-id>`，保留其他插件字段。不要把令牌、密钥或本地绝对路径写入配置。仅支持第二版 `.vela`，插件应使用 `getConfig` 读取新版字段；不再提供旧格式升级。

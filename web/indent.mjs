@@ -1,4 +1,5 @@
 export function fullWidthIndent(view,remove=false) {
+  if(view.composing)return false;
   const state=view.state,lines=new Set();
   for(const range of state.selection.ranges) {
     const first=state.doc.lineAt(range.from),last=state.doc.lineAt(range.to);

@@ -1,33 +1,27 @@
 # 文舟 Vela · 开源小说创作 / 阅读工具
 
-文舟（Vela）是一款面向 HarmonyOS NEXT 和 Android 的开源小说创作与阅读工具。支持将整部小说写在一个 TXT / Markdown 文件中，也支持使用工作区组织多个文稿、附件和项目配置。文件按钮位于顶栏最左侧并以分隔线分组，四个入口分别用于写作、GitHub 仓库、仓库订阅与只读阅读，两端共享编辑器并使用各自原生文件服务、凭据存储和 Web 组件。
+文舟（Vela）是一款面向 HarmonyOS NEXT、Android 和 Windows 的开源小说创作与阅读工具。支持将整部小说写在一个 TXT / Markdown 文件中，也支持使用工作区组织多个文稿、附件和项目配置。文件按钮位于顶栏最左侧并以分隔线分组，四个入口分别用于写作、GitHub 仓库、仓库订阅与只读阅读，三端共享编辑器并使用各自原生文件服务、凭据存储和 Web 组件。
 
 文舟是独立项目，不是 Acode 官方应用，也不代表 Acode Foundation。项目复用了 Acode 的部分 CodeMirror 编辑组件和 Acode-Writer 1.0.4 的章节识别代码，具体版权与许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-当前版本：鸿蒙 `0.6.1.1`，安卓 `0.6.1-android.1`。鸿蒙使用 HarmonyOS 6.1.1 / API 24 SDK 编译，兼容 API 12；安卓使用 API 36 编译，最低 Android 8.0 / API 26，系统 WebView 需 Chromium 105 或更新版本。仅使用内部工作区，不申请文件访问权限。安卓已在 Android 16 模拟器验证；鸿蒙新增 HTML 页面已通过原生编译与签名构建，尚待鸿蒙真机体验验收。完整验证范围见 [VALIDATION.md](VALIDATION.md)。
+当前版本：鸿蒙 / Windows **0.8.0**，安卓 **0.8.0-android.1**，移动端版本代码 **10800**，包名 `me.wenzhou.write`。HarmonyOS 使用 API 24 SDK 编译，兼容 API 12；安卓最低 Android 8.0 / API 26，WebView 需 Chromium 105 或更新版本。
 
-当前应用包名：`me.wenzhou.write`。签名 Profile 必须绑定同一包名，且与所选证书匹配。应用文稿与设置保存在自身沙箱中。
+[下载 0.8.0](https://github.com/KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager/releases/tag/v0.8.0)：发布签名 HAP、鸿蒙市场提交用 APP.zip、安卓签名 APK / AAB、Windows x64 安装程序 / ZIP、源码及 SHA-256 清单。Windows 包尚无 Authenticode 签名。鸿蒙发布签名的直接安装受系统来源校验限制，不能替代调试签名安装。
 
-鸿蒙修复版单独发布在 [GitHub Release v0.6.1.1](https://github.com/KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager/releases/tag/v0.6.1.1)，提供 `Vela-0.6.1.1-release-signed.hap` 与 `SHA256SUMS-0.6.1.1.txt`。修复订阅空文件保存及平板 PDF 显示范围，沿用发布签名。应用市场发布签名 HAP 的直接安装受鸿蒙来源校验限制，调试安装须使用调试签名。
+0.8.0 将作品配置、个人默认值和阅读书库分开；加入本地历史恢复、章节管理、工作区搜索替换、写作词库与标记，GitHub 拉取和提交先预览变更，阅读增加搜索/书签/批注及长篇正文窗口化。Windows 记忆窗口布局并可检查更新。具体行为与兼容范围见下列文档。
 
-安卓安装包及原版完整发行文件见 [GitHub Release v0.6.1](https://github.com/KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager/releases/tag/v0.6.1)：
+- [配置与恢复](docs/VELA.md)
+- [文档编辑](docs/EDITING.md)
+- [GitHub 同步](docs/GITHUB.md)
+- [阅读](docs/READING.md)、[性能](docs/PERFORMANCE.md)
+- [Windows](docs/WINDOWS.md)、[插件](docs/PLUGINS.md)、[LaTeX](docs/LATEX.md)
+- [验证范围](VALIDATION.md)、[更新说明](RELEASE_NOTES.md)
 
-| 文件 | 用途 |
-| --- | --- |
-| `Vela-0.6.1-release-signed.hap` | 鸿蒙发布签名安装包 |
-| `Vela-0.6.1-release-signed.app.zip` | 解压获得鸿蒙应用市场提交用的 `.app`（GitHub 限制直接上传此后缀） |
-| `Vela-0.6.1-android.1-release-signed.apk` | 安卓发布签名安装包 |
-| `Vela-0.6.1-android.1-release-signed.aab` | 安卓应用商店提交包 |
-| `Vela-0.6.1-source.zip` | 完整源码，不含个人证书、私钥和令牌 |
-| `SHA256SUMS-0.6.1.txt` | 上述文件的 SHA-256 校验值 |
-
-本机构建输出位于 `dist/`，不纳入 Git。发布签名材料保存在仓库外；两端本版沿用原发布签名。更新内容见 [RELEASE_NOTES.md](RELEASE_NOTES.md)。
-
-本版新增沉浸阅读与位置恢复、GitHub 长按多选拉取、常见代码语法高亮及补全、真正的 LaTeX 本地 PDF 编译和宏包插件。使用说明见 [LaTeX 文档](docs/LATEX.md) 与 [插件文档](docs/PLUGINS.md)。
+文稿与设置保存在应用沙箱；导出备份和 GitHub 同步由用户控制，卸载移动应用会删除内部数据。令牌存放在平台安全存储，浏览器预览只保留于内存。签名材料在仓库外，本机构建输出 `dist/` 不纳入 Git。
 
 ## 已实现
 
-- 仅使用内部工作区。文件与文件夹支持新建、重命名、移动、复制、剪切 / 粘贴、副本、属性、排序、搜索、回收站恢复及确认后的永久删除。目录操作保留空文件夹和二进制附件。导入识别 UTF-8、带 BOM 的 UTF-16 与 GB18030，导出为 UTF-8。
+- 仅使用内部文件夹。文件与文件夹支持新建、重命名、移动、复制、剪切 / 粘贴、副本、属性、排序、搜索、回收站恢复及确认后的永久删除。目录操作保留空文件夹和二进制附件。导入识别 UTF-8、带 BOM 的 UTF-16 与 GB18030，导出为 UTF-8。
 - CodeMirror 6 编辑、行号、当前行高亮、自动换行、查找替换、各文件独立撤回 / 重做历史、Markdown / HTML 预览，CSV 可编辑表格与分页。
 - 章节始终自动识别中文、英文、Markdown 和数字编号标题；每个工作区的 `.vela` 可添加多个标题模板，与标准标题同时识别。支持当前章 / 全文字数、选中文字数、目录筛选、定位当前章和在同一文件末尾追加章节。
 - 底部八项快捷操作：保存、撤回、重做、文件顶部、文件底部、章节顶部、章节底部、Git。
@@ -56,12 +50,27 @@
 
 ```json
 {
-  "version": 1,
-  "name": "航路",
-  "fontSize": 18,
-  "titleTemplates": ["【{number}】{title}"],
+  "version": 2,
+  "kind": "workspace",
+  "id": "my-novel",
+  "project": {
+    "name": "我的小说"
+  },
+  "chapters": {
+    "templates": [
+      "【{number}】{title}"
+    ]
+  },
   "reading": {
-    "files": ["正文/第一卷.txt", "设定/人物.md", "附录.html", "年表.csv"]
+    "items": [
+      {
+        "id": "main",
+        "path": "正文.txt"
+      }
+    ],
+    "layout": {
+      "fontSize": 20
+    }
   }
 }
 ```

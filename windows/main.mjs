@@ -1,10 +1,11 @@
-import {app,BrowserWindow,ipcMain,protocol,session,nativeTheme,safeStorage,dialog,net,shell,Menu} from 'electron';
+import {app,BrowserWindow,ipcMain,protocol,session,nativeTheme,safeStorage,dialog,net,shell,Menu,screen} from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
 import {fileURLToPath} from 'node:url';
 import {WorkspaceStorage,decodeText,atomic,mime} from './storage.mjs';
 import {GitHubBridge} from './github.mjs';
+import {windowBounds} from './window-state.mjs';
 
 const directory=path.dirname(fileURLToPath(import.meta.url)),PAGE='vela://editor/web/index.html',qa=process.env.VELA_QA==='1';
 // QA accepts an isolated explicitly supplied data directory; normal runs use Electron userData.
@@ -81,6 +82,7 @@ async function dispatch(operation,data){
     case 'appearance':if(/^#[\da-f]{6}$/i.test(data.background))main.setBackgroundColor(data.background);return true;
     case 'fullscreen':main.setFullScreen(data.enabled===true);return true;
     case 'openAuth':await shell.openExternal('https://github.com/login/device');return true;
+    case 'openRelease':if(typeof data.url!=='string'||!/^https:\/\/github\.com\/KingPennymore\/WengzhouVela-AnOpenSourceNovelEditorAndManager\/releases\/tag\/v?\d+\.\d+\.\d+(?:\.\d+)?$/.test(data.url))throw Error('发布地址无效。');await shell.openExternal(data.url);return true;
     case 'import':case 'export':case 'exportPdf':case 'importPlugin':return picker(operation,data);
     default:return github.call(operation,data);
   }
@@ -91,8 +93,10 @@ if(!qa&&!app.requestSingleInstanceLock())app.quit();else{
   readerSession=session.fromPartition('persist:vela-reader');readerSession.protocol.handle('https',request=>{const url=new URL(request.url);return previewResponse(url,readerOptions.get(decodeURIComponent(url.pathname.slice(1)))||{reading:true});});
   const editorSession=session.fromPartition('persist:vela-editor');editorSession.protocol.handle('vela',request=>assetResponse(new URL(request.url)));editorSession.protocol.handle('https',request=>previewResponse(new URL(request.url),{},true));
   Menu.setApplicationMenu(null);
-  main=new BrowserWindow({title:'Vela 文舟',width:1280,height:850,minWidth:720,minHeight:480,show:!qa,icon,backgroundColor:'#eef3ef',webPreferences:{partition:'persist:vela-editor',preload:path.join(directory,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});secureWindow(main);main.setMenu(null);
+  const stateFile=path.join(files.base,'window.json');let previous={};try{previous=JSON.parse(fs.readFileSync(stateFile,'utf8'))||{};}catch{}const displays=[screen.getPrimaryDisplay(),...screen.getAllDisplays()],bounds=windowBounds(previous,displays),area=screen.getDisplayMatching(bounds).workArea;
+  main=new BrowserWindow({title:'Vela 文舟',...bounds,minWidth:Math.min(720,area.width),minHeight:Math.min(480,area.height),show:!qa,icon,backgroundColor:'#eef3ef',webPreferences:{partition:'persist:vela-editor',preload:path.join(directory,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});secureWindow(main);main.setMenu(null);if(previous.maximized)main.maximize();const remember=()=>{try{if(!main.isDestroyed()&&!main.isFullScreen())atomic(stateFile,Buffer.from(JSON.stringify({...main.getNormalBounds(),maximized:main.isMaximized()})));}catch{/* Window geometry must not prevent document saving. */}};let boundsTimer;for(const event of ['resize','move','maximize','unmaximize'])main.on(event,()=>{clearTimeout(boundsTimer);boundsTimer=setTimeout(remember,250);});
   main.webContents.on('before-input-event',(event,input)=>{if(input.key==='F11'){event.preventDefault();if(input.type==='keyDown'&&!input.isAutoRepeat)main.setFullScreen(!main.isFullScreen());}});
+  screen.on('display-metrics-changed',()=>{if(!main.isDestroyed()&&!main.isMaximized()&&!main.isFullScreen())main.setBounds(windowBounds(main.getBounds(),[screen.getPrimaryDisplay(),...screen.getAllDisplays()]));});
   ipcMain.on('vela:sync',(event,operation,data)=>{if(!trusted(event)){event.returnValue={error:'不允许的调用来源。',value:'不允许的调用来源。'};return;}try{let value;if(operation==='readWorkspace')value=files.readWorkspace();else if(operation==='readPlugins')value=files.readPlugins();else if(operation==='readEnvironment')value=environment();else if(operation==='writeWorkspace'){files.saveWorkspace(data);value='ok';}else if(operation==='writePlugins'){files.writePlugins(data);value='ok';}else throw new Error('不支持此操作。');event.returnValue={value};}catch(error){event.returnValue={error:error.message,value:error.message};}});
   ipcMain.handle('vela:call',async(event,operation,json)=>{if(!trusted(event))return failure(new Error('不允许的调用来源。'));try{if(typeof json!=='string'||json.length>100*1024*1024)throw new Error('请求数据无效或过大。');const data=JSON.parse(json);if(!data||typeof data!=='object'||Array.isArray(data))throw new Error('请求数据无效。');return success(await dispatch(operation,data));}catch(error){return failure(error);}});
   nativeTheme.on('updated',()=>{if(main&&!main.isDestroyed())main.webContents.executeJavaScript('window.dispatchEvent(new CustomEvent("wenzhouEnvironment",{detail:'+environment()+'}))').catch(()=>{});});

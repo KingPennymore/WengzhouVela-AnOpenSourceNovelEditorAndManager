@@ -1,5 +1,6 @@
 import {newDocument,repoPath,MAX_TEXT_BYTES} from './model.mjs';
 import {documentPath,uniquePath} from './workspace.mjs';
+import {textFingerprint} from './document-service.mjs';
 
 export function applyRemoteFile(workspace,{repo,branch,path,text,sha},prefix=''){
   path=repoPath(path);
@@ -22,7 +23,7 @@ export function repositoryFolder(workspace,repo){
 export function applyRepository(workspace,result,folder){
   workspace.repositories=workspace.repositories||[];
   const old=workspace.repositories.find(item=>item.repo.toLowerCase()===result.repo.toLowerCase());
-  if(old)Object.assign(old,{folder,branch:result.branch,commit:result.commit});else workspace.repositories.push({repo:result.repo,folder,branch:result.branch,commit:result.commit});
+  const baseFiles={...old?.baseFiles,...Object.fromEntries(result.files.map(file=>[file.path,{sha:file.sha,hash:textFingerprint(file.text??file.data)}]))};if(old)Object.assign(old,{folder,branch:result.branch,commit:result.commit,baseFiles});else workspace.repositories.push({repo:result.repo,folder,branch:result.branch,commit:result.commit,baseFiles});
   workspace.folders=[...new Set([...(workspace.folders||[]),folder,...result.folders.map(path=>folder+'/'+path)])];
   for(const file of result.files){
     if(file.text===null||new TextEncoder().encode(file.text).length>MAX_TEXT_BYTES)continue;
