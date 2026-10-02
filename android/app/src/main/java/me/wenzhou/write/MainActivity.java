@@ -74,6 +74,7 @@ public final class MainActivity extends Activity {
         web.setWebViewClient(new WebViewClient() {
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
+                if ("https".equals(uri.getScheme()) && "wenzhou-preview.local".equals(uri.getHost()) && !request.isForMainFrame()) return embeddedHtml(uri);
                 if (ORIGIN.equals(uri.getScheme() + "://" + uri.getHost())) {
                     if (request.isForMainFrame() && PAGE.equals(uri.toString())) {
                         try { return new WebResourceResponse("text/html", "UTF-8", new ByteArrayInputStream(editorPage())); }
@@ -88,6 +89,7 @@ public final class MainActivity extends Activity {
             }
             @Override public boolean shouldOverrideUrlLoading(WebView view, WebResourceRequest request) {
                 if (PAGE.equals(request.getUrl().toString())) return false;
+                if (!request.isForMainFrame() && "https".equals(request.getUrl().getScheme()) && "wenzhou-preview.local".equals(request.getUrl().getHost())) return false;
                 if (request.isForMainFrame() && (request.getUrl().getScheme().equals("https") || request.getUrl().getScheme().equals("http"))) {
                     try { startActivity(new Intent(Intent.ACTION_VIEW, request.getUrl())); } catch (Exception ignored) { }
                 }
@@ -113,6 +115,26 @@ public final class MainActivity extends Activity {
         }
     }
     private static WebResourceResponse blocked() { return new WebResourceResponse("text/plain", "UTF-8", 403, "Forbidden", java.util.Collections.emptyMap(), new ByteArrayInputStream(new byte[0])); }
+    private WebResourceResponse embeddedHtml(Uri uri) {
+        try {
+            String path=uri.getPath().substring(1);
+            PreviewResource resource=bridge.files.readPreviewResource(path,"true".equals(uri.getQueryParameter("html")));
+            byte[] bytes=resource.bytes;
+            if ("text/html".equals(resource.mime)) {
+                int size=16;try{size=Math.max(10,Math.min(40,Integer.parseInt(uri.getQueryParameter("fontSize"))));}catch(Exception ignored){}
+                String theme="true".equals(uri.getQueryParameter("dark"))?"dark":"light";
+                String defaults="<style>html{color-scheme:"+theme+"}body{font-family:system-ui,sans-serif;font-size:"+size+"px;overflow-wrap:anywhere}</style>";
+                String html=new String(bytes,StandardCharsets.UTF_8);
+                if(java.util.regex.Pattern.compile("(?i)<head\\b[^>]*>").matcher(html).find()) html=html.replaceFirst("(?i)(<head\\b[^>]*>)","$1"+defaults);
+                else html=defaults+html;
+                bytes=html.getBytes(StandardCharsets.UTF_8);
+            }
+            java.util.Map<String,String> headers=new java.util.HashMap<>();
+            headers.put("Cache-Control","no-store");headers.put("Access-Control-Allow-Origin","*");headers.put("X-Content-Type-Options","nosniff");
+            headers.put("Content-Security-Policy","sandbox; default-src 'none'; script-src 'none'; style-src 'unsafe-inline' https://wenzhou-preview.local; img-src data: https://wenzhou-preview.local; font-src data: https://wenzhou-preview.local; media-src https://wenzhou-preview.local; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'");
+            return new WebResourceResponse(resource.mime,resource.mime.startsWith("text/")?"UTF-8":null,200,"OK",headers,new ByteArrayInputStream(bytes));
+        }catch(Exception error){return blocked();}
+    }
     private byte[] editorPage() throws IOException {
         String html;
         try (InputStream input = getAssets().open("web/index.html")) { html = new String(NativeBridge.readStream(input, 1024 * 1024), StandardCharsets.UTF_8); }

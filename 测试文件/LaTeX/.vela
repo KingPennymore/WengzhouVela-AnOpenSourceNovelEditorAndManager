@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "name": "LaTeX 编译测试",
+  "fontSize": 18,
+  "titleTemplates": [],
+  "reading": {
+    "files": [
+      "chapters/story.tex",
+      "latin.tex",
+      "macros/vela-demo.sty",
+      "main.tex",
+      "references.bib"
+    ]
+  }
+}

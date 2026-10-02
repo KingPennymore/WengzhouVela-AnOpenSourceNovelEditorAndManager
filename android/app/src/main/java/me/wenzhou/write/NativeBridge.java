@@ -74,7 +74,10 @@ final class NativeBridge {
             case "restoreTrash": return files.restoreTrash(data.optString("id"), data.optBoolean("permanent"));
             case "readWorkspaceFile": return files.readFileBase64(data.optString("path"));
             case "readWorkspaceAsset": return files.readAsset(data.optString("path"));
-            case "previewHtml": files.readPreviewResource(data.optString("path"), true); activity.previewHtml(data.optString("path"), data.optBoolean("dark"), data); return true;
+            case "previewHtml":
+                files.readPreviewResource(data.optString("path"), true);
+                if (data.optBoolean("embedded")) return new android.net.Uri.Builder().scheme("https").authority("wenzhou-preview.local").path("/"+data.optString("path")).appendQueryParameter("html","true").appendQueryParameter("fontSize",Integer.toString(Math.max(10,Math.min(40,data.optInt("fontSize",16))))).appendQueryParameter("dark",Boolean.toString(data.optBoolean("dark"))).build().toString();
+                activity.previewHtml(data.optString("path"), data.optBoolean("dark"), data); return true;
             case "writeWorkspaceFiles": return files.writeFiles(array(data, "files"), array(data, "folders"));
             case "appearance": activity.appearance(data.optBoolean("dark"), data.optString("background")); return true;
             case "openAuth": activity.openAuthorization(); return true;

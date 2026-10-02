@@ -1,0 +1,2 @@
+.chapter { display: grid; gap: 16px; padding: 24px; color: #23744e; }
+.chapter:hover { background: #e3f0e7; }

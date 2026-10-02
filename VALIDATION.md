@@ -14,3 +14,10 @@
 ## 实际范围
 
 鸿蒙新增 Worker / WebAssembly 引擎与 HTML 阅读控制已通过编译及签名，尚无本轮鸿蒙真机运行验证。Android 验证设备为专用模拟器，未代表所有系统 WebView 与真实设备内存状况。LaTeX 不包含整个 CTAN；LuaTeX、Biber、shell-escape 和外部工具不可用。PDF 导出最大 32 MB；宏包和工程的总输入限制见 docs/LATEX.md。
+
+## 0.6.0 发布后的源码更新（2026-10-02）
+
+- HTML 在编辑区嵌入预览，顶栏与文件标签保留；回到源码后光标不变。Android 实际 WebView 检查包含本地 CSS、CSS `@import`、SVG / PNG、完整高度、手动 HTML 类型，以及嵌入脚本隔离和独立交互预览。鸿蒙对应 ArkTS / HAP 构建通过，尚待真机运行验证。
+- `测试文件/` 提供 54 个阅读样例与两份 `.vela`。自动校验清单覆盖所有样例、嵌套工程根路径及全部相对 HTML 资源；书库实际显示全部 54 个阅读文件。
+- 公开样例中的中文多文件工程使用 XeLaTeX 实际生成 PDF，包含本地宏包、BibTeX、MakeIndex 和交叉引用；英文样例使用 pdfLaTeX 实际生成 PDF。HTML、LaTeX、JavaScript、Python 和 JSON 的高亮及补全经过浏览器检查。
+- 本次源码更新不替换既有 v0.6.0 Release 附件；上述新行为需使用更新后的源码构建。

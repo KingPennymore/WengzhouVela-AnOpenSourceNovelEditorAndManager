@@ -1,0 +1,11 @@
+@import url('./palette.css');
+* { box-sizing: border-box; }
+html { color-scheme: light dark; }
+body { margin: 0; background: var(--background); color: var(--ink); font-family: system-ui, sans-serif; line-height: 1.8; }
+.book { max-width: 760px; margin: auto; padding: 24px; }
+.cover { display: block; width: 120px; max-width: 100%; float: right; margin: 0 0 18px 18px; }
+.eyebrow { color: var(--accent); letter-spacing: .12em; font-size: .75rem; }
+h1, h2 { color: var(--accent); }
+table { width: 100%; border-collapse: collapse; }
+th, td { border: 1px solid var(--accent); padding: 8px; text-align: left; }
+@media (max-width: 420px) { .book { padding: 16px; } .cover { width: 80px; } }

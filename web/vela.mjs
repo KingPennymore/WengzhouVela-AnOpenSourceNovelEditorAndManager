@@ -11,7 +11,7 @@ export function parseVela(text){
   const size=raw.fontSize??16;
   if(!Number.isFinite(size)||size<10||size>40)throw new Error('字号须在 10–40 之间。');
   if(!Array.isArray(raw.reading?.files)||raw.reading.files.length>5000)throw new Error('reading.files 必须是文件路径数组（最多 5000 项）。');
-  const files=[...new Set(raw.reading.files.map(path=>{if(typeof path!=='string')throw new Error('阅读文件路径必须为字符串。');const safe=repoPath(path);if(!readable({name:safe}))throw new Error('阅读清单只支持 TXT、Markdown、HTML 和 CSV。');return safe;} ))];
+  const files=[...new Set(raw.reading.files.map(path=>{if(typeof path!=='string')throw new Error('阅读文件路径必须为字符串。');const safe=repoPath(path);if(!readable({name:safe}))throw new Error('阅读清单只支持 TXT、Markdown、HTML、CSV、LaTeX 和代码文件。');return safe;} ))];
   if(raw.titleTemplates!==undefined&&(!Array.isArray(raw.titleTemplates)||raw.titleTemplates.some(item=>typeof item!=='string')))throw new Error('titleTemplates 必须是字符串数组。');
   const settings=chapterSettings({titleTemplates:raw.titleTemplates??[]});chapterMatcher(settings);
   return {...raw,version:1,name:raw.name,fontSize:size,titleTemplates:settings.titleTemplates,reading:{...raw.reading,files}};

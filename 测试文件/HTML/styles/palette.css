@@ -1,0 +1,2 @@
+:root { --background: #f5faf6; --ink: #263b30; --accent: #23744e; }
+@media (prefers-color-scheme: dark) { :root { --background: #17241b; --ink: #d6e7da; --accent: #8ad0a8; } }

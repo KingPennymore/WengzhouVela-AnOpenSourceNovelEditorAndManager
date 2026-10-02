@@ -143,9 +143,9 @@ function updateEditorVisibility(){
 }
 function renderDisplayOptions(){
   const doc=current();$('#display-options').hidden=home||!doc;if(!doc)return;
-  const kind=documentKind(doc);$('#display-options').innerHTML=`<button data-format title="选择文件类型">${kind==='MD'?'Markdown':kind==='TXT'?'文本':kind}</button><button data-display="source" class="${!isPreview?'selected':''}">源码</button><button data-display="preview" class="${isPreview?'selected':''}">${kind==='CSV'?'表格':'预览'}</button>`;
+  const kind=documentKind(doc);$('#display-options').innerHTML=`<button data-format title="选择文件类型">${kind==='MD'?'Markdown':kind==='TXT'?'文本':kind}</button><button data-display="source" class="${!isPreview?'selected':''}">源码</button><button data-display="preview" class="${isPreview?'selected':''}">${kind==='CSV'?'表格':'预览'}</button>${native&&kind==='HTML'&&isPreview?'<button data-native-html title="在独立页面中调试 HTML">独立预览</button>':''}`;
 }
-$('#display-options').onclick=e=>{const mode=e.target.closest('[data-display]');if(mode){if(native&&documentKind(current())==='HTML'&&mode.dataset.display==='preview'){openNativeHtml();return;}isPreview=mode.dataset.display==='preview';updateEditorVisibility();if(isPreview)renderPreview();else view.focus();}if(e.target.closest('[data-format]')){const doc=current();openModal('文件类型',`<label>编辑格式<select name="kind">${[['','按扩展名识别'],['TXT','纯文本'],['MD','Markdown'],['HTML','HTML'],['CSV','CSV 表格'],['VELA','VELA 工作区配置'],['TEX','LaTeX'],['CODE','代码']].map(([value,label])=>`<option value="${value}" ${value===(doc.kind||'')?'selected':''}>${label}</option>`).join('')}</select></label>`,f=>{doc.kind=f.get('kind')||undefined;isPreview=['CSV','VELA'].includes(documentKind(doc));refreshFileType(doc);save();});}};
+$('#display-options').onclick=e=>{if(e.target.closest('[data-native-html]')){openNativeHtml();return;}const mode=e.target.closest('[data-display]');if(mode){isPreview=mode.dataset.display==='preview';updateEditorVisibility();if(isPreview)renderPreview();else view.focus();}if(e.target.closest('[data-format]')){const doc=current();openModal('文件类型',`<label>编辑格式<select name="kind">${[['','按扩展名识别'],['TXT','纯文本'],['MD','Markdown'],['HTML','HTML'],['CSV','CSV 表格'],['VELA','VELA 工作区配置'],['TEX','LaTeX'],['CODE','代码']].map(([value,label])=>`<option value="${value}" ${value===(doc.kind||'')?'selected':''}>${label}</option>`).join('')}</select></label>`,f=>{doc.kind=f.get('kind')||undefined;isPreview=['CSV','VELA'].includes(documentKind(doc));refreshFileType(doc);save();});}};
 function showHome(){
   if(view){if(dirty&&!save())return;editorStates.set(workspace.activeId,view.state);view.destroy();view=null;}
   workspace.activeId=null;home=true;isPreview=false;index=null;$('#current-name').textContent='启动页';$('#start-page').hidden=false;updateEditorVisibility();renderHome();renderDocuments();updateStats();showView('write');setSidebar('outline',false);save();plugins?.emit('switch-file',null);
@@ -173,7 +173,14 @@ function renderPreview(){
     }catch(e){$('#preview').innerHTML=`<p class="error">${esc(e.message)}</p><button class="secondary" id="csv-source">编辑 CSV 源码</button>`;$('#csv-source').onclick=togglePreview;}return;
   }
   if(kind==='HTML'){
-    const frame=document.createElement('iframe');frame.title='HTML 文件预览';frame.setAttribute('sandbox','');frame.srcdoc=htmlPreview(text,{dark:workspace.settings.dark,fontSize:textFontSize});$('#preview').replaceChildren(frame);return;
+    const frame=document.createElement('iframe');frame.title='HTML 文件预览';frame.setAttribute('sandbox','');frame.setAttribute('referrerpolicy','no-referrer');$('#preview').replaceChildren(frame);
+    if(native){
+      if(!save()){frame.remove();return;}
+      transport('previewHtml',{path:documentPath(current()),embedded:true,dark:workspace.settings.dark,fontSize:textFontSize}).then(src=>{
+        if(!frame.isConnected||!isPreview)return;
+        const url=new URL(src);if(url.origin!=='https://wenzhou-preview.local')throw new Error('HTML 预览地址无效。');frame.src=url.href;
+      }).catch(error=>{if(frame.isConnected){frame.remove();$('#preview').textContent=error.message;}});
+    }else frame.srcdoc=htmlPreview(text,{dark:workspace.settings.dark,fontSize:textFontSize});return;
   }
   if(kind==='TEX'){texPreview.mount($('#preview'),current());return;}if(['TXT','CODE'].includes(kind)){$('#preview').textContent=text;return;}
   $('#preview').innerHTML=DOMPurify.sanitize(md.render(text,{path:documentPath(current())}),{FORBID_TAGS:['iframe','form','input','button','video','audio','style'],FORBID_ATTR:['style']});
@@ -182,7 +189,7 @@ function renderPreview(){
 function applyCsv(){const source=view.state.doc.toString(),separator=current().delimiter||csvDelimiter(source),prefix=/^\uFEFF?sep=([,;\t])\r?\n/i.test(source)?'sep='+separator+'\n':'';const text=prefix+writeCsv(csvRows,separator);if(text===view.state.doc.toString())return;view.dispatch({changes:{from:0,to:view.state.doc.length,insert:text}});updateStats();}
 $('#preview').addEventListener('input',e=>{const cell=e.target.closest('[data-cell-row]');if(!cell)return;const row=Number(cell.dataset.cellRow),column=Number(cell.dataset.cellColumn);while(csvRows[row].length<=column)csvRows[row].push('');csvRows[row][column]=cell.value;applyCsv();});
 async function openNativeHtml(){if(!save())return;try{await transport('previewHtml',{path:documentPath(current()),dark:workspace.settings.dark,language:workspace.settings.language,fontSize:textFontSize});}catch(error){fail(error);}}
-function togglePreview(){if(!current()||!view)return;if(native&&documentKind(current())==='HTML'){openNativeHtml();return;}isPreview=!isPreview;updateEditorVisibility();if(isPreview)renderPreview();else view.focus();}
+function togglePreview(){if(!current()||!view)return;isPreview=!isPreview;updateEditorVisibility();if(isPreview)renderPreview();else view.focus();}
 for(const [id,mark] of [['md-bold','**'],['md-italic','*'],['md-strike','~~'],['md-code','`']])$('#'+id).onclick=()=>inlineMarkup(view,mark);
 for(const [id,prefix] of [['md-heading','# '],['md-list','- '],['md-task','- [ ] '],['md-quote','> ']])$('#'+id).onclick=()=>lineMarkup(view,prefix);
 $('#markdown-tools').addEventListener('mousedown',e=>e.preventDefault());

@@ -7,6 +7,7 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { NativeOperationError, operationError, loginStatusError } from './NativeErrors';
 import { Runtime } from './Runtime';
 import { HtmlPreviewSession } from './HtmlPreviewSession';
+import { PreviewResource } from './PreviewResource';
 import { WorkspaceFiles, BinaryWorkspaceFile } from './WorkspaceFiles';
 import { decodeFileText, decodedFileName } from './FileText';
 
@@ -20,6 +21,7 @@ interface BridgeRequest {
   data?: string;
   dark?: boolean;
   reading?: boolean;
+  embedded?: boolean;
   readingMode?: string;
   fontSize?: number;
   language?: string;
@@ -55,6 +57,11 @@ export class NativeBridge {
   private encoder: util.TextEncoder = new util.TextEncoder();
   private alias: Uint8Array = new util.TextEncoder().encodeInto('wenzhou.github.token');
   private workspaceFiles: WorkspaceFiles = new WorkspaceFiles();
+
+  previewResource(path: string, html: boolean): PreviewResource {
+    this.workspaceFiles.context = this.context;
+    return this.workspaceFiles.readPreviewResource(path, html);
+  }
 
   private success(value: Object): string {
     const result: BridgeResult = { ok: true, value: value };
@@ -226,6 +233,7 @@ export class NativeBridge {
       if (operation === 'readWorkspaceAsset') return this.success(this.workspaceFiles.readAsset(data.path || ''));
       if (operation === 'previewHtml') {
         this.workspaceFiles.readPreviewResource(data.path || '', true);
+        if (data.embedded === true) return this.success('https://wenzhou-preview.local/' + (data.path || '').split('/').map(part => encodeURIComponent(part)).join('/') + '?html=true&fontSize=' + Math.max(10, Math.min(40, data.fontSize || 16)) + '&dark=' + (data.dark === true));
         HtmlPreviewSession.files = this.workspaceFiles;
         HtmlPreviewSession.path = data.path || '';
         HtmlPreviewSession.dark = data.dark === true;

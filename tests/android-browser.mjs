@@ -61,16 +61,25 @@ try{
     await p.locator('#preview-toggle').click();await p.locator('#preview img').waitFor();assert.equal(await p.locator('body').evaluate(b=>b.classList.contains('show-library')),true);
     await p.locator('#mobile-library').click();
   });
-  await check('独立原生 HTML 预览：本地样式图片、脚本开关和桥隔离',async()=>{
+  await check('嵌入与独立 HTML 预览：保留编辑区、本地资源、源码状态及脚本隔离',async()=>{
     await saved();const html='<!doctype html><html><head><link rel="stylesheet" href="样式.css"></head><body><h1 id="title">排版验证</h1><img id="cover" src="封面.png"><button id="action">交互按钮</button><div contenteditable="true" id="editable">Editable</div><script src="行为.js"></script></body></html>';
     const state=await invoke('writeWorkspaceFiles',{files:[{path:prefix+'/预览.html',data:Buffer.from(html).toString('base64')},{path:prefix+'/样式.css',data:Buffer.from('h1{color:rgb(17,85,34);font-size:30px}body{margin:12px}').toString('base64')},{path:prefix+'/行为.js',data:Buffer.from("document.body.dataset.script='ready';document.querySelector('#action').onclick=()=>document.querySelector('#title').textContent='交互成功';").toString('base64')}]});
     await p.reload();await p.waitForSelector('.cm-editor',{state:'attached'});await p.locator('#mobile-library').click();const doc=(await saved()).documents.find(d=>d.path===prefix+'/预览.html');await p.locator(`[data-doc="${doc.id}"]`).click();
-    const context=p.context(),wait=context.waitForEvent('page');await p.locator('[data-display="preview"]').click();const preview=await wait;await preview.waitForSelector('#title');
+    await p.evaluate(()=>{const editor=editorManager.editor;editor.dispatch({selection:{anchor:12}});});
+    const context=p.context(),pagesBefore=context.pages().length;
+    await p.locator('[data-display="preview"]').click();const embedded=p.frameLocator('#preview iframe');await embedded.locator('#title').waitFor();
+    assert.equal(context.pages().length,pagesBefore);assert.equal(await p.locator('.topbar').isVisible(),true);assert.equal(await p.locator('#document-tabs').isVisible(),true);assert.equal(await p.locator('#editor').isVisible(),false);
+    assert.equal(await embedded.locator('#title').evaluate(el=>getComputedStyle(el).color),'rgb(17, 85, 34)');await embedded.locator('#cover').evaluate(el=>new Promise(resolve=>el.complete?resolve():el.addEventListener('load',resolve,{once:true})));
+    assert.equal(await embedded.locator('#cover').evaluate(el=>el.naturalWidth),1);assert.equal(await embedded.locator('body').getAttribute('data-script'),null);await embedded.locator('#action').click();assert.equal(await embedded.locator('#title').textContent(),'排版验证');
+    const bounds=await p.locator('#preview').boundingBox(),frameBounds=await p.locator('#preview iframe').boundingBox(),paperBounds=await p.locator('.paper').boundingBox();assert.ok(Math.abs(bounds.x-frameBounds.x)<1&&Math.abs(bounds.width-frameBounds.width)<1);assert.ok(Math.abs(bounds.height-frameBounds.height)<1&&Math.abs(bounds.height-paperBounds.height)<1);
+    await p.locator('[data-display="source"]').click();assert.equal(await p.evaluate(()=>editorManager.editor.state.selection.main.anchor),12);
+    await p.locator('[data-display="preview"]').click();await embedded.locator('#title').waitFor();
+    const wait=context.waitForEvent('page');await p.locator('[data-native-html]').click();const preview=await wait;await preview.waitForSelector('#title');
     assert.ok(preview.url().startsWith('https://wenzhou-preview.local/'));assert.equal(await preview.locator('#title').evaluate(e=>getComputedStyle(e).color),'rgb(17, 85, 34)');await preview.waitForFunction(()=>document.querySelector('#cover').naturalWidth===1);
     assert.equal(await preview.evaluate(()=>document.body.dataset.script||''),'');assert.equal(await preview.evaluate(()=>typeof window.WenzhouNative+':'+typeof window.WenzhouAndroid),'undefined:undefined');
     const blocked=await preview.evaluate(async()=>{try{return (await fetch('/../workspace.json')).status;}catch{return 0;}});assert.ok(blocked===403||blocked===0);
     await device.tap({text:'脚本：关'});await preview.waitForFunction(()=>document.body.dataset.script==='ready');await preview.locator('#action').click();assert.equal(await preview.locator('#title').innerText(),'交互成功');
-    await device.tap({text:'返回编辑'});await p.locator('.cm-editor').waitFor();assert.equal(await p.locator('body').evaluate(b=>b.classList.contains('show-library')),true);await p.locator('#mobile-library').click();
+    await device.tap({text:'返回编辑'});await p.locator('#preview iframe').waitFor();await p.locator('[data-display="source"]').click();await p.locator('.cm-editor').waitFor();assert.equal(await p.locator('body').evaluate(b=>b.classList.contains('show-library')),true);await p.locator('#mobile-library').click();
   });
   await check('.vela GUI 原生保存、只读阅读、HTML 禁止编辑与双指字号状态',async()=>{
     await saved();const config={version:1,name:'验证工作区',fontSize:21,titleTemplates:['【{number}】{title}'],reading:{files:['正文.txt','人物.CSV','预览.html','设定.md']}};

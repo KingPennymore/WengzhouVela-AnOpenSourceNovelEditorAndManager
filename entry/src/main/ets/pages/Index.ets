@@ -1,5 +1,5 @@
 import { webview } from '@kit.ArkWeb';
-import { url } from '@kit.ArkTS';
+import { url, util } from '@kit.ArkTS';
 import { common } from '@kit.AbilityKit';
 import { NativeBridge } from '../services/NativeBridge';
 import { Runtime } from '../services/Runtime';
@@ -19,6 +19,7 @@ struct Index {
   private resource(request: WebResourceRequest): WebResourceResponse | null {
     try {
       const parsed = new url.URL(request.getRequestUrl());
+      if (parsed.protocol === 'https:' && parsed.hostname === 'wenzhou-preview.local' && !request.isMainFrame()) return this.embeddedHtml(parsed);
       if (parsed.protocol !== 'https:' || parsed.hostname !== 'wenzhou-editor.local') return null;
       const path = decodeURIComponent(parsed.pathname.substring(1));
       if (!path.startsWith('web/') || path.includes('\\') || path.split('/').some(part => part === '..' || part === '.')) return null;
@@ -29,6 +30,34 @@ struct Index {
       const mime = path.endsWith('.html') ? 'text/html' : /\.m?js$/.test(path) ? 'text/javascript' : path.endsWith('.wasm') ? 'application/wasm' : path.endsWith('.css') ? 'text/css' : path.endsWith('.json') ? 'application/json' : path.endsWith('.woff2') ? 'font/woff2' : path.endsWith('.woff') ? 'font/woff' : 'application/octet-stream';
       response.setResponseMimeType(mime); response.setResponseEncoding('UTF-8'); response.setResponseCode(200); response.setReasonMessage('OK'); response.setResponseIsReady(true); return response;
     } catch (error) { return null; }
+  }
+
+  private embeddedHtml(parsed: url.URL): WebResourceResponse {
+    const response = new WebResourceResponse();
+    try {
+      const path = decodeURIComponent(parsed.pathname.substring(1));
+      const resource = this.bridge.previewResource(path, parsed.searchParams.get('html') === 'true');
+      let bytes = resource.bytes;
+      if (resource.mime === 'text/html') {
+        const value = Number(parsed.searchParams.get('fontSize') || '16');
+        const size = Number.isFinite(value) ? Math.max(10, Math.min(40, value)) : 16;
+        const theme = parsed.searchParams.get('dark') === 'true' ? 'dark' : 'light';
+        const defaults = '<style>html{color-scheme:' + theme + '}body{font-family:system-ui,sans-serif;font-size:' + size + 'px;overflow-wrap:anywhere}</style>';
+        let html = new util.TextDecoder('utf-8').decodeToString(new Uint8Array(bytes));
+        html = /<head\b[^>]*>/i.test(html) ? html.replace(/(<head\b[^>]*>)/i, '$1' + defaults) : defaults + html;
+        const encoded = new util.TextEncoder().encodeInto(html);
+        bytes = new ArrayBuffer(encoded.byteLength); new Uint8Array(bytes).set(encoded);
+      }
+      response.setResponseData(bytes); response.setResponseMimeType(resource.mime); response.setResponseEncoding('UTF-8');
+      response.setResponseHeader([
+        { headerKey: 'Cache-Control', headerValue: 'no-store' },
+        { headerKey: 'Access-Control-Allow-Origin', headerValue: '*' },
+        { headerKey: 'X-Content-Type-Options', headerValue: 'nosniff' },
+        { headerKey: 'Content-Security-Policy', headerValue: "sandbox; default-src 'none'; script-src 'none'; style-src 'unsafe-inline' https://wenzhou-preview.local; img-src data: https://wenzhou-preview.local; font-src data: https://wenzhou-preview.local; media-src https://wenzhou-preview.local; connect-src 'none'; frame-src 'none'; object-src 'none'; base-uri 'none'; form-action 'none'" }
+      ]);
+      response.setResponseCode(200); response.setReasonMessage('OK');
+    } catch (error) { response.setResponseData(''); response.setResponseMimeType('text/plain'); response.setResponseCode(403); response.setReasonMessage('Forbidden'); }
+    response.setResponseIsReady(true); return response;
   }
 
   build() {
@@ -59,6 +88,7 @@ struct Index {
         .onInterceptRequest(event => this.resource(event.request)!)
         .onOverrideUrlLoading((request: WebResourceRequest): boolean => {
           if (!request.isMainFrame() && ['about:srcdoc', 'about:blank'].includes(request.getRequestUrl())) return false;
+          if (!request.isMainFrame() && request.getRequestUrl().startsWith('https://wenzhou-preview.local/')) return false;
           // The privileged view must never navigate to GitHub or user-provided content.
           return request.getRequestUrl() !== 'https://wenzhou-editor.local/web/index.html';
         })

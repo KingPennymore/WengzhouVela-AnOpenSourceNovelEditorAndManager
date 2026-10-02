@@ -1,0 +1,2 @@
+// Test comments and trailing commas.
+{ title: 'Harbour', published: false, chapters: [1, 2,], }

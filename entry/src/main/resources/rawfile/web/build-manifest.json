@@ -1,8 +1,8 @@
 {
   "format": 1,
-  "source": "56dc29ce04e98a5e8ee4a11b6730c4d4bb8df8f22c04ef2c21c800397b7d489f",
+  "source": "07318c9f96a64d1374b924a37aec7a795d24a204865e9bf360c1e0895d2908d8",
   "outputs": {
-    "app.js": "8daf1899efd5d253de7c0c120650b5e9d562ce55a041310766ce37815cadfef4",
+    "app.js": "3bccbf810ff70a8415e4f7c2c26e2789bfd3275d75fb6e769646dfd1be8d7463",
     "file-manager.css": "4c3ecef2f1b7f371bb7fb0bc94d7a0b932ae277caf4313a07ff21e42e3344964",
     "fonts/KaTeX_AMS-Regular.ttf": "68534840bcfdd2bffb6f0e8deb48684dd01e7f04ea2813267577afb906de1d13",
     "fonts/KaTeX_AMS-Regular.woff": "30da91e84c893f875e252689faebdc590b2871145e8adc7f9a9d4dbd8ce0b251",
@@ -65,7 +65,7 @@
     "fonts/KaTeX_Typewriter-Regular.woff": "e14fed02b1aba7ce9f5afd5844b5d0321b22351febc720e0de8b8723527609f7",
     "fonts/KaTeX_Typewriter-Regular.woff2": "71d517d67827787cfabdf186914cc3358eda539e37931941f2b2fd4a21f68c0b",
     "html-reader.js": "852ee99f43c90ab0944577e0b14c77a70ed33b5fb67392f0a83a710608cf51ba",
-    "index.html": "5c56d0a4ee2b260c510d6cd5eedbecf8d6987f397cbe47997ba0cfbe29b44f63",
+    "index.html": "575e791f613be120c54eadaa51c451b3c4ada04d4b52e5df2e3e5049b189d9bf",
     "katex.min.css": "d4ab5b8ee16989b070cdb0ea24bd6ad48fc8df1b787f280f29d3ae4f959f2c00",
     "licenses.js": "080eb7d26cba0c847ca3818b4976815b203a5b064eb9af64c52c1eeb42316dda",
     "licenses/@codemirror-autocomplete.txt": "05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07",
@@ -318,7 +318,7 @@
     "pdf/fonts/LiberationSans-Italic.ttf": "832b4406dbef23628800d3aaad21048534ac84d7e3ad955be83b8172ed8ef512",
     "pdf/fonts/LiberationSans-Regular.ttf": "f8ace1f892b2bd9dc1792ba7f097fa7588f84fed48321480e04de5390828221f",
     "pdf/pdf.worker.mjs": "bd88805178a26c729db8c0107a5b630cb900ec070f4d8c7529a3e45530afd41d",
-    "style.css": "9de42fcfec66f4679e7ffd036f288861436546e2cd25a9ae7fdb984304ee02ed",
+    "style.css": "9d7b198c3bdd162f7302c18e4eafbf371c1edafaa585dd8971480cc48dde8982",
     "tex/NOTICE": "4c2c2c5272626e1074b7d7fdf3e6898f0a2886ebcc70310ef6fa4b29ec11f341",
     "tex/THIRD_PARTY_NOTICES.md": "f8864b80293837e63ff7f71ab3efb5fe5d121d9f85bfce0cd1bf81846ac8255d",
     "tex/busytex.js": "81aa161c71d8cca6586c11b7dbd76ddedd48d7523300ff75fa9ba49703885678",

@@ -1,0 +1,25 @@
+% 使用 XeLaTeX 编译：中文、公式、多文件工程、本地宏包、文献与索引。
+\documentclass[UTF8]{ctexart}
+\usepackage{amsmath}
+\usepackage{makeidx}
+\usepackage{macros/vela-demo}
+\makeindex
+\title{航路：LaTeX 测试文稿}
+\author{Vela Test Authors}
+\date{2026年10月2日}
+\begin{document}
+\maketitle
+\tableofcontents
+\input{chapters/story.tex}
+\section{公式与引用}
+\label{sec:math}
+\begin{align}
+E &= mc^2 \\
+\sum_{k=1}^{n} k &= \frac{n(n+1)}{2}
+\end{align}
+\velanote{这句话由工程内的自定义宏包生成。}
+参见第\ref{sec:story}节与测试文献\cite{vela2026}。航路\index{航路}。
+\bibliographystyle{plain}
+\bibliography{references}
+\printindex
+\end{document}

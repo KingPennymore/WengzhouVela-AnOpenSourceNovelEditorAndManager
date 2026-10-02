@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="320" viewBox="0 0 240 320">
+  <rect width="240" height="320" rx="16" fill="#23744e"/>
+  <path d="M35 220 Q120 100 205 220 M35 245 Q120 125 205 245" fill="none" stroke="#c5e4ce" stroke-width="4"/>
+  <text x="120" y="110" text-anchor="middle" fill="white" font-family="sans-serif" font-size="42">航路</text>
+  <text x="120" y="280" text-anchor="middle" fill="#c5e4ce" font-size="16">VELA TEST</text>
+</svg>
