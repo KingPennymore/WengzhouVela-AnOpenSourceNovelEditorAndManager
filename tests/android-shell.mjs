@@ -13,7 +13,7 @@ let page,backup,bookId;const errors=[],checks=[],out='test-results/android-shell
 try{
  if(overlays.includes(overlay))adb('shell','cmd','overlay','enable',overlay);
  console.log('QA emulator connected');adb('shell','input','keyevent','KEYCODE_WAKEUP');adb('shell','wm','dismiss-keyguard');adb('shell','am','force-stop','me.wenzhou.write');adb('shell','am','start','-W','-n','me.wenzhou.write/.MainActivity');
- const pid=adb('shell','pidof','me.wenzhou.write');adb('forward','tcp:9227','localabstract:webview_devtools_remote_'+pid);browser=await chromium.connectOverCDP('http://127.0.0.1:9227',{noDefaults:true});page=browser.contexts()[0].pages()[0];page.setDefaultTimeout(30000);page.on('pageerror',error=>errors.push(error.message));await page.waitForFunction(()=>typeof wenzhouSave==='function');
+ const pid=adb('shell','pidof','me.wenzhou.write');adb('forward','tcp:9227','localabstract:webview_devtools_remote_'+pid);browser=await chromium.connectOverCDP('http://127.0.0.1:9227',{noDefaults:true});page=browser.contexts()[0].pages()[0];page.setDefaultTimeout(30000);page.on('dialog',dialog=>dialog.accept());page.on('pageerror',error=>errors.push(error.message));await page.waitForFunction(()=>typeof wenzhouSave==='function');
  console.log('QA WebView connected');backup=await page.evaluate(()=>WenzhouNative.readWorkspace());
  const config=createVelaV2('界面测试');config.reading.items=[{path:'航程.txt'}];config.editor.glossaries=['人物.gly'];
  const files=[{path:'界面测试/.vela',text:velaText(config)},{path:'界面测试/航程.txt',text:'第一章 航程\n林舟走向灯塔。\n'+('海风吹过港湾。\n'.repeat(120))},{path:'界面测试/人物.gly',text:glossaryText({version:1,entries:[{term:'林舟',category:'人物',definition:'航海记录者'}]})}].map(file=>({path:file.path,data:Buffer.from(file.text).toString('base64')}));
