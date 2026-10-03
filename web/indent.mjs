@@ -1,3 +1,17 @@
+import {EditorSelection} from '@codemirror/state';
+
+// Preserve characters instead of measuring code indentation columns.
+export function paragraphNewline(view) {
+  if(view.composing||view.state.readOnly)return false;
+  const state=view.state;
+  view.dispatch(state.update(state.changeByRange(range=>{
+    const line=state.doc.lineAt(range.from);
+    const indent=line.text.slice(0,range.from-line.from).match(/^[^\S\r\n]*/)[0];
+    return {changes:{from:range.from,to:range.to,insert:state.lineBreak+indent},range:EditorSelection.cursor(range.from+1+indent.length)};
+  }),{scrollIntoView:true,userEvent:'input'}));
+  return true;
+}
+
 export function fullWidthIndent(view,remove=false) {
   if(view.composing)return false;
   const state=view.state,lines=new Set();

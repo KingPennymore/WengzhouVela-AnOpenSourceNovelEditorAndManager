@@ -14,6 +14,13 @@ try{
     assert.equal(await page.evaluate(()=>window.WenzhouNative.platform),'windows');assert.equal(await page.evaluate(()=>typeof window.require),'undefined');assert.equal(await page.evaluate(()=>typeof window.process),'undefined');assert.equal(await page.locator('#workspace-name').textContent(),'内部文件夹');
     const state=await page.evaluate(()=>JSON.parse(window.WenzhouNative.readWorkspace()));assert.ok(state.documents.some(doc=>doc.name==='操作指南.txt'));assert.ok(fs.existsSync(path.join(data,'workspaces/Vela/操作指南.txt')));
   });
+  await check('Windows 段落换行完整继承全角缩进及撤销恢复',async()=>{
+    const original=await page.evaluate(()=>editorManager.editor.state.doc.toString());
+    await page.evaluate(()=>{const v=editorManager.editor;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:'　　正文'},selection:{anchor:4}});v.focus();});
+    await page.keyboard.press('Enter');assert.equal(await page.evaluate(()=>editorManager.editor.state.doc.toString()),'　　正文\n　　');assert.equal(await page.evaluate(()=>editorManager.editor.state.selection.main.head),7);
+    await page.keyboard.press('Control+z');assert.equal(await page.evaluate(()=>editorManager.editor.state.doc.toString()),'　　正文');
+    await page.evaluate(text=>{const v=editorManager.editor;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:text},selection:{anchor:0}});},original);
+  });
   await check('全局配置 GUI 可枚举内部文件、调整排版、保存后恢复',async()=>{
     await page.locator('#settings').click();await page.locator('#edit-global-vela').click();await page.waitForSelector('#vela-form');assert.ok(await page.locator('#vela-form [name=readingFiles]').count()>0);await page.locator('#vela-form [name=fontSize]').fill('22');await page.locator('#vela-form [name=lineHeight]').fill('2.2');await page.locator('#vela-form [name=marginLeft]').fill('48');await page.locator('#vela-form .primary').click();const config=JSON.parse(fs.readFileSync(path.join(data,'workspaces/Vela/.global.vela'),'utf8'));assert.equal(config.reader.layout.fontSize,22);assert.equal(config.reader.layout.lineHeight,2.2);assert.equal(config.reader.layout.marginLeft,48);
   });
