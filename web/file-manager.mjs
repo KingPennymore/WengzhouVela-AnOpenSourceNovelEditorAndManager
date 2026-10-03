@@ -44,6 +44,7 @@ export function applyFileOperation(workspace,action,path,destination='') {
     const parts=parentPath(destination).split('/').filter(Boolean);for(let i=1;i<=parts.length;i++)workspace.folders.push(parts.slice(0,i).join('/'));
     workspace.folders=[...new Set(workspace.folders)];
   }
+  if(workspace.pluginProject)for(const field of ['entries','textFiles']){const values=workspace.pluginProject[field]||{},next={...values};for(const [key,value] of Object.entries(values))if(within(path,key)){if(action!=='copy')delete next[key];if(action!=='delete')next[destination+key.slice(path.length)]=field==='entries'&&action==='copy'?crypto.randomUUID():value;}workspace.pluginProject[field]=next;}
   workspace.openIds=workspace.openIds.filter(id=>workspace.documents.some(doc=>doc.id===id));
   if(!workspace.documents.some(doc=>doc.id===workspace.activeId))workspace.activeId=null;
 }

@@ -21,6 +21,7 @@ final class NativeBridge {
     private final MainActivity activity;
     private final byte[] capability;
     final WorkspaceFiles files;
+    final ProjectFiles projects;
     private final CredentialStore credentials;
     private final ExecutorService workers = Executors.newFixedThreadPool(3);
     private final AtomicLong authGeneration = new AtomicLong();
@@ -28,7 +29,7 @@ final class NativeBridge {
 
     NativeBridge(MainActivity activity, String capability) throws Exception {
         this.activity = activity; this.capability = capability.getBytes(StandardCharsets.UTF_8);
-        files = new WorkspaceFiles(activity); credentials = new CredentialStore(activity);
+        files = new WorkspaceFiles(activity); projects = new ProjectFiles(activity, files); credentials = new CredentialStore(activity);
     }
     private void authorize(String value) {
         if (value == null || value.length() > 80 || !MessageDigest.isEqual(capability, value.getBytes(StandardCharsets.UTF_8))) throw new SecurityException("不允许的页面调用。");
@@ -41,7 +42,7 @@ final class NativeBridge {
     }
     @JavascriptInterface public String writeWorkspace(String secret, String data) {
         authorize(secret);
-        try { files.saveWorkspace(data); return "ok"; } catch (Exception error) { return message(error); }
+        try { if (projects.busy) throw ProjectFiles.fail("E_CONFLICT", "项目正在提交，请稍后保存。"); files.saveWorkspace(data); return "ok"; } catch (Exception error) { return message(error); }
     }
     @JavascriptInterface public String readPlugins(String secret) {
         authorize(secret);
@@ -59,13 +60,23 @@ final class NativeBridge {
             try {
                 if (json == null || json.length() > 100 * 1024 * 1024) throw new IOException("请求数据过大。");
                 JSONObject data = new JSONObject(json);
+                if (operation.equals("project")) {
+                    String action = data.optString("action"), owner = data.optString("owner"); JSONObject args = new JSONObject(data.optString("request", "{}"));
+                    if (action.equals("pick")) { activity.pick(requestId, "project-pick", new JSONObject().put("owner", owner).put("args", args)); return; }
+                    if (action.equals("deliver") || action.equals("exportFile")) {
+                        if (action.equals("exportFile")) args = projects.prepareExport(owner, args);
+                        activity.pick(requestId, "project-export", new JSONObject().put("owner", owner).put("args", args).put("name", args.optString("suggestedName", "project.zip"))); return;
+                    }
+                    activity.deliver(requestId, success(projects.call(action, owner, args))); return;
+                }
                 if (Arrays.asList("import", "export", "exportPdf", "importPlugin").contains(operation)) { activity.pick(requestId, operation, data); return; }
                 Object value = dispatch(operation, data, generation);
                 activity.deliver(requestId, success(value));
-            } catch (Exception error) { activity.deliver(requestId, failure(error)); }
+            } catch (Exception error) { activity.deliver(requestId, failure(operation.equals("project") ? projectError(error) : error)); }
         });
     }
     private Object dispatch(String operation, JSONObject data, long generation) throws Exception {
+        if (projects.busy && Arrays.asList("manageFiles", "restoreTrash", "writeWorkspaceFiles").contains(operation)) throw ProjectFiles.fail("E_CONFLICT", "项目正在提交，请稍后重试。");
         switch (operation) {
             case "initializeStorage": case "refreshFolder": return files.scan();
             case "manageFiles": return files.manage(data.optString("action"), data.optString("path"), data.optString("destination"));
@@ -165,9 +176,18 @@ final class NativeBridge {
         while ((count = input.read(buffer)) != -1) { if (output.size() + count > limit) throw new IOException("文件超出读取大小限制。"); output.write(buffer, 0, count); }
         return output.toByteArray();
     }
+    static Exception projectError(Exception error) {
+        if (error instanceof ProjectFiles.Failure) return error; String code = "E_INVALID_DATA";
+        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+            if (cause instanceof android.system.ErrnoException) { int errno = ((android.system.ErrnoException)cause).errno; if (errno == android.system.OsConstants.ENOSPC || errno == android.system.OsConstants.EDQUOT) code = "E_QUOTA"; else if (errno == android.system.OsConstants.ENOENT) code = "E_NOT_FOUND"; else if (errno == android.system.OsConstants.EACCES || errno == android.system.OsConstants.EPERM) code = "E_PERMISSION"; }
+            if (cause instanceof java.nio.file.NoSuchFileException) code = "E_NOT_FOUND";
+            if (cause.getMessage() != null && (cause.getMessage().contains("ENOSPC") || cause.getMessage().contains("EDQUOT"))) code = "E_QUOTA";
+        }
+        return ProjectFiles.fail(code, code.equals("E_QUOTA") ? "存储空间不足，原始数据已保留。" : "项目文件操作失败，原始数据已保留。");
+    }
     static String message(Exception error) { return error.getMessage() == null ? "设备操作失败，请重试。" : error.getMessage(); }
     static String success(Object value) { try { return new JSONObject().put("ok", true).put("value", value == null ? JSONObject.NULL : value).toString(); } catch (Exception impossible) { return "{\"ok\":false,\"error\":\"返回格式异常\"}"; } }
-    static String failure(Exception error) { try { return new JSONObject().put("ok", false).put("error", message(error)).toString(); } catch (Exception impossible) { return "{\"ok\":false,\"error\":\"设备操作失败\"}"; } }
+    static String failure(Exception error) { try { JSONObject value = new JSONObject().put("ok", false).put("error", message(error)); if (error instanceof ProjectFiles.Failure) value.put("code", ((ProjectFiles.Failure) error).code).put("retryable", ((ProjectFiles.Failure) error).code.equals("E_CONFLICT")).put("details", new JSONObject()); return value.toString(); } catch (Exception impossible) { return "{\"ok\":false,\"error\":\"设备操作失败\"}"; } }
     void work(Runnable job) { workers.execute(job); }
     void close() { workers.shutdown(); }
 }

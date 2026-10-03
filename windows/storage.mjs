@@ -12,7 +12,7 @@ const mimeTypes={html:'text/html',htm:'text/html',css:'text/css',js:'text/javasc
 export const mime=value=>mimeTypes[path.extname(value).slice(1).toLowerCase()]||'application/octet-stream';
 export function relativePath(value){
   if(typeof value!=='string'||!value||value.length>4096||value.includes('\\')||/[\x00-\x1f:*?"<>|]/.test(value)||value.endsWith('.vela-tmp'))throw new Error('工作区相对路径无效。');
-  const parts=value.split('/');if(parts.length>64||parts.some(part=>!part||part==='.'||part==='..'||part==='.git'||/[. ]$/.test(part)||/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(part)))throw new Error('文件名或工作区相对路径无效。');return value;
+  const parts=value.split('/');if(parts.length>64||parts.some(part=>!part||part==='.'||part==='..'||part.toLowerCase()==='.git'||/[. ]$/.test(part)||/^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/i.test(part)))throw new Error('文件名或工作区相对路径无效。');return value.normalize('NFC');
 }
 function noLinks(base,target){
   const relative=path.relative(base,target);if(relative.startsWith('..')||path.isAbsolute(relative))throw new Error('工作区路径越界。');
@@ -34,7 +34,8 @@ class Transaction{
   mkdir(file){if(file===this.store.base||fs.existsSync(file))return;this.mkdir(path.dirname(file));this.track(file);fs.mkdirSync(file);}
   write(file,data){this.mkdir(path.dirname(file));this.track(file);atomic(file,data);}
   remove(file){this.track(file);if(fs.statSync(file).isDirectory()){for(const entry of fs.readdirSync(file))this.remove(path.join(file,entry));fs.rmdirSync(file);}else fs.unlinkSync(file);}
-  copy(source,dest){noLinks(this.store.base,source);if(fs.statSync(source).isDirectory()){this.mkdir(dest);for(const entry of fs.readdirSync(source))this.copy(path.join(source,entry),path.join(dest,entry));}else this.write(dest,fs.readFileSync(source));}
+  copy(source,dest){noLinks(this.store.base,source);if(fs.statSync(source).isDirectory()){this.mkdir(dest);for(const entry of fs.readdirSync(source))this.copy(path.join(source,entry),path.join(dest,entry));}else this.install(source,dest);}
+  install(source,dest){noLinks(this.store.base,source);this.mkdir(path.dirname(dest));this.track(dest);const temp=dest+'.vela-tmp';noLinks(this.store.base,temp);fs.copyFileSync(source,temp);const fd=fs.openSync(temp,'r+');try{fs.fsyncSync(fd);}finally{fs.closeSync(fd);}fs.renameSync(temp,dest);}
   commit(){this.committed=true;this.flush();try{fs.rmSync(this.folder,{recursive:true});}catch{/* Committed journals are cleaned on the next launch. */}}
   rollback(){this.store.recover(this.folder);}
 }
@@ -52,7 +53,7 @@ export class WorkspaceStorage{
     if(!record.committed)for(const item of [...record.items].reverse()){
       relativePath(item.path);if(!/^(workspaces\/Vela(?:\/|$)|trash-payload(?:\/|$)|folder-[\w-]+\.json$|workspace\.json$|trash\.json$)/.test(item.path))throw new Error('事务恢复路径无效。');
       const file=path.join(this.base,item.path);noLinks(this.base,file);
-      if(item.exists){if(item.directory)fs.mkdirSync(file,{recursive:true});else{if(!/^\d+$/.test(item.backup))throw new Error('事务备份无效。');atomic(file,fs.readFileSync(path.join(folder,item.backup)));}}
+      if(item.exists){if(item.directory)fs.mkdirSync(file,{recursive:true});else{if(!/^\d+$/.test(item.backup))throw new Error('事务备份无效。');const temp=file+'.vela-tmp';fs.mkdirSync(path.dirname(file),{recursive:true});fs.copyFileSync(path.join(folder,item.backup),temp);fs.renameSync(temp,file);}}
       else if(fs.existsSync(file)){if(fs.statSync(file).isDirectory())fs.rmdirSync(file);else fs.unlinkSync(file);}
     }
     fs.rmSync(folder,{recursive:true});
@@ -70,8 +71,8 @@ export class WorkspaceStorage{
     const walk=directory=>{for(const name of fs.readdirSync(directory?this.target(directory):this.root).sort()){
       if(name==='.git'||name.endsWith('.vela-tmp'))continue;const relative=directory?directory+'/'+name:name,file=this.target(relative),stat=fs.statSync(file);if(entries.length>=5000)throw new Error('内部文件夹超过 5000 项。');
       const entry={path:relative,name,directory:stat.isDirectory(),size:stat.size,editable:false,reason:''};entries.push(entry);
-      if(entry.directory){folders.push(relative);walk(relative);}else{try{const text=decodeText(this.read(file)),before=byPath.get(relative);documents.push({...before,id:before?.id||randomUUID(),name,path:relative,text,updatedAt:before?.text===text?before.updatedAt:Date.now(),remote:before?.remote||null});entry.editable=true;}catch(error){entry.reason=stat.size>MAX?'超过 8 MB，保留在工作区中':'二进制或不支持的文本编码，保留在工作区中';}}
-    }};walk('');return {storage:{id:this.id,label:'内部文件夹',root:this.root,internal:true,needsSetup:false},documents,folders,entries,repositories:old.repositories||[]};
+      if(entry.directory){folders.push(relative);walk(relative);}else{if(old.pluginProject?.entries?.[relative]&&!byPath.has(relative)&&name!=='.vela'){entry.editable=!!old.pluginProject?.textFiles?.[relative]||/\.(txt|md|csv|tsv|json|html?|css|[cm]?js|ts|py|java|ets|tex|yaml|yml|xml|toml|gly|glossary)$/i.test(relative);entry.reason=entry.editable?'按需读取项目文件':'';continue;}try{const text=decodeText(this.read(file)),before=byPath.get(relative);documents.push({...before,id:before?.id||randomUUID(),name,path:relative,text,updatedAt:before?.text===text?before.updatedAt:Date.now(),remote:before?.remote||null});entry.editable=true;}catch(error){entry.reason=stat.size>MAX?'超过 8 MB，保留在工作区中':'二进制或不支持的文本编码，保留在工作区中';}}
+    }};walk('');return {storage:{id:this.id,label:'内部文件夹',root:this.root,internal:true,needsSetup:false},documents,folders,entries,repositories:old.repositories||[],pluginProject:old.pluginProject};
   }
   saveWorkspace(data){
     if(typeof data!=='string'||Buffer.byteLength(data)>64*1024*1024)throw new Error('工作区数据过大。');const value=JSON.parse(data);if(value.version!==1||!Array.isArray(value.documents)||value.storage?.id!==this.id)throw new Error('文稿数据或内部文件夹标识无效。');
@@ -101,7 +102,7 @@ export class WorkspaceStorage{
         const dest=this.target(destination);if(within(relative.toLowerCase(),destination.toLowerCase())||fs.existsSync(dest))throw new Error('目标已存在或位于自身目录。');tx.copy(source,dest);if(action==='move')tx.remove(source);
         const remap=doc=>({...doc,path:destination+(doc.path||doc.name).slice(relative.length),name:(destination+(doc.path||doc.name).slice(relative.length)).split('/').at(-1),id:action==='copy'?randomUUID():doc.id,remote:action==='copy'?null:doc.remote});
         const selected=old.documents.filter(doc=>within(relative,doc.path||doc.name));old.documents=action==='copy'?[...old.documents,...selected.map(remap)]:old.documents.map(doc=>within(relative,doc.path||doc.name)?remap(doc):doc);if(action==='move')for(const repo of old.repositories||[])if(within(relative,repo.folder))repo.folder=destination+repo.folder.slice(relative.length);
-      }else throw new Error('文件操作无效。');tx.write(this.cache,JSON.stringify(old));return this.scan();
+      }else throw new Error('文件操作无效。');if(old.pluginProject)for(const field of ['entries','textFiles']){const values=old.pluginProject[field]||{},next={...values};for(const [key,value] of Object.entries(values))if(within(relative,key)){if(action!=='copy')delete next[key];if(action!=='delete')next[destination+key.slice(relative.length)]=field==='entries'&&action==='copy'?randomUUID():value;}old.pluginProject[field]=next;}tx.write(this.cache,JSON.stringify(old));return this.scan();
     });
   }
   restoreTrash(id,permanent=false){

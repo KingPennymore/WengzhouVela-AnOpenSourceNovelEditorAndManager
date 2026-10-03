@@ -8,10 +8,11 @@ export interface StoredDocument { id: string; name: string; path?: string; kind?
 export interface StorageInfo { id: string; label: string; root: string; needsSetup: boolean; internal?: boolean; }
 export interface FolderEntry { path: string; name: string; directory: boolean; size: number; editable: boolean; reason: string; }
 interface RepositoryLink { repo: string; branch: string; folder: string; commit: string; }
-export interface FolderState { storage: StorageInfo; documents: StoredDocument[]; folders: string[]; entries: FolderEntry[]; repositories: RepositoryLink[]; }
+export interface FolderState { storage: StorageInfo; documents: StoredDocument[]; folders: string[]; entries: FolderEntry[]; repositories: RepositoryLink[]; pluginProject?: PluginIndex; }
 interface FolderRoot { id: string; uri: string; path: string; label: string; }
 interface FolderConfig { current: string; default: string; roots: FolderRoot[]; }
-interface SavedWorkspace { version: number; storage?: StorageInfo; documents: StoredDocument[]; folders?: string[]; repositories?: RepositoryLink[]; }
+interface PluginIndex { entries: Record<string, string>; textFiles?: Record<string, boolean>; }
+interface SavedWorkspace { pluginProject?: PluginIndex; version: number; storage?: StorageInfo; documents: StoredDocument[]; folders?: string[]; repositories?: RepositoryLink[]; }
 export interface BinaryWorkspaceFile { path: string; data: string; }
 export interface TrashItem { id: string; path: string; directory: boolean; createdAt: number; }
 interface TrashRecord extends TrashItem { workspaceId: string; documents: StoredDocument[]; repositories: RepositoryLink[]; }
@@ -21,6 +22,8 @@ export class WorkspaceFiles {
   context: common.UIAbilityContext | undefined = undefined;
   private config: FolderConfig = { current: '', default: '', roots: [] };
   private ready: boolean = false;
+  private lazyPaths: string[] = [];
+  private lazyTexts: string[] = [];
 
   private contextValue(): common.UIAbilityContext {
     if (!this.context) throw new Error('文件服务尚未准备好。');
@@ -118,8 +121,10 @@ export class WorkspaceFiles {
     const root = this.getRoot(), documents: StoredDocument[] = [], folders: string[] = [], entries: FolderEntry[] = [];
     if (!root) return { storage: this.info(), documents: documents, folders: folders, entries: entries, repositories: [] };
     const old: SavedWorkspace | undefined = fs.accessSync(this.cachePath(root.id)) ? JSON.parse(fs.readTextSync(this.cachePath(root.id))) as SavedWorkspace : undefined;
+    this.lazyPaths = old?.pluginProject ? Object.keys(old.pluginProject.entries) : [];
+    this.lazyTexts = old?.pluginProject?.textFiles ? Object.keys(old.pluginProject.textFiles).filter(path => old.pluginProject?.textFiles?.[path] === true) : [];
     this.walk('', old?.documents || [], documents, folders, entries);
-    return { storage: this.info(), documents: documents, folders: folders, entries: entries, repositories: old?.repositories || [] };
+    return { storage: this.info(), documents: documents, folders: folders, entries: entries, repositories: old?.repositories || [], pluginProject: old?.pluginProject };
   }
   private walk(directory: string, old: StoredDocument[], documents: StoredDocument[], folders: string[], entries: FolderEntry[]): void {
     const root = this.getRoot();
@@ -133,6 +138,7 @@ export class WorkspaceFiles {
       entries.push(entry);
       if (entry.directory) { folders.push(relative); this.walk(relative, old, documents, folders, entries); }
       else if (stat.isFile()) {
+        if (this.lazyPaths.includes(relative) && !old.some(doc => (doc.path || doc.name) === relative) && name !== ".vela") { entry.editable = this.lazyTexts.includes(relative) || /\.(txt|md|csv|tsv|json|html?|css|[cm]?js|ts|py|java|ets|tex|yaml|yml|xml|toml|gly|glossary)$/i.test(name); entry.reason = "按需读取项目文件"; continue; }
         try {
           const text = this.readText(path), previous = old.find(doc => (doc.path || doc.name) === relative);
           const doc: StoredDocument = { id: previous?.id || util.generateRandomUUID(), name: name, path: relative, kind: previous?.kind, delimiter: previous?.delimiter, text: text, updatedAt: previous?.text === text ? previous.updatedAt : Date.now(), remote: previous?.remote || null, subscription: previous?.subscription };
@@ -322,6 +328,18 @@ export class WorkspaceFiles {
             folder: this.contains(relative, item.folder) ? destination + item.folder.substring(relative.length) : item.folder }));
         }
       } else throw new Error('文件操作无效。');
+      if (old.pluginProject) {
+        const entries: Record<string, string> = {}, texts: Record<string, boolean> = {};
+        for (const key of Object.keys(old.pluginProject.entries)) {
+          if (!this.contains(relative, key) || action === 'copy') entries[key] = old.pluginProject.entries[key];
+          if (this.contains(relative, key) && action !== 'delete') entries[destination + key.substring(relative.length)] = action === 'copy' ? util.generateRandomUUID() : old.pluginProject.entries[key];
+        }
+        if (old.pluginProject.textFiles) for (const key of Object.keys(old.pluginProject.textFiles)) {
+          if (!this.contains(relative, key) || action === 'copy') texts[key] = old.pluginProject.textFiles[key];
+          if (this.contains(relative, key) && action !== 'delete') texts[destination + key.substring(relative.length)] = old.pluginProject.textFiles[key];
+        }
+        old.pluginProject.entries = entries; old.pluginProject.textFiles = texts;
+      }
       this.text(this.cachePath(root.id), JSON.stringify(old));
       if (action === 'delete') this.text(this.trashPath(), JSON.stringify(records));
       return this.scan();

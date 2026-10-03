@@ -83,6 +83,33 @@ final class WorkspaceFiles {
         if (!result.getCanonicalPath().startsWith(root.getCanonicalPath() + File.separator)) throw new IOException("工作区相对路径无效。");
         return result;
     }
+    File projectBase() { return base; }
+    File projectRoot() { return root; }
+    File projectTarget(String path) throws IOException { return target(path); }
+    synchronized void projectApply(JSONObject data, Map<String, File> blobs) throws Exception {
+        String serialized = data.getString("workspace"); JSONObject next = new JSONObject(serialized);
+        if (utf8(serialized).length > 64 * 1024 * 1024 || !id.equals(next.getJSONObject("storage").getString("id"))) throw new IOException("项目索引无效或过大。");
+        String prefix = data.optString("root"); if (!prefix.isEmpty()) prefix += "/";
+        JSONArray changes = array(data, "changes"), records = trashRecords();
+        try (Transaction tx = new Transaction()) {
+            for (int i = 0; i < changes.length(); i++) {
+                JSONObject change = changes.getJSONObject(i); String kind = change.getString("kind");
+                String path = prefix + change.optString("path", change.optString("from")); File file = target(path);
+                if (kind.equals("mkdir")) tx.mkdir(file);
+                else if (kind.equals("writeText")) { byte[] text = utf8(change.getString("text")); if (text.length > FileText.MAX_BYTES) throw new IOException("文本超过 8 MB。"); tx.mkdir(file.getParentFile()); tx.write(file, text); }
+                else if (kind.equals("writeBlob")) { File staged = blobs.get(change.getString("blobId")); if (staged == null) throw new IOException("暂存对象无效。"); tx.mkdir(file.getParentFile()); tx.install(staged, file); }
+                else if (kind.equals("move")) { File dest = target(prefix + change.getString("to")); if (dest.exists()) throw new IOException("移动目标已存在。"); tx.mkdir(dest.getParentFile()); tx.move(file, dest); }
+                else if (kind.equals("delete")) {
+                    if (records.length() >= 100) throw new IOException("回收站已满。");
+                    String trashId = UUID.randomUUID().toString(); JSONArray removed = new JSONArray(), sourceDocs = array(data, "removedDocuments");
+                    for (int n = 0; n < sourceDocs.length(); n++) { JSONObject doc = sourceDocs.getJSONObject(n); if (contains(path, documentPath(doc))) removed.put(doc); }
+                    records.put(new JSONObject().put("id", trashId).put("workspaceId", id).put("path", path).put("directory", file.isDirectory()).put("createdAt", System.currentTimeMillis()).put("documents", removed).put("repositories", new JSONArray()));
+                    tx.move(file, trashPayload(trashId));
+                } else throw new IOException("变更类型无效。");
+            }
+            tx.write(trash, utf8(records.toString())); tx.write(cache, utf8(serialized)); tx.write(workspace, utf8(serialized)); tx.commit();
+        }
+    }
 
     synchronized String readWorkspace() throws Exception { return workspace.exists() ? new String(read(workspace, 64 * 1024 * 1024), StandardCharsets.UTF_8) : ""; }
     synchronized String readPlugins() throws Exception {
@@ -103,9 +130,12 @@ final class WorkspaceFiles {
         JSONArray oldDocs = array(old, "documents");
         for (int i = 0; i < oldDocs.length(); i++) previous.put(documentPath(oldDocs.getJSONObject(i)), oldDocs.getJSONObject(i));
         JSONArray docs = new JSONArray(), folders = new JSONArray(), entries = new JSONArray();
+        lazyProjectPaths.clear(); lazyTextPaths.clear(); JSONObject project = old.optJSONObject("pluginProject"); JSONObject managed = project == null ? null : project.optJSONObject("entries"); if (managed != null) for (java.util.Iterator<String> keys = managed.keys(); keys.hasNext();) lazyProjectPaths.add(keys.next()); JSONObject texts = project == null ? null : project.optJSONObject("textFiles"); if (texts != null) for (java.util.Iterator<String> keys = texts.keys(); keys.hasNext();) { String p = keys.next(); if (texts.optBoolean(p)) lazyTextPaths.add(p); }
         walk("", previous, docs, folders, entries);
-        return new JSONObject().put("storage", storage()).put("documents", docs).put("folders", folders).put("entries", entries).put("repositories", array(old, "repositories"));
+        return new JSONObject().put("storage", storage()).put("documents", docs).put("folders", folders).put("entries", entries).put("repositories", array(old, "repositories")).put("pluginProject", project);
     }
+    private java.util.Set<String> lazyProjectPaths = new java.util.HashSet<>();
+    private java.util.Set<String> lazyTextPaths = new java.util.HashSet<>();
     private void walk(String directory, Map<String, JSONObject> previous, JSONArray docs, JSONArray folders, JSONArray entries) throws Exception {
         File folder = directory.isEmpty() ? root : target(directory);
         File[] files = folder.listFiles();
@@ -121,6 +151,7 @@ final class WorkspaceFiles {
             entries.put(entry);
             if (file.isDirectory()) { folders.put(path); walk(path, previous, docs, folders, entries); }
             else if (file.isFile()) {
+                if (lazyProjectPaths.contains(path) && !previous.containsKey(path) && !name.equals(".vela")) { entry.put("editable", lazyTextPaths.contains(path) || path.matches("(?i).*(\\.(txt|md|csv|tsv|json|html?|css|[cm]?js|ts|py|java|ets|tex|yaml|yml|xml|toml|gly|glossary))$")).put("reason", "按需读取项目文件"); continue; }
                 try {
                     String text = FileText.decode(read(file, FileText.MAX_BYTES));
                     JSONObject before = previous.get(path);
@@ -282,6 +313,12 @@ final class WorkspaceFiles {
                 }
             } else throw new IOException("文件操作无效。");
             old.put("documents", nextDocs).put("repositories", nextRepos);
+            JSONObject index = old.optJSONObject("pluginProject");
+            if (index != null) for (String field : new String[]{"entries", "textFiles"}) {
+                JSONObject values = index.optJSONObject(field), next = values == null ? new JSONObject() : new JSONObject(values.toString());
+                if (values != null) for (java.util.Iterator<String> keys = values.keys(); keys.hasNext();) { String key = keys.next(); if (!contains(path, key)) continue; if (!action.equals("copy")) next.remove(key); if (!action.equals("delete")) next.put(destination + key.substring(path.length()), field.equals("entries") && action.equals("copy") ? UUID.randomUUID().toString() : values.get(key)); }
+                index.put(field, next);
+            }
             tx.write(cache, utf8(old.toString())); JSONObject state = scan(); tx.commit(); return state;
         }
     }
@@ -395,6 +432,13 @@ final class WorkspaceFiles {
             if (!missing.isEmpty()) journal(); Files.createDirectories(directory.toPath());
         }
         void write(File file, byte[] data) throws Exception { capture(file); atomic(file, data); }
+        void install(File source, File file) throws Exception {
+            capture(file); File temp = new File(file.getPath() + ".wenzhou-tmp");
+            Files.copy(source.toPath(), temp.toPath(), StandardCopyOption.REPLACE_EXISTING);
+            try (FileOutputStream out = new FileOutputStream(temp, true)) { out.getFD().sync(); }
+            try { Files.move(temp.toPath(), file.toPath(), StandardCopyOption.ATOMIC_MOVE, StandardCopyOption.REPLACE_EXISTING); }
+            catch (AtomicMoveNotSupportedException unsupported) { Files.move(temp.toPath(), file.toPath(), StandardCopyOption.REPLACE_EXISTING); }
+        }
         void delete(File file) throws Exception { capture(file); Files.delete(file.toPath()); }
         void move(File from, File to) throws Exception { moves.put(new JSONObject().put("from", privatePath(from)).put("to", privatePath(to))); journal(); Files.move(from.toPath(), to.toPath()); }
         void copy(File from, File to) throws Exception { copies.put(privatePath(to)); journal(); copyTree(from, to, new int[]{0}); }

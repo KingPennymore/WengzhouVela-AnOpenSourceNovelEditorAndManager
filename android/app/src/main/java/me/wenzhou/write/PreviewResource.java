@@ -25,8 +25,15 @@ final class PreviewResource {
             case "ttf": return "font/ttf";
             case "otf": return "font/otf";
             case "mp4": return "video/mp4";
+            case "webm": return "video/webm";
+            case "ogg": case "oga": return "audio/ogg";
+            case "ogv": return "video/ogg";
+            case "wav": return "audio/wav";
+            case "zip": return "application/zip";
             case "mp3": return "audio/mpeg";
-            case "txt": case "csv": case "md": return "text/plain";
+            case "csv": return "text/csv";
+            case "tsv": return "text/tab-separated-values";
+            case "txt": case "md": return "text/plain";
             default: return "application/octet-stream";
         }
     }

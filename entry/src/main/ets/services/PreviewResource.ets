@@ -18,9 +18,16 @@ export function previewMime(path: string): string {
     case 'woff2': return 'font/woff2';
     case 'ttf': return 'font/ttf';
     case 'otf': return 'font/otf';
+    case 'webm': return 'video/webm';
+    case 'ogg': return 'audio/ogg';
+    case 'ogv': return 'video/ogg';
+    case 'wav': return 'audio/wav';
+    case 'csv': return 'text/csv';
+    case 'tsv': return 'text/tab-separated-values';
+    case 'zip': return 'application/zip';
     case 'mp4': return 'video/mp4';
     case 'mp3': return 'audio/mpeg';
-    case 'txt': case 'csv': case 'md': return 'text/plain';
+    case 'txt': case 'md': return 'text/plain';
     default: return 'application/octet-stream';
   }
 }

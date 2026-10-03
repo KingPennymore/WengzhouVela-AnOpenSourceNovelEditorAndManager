@@ -6,15 +6,17 @@ import {fileURLToPath} from 'node:url';
 import {WorkspaceStorage,decodeText,atomic,mime} from './storage.mjs';
 import {GitHubBridge} from './github.mjs';
 import {windowBounds} from './window-state.mjs';
+import {ProjectStore} from './project-store.mjs';
+import {attachProjectUI} from './project-ui.mjs';
 
 const directory=path.dirname(fileURLToPath(import.meta.url)),PAGE='vela://editor/web/index.html',qa=process.env.VELA_QA==='1';
 // QA accepts an isolated explicitly supplied data directory; normal runs use Electron userData.
 if(qa){if(!process.env.VELA_QA_DATA||!path.isAbsolute(process.env.VELA_QA_DATA))throw new Error('QA requires an absolute isolated data directory.');app.setPath('userData',process.env.VELA_QA_DATA);}
-protocol.registerSchemesAsPrivileged([{scheme:'vela',privileges:{standard:true,secure:true,supportFetchAPI:true,stream:true}}]);
-let main,files,github,closing=false,readerSession;const readerOptions=new Map();const previews=new Set();
+protocol.registerSchemesAsPrivileged([{scheme:'vela',privileges:{standard:true,secure:true,supportFetchAPI:true,stream:true,corsEnabled:true}}]);
+let main,files,github,projectFiles,closePluginPreviews,closing=false,readerSession;const readerOptions=new Map();const previews=new Set();
 const assets=app.isPackaged?path.join(process.resourcesPath,'web'):path.resolve(directory,'../dist/web');
 const icon=app.isPackaged?path.join(process.resourcesPath,'icon.png'):path.resolve(directory,'../AppScope/resources/base/media/app_icon_1024.png');
-const failure=error=>JSON.stringify({ok:false,error:error.message||'操作失败。'}),success=value=>JSON.stringify({ok:true,value:value??null});
+const failure=error=>JSON.stringify({ok:false,error:error.message||'操作失败。',...(typeof error.code==='string'&&/^E_[A-Z_]+$/.test(error.code)?{code:error.code,details:error.details||{},retryable:!!error.retryable}:{})}),success=value=>JSON.stringify({ok:true,value:value??null});
 const environment=()=>JSON.stringify({platform:'windows',version:app.getVersion(),dark:nativeTheme.shouldUseDarkColors,credentialStore:'Windows DPAPI',top:0,bottom:0,left:0,right:0});
 function trusted(event){return main&&!main.isDestroyed()&&event.sender===main.webContents&&event.senderFrame===main.webContents.mainFrame&&event.senderFrame.url===PAGE;}
 function secureWindow(window){
@@ -70,7 +72,9 @@ async function picker(operation,data){
   const values=result.filePaths.slice(0,10).map(file=>{const limit=operation==='importPlugin'?64*1024*1024:8*1024*1024;if(fs.statSync(file).size>limit)throw new Error('选择的文件超过大小限制。');const bytes=fs.readFileSync(file),name=path.basename(file);if(operation==='importPlugin')return {name,data:bytes.toString('base64')};try{return {name,text:decodeText(bytes)};}catch{return {name,data:bytes.toString('base64')};}});return operation==='import'?values:values[0];
 }
 async function dispatch(operation,data){
+  if(projectFiles.busy&&['manageFiles','restoreTrash','writeWorkspaceFiles'].includes(operation))throw Object.assign(new Error('项目正在提交，请稍后重试。'),{code:'E_CONFLICT'});
   switch(operation){
+    case 'project':if(typeof data.request!=='string'||data.request.length>64*1024*1024)throw Object.assign(new Error('项目请求过大。'),{code:'E_LIMIT'});return projectFiles.call(data.action,data.owner,JSON.parse(data.request)).catch(error=>{if(/^E_/.test(error.code))throw error;const code=['ENOSPC','EDQUOT'].includes(error.code)?'E_QUOTA':error.code==='ENOENT'?'E_NOT_FOUND':['EACCES','EPERM'].includes(error.code)?'E_PERMISSION':'E_INVALID_DATA';throw Object.assign(new Error(code==='E_QUOTA'?'存储空间不足，原始数据已保留。':'项目文件操作失败，原始数据已保留。'),{code,details:{},retryable:false});});
     case 'initializeStorage':case 'refreshFolder':return files.scan();
     case 'manageFiles':return files.manage(data.action,data.path,data.destination);
     case 'listTrash':return files.listTrash();
@@ -89,18 +93,19 @@ async function dispatch(operation,data){
 }
 if(!qa&&!app.requestSingleInstanceLock())app.quit();else{
   app.on('second-instance',()=>{if(main){if(main.isMinimized())main.restore();main.focus();}});
-  app.whenReady().then(async()=>{files=new WorkspaceStorage(app.getPath('userData'));github=new GitHubBridge({request,credentials:credentials()});
+  app.whenReady().then(async()=>{files=new WorkspaceStorage(app.getPath('userData'));projectFiles=new ProjectStore(files);github=new GitHubBridge({request,credentials:credentials()});
   readerSession=session.fromPartition('persist:vela-reader');readerSession.protocol.handle('https',request=>{const url=new URL(request.url);return previewResponse(url,readerOptions.get(decodeURIComponent(url.pathname.slice(1)))||{reading:true});});
-  const editorSession=session.fromPartition('persist:vela-editor');editorSession.protocol.handle('vela',request=>assetResponse(new URL(request.url)));editorSession.protocol.handle('https',request=>previewResponse(new URL(request.url),{},true));
+  const editorSession=session.fromPartition('persist:vela-editor');editorSession.protocol.handle('vela',request=>new URL(request.url).hostname==='asset'?projectFiles.resource(request):assetResponse(new URL(request.url)));editorSession.protocol.handle('https',request=>previewResponse(new URL(request.url),{},true));
   Menu.setApplicationMenu(null);
   const stateFile=path.join(files.base,'window.json');let previous={};try{previous=JSON.parse(fs.readFileSync(stateFile,'utf8'))||{};}catch{}const displays=[screen.getPrimaryDisplay(),...screen.getAllDisplays()],bounds=windowBounds(previous,displays),area=screen.getDisplayMatching(bounds).workArea;
   main=new BrowserWindow({title:'Vela 文舟',...bounds,minWidth:Math.min(720,area.width),minHeight:Math.min(480,area.height),show:!qa,icon,backgroundColor:'#eef3ef',webPreferences:{partition:'persist:vela-editor',preload:path.join(directory,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});secureWindow(main);main.setMenu(null);if(previous.maximized)main.maximize();const remember=()=>{try{if(!main.isDestroyed()&&!main.isFullScreen())atomic(stateFile,Buffer.from(JSON.stringify({...main.getNormalBounds(),maximized:main.isMaximized()})));}catch{/* Window geometry must not prevent document saving. */}};let boundsTimer;for(const event of ['resize','move','maximize','unmaximize'])main.on(event,()=>{clearTimeout(boundsTimer);boundsTimer=setTimeout(remember,250);});
   main.webContents.on('before-input-event',(event,input)=>{if(input.key==='F11'){event.preventDefault();if(input.type==='keyDown'&&!input.isAutoRepeat)main.setFullScreen(!main.isFullScreen());}});
   screen.on('display-metrics-changed',()=>{if(!main.isDestroyed()&&!main.isMaximized()&&!main.isFullScreen())main.setBounds(windowBounds(main.getBounds(),[screen.getPrimaryDisplay(),...screen.getAllDisplays()]));});
-  ipcMain.on('vela:sync',(event,operation,data)=>{if(!trusted(event)){event.returnValue={error:'不允许的调用来源。',value:'不允许的调用来源。'};return;}try{let value;if(operation==='readWorkspace')value=files.readWorkspace();else if(operation==='readPlugins')value=files.readPlugins();else if(operation==='readEnvironment')value=environment();else if(operation==='writeWorkspace'){files.saveWorkspace(data);value='ok';}else if(operation==='writePlugins'){files.writePlugins(data);value='ok';}else throw new Error('不支持此操作。');event.returnValue={value};}catch(error){event.returnValue={error:error.message,value:error.message};}});
+  closePluginPreviews=attachProjectUI(projectFiles,main,{qa,icon});
+  ipcMain.on('vela:sync',(event,operation,data)=>{if(!trusted(event)){event.returnValue={error:'不允许的调用来源。',value:'不允许的调用来源。'};return;}try{let value;if(operation==='readWorkspace')value=files.readWorkspace();else if(operation==='readPlugins')value=files.readPlugins();else if(operation==='readEnvironment')value=environment();else if(operation==='writeWorkspace'){if(projectFiles.busy)throw Error('项目正在提交，请稍后保存。');files.saveWorkspace(data);value='ok';}else if(operation==='writePlugins'){files.writePlugins(data);value='ok';}else throw new Error('不支持此操作。');event.returnValue={value};}catch(error){event.returnValue={error:error.message,value:error.message};}});
   ipcMain.handle('vela:call',async(event,operation,json)=>{if(!trusted(event))return failure(new Error('不允许的调用来源。'));try{if(typeof json!=='string'||json.length>100*1024*1024)throw new Error('请求数据无效或过大。');const data=JSON.parse(json);if(!data||typeof data!=='object'||Array.isArray(data))throw new Error('请求数据无效。');return success(await dispatch(operation,data));}catch(error){return failure(error);}});
   nativeTheme.on('updated',()=>{if(main&&!main.isDestroyed())main.webContents.executeJavaScript('window.dispatchEvent(new CustomEvent("wenzhouEnvironment",{detail:'+environment()+'}))').catch(()=>{});});
-  main.on('close',event=>{if(closing)return;event.preventDefault();main.webContents.executeJavaScript('window.wenzhouSave ? window.wenzhouSave() : true').then(saved=>{if(saved===false){dialog.showMessageBox(main,{type:'error',message:'保存失败，请先导出文稿备份。'});return;}closing=true;for(const preview of previews)preview.close();main.close();}).catch(()=>{closing=true;main.close();});});
+  main.on('close',event=>{if(closing)return;event.preventDefault();main.webContents.executeJavaScript('window.wenzhouSave ? window.wenzhouSave() : true').then(saved=>{if(saved===false){dialog.showMessageBox(main,{type:'error',message:'保存失败，请先导出文稿备份。'});return;}closing=true;closePluginPreviews?.();for(const preview of previews)preview.close();main.close();}).catch(()=>{closing=true;closePluginPreviews?.();main.close();});});
   await main.loadURL(PAGE);
   app.on('window-all-closed',()=>app.quit());
   }).catch(error=>{console.error(error);app.exit(1);});

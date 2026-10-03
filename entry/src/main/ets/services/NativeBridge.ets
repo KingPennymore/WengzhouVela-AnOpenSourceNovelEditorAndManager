@@ -5,13 +5,17 @@ import { asset } from '@kit.AssetStoreKit';
 import { util } from '@kit.ArkTS';
 import { hilog } from '@kit.PerformanceAnalysisKit';
 import { NativeOperationError, operationError, loginStatusError } from './NativeErrors';
+import { ProjectFiles, ProjectFailure } from './ProjectFiles';
 import { Runtime } from './Runtime';
 import { HtmlPreviewSession, ReaderLayout } from './HtmlPreviewSession';
 import { PreviewResource } from './PreviewResource';
 import { WorkspaceFiles, BinaryWorkspaceFile } from './WorkspaceFiles';
 import { decodeFileText, decodedFileName, encodeFileText } from './FileText';
+interface ProjectSystemError { code?: number; message?: string; }
 
 interface BridgeRequest {
+  owner?: string;
+  request?: string;
   path?: string;
   method?: string;
   body?: Object;
@@ -38,7 +42,7 @@ interface BridgeRequest {
   enabled?: boolean;
   layout?: ReaderLayout;
 }
-interface BridgeResult { ok: boolean; value?: Object; error?: string; code?: number; stage?: string; }
+interface BridgeResult { ok: boolean; value?: Object; error?: string; code?: number | string; retryable?: boolean; stage?: string; }
 interface ApiResult { status: number; body: Object; }
 interface OAuthResult {
   access_token?: string;
@@ -61,6 +65,7 @@ export class NativeBridge {
   private encoder: util.TextEncoder = new util.TextEncoder();
   private alias: Uint8Array = new util.TextEncoder().encodeInto('wenzhou.github.token');
   private workspaceFiles: WorkspaceFiles = new WorkspaceFiles();
+  private projects: ProjectFiles = new ProjectFiles();
 
   previewResource(path: string, html: boolean): PreviewResource {
     this.workspaceFiles.context = this.context;
@@ -78,6 +83,7 @@ export class NativeBridge {
   }
 
   readWorkspace(): string {
+    this.projects.context = this.context; this.projects.recover();
     const path = this.getContext().filesDir + '/workspace.json';
     if (!fs.accessSync(path)) return '';
     return fs.readTextSync(path);
@@ -102,6 +108,7 @@ export class NativeBridge {
 
   writeWorkspace(data: string): string {
     try {
+      if (this.projects.busy) throw new Error('项目事务正在提交，请稍后保存。');
       const parsed = JSON.parse(data) as WorkspaceHeader;
       if (parsed.version !== 1 || !Array.isArray(parsed.documents)) {
         throw new Error('文稿数据无效。');
@@ -228,6 +235,12 @@ export class NativeBridge {
     try {
       const data = JSON.parse(json) as BridgeRequest;
       this.workspaceFiles.context = this.context;
+      this.projects.context = this.context; if (['project', 'initializeStorage', 'refreshFolder'].includes(operation)) this.projects.recover();
+      if (operation === 'project') {
+        try { return this.success(await this.projects.call(data.action || '', data.owner || '', data.request || '{}')); }
+        catch (error) { if (error instanceof ProjectFailure) throw error; const value = error as ProjectSystemError, code = value.code === 13900025 ? 'E_QUOTA' : value.code === 13900002 ? 'E_NOT_FOUND' : value.code === 13900012 ? 'E_PERMISSION' : 'E_INVALID_DATA'; throw new ProjectFailure(code, code === 'E_QUOTA' ? '存储空间不足，原始数据已保留。' : '项目文件操作失败，原始数据已保留。'); }
+      }
+      if (this.projects.busy && ['manageFiles', 'writeWorkspaceFiles', 'restoreTrash'].includes(operation)) throw new ProjectFailure('E_CONFLICT', '项目事务正在提交。');
       if (operation === 'initializeStorage') return this.success(await this.workspaceFiles.initialize());
       if (operation === 'manageFiles') return this.success(this.workspaceFiles.manage(data.action || '', data.path || '', data.destination || ''));
       if (operation === 'listTrash') return this.success(this.workspaceFiles.listTrash());
@@ -397,6 +410,7 @@ export class NativeBridge {
       }
       throw new Error('不支持此操作。');
     } catch (error) {
+      if (error instanceof ProjectFailure) { const result: BridgeResult = { ok: false, error: error.message, code: error.projectCode, retryable: error.projectCode === 'E_CONFLICT' }; return JSON.stringify(result); }
       const failure = operationError(error as Object, 'device');
       // Never log tokens, request bodies, account details or raw system exception data.
       hilog.error(0x1122, 'WenzhouAuth', 'stage=%{public}s code=%{public}d', failure.stage, failure.code);

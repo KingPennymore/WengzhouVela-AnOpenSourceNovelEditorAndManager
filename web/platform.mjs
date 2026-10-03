@@ -7,7 +7,7 @@ export async function transport(operation,payload={}) {
     let response;
     try {response=JSON.parse(raw);}catch{throw new Error('原生调用返回格式异常，请更新文舟应用后重试。');}
     if(typeof response?.ok!=='boolean') throw new Error('原生调用返回格式异常，请更新文舟应用后重试。');
-    if(!response.ok) throw new Error(response.error || `设备操作失败${response.code?'（错误码 '+response.code+'）':''}。`);
+    if(!response.ok) throw Object.assign(new Error(response.error || `设备操作失败${response.code?'（错误码 '+response.code+'）':''}。`),typeof response.code==='string'?{code:response.code,details:response.details||{},retryable:!!response.retryable}:{});
     return response.value;
   }
   if(operation==='oauth') throw new Error('设备授权请在文舟应用中使用。浏览器预览可使用个人访问令牌登录。');

@@ -7,6 +7,7 @@ await mkdir(out, { recursive: true });
 const pkg=JSON.parse(await readFile('package.json','utf8'));
 const version=pkg.harmonyVersion||pkg.version;
 const bundle = await build({entryPoints:['web/app.js'],bundle:true,outfile:`${out}/app.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof',metafile:true,define:{__VELA_HARMONY_VERSION__:JSON.stringify(version)}});
+await build({entryPoints:['web/project-archive-worker.js'],bundle:true,outfile:`${out}/project-archive-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
 await build({entryPoints:['web/html-reader.js'],bundle:true,outfile:`${out}/html-reader.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
 for(const name of ['index.html','style.css','file-manager.css','ui.css']) await copyFile(`web/${name}`,`${out}/${name}`);
 await copyFile('node_modules/katex/dist/katex.min.css',`${out}/katex.min.css`);

@@ -110,3 +110,6 @@ dialog.settings-dialog{top:33.3333dvh;bottom:0;height:66.6667dvh;max-height:66.6
 
 .cm-tooltip-autocomplete .cm-completionIcon{display:none!important}.cm-completionLabel{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cm-completionKind{flex-shrink:0;font-size:11px;color:var(--muted)}
 .breadcrumb{min-width:0}.breadcrumb #current-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#toolbar-overflow{max-height:calc(100dvh - var(--shell-top) - var(--safe-top,0px) - 18px);overflow:auto;overscroll-behavior:contain}
+
+/* Project commits freeze host controls while owned plugin pages remain available. */
+body.project-busy #workspace,body.project-busy #doc-list,body.project-busy .topbar,body.project-busy .quick-bar{pointer-events:none}

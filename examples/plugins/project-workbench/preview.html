@@ -1,0 +1,7 @@
+<!doctype html><meta charset="utf-8"><title>Vela 固定快照试演</title>
+<style>body{font:16px system-ui;margin:40px;background:#f4f8f5;color:#20372c}pre{white-space:pre-wrap}</style>
+<h1>固定快照</h1><pre id="result"></pre>
+<script>
+document.querySelector('h1').textContent=window.VELA_PREVIEW.initialState.title;
+Promise.all(['角色.csv','对白.json'].map(path=>fetch(window.VELA_PREVIEW.assetBase+encodeURIComponent(path)).then(r=>{if(!r.ok)throw Error('素材读取失败');return r.text();}))).then(values=>document.querySelector('#result').textContent=values.join('\n\n')).catch(error=>document.querySelector('#result').textContent=error.message);
+</script>

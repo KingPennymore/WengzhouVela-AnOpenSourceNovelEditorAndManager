@@ -1,5 +1,7 @@
 # Vela 插件开发
 
+项目接口 v3 已加入，原有 v2 方法继续可用。扩展接口与平台矩阵见 [PLUGIN-PROJECT-API.md](PLUGIN-PROJECT-API.md)。完整类型声明见 [sdk/vela.d.ts](sdk/vela.d.ts)，可安装示例见 [project-workbench](../examples/plugins/project-workbench)。先阅读下文的项目事务与平台限制；不要用旧 `writeText(documentId, text)` 实现跨文件保存。
+
 Vela 使用 CodeMirror 6，并兼容一部分 Acode 插件接口。不是所有 Acode 插件都可以直接运行：依赖 Ace、Cordova、Android 插件原生接口或 Acode 私有 DOM 的插件需要适配。插件是有权访问本地文稿的 JavaScript 程序，只安装可信来源。
 
 ## 安装与包结构
@@ -74,6 +76,6 @@ acode.setPluginUnmount(id, async () => { /* 释放插件自己建立的定时器
 
 ## 0.8.0 配置与文档服务
 
-`acode.require('vela')` 的服务版本为 2，`capabilities` 列出可用能力；原有写文本/扩展/补全接口保持。新增 `getConfig(fileId)` 返回第二版生效配置副本，`getDocumentInfo(fileId)` 返回稳定 ID、当前修订、已保存修订、修改状态与历史数量，`getChapters(fileId)` 返回自动章节索引，`getHistory(fileId)` 返回历史的修订/时间/字符数摘要（不返回整个快照正文）。修改文稿仍通过 `writeText`，不绕开保存和锚点检查。
+`acode.require('vela')` 当前的服务版本为 3，继续保留版本 2 的文档与配置方法，`capabilities` 列出可用能力。`getConfig(fileId)` 返回第二版生效配置副本，`getDocumentInfo(fileId)` 返回稳定 ID、当前修订、已保存修订、修改状态与历史数量，`getChapters(fileId)` 返回自动章节索引，`getHistory(fileId)` 返回历史的修订/时间/字符数摘要（不返回整个快照正文）。修改文稿仍通过 `writeText`，不绕开保存和锚点检查。
 
 服务停止后拒绝继续读写。插件设置与扩展字段不自动进入 GitHub 文件；需要作品随行设置时使用 `extensions.<plugin-id>`，保留其他插件字段。不要把令牌、密钥或本地绝对路径写入配置。仅支持第二版 `.vela`，插件应使用 `getConfig` 读取新版字段；不再提供旧格式升级。

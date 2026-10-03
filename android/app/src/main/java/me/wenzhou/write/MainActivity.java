@@ -74,6 +74,7 @@ public final class MainActivity extends Activity {
         web.setWebViewClient(new WebViewClient() {
             @Override public WebResourceResponse shouldInterceptRequest(WebView view, WebResourceRequest request) {
                 Uri uri = request.getUrl();
+                if ("https".equals(uri.getScheme()) && "wenzhou-project.local".equals(uri.getHost())) return bridge.projects.resource(request);
                 if ("https".equals(uri.getScheme()) && "wenzhou-preview.local".equals(uri.getHost()) && !request.isForMainFrame()) return embeddedHtml(uri);
                 if (ORIGIN.equals(uri.getScheme() + "://" + uri.getHost())) {
                     if (request.isForMainFrame() && PAGE.equals(uri.toString())) {
@@ -145,7 +146,7 @@ public final class MainActivity extends Activity {
             + "window.wenzhouAndroidResolve=(id,raw)=>{const task=pending.get(id);if(task){clearTimeout(task.timer);pending.delete(id);task.resolve(raw);}};"
             + "window.WenzhouNative={platform:'android',readEnvironment:()=>WenzhouAndroid.readEnvironment(secret),readWorkspace:()=>WenzhouAndroid.readWorkspace(secret),"
             + "writeWorkspace:data=>WenzhouAndroid.writeWorkspace(secret,data),readPlugins:()=>WenzhouAndroid.readPlugins(secret),writePlugins:data=>WenzhouAndroid.writePlugins(secret,data),"
-            + "call:(op,json)=>new Promise((resolve,reject)=>{const id=crypto.randomUUID();const timer=setTimeout(()=>{pending.delete(id);reject(new Error('设备操作超时，请重试。'));},['import','export','exportPdf','importPlugin'].includes(op)?600000:120000);"
+            + "call:(op,json)=>new Promise((resolve,reject)=>{const id=crypto.randomUUID();const timer=setTimeout(()=>{pending.delete(id);reject(new Error('设备操作超时，请重试。'));},(['import','export','exportPdf','importPlugin'].includes(op)||(op==='project'&&['pick','deliver','exportFile'].includes(JSON.parse(json).action)))?600000:120000);"
             + "pending.set(id,{resolve,reject,timer});try{WenzhouAndroid.post(secret,id,op,json);}catch(error){clearTimeout(timer);pending.delete(id);reject(error);}})};})();";
         html = html.replace("script-src 'self' blob:", "script-src 'self' blob: 'nonce-" + capability + "'");
         html = html.replace("<script src=\"./licenses.js\">", "<script nonce=\"" + capability + "\">" + script + "</script><script src=\"./licenses.js\">");
@@ -201,13 +202,18 @@ public final class MainActivity extends Activity {
             if (pickerId != null) { deliver(id, NativeBridge.failure(new IOException("请先完成当前文件选择。"))); return; }
             try {
                 Intent intent;
-                if ((operation.equals("export") || operation.equals("exportPdf"))) {
+                if ((operation.equals("export") || operation.equals("exportPdf") || operation.equals("project-export"))) {
                     String name = data.optString("name", "文稿.txt");
                     if (name.isEmpty() || name.matches("(?s).*[\\\\/\u0000-\u001f].*")) throw new IOException("文件名无效。");
-                    intent = new Intent(Intent.ACTION_CREATE_DOCUMENT).setType(mime(name)); intent.putExtra(Intent.EXTRA_TITLE, name);
+                    intent = new Intent(Intent.ACTION_CREATE_DOCUMENT).setType(operation.equals("project-export") ? PreviewResource.mime(name) : mime(name)); intent.putExtra(Intent.EXTRA_TITLE, name);
                 } else {
                     intent = new Intent(Intent.ACTION_OPEN_DOCUMENT).setType(operation.equals("importPlugin") ? "application/zip" : "*/*");
-                    intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, operation.equals("import"));
+                    intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, operation.equals("import") || operation.equals("project-pick") && data.getJSONObject("args").optBoolean("multiple"));
+                    if (operation.equals("project-pick")) {
+                        JSONArray accept = data.getJSONObject("args").optJSONArray("accept"); java.util.List<String> types = new java.util.ArrayList<>();
+                        if (accept != null) for (int i = 0; i < accept.length(); i++) { String value = accept.getString(i), type = value.startsWith(".") ? PreviewResource.mime("asset" + value) : value; if (!type.equals("application/octet-stream") && type.contains("/")) types.add(type); }
+                        if (!types.isEmpty()) intent.putExtra(Intent.EXTRA_MIME_TYPES, types.toArray(new String[0]));
+                    }
                 }
                 intent.addCategory(Intent.CATEGORY_OPENABLE);
                 pickerId = id; pickerOperation = operation; pickerData = data;
@@ -224,15 +230,20 @@ public final class MainActivity extends Activity {
         if (request != 1001 || pickerId == null) return;
         String id = pickerId, operation = pickerOperation; JSONObject payload = pickerData;
         pickerId = null; pickerOperation = null; pickerData = null;
-        if (result != RESULT_OK || data == null) { deliver(id, NativeBridge.success(operation.equals("import") ? new JSONArray() : false)); return; }
+        if (result != RESULT_OK || data == null) { try { deliver(id, NativeBridge.success(operation.equals("project-pick") ? new JSONObject().put("cancelled", true).put("selections", new JSONArray()) : operation.equals("project-export") ? new JSONObject().put("saved", false) : operation.equals("import") ? new JSONArray() : false)); } catch (Exception invalid) { deliver(id, NativeBridge.failure(invalid)); } return; }
         List<Uri> uris = new ArrayList<>(); ClipData clip = data.getClipData();
-        if (clip != null) for (int i = 0; i < Math.min(10, clip.getItemCount()); i++) uris.add(clip.getItemAt(i).getUri());
+        if (clip != null) for (int i = 0; i < Math.min(operation.equals("project-pick") ? 100 : 10, clip.getItemCount()); i++) uris.add(clip.getItemAt(i).getUri());
         else if (data.getData() != null) uris.add(data.getData());
         bridge.work(() -> {
             try {
                 if (uris.isEmpty()) throw new IOException("未选择文件。");
                 Object value;
-                if ((operation.equals("export") || operation.equals("exportPdf"))) {
+                if (operation.equals("project-pick")) {
+                    JSONArray selections = new JSONArray(); for (Uri uri : uris) selections.put(bridge.projects.select(payload.getString("owner"), uri, displayName(uri)));
+                    value = new JSONObject().put("cancelled", false).put("selections", selections);
+                } else if (operation.equals("project-export")) {
+                    value = bridge.projects.deliver(payload.getString("owner"), payload.getJSONObject("args"), uris.get(0));
+                } else if ((operation.equals("export") || operation.equals("exportPdf"))) {
                     try (OutputStream stream = getContentResolver().openOutputStream(uris.get(0), "wt")) {
                         if (stream == null) throw new IOException("无法写入所选文件。");
                         byte[] output = operation.equals("exportPdf") ? android.util.Base64.decode(payload.optString("data"), android.util.Base64.DEFAULT) : payload.optString("text").getBytes(StandardCharsets.UTF_8);

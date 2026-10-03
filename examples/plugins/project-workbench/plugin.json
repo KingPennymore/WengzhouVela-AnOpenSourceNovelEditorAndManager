@@ -1,0 +1,10 @@
+{
+  "id": "sample.vela.project-workbench",
+  "name": "Vela 项目接口示例",
+  "version": "1.0.0",
+  "main": "main.js",
+  "vela": {
+    "api": ">=3 <4",
+    "requiredCapabilities": ["workspace-v1", "filesystem-v1", "file-transactions-v1", "snapshots-v1", "asset-sessions-v1"]
+  }
+}

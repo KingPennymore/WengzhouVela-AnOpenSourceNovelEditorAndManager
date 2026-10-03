@@ -29,7 +29,7 @@ public final class PortInstrumentation extends Instrumentation {
                 @Override public File getFilesDir() { return directory; }
                 @Override public File getNoBackupFilesDir() { return new File(directory, "no-backup"); }
             };
-            credentials(); workspace(); rollback(); crashRecovery(); htmlResources(); textZoom();
+            credentials(); workspace(); rollback(); crashRecovery(); htmlResources(); textZoom(); projects();
             result.putString("results", new JSONObject().put("passed", passed.length()).put("checks", passed).toString());
             finish(Activity.RESULT_OK, result);
         } catch (Throwable error) { result.putString("failure", error.getClass().getSimpleName() + ": " + error.getMessage()); finish(Activity.RESULT_CANCELED, result); }
@@ -45,6 +45,31 @@ public final class PortInstrumentation extends Instrumentation {
         require(new CredentialStore(fixture).read().equals(token), "Encrypted credential must survive store recreation");
         store.clear(); require(store.read().isEmpty(), "Logout must remove credential");
         passed.put("Android Keystore encryption, persistence and logout");
+    }
+    private void projects() throws Exception {
+        WorkspaceFiles files = new WorkspaceFiles(fixture); ProjectFiles projects = new ProjectFiles(fixture, files);
+        String owner = "qa-session", root = "ProjectQA"; long size = 9 * ProjectFiles.MB + 17; Files.createDirectories(new File(files.projectRoot(), root).toPath());
+        JSONObject begin = (JSONObject)projects.call("begin", owner, new JSONObject().put("root", root).put("size", size));
+        byte[] block = new byte[ProjectFiles.CHUNK]; for (int i = 0; i < block.length; i++) block[i] = (byte)(i * 17);
+        java.security.MessageDigest digest = java.security.MessageDigest.getInstance("SHA-256"); long written = 0; int sequence = 0;
+        while (written < size) { byte[] bytes = java.util.Arrays.copyOf(block, (int)Math.min(block.length, size - written)); digest.update(bytes); projects.call("chunk", owner, new JSONObject().put("blobId", begin.getString("blobId")).put("sequence", sequence++).put("data", android.util.Base64.encodeToString(bytes, 2))); written += bytes.length; }
+        JSONObject staged = (JSONObject)projects.call("finish", owner, begin); StringBuilder hash = new StringBuilder(); for (byte b : digest.digest()) hash.append(String.format(java.util.Locale.ROOT, "%02x", b & 255));
+        require(staged.getString("sha256").equals(hash.toString()), "Large asset chunks must retain SHA-256");
+        JSONObject state = new JSONObject(files.readWorkspace()), index = new JSONObject().put("entries", new JSONObject().put(root + "/素材.bin", "large-asset").put(root + "/Makefile", "text-entry")).put("textFiles", new JSONObject().put(root + "/Makefile", true)); state.put("pluginProject", index); state.getJSONArray("folders").put(root).put(root + "/空目录");
+        JSONArray changes = new JSONArray().put(new JSONObject().put("kind", "mkdir").put("path", "空目录")).put(new JSONObject().put("kind", "writeBlob").put("path", "素材.bin").put("blobId", staged.getString("blobId"))).put(new JSONObject().put("kind", "writeText").put("path", "Makefile").put("text", "all:\n\techo 中文"));
+        projects.call("apply", owner, new JSONObject().put("root", root).put("changes", changes).put("expected", new JSONArray()).put("workspace", state.toString()));
+        JSONObject read = (JSONObject)projects.call("read", owner, new JSONObject().put("root", root).put("path", "素材.bin").put("offset", size - 17).put("length", 17).put("expectedRevision", "r:" + hash)); require(read.getLong("totalSize") == size && android.util.Base64.decode(read.getString("data"), 2).length == 17, "Binary access must exceed the former 8 MB limit");
+        JSONObject moved = files.manage("move", root + "/Makefile", root + "/Buildfile"); require(moved.getJSONObject("pluginProject").getJSONObject("entries").getString(root + "/Buildfile").equals("text-entry"), "Host rename must preserve entry ID"); boolean editable = false; for (int i = 0; i < moved.getJSONArray("entries").length(); i++) { JSONObject e = moved.getJSONArray("entries").getJSONObject(i); if (e.getString("path").equals(root + "/Buildfile")) editable = e.getBoolean("editable"); } require(editable, "Explicit text files must remain lazy and editable after rename");
+        state.put("pluginProject", moved.getJSONObject("pluginProject")); JSONArray tree = ((JSONObject)projects.call("tree", owner, new JSONObject().put("root", root))).getJSONArray("entries");
+        JSONObject snapshot = (JSONObject)projects.call("snapshotCreate", owner, new JSONObject().put("root", root).put("workspaceId", "qa-project").put("pluginId", "qa.plugin").put("includeRoots", new JSONArray().put("")).put("entries", tree).put("workspace", state.toString()));
+        JSONObject export = new JSONObject().put("snapshotId", snapshot.getString("snapshotId")).put("pluginId", "qa.plugin").put("root", "").put("paths", new JSONArray().put("素材.bin").put("Buildfile").put("空目录"));
+        boolean missing = false; try { projects.call("archiveExport", owner, new JSONObject(export.toString()).put("paths", new JSONArray().put("素材.bin").put("missing.json"))); } catch (ProjectFiles.Failure e) { missing = e.code.equals("E_NOT_FOUND"); } require(missing, "Every export whitelist path must exist");
+        JSONObject output = (JSONObject)projects.call("archiveExport", owner, export); File zip = new File(directory, "project-export.zip"); projects.deliver(owner, new JSONObject().put("outputToken", output.getString("outputToken")).put("suggestedName", "project.zip"), android.net.Uri.fromFile(zip));
+        JSONObject selection = projects.select(owner, android.net.Uri.fromFile(zip), "project.zip"), inspected = (JSONObject)projects.call("archiveInspect", owner, new JSONObject().put("selectionToken", selection.getString("token"))); require(inspected.getJSONArray("entries").length() == 3, "ZIP must contain binary, text and empty directory");
+        JSONObject imported = (JSONObject)projects.call("archiveStage", owner, new JSONObject().put("archiveToken", inspected.getString("archiveToken")).put("root", "Roundtrip")); boolean binary = false; for (int i = 0; i < imported.getJSONArray("entries").length(); i++) { JSONObject e = imported.getJSONArray("entries").getJSONObject(i); if (e.getString("path").equals("素材.bin")) binary = e.getString("sha256").equals(hash.toString()); } require(binary, "ZIP roundtrip must preserve large binary hash");
+        File invalid = new File(directory, "invalid.zip"); try (java.util.zip.ZipOutputStream out = new java.util.zip.ZipOutputStream(new java.io.FileOutputStream(invalid))) { out.putNextEntry(new java.util.zip.ZipEntry("../escape.txt")); out.write(1); out.closeEntry(); }
+        JSONObject bad = projects.select(owner, android.net.Uri.fromFile(invalid), "invalid.zip"); boolean escaped = false; try { projects.call("archiveInspect", owner, new JSONObject().put("selectionToken", bad.getString("token"))); } catch (ProjectFiles.Failure e) { escaped = e.code.equals("E_INVALID_PATH"); } require(escaped, "ZIP traversal must be rejected before staging");
+        projects.call("stop", owner, new JSONObject()); passed.put("Project v3 large binary chunks, stable rename, fixed ZIP roundtrip, empty directories and whitelist/traversal rejection");
     }
     private JSONObject doc(String id, String path, String text) throws Exception {
         return new JSONObject().put("id", id).put("name", path.substring(path.lastIndexOf('/') + 1)).put("path", path).put("text", text).put("updatedAt", 1).put("remote", JSONObject.NULL);

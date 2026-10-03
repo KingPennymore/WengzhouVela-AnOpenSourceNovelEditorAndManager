@@ -5,7 +5,8 @@ import * as language from '@codemirror/language';
 import * as search from '@codemirror/search';
 import * as autocomplete from '@codemirror/autocomplete';
 import {registerCompletion,removeCompletions} from './completion.mjs';
-import {fromBase64,toBase64,assetPath,validatePluginStore} from './plugin-package.mjs';
+import {fromBase64,toBase64,assetPath,validatePluginStore,checkPluginCompatibility,MAX_PLUGIN_BYTES} from './plugin-package.mjs';
+import {error as velaError} from './project-contract.mjs';
 import {readPluginStore,writePluginStore} from './platform.mjs';
 import {isTexPackage,storeTexPackage,removeTexPackage} from './tex-packages.mjs';
 
@@ -40,7 +41,7 @@ export class PluginRuntime {
     };
     const runtime=this;
     class Page {
-      constructor(title){const page=document.createElement('section');page.className='plugin-page';page.hidden=true;page.setAttribute('aria-label',title||'插件');const heading=document.createElement('header');const close=document.createElement('button');close.textContent='← 返回文舟';close.onclick=()=>page.hide();const h=document.createElement('h2');h.textContent=title||'插件';heading.append(close,h);const body=document.createElement('div');body.className='plugin-page-body';page.append(heading,body);Object.assign(page,{body,content:body,show(){page.hidden=false;},hide(){page.hidden=true;},settitle(value){h.textContent=value;}});document.body.append(page);runtime.running.get(runtime.loadingId)?.nodes.push(page);return page;}
+      constructor(title,owner=runtime.loadingId){const resources=runtime.running.get(owner);if(!resources||resources.stopping)throw velaError('E_PLUGIN_STOPPED','插件已停用。');const page=document.createElement('section');page.className='plugin-page';page.hidden=true;page.setAttribute('aria-label',title||'插件');const heading=document.createElement('header');const close=document.createElement('button');close.setAttribute('aria-label','返回文舟');close.title='返回文舟';close.innerHTML='<svg width=24 height=24 viewBox="0 0 24 24" fill=none stroke=currentColor stroke-width=2 aria-hidden=true><path d="m14 6-6 6 6 6"/></svg>';const h=document.createElement('h2');h.textContent=title||'插件';heading.append(close,h);const body=document.createElement('div');body.className='plugin-page-body';page.append(heading,body);const visible=new Set(),hidden=new Set(),beforeClose=new Set(),pointers=new Set();const notify=set=>{for(const fn of set)try{fn();}catch(cause){host.fail(cause);}};const on=(set,fn)=>{if(resources.stopping)throw velaError('E_PLUGIN_STOPPED','插件已停用。');if(typeof fn!=='function')throw velaError('E_INVALID_DATA','页面监听器无效。');set.add(fn);return ()=>set.delete(fn);};Object.assign(page,{container:page,body,content:body,show(){if(resources.stopping)throw velaError('E_PLUGIN_STOPPED','插件已停用。');if(page.hidden){page.hidden=false;notify(visible);}},hide(){if(!page.hidden){page.hidden=true;for(const [target,id] of pointers)try{target.releasePointerCapture(id);}catch{}pointers.clear();notify(hidden);}},settitle(value){h.textContent=value;},onVisible:fn=>on(visible,fn),onHide:fn=>on(hidden,fn),onBeforeClose:fn=>on(beforeClose,fn)});const requestClose=async()=>{if(resources.stopping)throw velaError('E_PLUGIN_STOPPED','插件已停用。');close.disabled=true;try{const allow=await bounded((async()=>{for(const fn of beforeClose)if(await fn()===false)return false;return true;})(),5000,'页面关闭检查超时');if(!allow)return false;page.hide();return true;}catch(cause){host.fail(cause);return false;}finally{close.disabled=false;}};page.close=requestClose;page.destroy=()=>{page.hide();document.removeEventListener('visibilitychange',visibility);page.remove();visible.clear();hidden.clear();beforeClose.clear();};close.onclick=requestClose;const visibility=()=>{if(!page.hidden)notify(document.hidden?hidden:visible);};document.addEventListener('visibilitychange',visibility);page.addEventListener('gotpointercapture',e=>pointers.add([e.target,e.pointerId]));resources.disposers.push(()=>{page.hide();document.removeEventListener('visibilitychange',visibility);visible.clear();hidden.clear();beforeClose.clear();});document.body.append(page);resources.nodes.push(page);return page;}
     }
     const codemirror=Object.freeze({state,view,commands,language,search,autocomplete});
     this.modules=new Map(Object.entries({codemirror,commands:commandApi,settings:this.settings,page:Page,
@@ -55,7 +56,7 @@ export class PluginRuntime {
     const register=(map,id,fn)=>{if(id!==this.loadingId)throw new Error('插件注册 id 与 plugin.json 不一致。');if(typeof fn!=='function')throw new Error('插件生命周期必须是函数。');map.set(id,fn);};
     window.editorManager=this.manager;
     window.acode={
-      require:name=>{if(name==='vela')return this.service(this.loadingId);if(!this.modules.has(name))throw new Error(`文舟尚未支持 Acode 模块：${name}。`);return this.modules.get(name);},
+      require:name=>{if(name==='vela')return this.service(this.loadingId);if(name==='page'){const owner=this.loadingId;return class extends Page{constructor(title){super(title,owner);}};}if(!this.modules.has(name))throw new Error(`文舟尚未支持 Acode 模块：${name}。`);return this.modules.get(name);},
       define:(name,module)=>{if(!this.loadingId||typeof name!=='string'||!name||name.length>160)throw Error('请在插件初始化期间注册有效模块名称。');if(this.modules.has(name)&&this.moduleOwners.get(name)!==this.loadingId)throw Error('模块已由宿主或其他插件提供：'+name);this.modules.set(name,module);this.moduleOwners.set(name,this.loadingId);},
       setPluginInit:(id,fn,settings)=>{register(this.initializers,id,fn);if(settings)this.settingsPages.set(id,settings);},
       setPluginUnmount:(id,fn)=>register(this.unmounts,id,fn),
@@ -77,8 +78,9 @@ export class PluginRuntime {
   }
   enqueue(task){const next=this.queue.then(task);this.queue=next.catch(()=>{});return next;}
   extensions(){return [...this.running.values()].flatMap(item=>[...item.extensions.values()]);}
-  service(id){if(!id||!this.running.has(id))throw new Error('请在插件初始化期间获取 vela API');const runtime=this,resources=this.running.get(id),alive=()=>{if(runtime.running.get(id)!==resources)throw new Error('插件已停止');};
-    return Object.freeze({version:2,platform:window.WenzhouNative?.platform||'browser',capabilities:Object.freeze(['editor-extensions','completion','documents','configuration-v2','chapters','local-history','tex']),
+  service(id){if(!id||!this.running.has(id))throw new Error('请在插件初始化期间获取 vela API');const runtime=this,resources=this.running.get(id),alive=()=>{if(runtime.running.get(id)!==resources||resources.stopping)throw velaError('E_PLUGIN_STOPPED','插件已停用。');};
+    resources.project||=this.host.projects?.bind(id,this.records.find(p=>p.manifest.id===id)?.manifest.name||id);
+    return Object.freeze({...resources.project?.api,version:3,platform:this.host.projects?.host.platform||window.WenzhouNative?.platform||'browser',capabilities:Object.freeze(['editor-extensions','completion','documents','configuration-v2','chapters','local-history','tex',...(this.host.projects?.featureNames()||[])]),
       addExtension(extension){alive();const key=Symbol();resources.extensions.set(key,extension);runtime.host.refreshCommands();return ()=>{resources.extensions.delete(key);runtime.host.refreshCommands();};},
       addCompletion(source,kinds=[]){alive();const dispose=registerCompletion(id,source,kinds);resources.disposers.push(dispose);return dispose;},
       on(event,fn){alive();runtime.manager.on(event,fn);const dispose=()=>runtime.manager.off(event,fn);resources.disposers.push(dispose);return dispose;},
@@ -90,7 +92,7 @@ export class PluginRuntime {
       getConfig(fileId){alive();const doc=runtime.host.getFiles().find(doc=>doc.id===fileId);if(!doc)throw Error('文稿不存在');return JSON.parse(JSON.stringify(runtime.host.configuration(doc)||{}));},
       getChapters(fileId){alive();const doc=runtime.host.getFiles().find(doc=>doc.id===fileId);if(!doc)throw Error('文稿不存在');return structuredClone(runtime.host.chapters(doc));},
       compileTex:async(fileId,options={})=>{alive();if(runtime.loadingId===id)throw new Error('请在初始化完成后的用户操作中编译');const doc=runtime.host.getFiles().find(doc=>doc.id===fileId);if(!doc)throw new Error('文稿不存在');const controller=new AbortController(),cancel=()=>controller.abort();resources.disposers.push(cancel);options.signal?.addEventListener('abort',cancel,{once:true});try{return await runtime.host.compileTex(doc,{engine:options.engine||'xetex',onLog:options.onLog,signal:controller.signal});}finally{options.signal?.removeEventListener('abort',cancel);resources.disposers=resources.disposers.filter(fn=>fn!==cancel);}},
-      getSettings:()=>structuredClone(runtime.records.find(record=>record.manifest.id===id)?.settings||{}),
+      getSettings:()=>{alive();return structuredClone(runtime.records.find(record=>record.manifest.id===id)?.settings||{});},
       updateSettings(value){alive();const record=runtime.records.find(record=>record.manifest.id===id),previous=record.settings;record.settings={...record.settings,...value};try{runtime.save();}catch(error){record.settings=previous;throw error;}},
       dispose(fn){alive();if(typeof fn!=='function')throw new Error('清理器必须是函数');resources.disposers.push(fn);return fn;}
     });
@@ -133,6 +135,7 @@ export class PluginRuntime {
   }
   async load(record) {
     const id=record.manifest.id;if(this.running.has(id))return;
+    checkPluginCompatibility(record.manifest,3,['editor-extensions','completion','documents','configuration-v2','chapters','local-history','tex',...(this.host.projects?.featureNames()||[])]);
     const resources={urls:[],nodes:[],page:null,extensions:new Map(),disposers:[]};this.running.set(id,resources);this.loadingId=id;
     try {
       if(isTexPackage(record)){record.enabled=true;record.error='';return;}
@@ -160,6 +163,7 @@ export class PluginRuntime {
   }
   async unload(id) {
     const resources=this.running.get(id);if(!resources)return;
+    resources.stopping=true;try{await resources.project?.stop();}catch(error){this.host.fail(error);}
     try{await bounded(this.unmounts.get(id)?.(),5000,'插件卸载超时');}catch(error){this.host.fail(error);}finally{
       for(const dispose of resources.disposers)try{dispose();}catch(error){this.host.fail(error);}this.manager.cleanup(id);this.settings.cleanup(id);removeCompletions(id);
       for(const node of resources.nodes)node.remove();for(const url of resources.urls)URL.revokeObjectURL(url);
