@@ -22,11 +22,10 @@ export class UIShell {
     this.toggle.setAttribute('aria-expanded','false');this.toggle.setAttribute('aria-controls',this.menu.id);
     this.toggle.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>';
     global.append(this.toggle);document.querySelector('.topbar').append(global);
-    this.secondary=['home-button','commands','add-glossary','plugins','export-doc'].map(id=>document.getElementById(id));
-    for(const button of this.secondary){const label=document.createElement('span');label.className='menu-label';label.textContent=button.getAttribute('aria-label');button.append(label);}
-    for(const button of document.querySelectorAll('.page-navigation button')) {
-      const label=document.createElement('span');label.className='nav-label';label.textContent=button.dataset.view==='github'?'GitHub':button.title;button.append(label);
-    }
+    this.secondary=['home-button','focus-toggle','theme','commands','add-glossary','plugins','export-doc'].map(id=>document.getElementById(id));
+    this.contextual=['search-editor','outline-toggle'].map(id=>document.getElementById(id));
+    this.allTools=[...this.contextual,...this.secondary];
+    for(const button of this.allTools){const label=document.createElement('span');label.className='menu-label';label.textContent=button.getAttribute('aria-label');button.append(label);}
     this.toggle.onclick=()=>this.menu.hidden?this.open():this.close(true);
     this.menu.addEventListener('click',event=>{if(event.target.closest('button'))this.close();});
     document.addEventListener('pointerdown',event=>{if(!this.menu.contains(event.target)&&!this.toggle.contains(event.target))this.close();});
@@ -34,7 +33,7 @@ export class UIShell {
       if(this.menu.hidden)return;
       if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();this.close(true);return;}
       if(['ArrowDown','ArrowUp','Home','End'].includes(event.key)){
-        event.preventDefault();const items=this.secondary.filter(button=>!button.disabled),index=items.indexOf(document.activeElement);
+        event.preventDefault();const items=[...this.menu.querySelectorAll('button')].filter(button=>!button.disabled),index=items.indexOf(document.activeElement);
         const next=event.key==='Home'?0:event.key==='End'?items.length-1:(index+(event.key==='ArrowDown'?1:-1)+items.length)%items.length;
         items[next]?.focus();
       }
@@ -42,14 +41,28 @@ export class UIShell {
     window.addEventListener('resize',()=>this.layout());
     this.environment(environment);
   }
-  environment(value){document.body.dataset.ui=platformProfile(value,location.search);this.layout();}
+  environment(value){this.value=value;document.body.dataset.ui=platformProfile(value,location.search);this.layout();}
   layout(){
-    this.close();const compact=innerWidth<=900;
-    for(const button of this.secondary){(compact?this.menu:this.toolbar).append(button);if(compact)button.setAttribute('role','menuitem');else button.removeAttribute('role');}
-    this.toggle.hidden=!compact;
+    this.close();
+    for(const button of this.secondary){this.menu.append(button);button.setAttribute('role','menuitem');}
+    for(const button of this.contextual){(innerWidth<=600?this.menu:this.toolbar).append(button);if(innerWidth<=600)button.setAttribute('role','menuitem');else button.removeAttribute('role');}
+    this.toggle.hidden=false;
+    this.readingInsets();
     document.querySelector('#app').style.setProperty('--shell-top',document.querySelector('.topbar').offsetHeight+'px');
   }
-  open(){this.menu.hidden=false;this.toggle.setAttribute('aria-expanded','true');this.secondary[0]?.focus();}
+  readingInsets(){
+    const style=document.documentElement.style,left=Number(this.value?.left)||0,right=Number(this.value?.right)||0,width=innerWidth-left-right;
+    const cutout=this.value?.cutouts?.find(rect=>rect.top<80&&rect.right>left&&rect.left<innerWidth-right);
+    let gap=innerWidth<=600?48:0,start=(width-gap)/2,padding=0;
+    if(cutout){
+      start=Math.max(0,cutout.left-left-12);gap=cutout.right-cutout.left+24;
+      if(start<90||width-start-gap<132){padding=Math.max(0,cutout.bottom)+4;gap=0;start=width/2;}
+    }
+    style.setProperty('--reader-left-width',start+'px');style.setProperty('--reader-notch-width',gap+'px');
+    style.setProperty('--reader-header-padding',padding+'px');
+    style.setProperty('--reader-header-height',Math.max(44,Number(this.value?.top)||0,padding+44,cutout?cutout.bottom+4:0)+'px');
+  }
+  open(){this.menu.hidden=false;this.toggle.setAttribute('aria-expanded','true');this.menu.querySelector('button:not(:disabled)')?.focus();}
   close(focus=false){this.menu.hidden=true;this.toggle.setAttribute('aria-expanded','false');if(focus)this.toggle.focus();}
 }
 

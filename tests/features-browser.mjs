@@ -65,13 +65,13 @@ try{
     const state=await saved(w);assert.equal(parseCsv(state.documents.find(d=>d.name==='角色.csv').text)[1][1],'逗号,引号"与\n换行');
     await w.locator('#quick-undo').click();assert.equal(await cell.inputValue(),'引号"内容\n第二行');await w.locator('#quick-redo').click();assert.equal(await cell.inputValue(),'逗号,引号"与\n换行');
     await w.locator('#csv-add-row').click();await w.locator('#csv-add-column').click();assert.equal(await w.locator('tbody tr').count(),4);assert.equal(await w.locator('thead th').count(),4);
-    await w.locator('#preview-toggle').click();assert.equal(await w.locator('#editor').isVisible(),true);assert.ok((await w.locator('.cm-content').innerText()).includes('逗号'));
+    await w.locator('[data-display=source]').click();assert.equal(await w.locator('#editor').isVisible(),true);assert.ok((await w.locator('.cm-content').innerText()).includes('逗号'));
   });
   await check('HTML 扩展名保持不变，预览与原生桥接隔离，脚本和外部资源不执行',async()=>{
     let remoteRequests=0;await w.route('https://example.invalid/**',r=>{remoteRequests++;r.abort();});
     await importFile(w,'简介.html','<h1>人物设定</h1><table><tr><td>甲</td></tr></table><script>window.parent.__htmlExecuted=true</script><img src="https://example.invalid/x.png"><iframe></iframe>');
-    await w.locator('#preview-toggle').click();const frame=w.frameLocator('#preview iframe');await frame.locator('h1').waitFor();assert.equal(await frame.locator('h1').innerText(),'人物设定');assert.equal(await frame.locator('script,iframe').count(),0);assert.equal(await w.evaluate(()=>window.__htmlExecuted),undefined);assert.equal(remoteRequests,0);
-    assert.ok((await saved(w)).documents.some(d=>d.name==='简介.html'));await w.locator('#preview-toggle').click();
+    await w.locator('[data-display=preview]').click();const frame=w.frameLocator('#preview iframe');await frame.locator('h1').waitFor();assert.equal(await frame.locator('h1').innerText(),'人物设定');assert.equal(await frame.locator('script,iframe').count(),0);assert.equal(await w.evaluate(()=>window.__htmlExecuted),undefined);assert.equal(remoteRequests,0);
+    assert.ok((await saved(w)).documents.some(d=>d.name==='简介.html'));await w.locator('[data-display=source]').click();
   });
   await check('双指缩放与 Ctrl 加减号只改变文字字号，工具栏与页面缩放比例不变',async()=>{
     const before=await w.locator('#quick-save').boundingBox();const font=await w.locator('.cm-editor').evaluate(el=>parseFloat(getComputedStyle(el).fontSize));
@@ -92,19 +92,19 @@ try{
   });
   const writerZip=zipSync({'plugin.json':new Uint8Array(await readFile('vendor/acode-writer/plugin.json')),'main.js':new Uint8Array(await readFile('vendor/acode-writer/main.js'))});
   await check('真实 Acode Writer 1.0.4 ZIP 可安装并运行，命令注册、停用和重启加载正常',async()=>{
-    await w.locator('[data-tab="book"]').click();await w.locator('#plugins').click();await w.locator('#plugin-input').setInputFiles({name:'Writer-1.0.4.zip',mimeType:'application/zip',buffer:Buffer.from(writerZip)});
+    await w.locator('[data-tab="book"]').click();await w.locator('#more-tools').click();await w.locator('#plugins').click();await w.locator('#plugin-input').setInputFiles({name:'Writer-1.0.4.zip',mimeType:'application/zip',buffer:Buffer.from(writerZip)});
     await w.waitForSelector('.aw-bar');assert.equal(await w.locator('.plugin-card').count(),1);assert.equal(await w.locator('#dialog-error').innerText(),'');
-    await w.locator('#dialog-cancel').click();await w.locator('#commands').click();assert.ok((await w.locator('#command-list').innerText()).includes('写作：章节目录'));await w.locator('#dialog-cancel').click();
-    await w.locator('#plugins').click();await w.locator('[data-plugin-enable]').click();assert.equal(await w.locator('.aw-bar').count(),0);await w.locator('[data-plugin-enable]').click();await w.waitForSelector('.aw-bar');assert.equal(await w.locator('.aw-bar').count(),1);await w.locator('#dialog-cancel').click();
-    await w.reload();await w.waitForSelector('.aw-bar');assert.equal(await w.locator('.aw-bar').count(),1);await w.locator('#plugins').click();await w.locator('[data-plugin-remove]').click();assert.equal(await w.locator('.aw-bar').count(),0);await w.locator('#dialog-cancel').click();
+    await w.locator('#dialog-cancel').click();await w.locator('#more-tools').click();await w.locator('#commands').click();assert.ok((await w.locator('#command-list').innerText()).includes('写作：章节目录'));await w.locator('#dialog-cancel').click();
+    await w.locator('#more-tools').click();await w.locator('#plugins').click();await w.locator('[data-plugin-enable]').click();assert.equal(await w.locator('.aw-bar').count(),0);await w.locator('[data-plugin-enable]').click();await w.waitForSelector('.aw-bar');assert.equal(await w.locator('.aw-bar').count(),1);await w.locator('#dialog-cancel').click();
+    await w.reload();await w.waitForSelector('.aw-bar');assert.equal(await w.locator('.aw-bar').count(),1);await w.locator('#more-tools').click();await w.locator('#plugins').click();await w.locator('[data-plugin-remove]').click();assert.equal(await w.locator('.aw-bar').count(),0);await w.locator('#dialog-cancel').click();
   });
   await check('Acode 插件包内脚本、CSS、资源、编辑命令与卸载清理可用',async()=>{
     const id='com.example.compat';
     const code=`let node;acode.setPluginInit('${id}',async(base)=>{const link=document.createElement('link');link.rel='stylesheet';link.href=base+'style.css';document.head.append(link);window.__pluginLink=link;const data=await fetch(base+'data.json').then(r=>r.json());node=document.createElement('div');node.className='fixture-plugin';node.textContent=data.text;document.body.append(node);acode.require('commands').addCommand({name:'${id}.insert',description:'测试：插入',exec:()=>{const v=editorManager.editor;v.dispatch(v.state.replaceSelection('插件内容'));}});});acode.setPluginUnmount('${id}',()=>{node?.remove();window.__pluginLink?.remove();});`;
     const bytes=zipSync({'plugin.json':strToU8(JSON.stringify({id,name:'兼容测试',version:'1.0.0',main:'main.js'})),'main.js':strToU8(code),'style.css':strToU8('.fixture-plugin{position:fixed;top:100px;right:10px;color:rgb(1,2,3)}'),'data.json':strToU8('{"text":"包内资源已加载"}')});
-    await w.locator('#plugins').click();await w.locator('#plugin-input').setInputFiles({name:'compat.zip',mimeType:'application/zip',buffer:Buffer.from(bytes)});await w.waitForSelector('.fixture-plugin');assert.equal(await w.locator('.fixture-plugin').innerText(),'包内资源已加载');await w.waitForFunction(()=>getComputedStyle(document.querySelector('.fixture-plugin')).color==='rgb(1, 2, 3)');await w.locator('#dialog-cancel').click();
-    await w.locator('#quick-top').click();await w.locator('#commands').click();await w.locator('#command-search').fill('测试：插入');await w.locator('.command-item').click();assert.ok((await saved(w)).documents.find(d=>d.id==='book').text.startsWith('插件内容'));
-    await w.locator('#plugins').click();await w.locator('[data-plugin-remove]').click();assert.equal(await w.locator('.fixture-plugin').count(),0);await w.locator('#dialog-cancel').click();
+    await w.locator('#more-tools').click();await w.locator('#plugins').click();await w.locator('#plugin-input').setInputFiles({name:'compat.zip',mimeType:'application/zip',buffer:Buffer.from(bytes)});await w.waitForSelector('.fixture-plugin');assert.equal(await w.locator('.fixture-plugin').innerText(),'包内资源已加载');await w.waitForFunction(()=>getComputedStyle(document.querySelector('.fixture-plugin')).color==='rgb(1, 2, 3)');await w.locator('#dialog-cancel').click();
+    await w.locator('#quick-top').click();await w.locator('#more-tools').click();await w.locator('#commands').click();await w.locator('#command-search').fill('测试：插入');await w.locator('.command-item').click();assert.ok((await saved(w)).documents.find(d=>d.id==='book').text.startsWith('插件内容'));
+    await w.locator('#more-tools').click();await w.locator('#plugins').click();await w.locator('[data-plugin-remove]').click();assert.equal(await w.locator('.fixture-plugin').count(),0);await w.locator('#dialog-cancel').click();
   });
   await check('Vela 插件扩展、补全和事件跨文件切换，卸载异常仍完成清理',async()=>{
     const main=`acode.setPluginInit('test.vela.lifecycle',()=>{const vela=acode.require('vela'),{EditorView}=acode.require('@codemirror/view');vela.addExtension(EditorView.theme({'.cm-content':{color:'rgb(17, 88, 33)'}}));vela.addCompletion(context=>({from:context.pos,options:[{label:'vela-plugin-completion'}]}));vela.on('file-content-changed',()=>window.velaEventCount=(window.velaEventCount||0)+1);vela.dispose(()=>window.velaDisposed=true);});acode.setPluginUnmount('test.vela.lifecycle',()=>{throw Error('fixture unmount error');});`;
@@ -112,14 +112,14 @@ try{
     await w.locator('#plugin-input').setInputFiles({name:'lifecycle.zip',mimeType:'application/zip',buffer:Buffer.from(bytes)});await w.waitForFunction(()=>getComputedStyle(document.querySelector('.cm-content')).color==='rgb(17, 88, 33)');await w.locator('#dialog-cancel').click();
     await w.evaluate(()=>{const editor=editorManager.editor;editor.dispatch({changes:{from:editor.state.doc.length,insert:'x'}});editor.focus();});assert.equal(await w.evaluate(()=>window.velaEventCount),1);await w.keyboard.press('Control+Space');await w.waitForFunction(()=>document.querySelector('.cm-tooltip-autocomplete')?.textContent.includes('vela-plugin-completion'));await w.keyboard.press('Escape');
     const ids=await w.locator('[data-tab]').evaluateAll(items=>items.map(item=>item.dataset.tab));const alternate=ids.find(id=>id!=='book');if(alternate){await w.locator(`[data-tab="${alternate}"]`).click();await w.locator('[data-tab=book]').click();}
-    await w.locator('#plugins').click();await w.locator('.plugin-card').filter({hasText:'Lifecycle'}).locator('[data-plugin-remove]').click();await w.waitForFunction(()=>window.velaDisposed===true);await w.locator('#dialog-cancel').click();assert.notEqual(await w.locator('.cm-content').evaluate(el=>getComputedStyle(el).color),'rgb(17, 88, 33)');
+    await w.locator('#more-tools').click();await w.locator('#plugins').click();await w.locator('.plugin-card').filter({hasText:'Lifecycle'}).locator('[data-plugin-remove]').click();await w.waitForFunction(()=>window.velaDisposed===true);await w.locator('#dialog-cancel').click();assert.notEqual(await w.locator('.cm-content').evaluate(el=>getComputedStyle(el).color),'rgb(17, 88, 33)');
     if(alternate){await w.locator(`[data-tab="${alternate}"]`).click();await w.locator('[data-tab=book]').click();assert.notEqual(await w.locator('.cm-content').evaluate(el=>getComputedStyle(el).color),'rgb(17, 88, 33)');}
     await w.evaluate(()=>{const editor=editorManager.editor;editor.dispatch({changes:{from:editor.state.doc.length,insert:'y'}});});assert.equal(await w.evaluate(()=>window.velaEventCount),1);
   });
   await check('未实现的插件接口给出具体加载原因，停用记录在重启后保留',async()=>{
     const bytes=zipSync({'plugin.json':strToU8(JSON.stringify({id:'com.example.unsupported',name:'依赖检查',version:'1.0.0',main:'main.js'})),'main.js':strToU8('acode.require("terminal");')});
-    await w.locator('#plugins').click();await w.locator('#plugin-input').setInputFiles({name:'unsupported.zip',mimeType:'application/zip',buffer:Buffer.from(bytes)});await w.waitForFunction(()=>document.querySelector('#dialog-error').textContent.includes('terminal'));await w.locator('#dialog-cancel').click();
-    await w.reload();await w.waitForSelector('.cm-editor');await w.locator('#plugins').click();assert.ok((await w.locator('.plugin-card .error').innerText()).includes('terminal'));await w.locator('[data-plugin-remove]').click();await w.locator('#dialog-cancel').click();
+    await w.locator('#more-tools').click();await w.locator('#plugins').click();await w.locator('#plugin-input').setInputFiles({name:'unsupported.zip',mimeType:'application/zip',buffer:Buffer.from(bytes)});await w.waitForFunction(()=>document.querySelector('#dialog-error').textContent.includes('terminal'));await w.locator('#dialog-cancel').click();
+    await w.reload();await w.waitForSelector('.cm-editor');await w.locator('#more-tools').click();await w.locator('#plugins').click();assert.ok((await w.locator('.plugin-card .error').innerText()).includes('terminal'));await w.locator('[data-plugin-remove]').click();await w.locator('#dialog-cancel').click();
   });
   await w.screenshot({path:'test-results/features-desktop.png'});
   await check('鸿蒙系统主题与安全区变化更新页面，原生双指缩放只调整字号',async()=>{

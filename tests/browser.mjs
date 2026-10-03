@@ -23,7 +23,7 @@ async function check(name,fn){await fn();results.push(name);console.log('PASS '+
 const context=await browser.newContext({viewport:{width:1440,height:900}});
 await context.addInitScript(data=>{if(!localStorage.getItem('wenzhou.workspace'))localStorage.setItem('wenzhou.workspace',JSON.stringify(data));},seed);
 const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
-const click=id=>page.locator('#'+id).click();
+const click=async id=>{if(await page.locator('#toolbar-overflow #'+id).count())await page.locator('#more-tools').click();await page.locator('#'+id).click();};
 const cursor=()=>page.locator('#cursor-position').textContent();
 const content=()=>page.locator('.cm-content').innerText();
 const waitText=async(selector,text)=>{await page.waitForFunction(({selector,text})=>document.querySelector(selector)?.textContent.includes(text),{selector,text});};
@@ -129,8 +129,8 @@ try{
       await m.locator('#'+id).scrollIntoViewIfNeeded();const rect=await m.locator('#'+id).boundingBox();assert.ok(rect.x>=0&&rect.x+rect.width<=390.5,id);
     }
     await m.locator('#mobile-library').click();assert.equal(await m.locator('#library').isVisible(),true);await m.locator('#mobile-library').click();
-    await m.locator('#outline-toggle').click();await m.locator('[data-row="5"]').click();assert.equal(await m.locator('#cursor-position').textContent(),'行 6，列 1');await m.locator('#outline').waitFor({state:'hidden'});assert.equal(await m.locator('#outline').isVisible(),false);
-    await m.locator('#theme').click();assert.equal(await m.locator('body').evaluate(el=>el.classList.contains('dark')),false);assert.equal(await m.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
+    await m.locator('#more-tools').click();await m.locator('#outline-toggle').click();await m.locator('[data-row="5"]').click();assert.equal(await m.locator('#cursor-position').textContent(),'行 6，列 1');await m.locator('#outline').waitFor({state:'hidden'});assert.equal(await m.locator('#outline').isVisible(),false);
+    await m.locator('#more-tools').click();await m.locator('#theme').click();assert.equal(await m.locator('body').evaluate(el=>el.classList.contains('dark')),false);assert.equal(await m.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   });
   await m.screenshot({path:'test-results/mobile.png'});await mobile.close();
   // A 600,000-character novel checks virtualization and jumping across hundreds of chapters.

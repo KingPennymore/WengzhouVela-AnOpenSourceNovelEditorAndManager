@@ -21,7 +21,7 @@ const invoke=async(op,payload={})=>{
   const result=await p.evaluate(async({op,payload})=>JSON.parse(await window.WenzhouNative.call(op,JSON.stringify(payload))),{op,payload});
   if(!result.ok)throw new Error(result.error);return result.value;
 };
-async function nav(name){if(await p.locator('body').evaluate(el=>el.classList.contains('reader-open')&&!el.classList.contains('reader-chrome-visible'))){await p.waitForTimeout(220);const box=await p.locator('.reader-viewport').boundingBox();await p.mouse.click(box.x+box.width/2,box.y+box.height/2);await p.waitForFunction(()=>document.body.classList.contains('reader-chrome-visible'));await p.waitForTimeout(180);}await p.locator(`[data-view=${name}]`).click();}
+async function nav(name){if(await p.locator('body').evaluate(el=>el.classList.contains('reader-open')))await p.locator('#reader-back').click();await p.locator(`[data-view=${name}]`).click();}
 const saved=()=>p.evaluate(()=>{if(!window.wenzhouSave())throw Error('Native save failed');return JSON.parse(window.WenzhouNative.readWorkspace());});
 const prefix='移植验证-'+Date.now();
 try{
@@ -44,7 +44,7 @@ try{
   await check('系统深浅模式实时跟随，手动主题保留',async()=>{
     adb('shell','cmd','uimode','night','yes');await p.waitForFunction(()=>document.body.classList.contains('dark'));
     adb('shell','cmd','uimode','night','no');await p.waitForFunction(()=>!document.body.classList.contains('dark'));
-    await p.locator('#theme').click();const mode=(await saved()).settings.theme;adb('shell','cmd','uimode','night','yes');assert.equal((await saved()).settings.theme,mode);
+    await p.locator('#more-tools').click();await p.locator('#theme').click();const mode=(await saved()).settings.theme;adb('shell','cmd','uimode','night','yes');assert.equal((await saved()).settings.theme,mode);
     adb('shell','cmd','uimode','night','no');
   });
   const png='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
@@ -58,7 +58,7 @@ try{
     await p.locator('#mobile-library').click();const state=await saved(),csv=state.documents.find(d=>d.path===prefix+'/人物.CSV');
     await p.locator(`[data-doc="${csv.id}"]`).click();await p.locator('#preview table').waitFor();await p.locator('[data-cell-row="1"][data-cell-column="0"]').fill('乙');assert.match((await saved()).documents.find(d=>d.id===csv.id).text,/乙/);
     const md=state.documents.find(d=>d.path===prefix+'/设定.md');await p.locator(`[data-doc="${md.id}"]`).click();assert.equal(await p.locator('#markdown-tools').isVisible(),true);
-    await p.locator('#preview-toggle').click();await p.locator('#preview img').waitFor();assert.equal(await p.locator('body').evaluate(b=>b.classList.contains('show-library')),true);
+    await p.locator('[data-display=preview]').click();await p.locator('#preview img').waitFor();assert.equal(await p.locator('body').evaluate(b=>b.classList.contains('show-library')),true);
     await p.locator('#mobile-library').click();
   });
   await check('嵌入与独立 HTML 预览：保留编辑区、本地资源、源码状态及脚本隔离',async()=>{
@@ -129,7 +129,7 @@ try{
   });
   await check('Android WebView 本地 XeLaTeX 中文编译、PDF 渲染与宏包持久化',async()=>{
     await saved();const source=String.raw`\documentclass{ctexart}\begin{document}\section{文舟}中文 PDF。\end{document}`;
-    const folder=await invoke('writeWorkspaceFiles',{files:[{path:prefix+'/main.tex',data:Buffer.from(source).toString('base64')}]});await p.reload();await p.waitForSelector('.cm-editor',{state:'attached'});if(!await p.locator('#library').isVisible())await p.locator('#mobile-library').click();const doc=(await saved()).documents.find(doc=>doc.path===prefix+'/main.tex');await p.locator(`[data-doc="${doc.id}"]`).click();await p.locator('#preview-toggle').click();await p.locator('.tex-compile').click();await p.waitForFunction(()=>!document.querySelector('.tex-compile').disabled,{},{timeout:180000});await writeFile('test-results/android-tex.log',await p.locator('.tex-log pre').textContent());assert.equal(await p.locator('.tex-status').textContent(),'编译完成');assert.ok(await p.locator('.pdf-canvas canvas').evaluate(canvas=>canvas.width>0));assert.match(await p.evaluate(()=>window.WenzhouNative.readPlugins()),/vela.tex.cjk/);await p.screenshot({path:'test-results/android-tex.png'});
+    const folder=await invoke('writeWorkspaceFiles',{files:[{path:prefix+'/main.tex',data:Buffer.from(source).toString('base64')}]});await p.reload();await p.waitForSelector('.cm-editor',{state:'attached'});if(!await p.locator('#library').isVisible())await p.locator('#mobile-library').click();const doc=(await saved()).documents.find(doc=>doc.path===prefix+'/main.tex');await p.locator(`[data-doc="${doc.id}"]`).click();await p.locator('[data-display=preview]').click();await p.locator('.tex-compile').click();await p.waitForFunction(()=>!document.querySelector('.tex-compile').disabled,{},{timeout:180000});await writeFile('test-results/android-tex.log',await p.locator('.tex-log pre').textContent());assert.equal(await p.locator('.tex-status').textContent(),'编译完成');assert.ok(await p.locator('.pdf-canvas canvas').evaluate(canvas=>canvas.width>0));assert.match(await p.evaluate(()=>window.WenzhouNative.readPlugins()),/vela.tex.cjk/);await p.screenshot({path:'test-results/android-tex.png'});
   });
   await check('进程退出后文稿、主题和插件重新加载',async()=>{
     const before=await saved();await device.close();deviceClosed=true;adb('shell','am','force-stop','me.wenzhou.write');adb('shell','am','start','-W','-n','me.wenzhou.write/.MainActivity');

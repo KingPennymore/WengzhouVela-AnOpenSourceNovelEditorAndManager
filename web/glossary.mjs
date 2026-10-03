@@ -50,7 +50,7 @@ export function glossaryCompletion(context,entries){
     if(!length&&!context.explicit)continue;
     const start=context.pos-length;if(options.length&&start!==from){if(start>from)continue;options.length=0;}from=start;
     const names=(entry.sources||[entry.source]).filter(Boolean).map(path=>path.split('/').at(-1));
-    options.push({label,apply:entry.term,type:'text',boost:99,detail:[names.join(' · ')||t('术语库'),entry.category].filter(Boolean).join(' · '),info:entry.definitions?.map(item=>item.source+(item.text?'\n'+item.text:'')).join('\n\n')||entry.definition||entry.term});
+    options.push({label,apply:entry.term,type:'text',velaKind:'term',boost:99,detail:[names.join(' · ')||t('术语库'),entry.category].filter(Boolean).join(' · '),info:entry.definitions?.map(item=>item.source+(item.text?'\n'+item.text:'')).join('\n\n')||entry.definition||entry.term});
     if(options.length>=200)return {from,options,validFor:/^[\p{L}\p{N}_ \u3000'-]*$/u};
   }}
   return options.length?{from,options,validFor:/^[\p{L}\p{N}_ \u3000'-]*$/u}:null;

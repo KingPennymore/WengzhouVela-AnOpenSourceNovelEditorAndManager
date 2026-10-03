@@ -1,7 +1,7 @@
 /* Platform chrome shares layout tokens; document typography stays independent. */
 :root{--control:36px;--radius:8px;--shell-top:52px;--footer-height:80px;--ui-font:13px;--panel-spacing:16px;--ui-shadow:0 12px 36px #0002}
 .cm-tooltip-autocomplete,.cm-tooltip.cm-completionInfo{font-family:"HarmonyOS Sans SC","Segoe UI","Microsoft YaHei",sans-serif;font-size:12px!important;line-height:1.5!important;border:1px solid var(--line)!important;border-radius:var(--radius);background:var(--paper)!important;color:var(--text)!important;box-shadow:var(--ui-shadow)}
-.cm-tooltip-autocomplete>ul{font:inherit!important;max-height:220px!important;max-width:min(440px,calc(100vw - 24px))!important}.cm-tooltip-autocomplete>ul>li{padding:5px 8px!important;font-size:12px!important;line-height:1.5!important;white-space:normal!important;overflow-wrap:anywhere}.cm-tooltip-autocomplete>ul>li[aria-selected]{background:var(--soft)!important;color:var(--accent)!important}.cm-tooltip-autocomplete .cm-completionDetail{font-size:11px!important;font-style:normal;color:var(--muted);margin-left:10px}.cm-completionInfo{max-width:min(360px,calc(100vw - 24px));white-space:pre-wrap;padding:10px}
+.cm-tooltip-autocomplete>ul{font:inherit!important;max-height:220px!important;max-width:min(440px,calc(100vw - 24px))!important}.cm-tooltip-autocomplete>ul>li{padding:5px 8px!important;font-size:12px!important;line-height:1.5!important;display:flex!important;align-items:center;gap:8px;white-space:nowrap!important;overflow:hidden;max-width:100%;height:28px;box-sizing:border-box}.cm-tooltip-autocomplete>ul>li[aria-selected]{background:var(--soft)!important;color:var(--accent)!important}.cm-tooltip-autocomplete .cm-completionDetail{font-size:11px!important;font-style:normal;color:var(--muted);margin-left:0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cm-completionInfo{max-width:min(360px,calc(100vw - 24px));white-space:pre-wrap;padding:10px}
 body{font-family:"HarmonyOS Sans SC","Segoe UI","Microsoft YaHei",sans-serif;font-size:var(--ui-font)}
 body[data-ui="windows"]{--control:34px;--radius:6px;--panel-spacing:12px;--ui-font:12px}
 body[data-ui="harmonyos"]{--control:44px;--radius:12px;--panel-spacing:18px;--ui-font:14px}
@@ -11,7 +11,7 @@ button:disabled{opacity:.45}button svg{width:20px;height:20px;flex-shrink:0;stro
 .topbar{height:auto;min-height:calc(var(--control) + 16px);display:grid;grid-template-columns:minmax(0,1fr) auto auto;gap:8px;padding:8px 12px;background:var(--paper)}
 .breadcrumb{gap:8px;font-size:var(--ui-font);overflow:hidden}.breadcrumb>button,.page-navigation button,.toolbar button,.global-tools button{width:var(--control);height:var(--control);flex-shrink:0;color:var(--muted)}
 .page-navigation{display:flex;gap:4px;flex-shrink:0}.page-navigation .nav-item{width:var(--control);height:var(--control)}.page-navigation button.active{color:var(--accent);background:var(--soft)}
-.nav-separator{height:22px;border-left:1px solid var(--line);margin:0 2px}.nav-label{display:none}.app-name{font-size:12px;white-space:nowrap}.breadcrumb strong{font-size:12px;min-width:0}.global-tools{display:flex;gap:4px;padding-left:8px;border-left:1px solid var(--line)}
+.nav-separator{height:22px;border-left:1px solid var(--line);margin:0 2px}.app-name{font-size:12px;white-space:nowrap}.breadcrumb strong{font-size:12px;min-width:0}.global-tools{display:flex;gap:4px;padding-left:8px;border-left:1px solid var(--line)}
 .toolbar{gap:2px}.toolbar>button{color:var(--muted);flex:0 0 var(--control)}.saved{font-size:11px;margin-right:4px;white-space:nowrap;max-width:130px;overflow:hidden;text-overflow:ellipsis}.menu-label{display:none}
 #toolbar-overflow{position:fixed;right:12px;top:calc(var(--shell-top) + var(--safe-top,0px) + 6px);z-index:100;width:224px;padding:6px;border:1px solid var(--line);border-radius:var(--radius);background:var(--paper);box-shadow:var(--ui-shadow)}
 #toolbar-overflow button{display:flex;width:100%;justify-content:flex-start;min-height:44px;padding:10px 12px;color:var(--text)}#toolbar-overflow .menu-label{display:inline;font-size:13px}
@@ -30,26 +30,26 @@ dialog.settings-dialog{width:min(920px,calc(100vw - 40px))}.settings-dialog #dia
 .github-view,.subscriptions-view{padding:28px clamp(20px,4vw,56px)}.github-topbar,.subscriptions-heading{gap:12px}.github-heading h1,.subscriptions-heading h1,.reader-heading h1{font-size:24px;letter-spacing:-.4px}.empty-state{max-width:560px;margin:40px auto;padding:32px;border:1px solid var(--line);border-radius:calc(var(--radius) + 4px);background:var(--paper)}.empty-state>svg{width:42px;height:42px;margin-bottom:12px;color:var(--muted)}.empty-state h2{font-size:22px}.empty-state p{color:var(--muted);font-size:13px;line-height:1.7}.button-row{flex-wrap:wrap;gap:10px}.repo-grid{grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:12px}.repo-card{padding:20px;border:1px solid var(--line);border-radius:var(--radius)}.repo-card strong{font-size:14px}.repo-card p{font-size:12px;line-height:1.6}.subscription-card{border-radius:var(--radius);padding:18px}.subscription-card strong{font-size:14px}.subscription-card p{font-size:12px;line-height:1.6}.subscription-tools{padding:12px 0;gap:10px}
 .reader-library{padding:28px clamp(20px,4vw,56px)}.reader-library header h1{font-size:24px}.reader-library header p{color:var(--muted);font-size:13px}.reader-books{gap:12px;grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}.reader-book{border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:none;text-align:left}.book-cover{height:56px;border-radius:8px;background:var(--panel);color:var(--muted);font-size:14px;font-weight:500}.reader-book strong{font-size:14px}.reader-book small{font-size:11px;line-height:1.6}.reader-book progress{height:4px}.reader-toolbar{padding:12px 16px;gap:8px;background:var(--paper)}.reader-toolbar button{min-height:var(--control);border-radius:var(--radius)}.reader-annotations,.reader-outline{border-radius:var(--radius)}
 .vela-preview{background:var(--panel);padding:24px!important}.vela-config{max-width:1120px;margin:0 auto;display:grid;grid-template-columns:152px minmax(0,1fr);gap:20px}.vela-config-header{grid-column:1/-1;padding:0 0 20px;border-bottom:1px solid var(--line);margin:0}.vela-config-header h2{font-size:24px}.vela-config-mark{background:var(--paper);border:1px solid var(--line);border-radius:var(--radius);padding:12px;color:var(--accent);font-size:13px}.vela-sections{display:flex;flex-direction:column;position:sticky;top:0;align-self:start;gap:4px;margin:0}.vela-sections button{justify-content:flex-start;min-height:40px;padding:10px 12px;border:0;color:var(--muted)}.vela-config-grid{display:flex;flex-direction:column;gap:16px;min-width:0}.vela-card{border:1px solid var(--line);border-radius:var(--radius);background:var(--paper);padding:24px;scroll-margin-top:16px}.vela-card h3{font-size:16px;margin:0 0 20px}.vela-card label{font-size:13px}.vela-card input,.vela-card select{min-height:38px}.vela-card small{font-size:11px;line-height:1.6}.vela-layout-fields{gap:12px}.vela-file-list{max-height:360px}.vela-file-tools{gap:8px;flex-wrap:wrap}.vela-file-tools input{flex:1;min-width:100px}.vela-config-actions{grid-column:2;padding:0;position:static;border:0;background:none;margin:0;display:flex;justify-content:flex-end;gap:12px}.vela-layout-sample{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius)}
-@media(min-width:1400px){.page-navigation .nav-item{width:auto;padding:0 12px}.nav-label{display:inline;font-size:12px}}
+
 @media(max-width:1100px){.app-name,.slash{display:none}.saved{max-width:100px}.toolbar{gap:0}.breadcrumb{gap:4px}}
 @media(max-width:900px){.topbar{gap:6px;padding:8px}.breadcrumb #current-name{max-width:140px}.saved{max-width:100px}.toolbar>button{width:36px;flex-basis:36px}.global-tools{padding-left:4px;gap:0}.recent-files{grid-template-columns:1fr}}
 @media(max-width:600px){
  body{--control:44px;--radius:12px;--ui-font:13px;--panel-spacing:10px}
- .topbar{grid-template-columns:minmax(0,1fr) auto;grid-template-rows:44px 36px;padding:4px 6px;gap:4px}.breadcrumb{grid-column:1;grid-row:1;gap:2px}.breadcrumb #current-name{display:none}.breadcrumb>#mobile-library,.page-navigation .nav-item{width:40px;height:44px}.page-navigation{gap:0}.nav-separator{margin:0 2px}.global-tools{grid-column:2;grid-row:1;padding-left:0;border:0}.global-tools button{width:40px;height:44px}.toolbar{grid-column:1/-1;grid-row:2;justify-content:flex-end;width:100%;gap:4px}.toolbar .saved{margin-right:auto;max-width:100px;font-size:10px}.toolbar button{width:36px;height:36px}.topbar button svg{width:20px;height:20px}
+ .topbar{grid-template-columns:minmax(0,1fr) auto;grid-template-rows:44px;padding:4px 6px;gap:4px}.breadcrumb{grid-column:1;grid-row:1;gap:2px}.breadcrumb #current-name{display:none}.breadcrumb>#mobile-library,.page-navigation .nav-item{width:40px;height:44px}.page-navigation{gap:0}.nav-separator{margin:0 2px}.global-tools{grid-column:2;grid-row:1;padding-left:0;border:0}.global-tools button{width:40px;height:44px}.toolbar{display:none}.topbar button svg{width:20px;height:20px}
  .library-shell{top:calc(var(--shell-top) + var(--safe-top,0px));bottom:var(--sidebar-bottom,0px)}.library-heading{height:44px}.library,.outline{padding-bottom:8px}.workspace-controls>div:not(.file-location){gap:0}.text-button{font-size:11px;padding:5px}.search-box{height:36px}.doc-info small{font-size:9px}.github-connect small{font-size:9px}.outline-heading h2{font-size:12px}.outline-heading{height:44px}.outline-actions{gap:0}.outline-actions button{font-size:10px}
- .quickbar{height:52px;padding:4px 6px;gap:0;justify-content:flex-start;overflow-x:auto}.quickbar button{min-width:60px;width:60px;flex-shrink:0}.quickbar i{flex-shrink:0;margin:0 5px}.statusbar{height:calc(26px + var(--safe-bottom,0px));padding:0 10px var(--safe-bottom,0px);font-size:10px}.statusbar .status-right{gap:8px}
+ .quickbar{height:52px;padding:4px;gap:0;display:grid;grid-template-columns:repeat(8,minmax(0,1fr));overflow:hidden}.quickbar button{min-width:0;width:100%;height:44px;padding:0}.quickbar i{display:none}.quickbar small{display:none}.statusbar{height:calc(26px + var(--safe-bottom,0px));padding:0 10px var(--safe-bottom,0px);font-size:10px}.statusbar .status-right{gap:8px}
  .file-rowbar,.document-tabs{height:40px}.document-tab{min-width:132px;max-width:210px;font-size:11px}.display-options button{padding:0 9px;font-size:11px}
  #start-page{padding:24px 18px}.start-page-header h1{font-size:24px}.start-stats{gap:8px}.start-stat{padding:12px 10px;font-size:11px}.start-stat strong{font-size:20px}.start-primary{gap:8px}.start-primary button{padding:10px 12px}.recent-files>button{padding:12px}
  dialog{width:calc(100vw - 20px);max-height:calc(100dvh - 20px)}#dialog-form{max-height:calc(100dvh - 22px)}.dialog-heading{padding:14px 16px}.dialog-heading h2{font-size:16px}#dialog-body{padding:16px}.dialog-actions{padding:12px 16px}dialog.settings-dialog{width:calc(100vw - 20px)}.settings-dialog #dialog-body{display:block;padding:0 16px 16px}.settings-navigation{flex-direction:row;overflow-x:auto;padding:8px 0;background:var(--paper);z-index:1;top:0;border-bottom:1px solid var(--line)}.settings-navigation button{flex-shrink:0;padding:8px 10px;min-height:36px;font-size:12px}.settings-section{padding:18px 0;scroll-margin-top:60px}
  body[data-ui="android"] dialog{margin:auto 0 0;width:100%;max-width:100%;max-height:calc(100dvh - 20px);border-radius:20px 20px 0 0}body[data-ui="android"] #dialog-form{padding-bottom:var(--safe-bottom,0px)}body[data-ui="android"] dialog.settings-dialog{width:100%}
  .github-view,.subscriptions-view,.reader-home{padding:20px 16px}.empty-state{margin:20px auto;padding:24px 18px}.github-heading h1,.subscriptions-heading h1,.reader-heading h1{font-size:22px}.repo-grid{grid-template-columns:1fr}.reader-books{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}.reader-book{padding:12px}.reader-book strong{font-size:12px}.book-cover{height:44px;font-size:12px}.subscription-card{padding:14px}
- .vela-preview{padding:16px!important}.vela-config{display:block}.vela-config-header h2{font-size:20px}.vela-sections{flex-direction:row;overflow-x:auto;position:sticky;top:0;padding:8px 0;background:var(--panel);z-index:1}.vela-sections button{flex-shrink:0;padding:8px 10px;font-size:12px}.vela-card{padding:18px;scroll-margin-top:60px}.vela-config-actions{margin:16px 0 0}.vela-layout-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
+ .vela-preview{padding:12px!important}.vela-config-header h2{font-size:20px}.vela-sections{flex-direction:row;flex-wrap:nowrap;overflow-x:auto;position:static;padding:8px 0;background:var(--panel);z-index:1}.vela-sections button{flex-shrink:0;padding:8px 10px;font-size:12px}.vela-card{padding:18px;scroll-margin-top:60px}.vela-config-actions{margin:16px 0 0}.vela-layout-fields{grid-template-columns:repeat(2,minmax(0,1fr))}
 }
 /* Override earlier generic form and tablet safe-area rules with measured chrome. */
 .vela-preview .vela-config{display:grid;max-width:1120px;gap:20px}
 .library-panel>.library{padding-top:0}
 @media(max-width:1000px){.writing-view{padding-bottom:var(--footer-height)}.library-shell{top:calc(var(--shell-top) + var(--safe-top,0px));bottom:var(--sidebar-bottom,0px)}}
-@media(max-width:600px){.vela-preview .vela-config{display:block}.github-view,.subscriptions-view,.reader-library{padding:20px 16px}#focus-toggle,#toolbar-overflow #export-doc{display:inline-flex}}
+@media(max-width:600px){.vela-preview .vela-config{display:flex;flex-direction:column;gap:8px}.github-view,.subscriptions-view,.reader-library{padding:20px 16px}#focus-toggle,#toolbar-overflow #export-doc{display:inline-flex}}
 @media(prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
 
 #toolbar-overflow #home-button,#toolbar-overflow #plugins{display:flex}
@@ -59,3 +59,52 @@ dialog.settings-dialog{width:min(920px,calc(100vw - 40px))}.settings-dialog #dia
 
 .book-progress{display:flex;align-items:center;gap:8px;width:100%;margin-top:8px;color:var(--muted);font-size:11px}.book-progress progress{flex:1;width:0;accent-color:var(--accent)}
 .vela-sections button{background:transparent}.vela-sections button:hover,.vela-sections button[aria-current]{background:var(--soft);color:var(--accent)}
+
+/* Navigation occupies a separate row; only the config content pane scrolls. */
+.vela-preview{display:flex;min-height:0;overflow:hidden!important}
+.vela-preview .vela-config{width:100%;height:100%;min-height:0;grid-template-rows:auto minmax(0,1fr)}
+.vela-config-header{padding-bottom:12px}.vela-sections{position:static;min-height:0;max-height:100%;overflow:auto;flex-wrap:nowrap}
+.vela-config-grid{min-height:0;overflow:auto;overscroll-behavior:contain;padding:0 4px 16px;scroll-padding-top:4px}
+.vela-config-actions{flex-shrink:0;margin-top:8px;padding:12px 0;border-top:1px solid var(--line);background:var(--panel)}
+.start-primary button,.start-actions button{width:48px;min-height:44px;padding:0}
+.display-options [data-display],.display-options [data-native-html]{width:40px;padding:0}
+.quickbar small{display:none}.quickbar button{min-width:44px}.quickbar button span{display:flex}
+/* The reader header fills the safe strip and leaves the camera area empty. */
+body.reader-open #app{padding-top:0}
+body.reader-open .topbar{display:none}
+body.reader-open .reader-header{position:relative;top:auto;left:auto;right:auto;z-index:25;display:grid;grid-template-columns:minmax(0,var(--reader-left-width,50%)) var(--reader-notch-width,0px) minmax(0,1fr);height:var(--reader-header-height,44px);min-height:var(--reader-header-height,44px);padding:var(--reader-header-padding,0px) 0 0;gap:0;background:var(--paper);transform:none!important;visibility:visible!important;pointer-events:auto!important;border:0;transition:none}
+.reader-header-left,.reader-header-right{display:flex;align-items:center;gap:4px;min-width:0;height:44px;padding:0 8px;overflow:hidden}
+.reader-header-right{justify-content:flex-end}.reader-header button{width:36px;height:40px;padding:0;flex-shrink:0;color:var(--muted)}
+.reader-header #reader-title{min-width:0;flex:1;font-size:12px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.reader-notch-space{height:100%;display:block}.reader-header #reader-chapter[hidden]{display:none}
+.reader-tools-panel,.reader-outline{top:var(--reader-header-height,44px);max-height:calc(100% - var(--reader-header-height,44px) - 35px)}
+.reader-search-section,.reader-notes-section{display:flex;flex-direction:column;gap:12px}.reader-tools-panel header>button,.reader-tools-panel [data-reader-delete],.reader-tools-panel .button-row>button{width:40px;height:40px;min-height:40px;flex-shrink:0;padding:0;justify-content:center}
+.reader-tools-panel .button-row{justify-content:flex-end}.reader-tools-panel textarea,.reader-tools-panel input{width:100%}
+/* Settings are a bounded sheet with one internal scrolling pane. */
+dialog.settings-dialog{top:33.3333dvh;bottom:0;height:66.6667dvh;max-height:66.6667dvh;margin:0 auto;border-radius:20px 20px 0 0;overflow:hidden}
+.settings-dialog[open]{animation:settings-rise .18s cubic-bezier(.2,.8,.2,1)}
+.settings-dialog::backdrop{animation:settings-backdrop .18s ease-out}
+.settings-dialog #dialog-form{height:100%;max-height:100%;min-height:0}
+.settings-dialog #dialog-body{flex:1;min-height:0;overflow:hidden}
+.settings-dialog .settings-content{min-height:0;overflow:auto;overscroll-behavior:contain;padding-right:4px}
+.settings-dialog .settings-navigation{position:static;max-height:100%;overflow:auto;min-height:0}
+.settings-dialog .dialog-heading,.settings-dialog .dialog-actions{flex-shrink:0}
+@keyframes settings-rise{from{transform:translateY(100%)}to{transform:translateY(0)}}
+@keyframes settings-backdrop{from{opacity:0}to{opacity:1}}
+@media(max-width:600px){
+ .breadcrumb>.app-name,.breadcrumb>.slash{display:none}
+ .topbar{min-height:52px}
+ .vela-config-header{flex-shrink:0;padding:0 0 8px}.vela-config-header h2{font-size:17px}.vela-config-mark{padding:8px}
+ .vela-sections{flex-shrink:0;max-height:none;min-height:44px}.vela-config-grid{flex:1}
+ .vela-card{scroll-margin-top:4px}.vela-preview .vela-config-actions{margin:8px 0 0}
+ .settings-dialog #dialog-body{display:flex;flex-direction:column;padding:0 16px}
+ .settings-dialog .settings-navigation{flex-shrink:0;flex-wrap:nowrap;padding:8px 0;max-height:56px}
+ .settings-dialog .settings-content{flex:1}.settings-section{scroll-margin-top:4px}
+ body[data-ui="android"] dialog.settings-dialog{height:66.6667dvh;max-height:66.6667dvh}
+ .quickbar button{min-width:0}
+}
+@media(max-width:340px){.topbar{padding:4px}.breadcrumb>#mobile-library,.page-navigation .nav-item,.global-tools button{width:36px}.breadcrumb{gap:0}}
+@media(prefers-reduced-motion:reduce){.settings-dialog[open],.settings-dialog::backdrop{animation:none}}
+
+.cm-tooltip-autocomplete .cm-completionIcon{display:none!important}.cm-completionLabel{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.cm-completionKind{flex-shrink:0;font-size:11px;color:var(--muted)}
+.breadcrumb{min-width:0}.breadcrumb #current-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}#toolbar-overflow{max-height:calc(100dvh - var(--shell-top) - var(--safe-top,0px) - 18px);overflow:auto;overscroll-behavior:contain}

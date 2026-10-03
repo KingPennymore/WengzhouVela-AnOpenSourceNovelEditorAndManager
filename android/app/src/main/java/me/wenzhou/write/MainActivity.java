@@ -44,6 +44,7 @@ public final class MainActivity extends Activity {
     private NativeBridge bridge;
     private volatile String environment = "{}";
     private Insets systemInsets = Insets.NONE;
+    private final java.util.List<android.graphics.Rect> cutouts = new java.util.ArrayList<>();
     private boolean keyboardVisible, pageReady;
     private String pickerId, pickerOperation;
     private JSONObject pickerData;
@@ -98,6 +99,9 @@ public final class MainActivity extends Activity {
         });
         ViewCompat.setOnApplyWindowInsetsListener(root, (view, insets) -> {
             systemInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
+            cutouts.clear();
+            androidx.core.view.DisplayCutoutCompat cutout = insets.getDisplayCutout();
+            if (cutout != null) cutouts.addAll(cutout.getBoundingRects());
             keyboardVisible = insets.isVisible(WindowInsetsCompat.Type.ime());
             Insets ime = insets.getInsets(WindowInsetsCompat.Type.ime());
             root.setPadding(0, 0, 0, keyboardVisible ? ime.bottom : 0);
@@ -151,7 +155,14 @@ public final class MainActivity extends Activity {
     private void publishEnvironment() {
         float density = getResources().getDisplayMetrics().density;
         boolean dark = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+        org.json.JSONArray cutoutRects = new org.json.JSONArray();
+        try {
+            for (android.graphics.Rect rect : cutouts) cutoutRects.put(new JSONObject()
+                .put("left", rect.left / density).put("top", rect.top / density)
+                .put("right", rect.right / density).put("bottom", rect.bottom / density));
+        } catch (org.json.JSONException impossible) { return; }
         try { environment = new JSONObject().put("platform", "android").put("credentialStore", "Android Keystore")
+            .put("cutouts", cutoutRects)
             .put("dark", dark).put("top", systemInsets.top / density).put("bottom", keyboardVisible ? 0 : systemInsets.bottom / density)
             .put("left", systemInsets.left / density).put("right", systemInsets.right / density).toString(); }
         catch (Exception impossible) { return; }

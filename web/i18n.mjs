@@ -34,3 +34,7 @@ Object.assign(dictionary,{'术语库':'Glossary','术语库文件':'Glossary fil
 Object.assign(dictionary,{'阅读进度':'Reading progress'});
 
 Object.assign(dictionary,{'术语库最多 1 MB。':'Glossaries are limited to 1 MB.','术语库需要 version: 1 和 entries 数组（最多 5000 项）。':'A glossary needs version: 1 and an entries array of up to 5,000 terms.','词条 ID 重复或无效。':'Term IDs must be valid and unique.','释义最多 4000 字符。':'Definitions are limited to 4,000 characters.','分类最多 120 字符。':'Categories are limited to 120 characters.','别名须为词语数组（最多 32 项）。':'Aliases must be an array of up to 32 terms.','术语库名称最多 160 字符。':'Glossary names are limited to 160 characters.','术语库文件需要 .gly 或 .glossary 后缀。':'Glossary filenames need a .gly or .glossary extension.','请选择当前工作区内的术语库。':'Choose a glossary inside the current workspace.','当前 .vela 配置无效，请先修复。':'Repair the current .vela configuration first.','editor.glossaries 须为术语库相对路径数组（最多 32 项）。':'editor.glossaries must contain up to 32 relative glossary paths.','术语库路径不能重复。':'Glossary paths must be unique.'});
+
+Object.assign(dictionary,{'返回书库':'Back to library'});
+
+Object.assign(dictionary,{'术语':'Term','正文':'Text','关键词':'Keyword','函数':'Function','变量':'Variable','类':'Class','属性':'Property','方法':'Method','类型':'Type','命名空间':'Namespace','常量':'Constant'});

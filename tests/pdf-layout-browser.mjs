@@ -37,7 +37,7 @@ async function contained(name){
   assert.ok(sizes.box.height>0,JSON.stringify(sizes));assert.ok(sizes.canvas.bottom<=sizes.box.bottom+1,JSON.stringify(sizes));assert.ok(sizes.canvas.bottom<=sizes.limit.bottom+1,JSON.stringify(sizes));assert.ok(sizes.root.bottom<=sizes.footer.top+1,JSON.stringify(sizes));checks.push(name);console.log('PASS '+name);
 }
 try{
-  await page.goto(`http://127.0.0.1:${server.address().port}`);await page.waitForSelector('.cm-editor');await page.locator('#preview-toggle').click();await page.addScriptTag({url:'/pdf-layout.js'});
+  await page.goto(`http://127.0.0.1:${server.address().port}`);await page.waitForSelector('.cm-editor');await page.locator('[data-display=preview]').click();await page.addScriptTag({url:'/pdf-layout.js'});
   await page.evaluate(pdf=>{const compiler={compile:async()=>({ok:true,pdf:new Uint8Array(pdf),diagnostics:[]})};window.pdfLayoutPane=new PdfLayoutPreview({compiler,fail:error=>{throw error;}});window.pdfLayoutPane.mount(document.querySelector('#preview'),{name:'排版验证.tex'});return window.pdfLayoutPane.compile();},pdf);
   await contained('平板横屏整页 PDF 下边界位于预览区内');await page.screenshot({path:'test-results/pdf-tablet-landscape.png'});
   await page.locator('#mobile-library').click();await contained('侧栏展开后 PDF 同时适应可用宽度和高度');

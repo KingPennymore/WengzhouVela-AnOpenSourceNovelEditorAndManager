@@ -10,7 +10,7 @@ export const shortcuts=[
   ['quick-git','Mod-Shift-g','Ctrl+Shift+G','Git 仓库与提交'],
   ['outline-toggle','Mod-Shift-o','Ctrl+Shift+O','章节目录'],
   ['search-editor','Mod-f','Ctrl+F','查找与替换'],
-  ['preview-toggle','Mod-Shift-p','Ctrl+Shift+P','预览 / 源码'],
+  ['toggle-display','Mod-Shift-p','Ctrl+Shift+P','预览 / 源码'],
   ['focus-toggle','F11','F11','专注模式'],
   ['theme','Mod-Alt-t','Ctrl+Alt+T','外观模式'],
   ['settings','Mod-,','Ctrl+,','编辑器设置'],

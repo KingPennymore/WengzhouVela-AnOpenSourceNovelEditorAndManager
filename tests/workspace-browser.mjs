@@ -24,13 +24,13 @@ try{
   await check('文件侧栏在切换、关闭、导入、专注、目录和 Git 页面时保持状态，刷新后恢复',async()=>{
     await p.locator('#mobile-library').click();
     await p.locator('#new-doc').click();await p.locator('[name=name]').fill('测试.txt');await p.locator('#dialog-submit').click();
-    await p.locator('[data-tab=book]').click();await p.locator('#focus-toggle').click();assert.equal(await p.locator('#library').isVisible(),true);await p.locator('#focus-toggle').click();
+    await p.locator('[data-tab=book]').click();await p.locator('#more-tools').click();await p.locator('#focus-toggle').click();assert.equal(await p.locator('#library').isVisible(),true);await p.locator('#more-tools').click();await p.locator('#focus-toggle').click();
     await p.locator('#outline-toggle').click();assert.equal(await p.locator('#library').isVisible(),true);await p.locator('#outline-toggle').click();
     await p.locator('#quick-git').click();assert.equal(await p.locator('#library').isVisible(),true);assert.equal(await p.locator('#mobile-library').isVisible(),true);
     await p.locator('#mobile-library').click();await p.locator('#library').waitFor({state:'hidden'});assert.equal(await p.locator('#library').isVisible(),false);await p.locator('#mobile-library').click();await p.locator('[data-return-write]').click();
     await p.locator('[data-close=book]').click();assert.equal(await p.locator('#library').isVisible(),true);await p.locator('[data-doc=book]').click();
     await importFile(p,'导入.txt','正文');assert.equal(await p.locator('#library').isVisible(),true);await p.reload();await p.waitForSelector('#mobile-library');assert.equal(await p.locator('#library').isVisible(),true);
-    await p.locator('#mobile-library').click();await p.locator('#library').waitFor({state:'hidden'});await p.locator('#home-button').click();assert.equal(await p.locator('#library').isVisible(),false);
+    await p.locator('#mobile-library').click();await p.locator('#library').waitFor({state:'hidden'});await p.locator('#more-tools').click();await p.locator('#home-button').click();assert.equal(await p.locator('#library').isVisible(),false);
   });
   await check('五套配色可切换、持久化，并分别跟随系统深浅模式',async()=>{
     for(const palette of palettes){await p.locator('#settings').click();await p.locator(`[name=palette][value=${palette.id}]`).check();await p.locator('[name=theme]').selectOption('system');await p.locator('#dialog-submit').click();assert.equal(await p.locator('body').evaluate(el=>getComputedStyle(el).getPropertyValue('--accent').trim()),palette.light.accent);await p.emulateMedia({colorScheme:'dark'});await p.waitForFunction(color=>getComputedStyle(document.body).getPropertyValue('--accent').trim()===color,palette.dark.accent);await p.emulateMedia({colorScheme:'light'});}
@@ -85,7 +85,7 @@ try{
     await n.locator('#new-folder').click();await n.locator('[name=path]').fill('小说/资料');await n.locator('#dialog-submit').click();await n.locator('#new-doc').click();await n.locator('[name=name]').fill('人物.md');await n.locator('[name=template]').selectOption('empty');await n.locator('#dialog-submit').click();assert.equal((await nativeSave(n)).documents.find(d=>d.name==='人物.md').path,'小说/资料/人物.md');assert.equal(await n.evaluate(()=>window.__roots.internal['小说/资料/人物.md']),'');
   });
   await check('内部目录刷新后保留文稿，启动页与命令不再出现外部目录入口',async()=>{
-    await n.locator('#refresh-folder').click();await n.waitForFunction(()=>document.querySelector('#current-name').textContent==='启动页');assert.ok((await nativeSave(n)).documents.some(d=>d.path==='小说/资料/人物.md'));assert.equal(await n.locator('[data-start="open-folder"],[data-start="setup-storage"]').count(),0);await n.locator('#commands').click();assert.equal((await n.locator('#command-list').innerText()).includes('打开文件夹工作区'),false);await n.locator('#dialog-cancel').click();assert.equal(await n.locator('#library').isVisible(),true);
+    await n.locator('#refresh-folder').click();await n.waitForFunction(()=>document.querySelector('#current-name').textContent==='启动页');assert.ok((await nativeSave(n)).documents.some(d=>d.path==='小说/资料/人物.md'));assert.equal(await n.locator('[data-start="open-folder"],[data-start="setup-storage"]').count(),0);await n.locator('#more-tools').click();await n.locator('#commands').click();assert.equal((await n.locator('#command-list').innerText()).includes('打开文件夹工作区'),false);await n.locator('#dialog-cancel').click();assert.equal(await n.locator('#library').isVisible(),true);
   });
   let pulledId;
   await check('同仓库同路径重复拉取覆盖本地文件且保留标签 ID',async()=>{

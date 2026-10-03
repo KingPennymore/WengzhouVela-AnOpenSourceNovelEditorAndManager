@@ -16,15 +16,17 @@ try{
   assert.equal(await page.locator('body').getAttribute('data-ui'),profile);
   await page.locator('#mobile-library').click();if(width>600)await page.locator('#outline-toggle').click();await page.waitForTimeout(200);
   await page.screenshot({path:`${out}/${profile}-editor.png`});
-  for(const id of ['mobile-library','settings','search-editor','preview-toggle','outline-toggle']){const box=await page.locator('#'+id).boundingBox();assert.ok(box.x>=0&&box.x+box.width<=width+1,id);assert.ok(box.height>=32,id);}
+  if(width<=600)await page.locator('#more-tools').click();
+  for(const id of ['mobile-library','settings','search-editor','outline-toggle']){const box=await page.locator('#'+id).boundingBox();assert.ok(box.x>=0&&box.x+box.width<=width+1,id);assert.ok(box.height>=32,id);}
+  if(width<=600)await page.keyboard.press('Escape');
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
-  await page.locator('#settings').click();assert.equal(await page.locator('.settings-section').count(),6);await page.screenshot({path:`${out}/${profile}-settings.png`});
+  await page.locator('#settings').click();assert.equal(await page.locator('.settings-section').count(),6);await page.waitForTimeout(220);await page.screenshot({path:`${out}/${profile}-settings.png`});
   await page.locator('[name=language]').selectOption('en');await page.locator('#dialog-submit').click();await page.locator('#settings').click();assert.equal(await page.locator('.settings-navigation button').first().textContent(),'Appearance and language');await page.locator('#dialog-cancel').click();
   await page.keyboard.press('Control+Alt+h');await page.screenshot({path:`${out}/${profile}-home-en.png`});
-  await page.locator('[data-view=reader]').click();await page.screenshot({path:`${out}/${profile}-library-en.png`});await page.locator('[data-read=book]').click();await page.waitForTimeout(350);await page.screenshot({path:`${out}/${profile}-reader-en.png`});
-  await page.keyboard.press('Escape');await page.locator('[data-view=write]').click();
+  await page.locator('[data-view=reader]').click();await page.screenshot({path:`${out}/${profile}-library-en.png`});assert.equal(await page.locator('[data-read=book] strong').textContent(),'航程');await page.locator('[data-read=book]').click();assert.equal(await page.locator('#reader-title').textContent(),'航程');assert.equal(await page.locator('#preview-toggle').count(),0);await page.waitForTimeout(350);await page.screenshot({path:`${out}/${profile}-reader-en.png`});
+  await page.locator('#reader-back').click();await page.locator('[data-view=write]').click();
   await page.keyboard.press('Control+Alt+h');await page.locator('[data-recent=config]').click();await page.locator('[data-display=preview]').click();await page.screenshot({path:`${out}/${profile}-vela-en.png`});assert.equal(await page.locator('.vela-config-actions').evaluate(el=>getComputedStyle(el).position),'static');
-  if(width<=900){await page.locator('#more-tools').click();assert.equal(await page.locator('#toolbar-overflow #plugins').isVisible(),true);await page.keyboard.press('Escape');assert.equal(await page.locator('#toolbar-overflow').isVisible(),false);assert.equal(await page.locator('#more-tools').evaluate(el=>el===document.activeElement),true);}
+  {await page.locator('#more-tools').click();for(const id of ['focus-toggle','theme','commands','plugins'])assert.equal(await page.locator('#toolbar-overflow #'+id).isVisible(),true);await page.keyboard.press('Escape');assert.equal(await page.locator('#toolbar-overflow').isVisible(),false);assert.equal(await page.locator('#more-tools').evaluate(el=>el===document.activeElement),true);}
   await page.emulateMedia({colorScheme:'dark'});await page.screenshot({path:`${out}/${profile}-vela-dark.png`});
   checks.push(profile+' navigation, settings, English, home, library, reader, VELA, dark mode and bounds');await context.close();
  }

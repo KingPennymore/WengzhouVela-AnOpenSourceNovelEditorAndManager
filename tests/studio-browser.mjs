@@ -26,7 +26,7 @@ async function createPage(width=1440){const context=await browser.newContext({vi
     else body={full_name:'sample/novel',default_branch:'main',pushed_at:'revision-'+revision};
     return route.fulfill({status:200,body:JSON.stringify(body),contentType:'application/json'});
   });const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(url);await page.waitForSelector('.cm-editor');return page;}
-async function nav(page,name){if(await page.locator('body').evaluate(el=>el.classList.contains('reader-open'))&&await page.locator('body').evaluate(el=>!el.classList.contains('reader-chrome-visible'))){await page.waitForTimeout(220);const box=await page.locator('.reader-viewport').boundingBox();await page.mouse.click(box.x+box.width/2,box.y+box.height/2);await page.waitForFunction(()=>document.body.classList.contains('reader-chrome-visible'));await page.waitForTimeout(200);}await page.locator(`[data-view=${name}]`).click();}
+async function nav(page,name){if(await page.locator('body').evaluate(el=>el.classList.contains('reader-open')))await page.locator('#reader-back').click();await page.locator(`[data-view=${name}]`).click();}
 async function turn(page,delta){const box=await page.locator('.reader-viewport').boundingBox();await page.mouse.click(box.x+box.width*(delta>0?.9:.1),box.y+box.height/2);}
 const saved=page=>page.evaluate(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')));
 async function check(name,run){await run();checks.push(name);console.log('PASS '+name);}
@@ -51,7 +51,7 @@ try{
   await check('手机阅读启动页滑出、隐藏标签、阻止编辑与撤销，Ctrl 捏合只更改文字',async()=>{
     await nav(page,'reader');await page.locator('[data-read=book]').click();await page.waitForFunction(()=>document.querySelector('.reader-stage')?.classList.contains('reading'));assert.equal(await page.locator('#document-tabs').isVisible(),false);assert.equal(await page.locator('#reader-view textarea,#reader-view [contenteditable]').count(),0);
     const before=await saved(page);await page.keyboard.press('Control+z');await page.keyboard.type('Must not edit');assert.equal((await saved(page)).documents.find(doc=>doc.id==='book').text,before.documents.find(doc=>doc.id==='book').text);
-    const toolbar=await page.locator('.topbar').boundingBox(),font=await page.locator('.reader-content').evaluate(el=>parseFloat(getComputedStyle(el).fontSize));await page.locator('.reader-viewport').evaluate(el=>el.dispatchEvent(new WheelEvent('wheel',{ctrlKey:true,deltaY:-20,bubbles:true,cancelable:true})));const next=await page.locator('.reader-content').evaluate(el=>parseFloat(getComputedStyle(el).fontSize));assert.ok(next>font);assert.ok(Math.abs((await page.locator('.topbar').boundingBox()).height-toolbar.height)<.01);
+    const toolbar=await page.locator('.reader-header').boundingBox(),font=await page.locator('.reader-content').evaluate(el=>parseFloat(getComputedStyle(el).fontSize));await page.locator('.reader-viewport').evaluate(el=>el.dispatchEvent(new WheelEvent('wheel',{ctrlKey:true,deltaY:-20,bubbles:true,cancelable:true})));const next=await page.locator('.reader-content').evaluate(el=>parseFloat(getComputedStyle(el).fontSize));assert.ok(next>font);assert.ok(Math.abs((await page.locator('.reader-header').boundingBox()).height-toolbar.height)<.01);
     await nav(page,'reader');assert.equal(await page.locator('.reader-stage.reading').count(),0);assert.equal(await page.locator('.reader-books').isVisible(),true);
   });
   await check('英文支持、CSV 只读表格和三种尺寸分页阅读',async()=>{
