@@ -10,6 +10,8 @@ Run `node scripts/build-icons.mjs` to render the master directly at its final si
 
 Harmony uses `layered_image.json` for both `AppScope.app.icon` and the launcher ability's `icon`. This avoids the ability overriding the app's layered resource. The launch window uses the composite bitmap.
 
+The module's `PreserveLauncherIcon` build task runs after resource compilation and before compiled resources are packed. The installed restool downsamples layered PNGs to 512px and changes opaque alpha to 254, even with media compression disabled. The task retains restool's compiled resource IDs and restores the two original 1024px PNGs before packaging and signing. Verify both standalone HAP and APP-embedded HAP; do not edit an already signed package.
+
 Android uses its separate adaptive icon foreground vector and opaque `icon_background` color. Its foreground contains only the sail geometry; the launcher applies its own mask. Windows uses the square composite.
 
 `test-results/icon-0.8.3/mask-preview.png` shows simulated square, rounded-square, and circular system masks for visual review. It is not a shipping resource. Real-device launcher review and AppGallery acceptance are separate from source and package validation.
