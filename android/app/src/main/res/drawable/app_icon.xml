@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- All sail details remain within Android adaptive icon's 66/108 safe circle. -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
-<path android:fillColor="#257C67" android:pathData="M0,0H108V108H0Z"/>
 <path android:fillColor="#F7FAF5" android:pathData="M29,67H79L66,79H42ZM51,29V61H31ZM58,36L77,61H58Z"/>
 </vector>

@@ -8,8 +8,8 @@ android {
         applicationId 'me.wenzhou.write'
         minSdk 26
         targetSdk 36
-        versionCode 10802
-        versionName '0.8.2-android.1'
+        versionCode 10803
+        versionName '0.8.3-android.1'
         testInstrumentationRunner 'me.wenzhou.write.PortInstrumentation'
     }
     buildTypes {

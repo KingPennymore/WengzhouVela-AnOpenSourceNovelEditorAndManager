@@ -1,1 +1,4 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="192" height="192" viewBox="0 0 192 192"><rect width="192" height="192" rx="44" fill="#257c67"/><path d="M37 129h120l-34 34H70zM95 28v86H43zM111 46l47 68h-47z" fill="#f7faf5"/></svg>
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 192 192">
+  <rect id="icon-background" width="192" height="192" fill="#257c67"/>
+  <path id="vela-mark" d="M37 129h120l-34 34H70zM95 28v86H43zM111 46l47 68h-47z" fill="#f7faf5"/>
+</svg>
