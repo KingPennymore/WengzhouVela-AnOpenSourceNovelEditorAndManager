@@ -49,7 +49,7 @@ try{
   });
   await check('扩展名错误的文件可手动设置类型，重命名后立即更新编辑格式',async()=>{
     await importFile(p,'页面.txt','<h1>手动识别</h1>');await p.locator('[data-format]').click();await p.locator('[name=kind]').selectOption('HTML');await p.locator('#dialog-submit').click();await p.locator('[data-display=preview]').click();assert.equal(await p.frameLocator('#preview iframe').locator('h1').innerText(),'手动识别');
-    await p.locator('[data-format]').click();await p.locator('[name=kind]').selectOption('');await p.locator('#dialog-submit').click();await p.locator('#current-name').dblclick();await p.locator('[name=name]').fill('页面.html');await p.locator('#dialog-submit').click();assert.equal(await p.locator('[data-format]').innerText(),'HTML');
+    await p.locator('[data-format]').click();await p.locator('[name=kind]').selectOption('');await p.locator('#dialog-submit').click();await p.locator('#current-name').dblclick();await p.locator('[name=name]').fill('页面.html');await p.locator('#dialog-submit').click();await p.waitForSelector('#dialog[open]',{state:'hidden'});assert.equal(await p.locator('[data-format]').innerText(),'HTML');
   });
   await check('Markdown 扩展名、标题、表格、代码和任务列表可预览，TXT 保留原文',async()=>{
     await importFile(p,'资料.MARKDOWN','# 第一章\n\n- [x] 已完成\n- [ ] 待办\n\n|人物|身份|\n|---|---|\n|文舟|作者|\n\n```js\nconst x = 1;\n```');assert.equal(await p.locator('#markdown-tools').isVisible(),true);await p.locator('[data-display=preview]').click();assert.equal(await p.locator('#preview h1').innerText(),'第一章');assert.equal(await p.locator('#preview table').count(),1);assert.equal(await p.locator('#preview .task-state').count(),2);assert.equal(await p.locator('#preview pre code').count(),1);

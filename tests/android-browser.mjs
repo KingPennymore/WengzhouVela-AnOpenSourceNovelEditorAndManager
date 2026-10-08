@@ -1,3 +1,4 @@
+import {checkNativeNouns} from './native-nouns.mjs';
 import {_android} from 'playwright';
 import {execFileSync} from 'node:child_process';
 import {mkdir,writeFile} from 'node:fs/promises';
@@ -34,8 +35,9 @@ try{
   });
   await p.evaluate(prefix=>{const state=JSON.parse(window.WenzhouNative.readWorkspace()),doc={id:crypto.randomUUID(),name:'正文.txt',path:prefix+'/正文.txt',text:'第一章 开始\n原始正文\n\n第二章 继续\n后续正文',updatedAt:Date.now(),remote:null};state.settings.theme='system';state.settings.libraryOpen=false;state.documents.unshift(doc);state.folders.push(prefix+'/空目录');state.activeId=doc.id;state.openIds.push(doc.id);const result=window.WenzhouNative.writeWorkspace(JSON.stringify(state));if(result!=='ok')throw Error(result);},prefix);
   await p.reload();await p.waitForSelector('.cm-editor',{state:'attached'});
+  await check('Android 正文候选后台 Worker 与补全撤销',()=>checkNativeNouns(p));
   await check('Tab 缩进、撤回重做、章节跳转和实际文件保存',async()=>{
-    await p.locator('#quick-top').click();await p.keyboard.press('Tab');assert.ok((await saved()).documents.find(d=>d.path===prefix+'/正文.txt').text.startsWith('　　第一章'));
+    await p.locator('#quick-top').click();await p.evaluate(()=>editorManager.editor.focus());await p.waitForFunction(()=>editorManager.editor.hasFocus);await p.keyboard.press('Tab');const tabState=await saved();assert.ok(tabState.documents.find(d=>d.path===prefix+'/正文.txt').text.startsWith('　　第一章'),JSON.stringify({active:tabState.activeId,expected:tabState.documents.find(d=>d.path===prefix+'/正文.txt'),editor:await p.evaluate(()=>editorManager.editor.state.doc.toString().slice(0,60))}));
     await p.locator('#quick-undo').click();assert.ok((await saved()).documents.find(d=>d.path===prefix+'/正文.txt').text.startsWith('第一章'));
     await p.locator('#quick-redo').click();assert.ok((await saved()).documents.find(d=>d.path===prefix+'/正文.txt').text.startsWith('　　第一章'));
     await p.locator('#quick-bottom').click();await p.locator('#quick-chapter-top').click();assert.match(await p.locator('#current-chapter').innerText(),/第二章/);
@@ -43,7 +45,7 @@ try{
   });
   await check('系统深浅模式实时跟随，手动主题保留',async()=>{
     adb('shell','cmd','uimode','night','yes');await p.waitForFunction(()=>document.body.classList.contains('dark'));
-    adb('shell','cmd','uimode','night','no');await p.waitForFunction(()=>!document.body.classList.contains('dark'));
+    adb('shell','cmd','uimode','night','no');await p.waitForFunction(()=>!document.body.classList.contains('dark'));await p.waitForTimeout(750); // Let Android finish delivering configuration and inset callbacks.
     await p.locator('#more-tools').click();await p.locator('#theme').click();const mode=(await saved()).settings.theme;adb('shell','cmd','uimode','night','yes');assert.equal((await saved()).settings.theme,mode);
     adb('shell','cmd','uimode','night','no');
   });

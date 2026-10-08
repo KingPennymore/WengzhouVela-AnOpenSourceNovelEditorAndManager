@@ -47,10 +47,10 @@ export function glossaryCompletion(context,entries){
   for(const entry of entries){for(const label of [entry.term,...entry.aliases]){
     let length=0;const limit=Math.min(before.length,label.length);
     for(let n=limit;n>0;n--)if(before.slice(-n).toLocaleLowerCase()===label.slice(0,n).toLocaleLowerCase()){length=n;break;}
-    if(!length&&!context.explicit)continue;
+    if(!length&&(!context.explicit||/[\p{L}\p{N}_]$/u.test(before)))continue;
     const start=context.pos-length;if(options.length&&start!==from){if(start>from)continue;options.length=0;}from=start;
     const names=(entry.sources||[entry.source]).filter(Boolean).map(path=>path.split('/').at(-1));
-    options.push({label,apply:entry.term,type:'text',velaKind:'term',boost:99,detail:[names.join(' · ')||t('术语库'),entry.category].filter(Boolean).join(' · '),info:entry.definitions?.map(item=>item.source+(item.text?'\n'+item.text:'')).join('\n\n')||entry.definition||entry.term});
+    options.push({label,apply:entry.term,type:'text',velaKind:'term',boost:99,detail:[names.join(' · ')||t('术语库'),entry.category].filter(Boolean).join(' · '),info:(entry.aliases.length?t('别名')+'：'+entry.aliases.join('、')+'\n':'')+(entry.definitions?.map(item=>item.source+(item.text?'\n'+item.text:'')).join('\n\n')||entry.definition||entry.term)});
     if(options.length>=200)return {from,options,validFor:/^[\p{L}\p{N}_ \u3000'-]*$/u};
   }}
   return options.length?{from,options,validFor:/^[\p{L}\p{N}_ \u3000'-]*$/u}:null;

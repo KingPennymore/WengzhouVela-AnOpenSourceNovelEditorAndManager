@@ -30,6 +30,8 @@ export class GitHub {
     if(!/^[\w.-]+\/[\w.-]+$/.test(repo)) throw new Error('仓库格式应为 owner/repository。');
     return `/repos/${repo.split('/').map(encodeURIComponent).join('/')}`;
   }
+  commits(repo,branch,page=1){return this.request(`${this.base(repo)}/commits?sha=${encodeURIComponent(branch)}&per_page=30&page=${Math.max(1,Math.trunc(page))}`);}
+  async blobText(repo,sha){if(!/^[a-f0-9]{40,64}$/i.test(sha||''))throw Error('无效的 Git SHA');const blob=await this.request(`${this.base(repo)}/git/blobs/${sha}`);if(blob.encoding!=='base64'||blob.size>MAX_TEXT_BYTES)throw Error('文件无法作为文本预览');return decodeContent(blob.content);}
   branches(repo) { return this.pages(`${this.base(repo)}/branches`); }
   async createBranch(repo, from, name) {
     if(!name.trim()) throw new Error('请输入分支名称。');

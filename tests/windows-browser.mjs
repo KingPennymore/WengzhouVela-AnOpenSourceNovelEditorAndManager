@@ -1,3 +1,4 @@
+import {checkNativeNouns} from './native-nouns.mjs';
 import {_electron as electron} from 'playwright';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -14,6 +15,7 @@ try{
     assert.equal(await page.evaluate(()=>window.WenzhouNative.platform),'windows');assert.equal(await page.evaluate(()=>typeof window.require),'undefined');assert.equal(await page.evaluate(()=>typeof window.process),'undefined');assert.equal(await page.locator('#workspace-name').textContent(),'内部文件夹');
     const state=await page.evaluate(()=>JSON.parse(window.WenzhouNative.readWorkspace()));assert.ok(state.documents.some(doc=>doc.name==='操作指南.txt'));assert.ok(fs.existsSync(path.join(data,'workspaces/Vela/操作指南.txt')));
   });
+  await check('Windows 正文候选后台 Worker 与补全撤销',()=>checkNativeNouns(page));
   await check('Windows 段落换行完整继承全角缩进及撤销恢复',async()=>{
     const original=await page.evaluate(()=>editorManager.editor.state.doc.toString());
     await page.evaluate(()=>{const v=editorManager.editor;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:'　　正文'},selection:{anchor:4}});v.focus();});

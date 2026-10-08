@@ -17,7 +17,7 @@ out.mkdir(exist_ok=True)
 # Refuse to publish a source archive without its ready-to-build editor resources.
 resources = root / "entry/src/main/resources/rawfile/web"
 state = json.loads((resources / "build-manifest.json").read_text(encoding="utf-8"))
-inputs = [file.relative_to(root).as_posix() for directory in ["web", "vendor/acode/src/cm", "vendor/wasmtex"] for file in (root / directory).rglob("*") if file.is_file()]
+inputs = [file.relative_to(root).as_posix() for directory in ["web", "vendor/acode/src/cm", "vendor/wasmtex", "vendor/jieba"] for file in (root / directory).rglob("*") if file.is_file()]
 inputs += ["vendor/acode/LICENSE", "vendor/acode-writer/src/core.js", "vendor/acode-writer/LICENSE", "package.json", "package-lock.json", "scripts/build.mjs", "scripts/frontend-state.mjs", "scripts/tex-assets.mjs"]
 source_hash = hashlib.sha256()
 for name in sorted(inputs):

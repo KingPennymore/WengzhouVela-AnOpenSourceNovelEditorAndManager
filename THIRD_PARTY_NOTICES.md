@@ -39,3 +39,7 @@ AndroidX Core `1.16.0`、AndroidX WebKit `1.14.0` 及其传递依赖来自 Googl
 
 - Electron 44.5.1（MIT）：https://github.com/electron/electron 。Windows 安装包与 ZIP 中保留 `LICENSE.electron.txt`、`LICENSES.chromium.html`，涵盖 Chromium、Node.js 及其第三方组件。
 - electron-builder 26.15.3（MIT）：https://github.com/electron-userland/electron-builder ，仅用于 Windows 构建与打包。
+
+## jieba vocabulary
+
+The local noun-candidate exclusion vocabulary is derived from fxsjy/jieba `jieba/dict.txt` under the MIT License. Source revision, checksum and transformation are recorded in `vendor/jieba/SOURCE.json`; the full copyright and license are in `vendor/jieba/LICENSE` and shipped in the app licenses. Vela uses Intl.Segmenter with its own candidate rules; it does not run jieba Python or its neural models.

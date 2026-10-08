@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 export const resourceDir = 'entry/src/main/resources/rawfile/web';
 const manifestName = 'build-manifest.json';
-const required = ['index.html', 'app.js', 'style.css', 'file-manager.css', 'ui.css', 'licenses.js', 'version.json'];
+const required = ['index.html', 'app.js', 'style.css', 'file-manager.css', 'ui.css', 'licenses.js', 'version.json', 'noun-worker.js'];
 
 function filesIn(root, directory) {
   return readdirSync(join(root, directory), { withFileTypes: true }).flatMap(entry => {
@@ -19,7 +19,7 @@ function digest(file) {
 
 export function sourceDigest(root) {
   const inputs = [
-    ...filesIn(root, 'web'), ...filesIn(root, 'vendor/acode/src/cm'),
+    ...filesIn(root, 'web'), ...filesIn(root,'vendor/jieba'), ...filesIn(root, 'vendor/acode/src/cm'),
     'vendor/acode/LICENSE', 'vendor/acode-writer/src/core.js', 'vendor/acode-writer/LICENSE',
     'package.json', 'package-lock.json', 'scripts/build.mjs', 'scripts/frontend-state.mjs','scripts/tex-assets.mjs',...filesIn(root,'vendor/wasmtex')
   ].sort();

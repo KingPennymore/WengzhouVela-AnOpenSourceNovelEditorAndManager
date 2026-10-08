@@ -1,0 +1,8 @@
+{
+  "project": "https://github.com/fxsjy/jieba",
+  "commit": "67fa2e36e72f69d9134b8a1037b83fbb070b9775",
+  "path": "jieba/dict.txt",
+  "sha256": "7197c3211ddd98962b036cdf40324d1ea2bfaa12bd028e68faa70111a88e12a8",
+  "derivation": "2–8 characters; exclude frequency >=500 or POS tag not starting n",
+  "words": 114185
+}

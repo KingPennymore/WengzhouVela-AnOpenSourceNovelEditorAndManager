@@ -1,7 +1,7 @@
 import {shortcuts} from './shortcuts.mjs';
 export const previousGuideHash='64d887a7f0a3766af964913f9fbfa890e1e2bef6eb55d35dc3c70015e41f08dd';
-export const previousGuideHashes=["3b307fda9b4b5ca7e928ee50b68a438c7163ac13c0e7310a3236a2bb5a07fcb7",previousGuideHash,"9336b918ca455334e98cca7050a185343c32580d4ae011857d6e6bf8ae9b8e1d","04b7720026eb6f3e8c8a65e44797511c61564539ecf22afb56d586133ffa7f9f","70ee96243c71fe28c3150a59dc7588e913468a72c464345c89ce48371befff84","d4945f9104ff48f9421881b54a658e65f774bf6757a8bef59cbe8fa033c581b5","6a06e8f9cd3abc519ad80ee8704281d145ab5ec3a16f5b78d6b7df6b8cf4f775","d685b53b07b6f3a26cfe341060b5b736a93072c522b640c65e1a7945d1aaa397","46d5e7b7ec168f801f066ebc69e28831300695a89aa206aaed60f3713444b170"];
-export const guide = `文舟操作指南 · Vela 0.8.3
+export const previousGuideHashes=["ed531551b6b19eb92e041cf27a2888e92729852a9d211b4397e05551149a1f52","3b307fda9b4b5ca7e928ee50b68a438c7163ac13c0e7310a3236a2bb5a07fcb7",previousGuideHash,"9336b918ca455334e98cca7050a185343c32580d4ae011857d6e6bf8ae9b8e1d","04b7720026eb6f3e8c8a65e44797511c61564539ecf22afb56d586133ffa7f9f","70ee96243c71fe28c3150a59dc7588e913468a72c464345c89ce48371befff84","d4945f9104ff48f9421881b54a658e65f774bf6757a8bef59cbe8fa033c581b5","6a06e8f9cd3abc519ad80ee8704281d145ab5ec3a16f5b78d6b7df6b8cf4f775","d685b53b07b6f3a26cfe341060b5b736a93072c522b640c65e1a7945d1aaa397","46d5e7b7ec168f801f066ebc69e28831300695a89aa206aaed60f3713444b170"];
+export const guide = `文舟操作指南 · Vela 0.9.0
 开源小说创作 / 阅读工具
 
 一、导航与内部文件夹
@@ -17,8 +17,9 @@ export const guide = `文舟操作指南 · Vela 0.8.3
 章节自动识别标准中文、英文及 Markdown 标题。额外模板只在工作区 .vela 中设置，支持 {序号}、{标题}、{number}、{title}，每行一个，最多 32 个。
 
 三、创作与自动补全
+编辑设置中的“正文与术语库同屏”和“正文术语高亮与释义”默认关闭；开启后可在正文下方查阅术语，或查看正文中的术语说明。关闭恢复原编辑界面。
 整部小说可写在一个 TXT 或 Markdown 文件中，以“第一章 标题”等标题分章。行号、章节目录、字数与快捷跳转辅助长篇创作。Tab 插入两个全角空格；Shift+Tab 取消缩进。
-输入时可显示补全候选；Ctrl+Space 手动唤起，方向键选择，Enter 确认，Escape 关闭；Tab 始终执行小说缩进。HTML 支持标签及属性补全，文本使用当前文稿附近的词汇作为候选。双指捏合或触摸板捏合只调整文字字号，普通双指滑动继续滚动。
+输入时可显示补全候选；Ctrl+Space 手动唤起，方向键选择，Enter 确认，Escape 关闭；Tab 始终执行小说缩进。HTML 支持标签及属性补全，文本在后台索引当前正文，以本地分词、常用词过滤与上下文规则推测人名、地名等补全候选。术语库优先，正文候选不会自动写入术语库；可能漏识或误识，可在编辑设置关闭。长篇文稿初次索引需要数秒，后续只更新修改的区块。双指捏合或触摸板捏合只调整文字字号，普通双指滑动继续滚动。
 命令按钮提供章节改名、移动、删除、工作区搜索与替换、词库和片段、书签/批注/待修改标记，以及本地历史恢复。批量替换先搜索再预览，修改后仍能恢复旧内容；本地历史为有容量限制的恢复辅助，不代替导出备份。宽屏可选择源码与预览并排。
 术语库使用 .gly 或 .glossary 后缀，内容为 JSON：{"version":1,"name":"人物与地名","entries":[{"term":"林舟","definition":"航海日志的记录者","aliases":["舟"],"category":"人物"}]}。打开后默认显示图形界面，可搜索、新增、编辑和删除词条，切换源码可直接编辑 JSON。
 在作品 .vela 的“编辑 → 术语库文件”中每行填写一个相对路径；对应字段为 editor.glossaries，例如 ["术语库.gly"]。留空继承全局，填 [] 停用。选中词汇后按 Ctrl+Alt+G，或使用“更多操作 → 选中词加入术语库”，可以选择已有库或新建库，添加时自动关联当前工作区。同一工作区可关联多个术语库；自动补全以单行优先显示术语，类型、分类及来源跟在术语后面，同词条会合并候选及全部来源，别名补全为标准词条；非法术语库需切换源码修复，原文会保留。

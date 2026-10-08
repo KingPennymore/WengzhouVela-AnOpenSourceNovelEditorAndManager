@@ -38,3 +38,5 @@ Object.assign(dictionary,{'术语库最多 1 MB。':'Glossaries are limited to 1
 Object.assign(dictionary,{'返回书库':'Back to library'});
 
 Object.assign(dictionary,{'术语':'Term','正文':'Text','关键词':'Keyword','函数':'Function','变量':'Variable','类':'Class','属性':'Property','方法':'Method','类型':'Type','命名空间':'Namespace','常量':'Constant'});
+
+Object.assign(dictionary,{'正文名词候选补全':'Suggest names from manuscript','正文与术语库同屏':'Show glossary alongside manuscript','正文术语高亮与释义':'Highlight glossary terms and definitions','本地推测人名、地名等候选，不自动加入术语库。':'Infer names locally without adding them to glossaries.','正文候选':'Manuscript candidate','候选':'Candidate','从当前正文推测，未加入术语库。':'Inferred from this manuscript; not in a glossary.','提交记录':'Commit history','暂无提交记录':'No commits','差异过长，仅显示前 300 行。':'Long diff: showing the first 300 lines.','对照内容':'Compare changes','二进制附件':'Binary attachment','取消拉取':'Cancel download'});

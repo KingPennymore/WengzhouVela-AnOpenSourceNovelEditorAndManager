@@ -7,6 +7,7 @@ await mkdir(out, { recursive: true });
 const pkg=JSON.parse(await readFile('package.json','utf8'));
 const version=pkg.harmonyVersion||pkg.version;
 const bundle = await build({entryPoints:['web/app.js'],bundle:true,outfile:`${out}/app.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof',metafile:true,define:{__VELA_HARMONY_VERSION__:JSON.stringify(version)}});
+await build({entryPoints:['web/noun-worker.js'],bundle:true,outfile:`${out}/noun-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
 await build({entryPoints:['web/project-archive-worker.js'],bundle:true,outfile:`${out}/project-archive-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
 await build({entryPoints:['web/html-reader.js'],bundle:true,outfile:`${out}/html-reader.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
 for(const name of ['index.html','style.css','file-manager.css','ui.css']) await copyFile(`web/${name}`,`${out}/${name}`);
@@ -17,7 +18,7 @@ await cp('node_modules/pdfjs-dist/cmaps',`${out}/pdf/cmaps`,{recursive:true});
 await cp('node_modules/pdfjs-dist/standard_fonts',`${out}/pdf/fonts`,{recursive:true});
 await mkdir(`${out}/licenses`, {recursive:true});
 const licenses=[];
-for(const [name,path] of [['Acode','vendor/acode/LICENSE'],['Acode-Writer 1.0.4','vendor/acode-writer/LICENSE']]) {
+for(const [name,path] of [['jieba vocabulary','vendor/jieba/LICENSE'],['Acode','vendor/acode/LICENSE'],['Acode-Writer 1.0.4','vendor/acode-writer/LICENSE']]) {
   const text=await readFile(path,'utf8');licenses.push({name,text});await writeFile(`${out}/licenses/${name.replaceAll(' ','-')}.txt`,text);
 }
 licenses.push({name:'TeX Live / BusyTeX · notices and license inventory',text:await readFile('vendor/wasmtex/THIRD_PARTY_NOTICES.md','utf8')});
