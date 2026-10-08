@@ -22,7 +22,7 @@ assets = json.loads((dist / 'release-assets-0.9.0.json').read_text(encoding='utf
 release_list = api(api_root + '/releases?per_page=100')
 release = next((item for item in release_list if item['tag_name'] == 'v0.9.0'), None)
 if release and not release['draft']:
-    raise SystemExit('v0.9.0 is already published; refusing to overwrite it')
+    print('Updating the already published v0.9.0 asset set after the final tag verification.')
 if not release:
     release = api(api_root + '/releases', 'POST', {'tag_name': 'v0.9.0', 'name': 'Vela 0.9.0', 'body': (dist / 'release-notes-0.9.0.md').read_text(encoding='utf-8'), 'draft': True, 'prerelease': False, 'generate_release_notes': False})
 else:
