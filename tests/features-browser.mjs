@@ -37,7 +37,7 @@ try{
   await check('系统深浅模式实时跟随，手动外观可固定并在重启后保留',async()=>{
     await p.emulateMedia({colorScheme:'light'});await p.waitForFunction(()=>!document.body.classList.contains('dark'));
     await p.emulateMedia({colorScheme:'dark'});await p.waitForFunction(()=>document.body.classList.contains('dark'));
-    await p.locator('#settings').click();await p.locator('[name="theme"]').selectOption('light');await p.locator('#dialog-submit').click();
+    await p.locator('#more-tools').click();await p.locator('#settings').click();await p.locator('[name="theme"]').selectOption('light');await p.locator('#dialog-submit').click();
     await p.emulateMedia({colorScheme:'dark'});assert.equal(await p.locator('body').evaluate(el=>el.classList.contains('dark')),false);
     await p.reload();await p.waitForSelector('.cm-editor');assert.equal(await p.locator('body').evaluate(el=>el.classList.contains('dark')),false);
   });

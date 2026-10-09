@@ -6,7 +6,7 @@ try{
   const context=await browser.newContext({viewport:{width,height}});
   await context.addInitScript(()=>localStorage.setItem('wenzhou.workspace',JSON.stringify({version:1,documents:[{id:'book',name:'正文.txt',path:'正文.txt',text:'　　正文',updatedAt:1}],openIds:['book'],activeId:'book',settings:{theme:'light'}})));
   const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
-  await page.goto('http://127.0.0.1:4173/?ui='+profile);await page.locator('[data-recent=book]').click();await page.waitForSelector('.cm-editor');
+  await page.goto((process.env.VELA_TEST_URL||'http://127.0.0.1:4173')+'/?ui='+profile);await page.locator('[data-recent=book]').click();await page.waitForSelector('.cm-editor');
   const replace=async text=>page.evaluate(text=>{const v=editorManager.editor;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:text},selection:{anchor:text.length}});v.focus();},text);
   const value=()=>page.evaluate(()=>({text:editorManager.editor.state.doc.toString(),head:editorManager.editor.state.selection.main.head}));
   for(const indent of ['　　','　','    ','\t　 ','']){

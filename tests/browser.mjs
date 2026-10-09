@@ -58,7 +58,7 @@ try{
     await click('locate-chapter');assert.equal(await page.locator('.chapter').count(),4);
     await click('append-chapter');await page.locator('[name="title"]').fill('第四章 续篇');await click('dialog-submit');
     await waitText('#chapter-count','4 章');assert.ok((await content()).includes('第四章 续篇'));
-    await click('quick-undo');await waitText('#chapter-count','3 章');await click('close-outline');
+    await click('quick-undo');await waitText('#chapter-count','3 章');await page.locator('#outline').waitFor({state:'hidden'});
   });
   await check('查找替换面板、标题规则错误反馈和设置持久化',async()=>{
     await click('search-editor');assert.equal(await page.locator('.cm-search').isVisible(),true);await page.keyboard.press('Escape');
@@ -71,7 +71,7 @@ try{
   await check('新建、重命名、删除文件以及开源许可查看可用',async()=>{
     await click('mobile-library');await click('new-doc');await page.locator('[name="name"]').fill('新小说.txt');await click('dialog-submit');await waitText('#current-name','新小说.txt');assert.ok((await content()).includes('第一章'));
     const activeId=await page.evaluate(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')).activeId);await page.locator(`[data-menu="${activeId}"]`).click();await click('rename-doc');await page.locator('[name="name"]').fill('重命名小说.txt');await click('dialog-submit');await waitText('#current-name','重命名小说.txt');
-    await page.locator(`[data-menu="${activeId}"]`).click();await click('delete-doc');await click('dialog-submit');assert.equal(await page.locator('[data-tab]').count(),2);await page.locator('[data-tab="book"]').click();
+    await page.locator(`[data-menu="${activeId}"]`).click();await click('delete-doc');await click('dialog-submit');await page.locator('#dialog[open]').waitFor({state:'hidden'});assert.equal(await page.locator('[data-tab]').count(),2);await page.locator('[data-tab="book"]').click();
     await click('settings');await click('show-licenses');assert.ok((await page.locator('#license-text').inputValue()).includes('Copyright'));assert.ok(await page.locator('#license-component option').count()>8);await click('dialog-cancel');
   });
   // All remote mutations below are intercepted. No real account or repository is modified.
@@ -102,10 +102,10 @@ try{
     const before=await page.evaluate(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')).activeId);await page.locator('[data-file]').click();await page.waitForFunction(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')).documents.some(doc=>doc.remote?.path==='全书.txt'));assert.equal(await page.locator('#github-view').isVisible(),true);assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')).activeId),before);const id=await page.evaluate(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')).documents.find(doc=>doc.remote?.path==='全书.txt').id);await page.locator(`[data-doc="${id}"]`).click();await page.waitForSelector('#write-view:not([hidden])');assert.ok((await content()).includes('远端'));
   });
   await check('文稿提交绑定原 SHA，版本冲突显示提示并保留本地正文',async()=>{
-    await click('quick-git');await click('dialog-submit');await page.waitForFunction(()=>!document.querySelector('#dialog').open);
+    await click('quick-git');await click('dialog-submit');await click('dialog-submit');await page.waitForFunction(()=>!document.querySelector('#dialog').open);
     const put=remoteCalls.find(r=>r.method==='PUT');assert.equal(put.body.sha,'original-sha');
     await click('quick-bottom');await page.keyboard.insertText('本地修订');await click('quick-save');conflict=true;
-    await click('quick-git');await click('dialog-submit');await waitText('#dialog-error','远端版本已变化');assert.ok((await content()).includes('本地修订'));await click('dialog-cancel');
+    await click('quick-git');await click('dialog-submit');await click('dialog-submit');await waitText('#dialog-error','远端版本已变化');assert.ok((await content()).includes('本地修订'));await click('dialog-cancel');
   });
   await check('仓库创建、设置更新和远端文件删除走对应确认表单',async()=>{
     await click('github-shortcut');await click('back-repos');await click('create-repo');await page.locator('[name="name"]').fill('new-novel');await click('dialog-submit');await page.waitForSelector('.repo-card');
@@ -129,7 +129,7 @@ try{
       await m.locator('#'+id).scrollIntoViewIfNeeded();const rect=await m.locator('#'+id).boundingBox();assert.ok(rect.x>=0&&rect.x+rect.width<=390.5,id);
     }
     await m.locator('#mobile-library').click();assert.equal(await m.locator('#library').isVisible(),true);await m.locator('#mobile-library').click();
-    await m.locator('#more-tools').click();await m.locator('#outline-toggle').click();await m.locator('[data-row="5"]').click();assert.equal(await m.locator('#cursor-position').textContent(),'行 6，列 1');await m.locator('#outline').waitFor({state:'hidden'});assert.equal(await m.locator('#outline').isVisible(),false);
+    await m.locator('#outline-toggle').click();await m.locator('[data-row="5"]').click();assert.equal(await m.locator('#cursor-position').textContent(),'行 6，列 1');assert.equal(await m.locator('#outline').isVisible(),true);await m.locator('#outline-toggle').click();await m.locator('#outline').waitFor({state:'hidden'});
     await m.locator('#more-tools').click();await m.locator('#theme').click();assert.equal(await m.locator('body').evaluate(el=>el.classList.contains('dark')),false);assert.equal(await m.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   });
   await m.screenshot({path:'test-results/mobile.png'});await mobile.close();

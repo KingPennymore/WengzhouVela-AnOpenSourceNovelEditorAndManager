@@ -12,7 +12,7 @@ await mkdir('test-results/bugfix',{recursive:true});
 try{
  for(const width of [1280,390]){
   const context=await browser.newContext({viewport:{width,height:850}});await context.addInitScript(seed=>localStorage.setItem('wenzhou.workspace',JSON.stringify(seed)),seed);
-  const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));await page.goto('http://127.0.0.1:4173/');await page.locator('[data-recent=book]').click();
+  const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));await page.goto((process.env.VELA_TEST_URL||'http://127.0.0.1:4173')+'/');await page.locator('[data-recent=book]').click();
   const search=page.locator('#glossary-panel input');await search.click();await search.pressSequentially('船长');assert.equal(await search.inputValue(),'船长');assert.equal(await page.locator('.glossary-panel-rows>button').count(),1);assert.match(await page.locator('.glossary-panel-rows').textContent(),/林舟/);
   await search.fill('Alias84');assert.equal(await page.locator('.glossary-panel-rows>button').count(),1);await search.fill('不存在');assert.equal(await page.locator('.glossary-panel-rows>button').count(),0);await search.fill('');
   const before=await search.boundingBox();await page.locator('.glossary-panel-rows').evaluate(el=>el.scrollTop=el.scrollHeight);const after=await search.boundingBox();assert.equal(after.y,before.y);assert.ok(await search.isVisible());

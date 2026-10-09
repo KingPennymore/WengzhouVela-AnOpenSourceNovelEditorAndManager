@@ -21,6 +21,7 @@ interface BridgeRequest {
   body?: Object;
   token?: string;
   provider?: string;
+  purpose?: string;
   name?: string;
   text?: string;
   data?: string;
@@ -390,7 +391,7 @@ export class NativeBridge {
       }
       if (operation === 'importPlugin') {
         const documentPicker = new picker.DocumentViewPicker(this.getContext());
-        const uris = await documentPicker.select({ fileSuffixFilters: ['Acode 插件|.zip'], maxSelectNumber: 1 });
+        const uris = await documentPicker.select({ fileSuffixFilters: [data.purpose === 'tex-component' ? '离线排版组件|.zip' : 'Acode 插件|.zip'], maxSelectNumber: 1 });
         if (uris.length === 0) return this.success(false);
         const file = fs.openSync(uris[0], fs.OpenMode.READ_ONLY);
         try {

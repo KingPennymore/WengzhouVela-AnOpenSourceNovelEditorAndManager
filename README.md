@@ -4,9 +4,9 @@
 
 文舟是独立项目，不是 Acode 官方应用，也不代表 Acode Foundation。项目复用了 Acode 的部分 CodeMirror 编辑组件和 Acode-Writer 1.0.4 的章节识别代码，具体版权与许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-当前版本：鸿蒙 / Windows **0.9.4**，安卓 **0.9.4-android.1**，移动端版本代码 **10904**，包名 `me.wenzhou.write`。HarmonyOS 使用 API 24 SDK 编译，兼容 API 12；安卓最低 Android 8.0 / API 26，WebView 需 Chromium 105 或更新版本。
+当前版本：鸿蒙 / Windows **0.9.5**，安卓 **0.9.5-android.1**，移动端版本代码 **10905**，包名 `me.wenzhou.write`。HarmonyOS 使用 API 24 SDK 编译，兼容 API 12；安卓最低 Android 8.0 / API 26，WebView 需 Chromium 105 或更新版本。
 
-[下载 0.9.4](https://github.com/KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager/releases/tag/v0.9.4)：发布签名 HAP、鸿蒙市场提交用 APP.zip、安卓签名 APK / AAB、Windows x64 安装程序 / ZIP、源码及 SHA-256 清单。Windows 包尚无 Authenticode 签名。鸿蒙发布签名的直接安装受系统来源校验限制，不能替代调试签名安装。
+[下载 0.9.5](https://github.com/KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager/releases/tag/v0.9.5)：三端完整版与轻量版，包括发布签名 HAP、鸿蒙市场提交用 APP.zip、安卓签名 APK / AAB、Windows x64 安装程序 / ZIP；另附源码、两份可选离线排版组件及 SHA-256 清单。Windows 包尚无 Authenticode 签名。鸿蒙发布签名的直接安装受系统来源校验限制，不能替代调试签名安装。
 
 0.9.3 重写正文名词候选识别，200 万字基准识别约 990/1000 个专名，误报大幅减少；启动页统计卡片去掉图标。0.9.2 删除翻页动画，翻页直接切换；其余界面动画放缓，均不短于 200 毫秒。0.9.1 重新设计三端界面与动画：分段页面切换器、浮起的当前项、书封书库、页面淡入与卡片依次出现，保留原有配色与布局尺寸；减少动态效果时动画停用。
 
@@ -16,7 +16,8 @@
 
 - [配置与恢复](docs/VELA.md)
 - [文档编辑](docs/EDITING.md)
-- [GitHub 同步](docs/GITHUB.md)
+- [GitHub 同步](docs/GITHUB.md)、[Gitee 支持](docs/GITEE.md)
+- [构建、轻量版与发布检查](docs/BUILD-AND-VERIFY.md)
 - [阅读](docs/READING.md)、[性能](docs/PERFORMANCE.md)、[正文名词候选基准](docs/NOUN-BENCHMARK.md)
 - [Windows](docs/WINDOWS.md)、[插件](docs/PLUGINS.md)、[LaTeX](docs/LATEX.md)
 - [验证范围](VALIDATION.md)、[更新说明](RELEASE_NOTES.md)
@@ -273,3 +274,11 @@ LaTeX 使用真正的 XeTeX / pdfTeX、BibTeX8 / MakeIndex，多遍编译、工�
 Windows x64 安装包与 ZIP、移动安装包可在 GitHub Releases 获取。详细说明：[阅读与配置](docs/READING.md)、[Windows](docs/WINDOWS.md)。Windows 包目前未进行 Authenticode 签名，移动端沿用发布签名。
 
 0.7.1 新增双页阅读，支持 TXT、Markdown、HTML 和 PDF；窄屏自动切回单页，保留阅读位置。该版本同时修复翻页虚影和配置页保存按钮，并移除 Windows 主窗口菜单栏。
+
+## 0.9.5 改进
+
+术语库的两个搜索入口均支持用空格、全角空格或 Tab 分隔多个关键词，全部关键词须在同一条目的名称、分类、别名或释义中匹配，例如“柯戈德尾 地名”。
+
+查找与替换采用统一的应用面板和中英文文案；侧栏可拖动边界或使用方向键调整宽度，双击边界恢复默认，手机与宽屏分别记忆。屏幕键盘覆盖页面时，编辑区、菜单和对话框跟随可见高度。
+
+同步冲突提供本地、远端及合并结果，不重叠的段落自动组合，重叠的段落逐项选择或编辑后确认；保留本地历史和远端基线。轻量构建与离线排版组件、统一回归入口见 [构建与发布检查](docs/BUILD-AND-VERIFY.md)。0.9.5 同时提供完整版、轻量版及两份可选离线排版组件；轻量版编译 LaTeX 前需导入引擎组件，中文排版还需中文组件。

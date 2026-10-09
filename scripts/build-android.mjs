@@ -7,9 +7,11 @@ import {createHash} from 'node:crypto';
 
 const root=dirname(dirname(fileURLToPath(import.meta.url)));
 process.chdir(root);
+if(process.argv.includes('--lite'))process.env.VELA_BUILD_FLAVOR='lite';
 if(process.argv.includes('--assets-only')){
   await import('./build.mjs');
   await mkdir('android/app/src/main/assets',{recursive:true});
+  if(process.env.VELA_BUILD_FLAVOR==='lite'){const {rm}=await import('node:fs/promises'),descriptor=JSON.parse(await readFile('entry/src/main/resources/rawfile/web/tex/components.json','utf8'));for(const name of Object.keys(descriptor.files))await rm('android/app/src/main/assets/web/tex/'+name,{force:true});}
   await cp('entry/src/main/resources/rawfile/web','android/app/src/main/assets/web',{recursive:true});
   const license=await readFile('android/APACHE-2.0.txt','utf8');
   const file='android/app/src/main/assets/web/licenses.js';
@@ -35,10 +37,11 @@ if(process.argv.includes('--assets-only')){
   const variant=release?'release':'debug',name=(await readFile('android/app/build.gradle','utf8')).match(/versionName '([^']+)'/)[1];
   const source=`android/app/build/outputs/apk/${variant}/app-${variant}${release?'-unsigned':''}.apk`;
   await mkdir('dist',{recursive:true});
-  const target=`dist/Vela-${name}-${release?'release-unsigned':'debug'}.apk`;
+  const suffix=process.env.VELA_BUILD_FLAVOR==='lite'?'-lite':'';
+  const target=`dist/Vela-${name}${suffix}-${release?'release-unsigned':'debug'}.apk`;
   await cp(source,target);
-  if(release)await cp('android/app/build/outputs/bundle/release/app-release.aab',`dist/Vela-${name}-release-unsigned.aab`);
+  if(release)await cp('android/app/build/outputs/bundle/release/app-release.aab',`dist/Vela-${name}${suffix}-release-unsigned.aab`);
   const bytes=await readFile(target);
-  await writeFile(`dist/android-${variant}.json`,JSON.stringify({version:name,package:'me.wenzhou.write',variant,signed:!release,file:target.split('/').at(-1),bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')},null,2));
+  await writeFile(`dist/android-${variant}${suffix}.json`,JSON.stringify({version:name,package:'me.wenzhou.write',variant,flavor:suffix?'lite':'full',signed:!release,file:target.split('/').at(-1),bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')},null,2));
   console.log('安卓 APK：'+target+(release?'（未签名）':'（调试签名）'));
 }

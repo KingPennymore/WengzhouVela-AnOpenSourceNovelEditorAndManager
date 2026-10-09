@@ -1,4 +1,4 @@
-param([string]$SigningDirectory = '', [switch]$CreateKey)
+param([string]$SigningDirectory = '', [switch]$CreateKey, [switch]$Lite)
 $ErrorActionPreference = 'Stop'
 $repository = Split-Path -Parent $PSScriptRoot
 $sdk = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { [Environment]::GetEnvironmentVariable('ANDROID_HOME', 'User') }
@@ -14,9 +14,10 @@ $certificate = Join-Path $SigningDirectory 'Wenzhou-release-public.cer'
 $alias = 'wenzhou-release'
 $version = [regex]::Match((Get-Content -LiteralPath (Join-Path $repository 'android\app\build.gradle') -Raw), "versionName '([^']+)'").Groups[1].Value
 if (!$version) { throw '无法读取安卓版本。' }
+$artifactVersion = if ($Lite) { $version + '-lite' } else { $version }
 $distribution = Join-Path $repository 'dist'
-$inputApk = Join-Path $distribution "Vela-$version-release-unsigned.apk"
-$inputBundle = Join-Path $distribution "Vela-$version-release-unsigned.aab"
+$inputApk = Join-Path $distribution "Vela-$artifactVersion-release-unsigned.apk"
+$inputBundle = Join-Path $distribution "Vela-$artifactVersion-release-unsigned.aab"
 if (!(Test-Path -LiteralPath $inputApk) -or !(Test-Path -LiteralPath $inputBundle)) { throw '请先运行 node scripts/build-android.mjs --release。' }
 if (!(Test-Path -LiteralPath $key) -and !$CreateKey) { throw '发布密钥不存在。首次创建请显式使用 -CreateKey；更新版本必须使用原密钥。' }
 
@@ -59,8 +60,8 @@ try {
   }
   Protect-SigningPath $key
   Invoke-SigningTool $keytool @('-exportcert', '-alias', $alias, '-keystore', $key, '-storepass:env', 'WENZHOU_KEYSTORE_PASSWORD', '-file', $certificate)
-  $outputApk = Join-Path $distribution "Vela-$version-release-signed.apk"
-  $outputBundle = Join-Path $distribution "Vela-$version-release-signed.aab"
+  $outputApk = Join-Path $distribution "Vela-$artifactVersion-release-signed.apk"
+  $outputBundle = Join-Path $distribution "Vela-$artifactVersion-release-signed.aab"
   $tools = Join-Path $sdk 'build-tools\36.0.0'
   Invoke-SigningTool (Join-Path $tools 'apksigner.bat') @('sign', '--ks', $key, '--ks-key-alias', $alias, '--ks-pass', 'env:WENZHOU_KEYSTORE_PASSWORD', '--key-pass', 'env:WENZHOU_KEYSTORE_PASSWORD', '--v1-signing-enabled', 'false', '--v2-signing-enabled', 'true', '--v3-signing-enabled', 'true', '--v4-signing-enabled', 'false', '--out', $outputApk, $inputApk)
   Invoke-SigningTool (Join-Path $tools 'apksigner.bat') @('verify', '--verbose', '--print-certs', $outputApk)
@@ -71,7 +72,7 @@ try {
   $publicKey = [Security.Cryptography.X509Certificates.X509Certificate2]::new($certificate)
   $manifest = [ordered]@{ version = $version; package = 'me.wenzhou.write'; variant = 'release'; signed = $true; certificateSha256 = $publicKey.GetCertHashString([Security.Cryptography.HashAlgorithmName]::SHA256); files = @() }
   foreach ($file in @($outputApk, $outputBundle)) { $manifest.files += @{ file = [IO.Path]::GetFileName($file); bytes = (Get-Item -LiteralPath $file).Length; sha256 = (Get-FileHash -LiteralPath $file -Algorithm SHA256).Hash.ToLowerInvariant() } }
-  $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $distribution 'android-release-signed.json') -Encoding utf8
+  $manifest | ConvertTo-Json -Depth 4 | Set-Content -LiteralPath (Join-Path $distribution $(if ($Lite) { 'android-release-lite-signed.json' } else { 'android-release-signed.json' })) -Encoding utf8
   Write-Host "已生成发布签名 APK 和 AAB：$distribution"
   Write-Host "请安全备份密钥和密码文件：$SigningDirectory"
 } finally {

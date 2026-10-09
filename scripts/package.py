@@ -35,7 +35,7 @@ for name, expected in state["outputs"].items():
 package_info = json.loads((root / "package.json").read_text(encoding="utf-8"))
 version = package_info.get("harmonyVersion", package_info["version"])
 source = out / f"Vela-{version}-source.zip"
-folders = ["web", "scripts", "tests", "vendor", "hvigor", "AppScope", "entry/src", "previews", "android", "windows", "docs", "examples", "测试文件"]
+folders = [".github", "web", "scripts", "tests", "vendor", "hvigor", "AppScope", "entry/src", "previews", "android", "windows", "docs", "examples", "测试文件"]
 files = ["package.json", "package-lock.json", "oh-package.json5", "build-profile.json5", "hvigorfile.ts", ".gitignore", ".gitattributes", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "VALIDATION.md", "RELEASE_NOTES.md", "entry/oh-package.json5", "entry/build-profile.json5", "entry/hvigorfile.ts"]
 with ZipFile(source, "w", ZIP_DEFLATED, compresslevel=9) as archive:
     for name in files:

@@ -12,7 +12,7 @@ try{
  for(const [profile,width,height] of [['windows',1440,960],['harmonyos',1280,850],['android',390,844]]){
   const context=await browser.newContext({viewport:{width,height},colorScheme:'light'});
   await context.addInitScript(seed=>localStorage.setItem('wenzhou.workspace',JSON.stringify(seed)),seed);
-  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:4173/?ui='+profile);if(await page.locator('#start-page').isVisible())await page.locator('[data-recent=book]').click();await page.waitForSelector('.cm-editor');
+  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto((process.env.VELA_TEST_URL||'http://127.0.0.1:4173')+'/?ui='+profile);if(await page.locator('#start-page').isVisible())await page.locator('[data-recent=book]').click();await page.waitForSelector('.cm-editor');
   assert.equal(await page.locator('body').getAttribute('data-ui'),profile);
   await page.locator('#mobile-library').click();if(width>600)await page.locator('#outline-toggle').click();await page.waitForTimeout(200);
   await page.screenshot({path:`${out}/${profile}-editor.png`});
@@ -31,7 +31,7 @@ try{
   checks.push(profile+' navigation, settings, English, home, library, reader, VELA, dark mode and bounds');await context.close();
  }
  // An empty paragraph and inserted ASCII spaces must keep the actual caret on the text baseline.
- const context=await browser.newContext({viewport:{width:1100,height:850}}),page=await context.newPage();await page.goto('http://127.0.0.1:4173/?ui=harmonyos');await page.waitForSelector('.cm-editor');
+ const context=await browser.newContext({viewport:{width:1100,height:850}}),page=await context.newPage();await page.goto((process.env.VELA_TEST_URL||'http://127.0.0.1:4173')+'/?ui=harmonyos');await page.waitForSelector('.cm-editor');
  const set=async text=>{await page.evaluate(text=>{const v=editorManager.editor;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:text},selection:{anchor:text.length}});v.focus();},text);await page.waitForTimeout(100);};
  const caret=()=>page.evaluate(()=>{const v=editorManager.editor,p=v.state.selection.main.head,r=v.coordsAtPos(p),cursor=v.dom.querySelector('.cm-cursor')?.getBoundingClientRect(),line=v.contentDOM.querySelector('.cm-line:last-child'),rect=line.getBoundingClientRect();return {position:p,text:v.state.doc.toString(),x:r.left,drawn:cursor?.left,start:rect.left+parseFloat(getComputedStyle(line).paddingLeft)+parseFloat(getComputedStyle(line).textIndent||0)};});
  await set('第一章 航程\n正文\n');const empty=await caret();assert.ok(Math.abs(empty.x-empty.start)<2,JSON.stringify(empty));

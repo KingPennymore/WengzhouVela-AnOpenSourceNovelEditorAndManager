@@ -25,3 +25,5 @@ Vela 使用 WasmTeX 0.1.1 的真实 XeTeX / pdfTeX、TeX Live 2026 核心资源�
 PDF 按页渲染以控制内存。只读阅读中的左右点击用于 PDF 翻页，双指用于调整页面阅读比例；正文的字号由 TEX 源码控制。普通 TXT / Markdown 阅读则直接调整文字字号。
 
 引擎与 TeX Live 的许可分别保留，见 [第三方声明](../THIRD_PARTY_NOTICES.md) 和 `vendor/wasmtex/`。核心资源在构建时校验 SHA-256，不打包上游 500 MB 的完整 academic 资源。
+
+轻量构建提供相同的离线编译能力，但需要先在 LaTeX 预览中导入排版引擎包和中文包。导入、校验及构建方法见 [构建与发布检查](BUILD-AND-VERIFY.md)。

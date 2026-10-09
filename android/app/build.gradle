@@ -8,8 +8,8 @@ android {
         applicationId 'me.wenzhou.write'
         minSdk 26
         targetSdk 36
-        versionCode 10904
-        versionName '0.9.4-android.1'
+        versionCode 10905
+        versionName '0.9.5-android.1'
         testInstrumentationRunner 'me.wenzhou.write.PortInstrumentation'
     }
     buildTypes {
@@ -31,6 +31,7 @@ dependencies {
 def prepareEditor = tasks.register('prepareEditor', Exec) {
     workingDir rootProject.projectDir.parentFile
     commandLine 'node', 'scripts/build-android.mjs', '--assets-only'
+    inputs.property 'velaBuildFlavor', System.getenv('VELA_BUILD_FLAVOR') ?: 'full'
     inputs.dir '../../web'
     inputs.dir '../../vendor/acode-writer/src'
     inputs.dir '../../vendor/acode/src/cm'

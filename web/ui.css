@@ -137,3 +137,52 @@ body.project-busy #workspace,body.project-busy #doc-list,body.project-busy .topb
 .reader-paged.reader-no-titlepage .reader-section-title.reader-indented-title{height:var(--reader-page-height);margin:0;display:flex;align-items:center;justify-content:center;text-align:center;break-before:column;break-after:column;break-inside:avoid;overflow:hidden}
 
 .start-stat{min-width:0;white-space:nowrap}
+
+/* Keyboard overlays, touch targets and adjustable sidebar edges. */
+#app{height:var(--app-height,100dvh)}
+.sidebar-resize{position:absolute;top:0;bottom:0;width:12px;z-index:35;cursor:col-resize;touch-action:none}
+.sidebar-resize-left{right:0}.sidebar-resize-right{left:0}
+.sidebar-resize:hover,.sidebar-resize:focus-visible{background:var(--soft);outline:2px solid var(--accent);outline-offset:-2px}
+.sync-state{font-size:11px;color:var(--muted);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sync-state[data-state=failed]{color:var(--error)}
+.sync-conflict-sources{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:12px}
+.sync-conflict-part{padding:12px;border:1px solid var(--warning);margin:12px 0;border-radius:6px}
+.sync-conflict-part[data-resolved=true]{border-color:var(--success)}
+.sync-conflict-part h3{font-size:14px;margin:0 0 8px}
+.sync-merged,.sync-resolver textarea,.sync-conflict-sources textarea{font:inherit;line-height:1.6;white-space:pre-wrap;resize:vertical;max-width:100%;overflow-wrap:anywhere}
+#dialog:has(.sync-merged){width:min(960px,calc(100vw - 24px))}
+body[data-keyboard=true] #dialog{position:fixed;top:calc(var(--visual-top,0px) + 8px);bottom:auto;margin-top:0;margin-bottom:0;max-height:calc(var(--app-height) - 16px)}
+body[data-keyboard=true] #dialog.settings-dialog{height:calc(var(--app-height) - 16px);max-height:calc(var(--app-height) - 16px)}
+body[data-keyboard=true] #toolbar-overflow{max-height:calc(var(--app-height) - var(--shell-top) - 16px)}
+body[data-keyboard=true] .glossary-panel{min-height:76px;max-height:34%;padding:4px 8px}
+@media(max-width:600px){
+ .topbar .page-navigation .nav-item,.topbar .breadcrumb>#mobile-library,.global-tools>button{width:40px;min-width:40px;height:44px}
+ .topbar .breadcrumb{gap:2px}.topbar .page-navigation{gap:0}.topbar .global-tools{gap:0}.topbar .toolbar{min-width:0}
+ .toolbar .saved,.toolbar .sync-state{display:none}
+ .chapter,.doc-open,#toolbar-overflow button{min-height:44px}
+ .library-heading button,.outline-heading button,.glossary-panel header button{min-width:40px;min-height:40px}
+ .sidebar-resize{width:16px}
+ .glossary-panel header strong{display:none}.glossary-panel header input{max-width:none;flex:1;width:0;min-width:0;min-height:36px}
+ .glossary-panel-rows>button{grid-template-columns:minmax(0,1fr) minmax(0,.65fr)}
+ .glossary-panel-rows>button>span:nth-of-type(2){grid-column:1/-1}
+ .sync-conflict-sources{grid-template-columns:1fr}
+}
+
+.statusbar>.sync-state{max-width:32vw;flex:0 1 auto;min-width:0}.tex-component-note{flex-basis:100%;color:var(--muted)}
+
+.tex-component-controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;border-bottom:1px solid var(--line)}
+
+/* Search uses the same panel, input and action styles as the rest of the editor. */
+.cm-panels:has(.vela-search-panel){flex:0 0 auto;background:var(--panel);color:var(--text);border-color:var(--line);max-height:min(400px,65%);overflow:auto}
+.cm-search.vela-search-panel{position:relative;padding:12px 16px;font-family:inherit;font-size:12px;line-height:1.6;background:var(--panel);color:var(--text)}
+.vela-search-panel header{display:flex;align-items:center;gap:12px;margin-bottom:8px}.vela-search-panel header strong{font-size:14px;font-weight:500;flex:1}
+.vela-search-panel header button{position:static!important;width:36px;height:36px;color:var(--muted);font-size:22px}
+.vela-search-panel .search-fields{display:grid;grid-template-columns:minmax(140px,1fr) auto;gap:8px 12px;align-items:end}
+.vela-search-panel label{display:flex;gap:6px;flex-direction:column;color:var(--muted);font-size:12px}
+.vela-search-panel input[type=search],.vela-search-panel input[type=text]{box-sizing:border-box;width:100%;min-width:0;margin:0;padding:9px 10px;background:var(--paper);color:var(--text);border:1px solid var(--line);border-radius:var(--radius,6px);font:inherit}
+.vela-search-panel input:focus{outline:2px solid var(--accent);outline-offset:-1px}.vela-search-panel input[aria-invalid=true]{border-color:var(--error)}
+.vela-search-panel .search-actions{display:flex;gap:6px;flex-wrap:wrap}.vela-search-panel button{background:var(--paper);color:var(--text);border:1px solid var(--line);border-radius:var(--radius,6px);padding:8px 10px;font:inherit;cursor:pointer}.vela-search-panel button:hover{background:var(--soft)}.vela-search-panel button:disabled{opacity:.45;cursor:default}
+.vela-search-panel .search-options{display:flex;gap:16px;flex-wrap:wrap;margin-top:10px}.vela-search-panel .search-options label{flex-direction:row;align-items:center;white-space:nowrap;min-height:28px}.vela-search-panel .search-options input{margin:0;accent-color:var(--accent)}.vela-search-panel .search-feedback{font-size:11px;color:var(--muted)}
+@media(max-width:600px){.cm-search.vela-search-panel{padding:8px 10px}.vela-search-panel .search-fields{grid-template-columns:minmax(0,1fr)}.vela-search-panel .search-actions button{min-height:40px;flex:1}.vela-search-panel .search-options{gap:8px 12px}.vela-search-panel .search-options label{min-height:36px}.vela-search-panel header{gap:4px}.vela-search-panel .search-feedback{max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
+
+.vela-search-panel header{position:sticky;top:-10px;z-index:2;background:var(--panel);padding:6px 0}

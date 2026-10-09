@@ -46,6 +46,7 @@ export class UIShell {
     const focused=this.menu.contains(document.activeElement)?document.activeElement:null;
     for(const button of this.secondary){this.menu.append(button);button.setAttribute('role','menuitem');}
     for(const button of this.contextual){(innerWidth<=600?this.menu:this.toolbar).append(button);if(innerWidth<=600)button.setAttribute('role','menuitem');else button.removeAttribute('role');}
+    const sync=document.querySelector('#sync-state');if(sync)(innerWidth<=600?document.querySelector('.statusbar'):this.toolbar).prepend(sync);
     this.toggle.hidden=false;
     this.readingInsets();
     if(!this.menu.hidden&&focused&&this.menu.contains(focused))focused.focus();

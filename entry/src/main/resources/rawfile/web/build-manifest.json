@@ -1,8 +1,8 @@
 {
   "format": 1,
-  "source": "8fd4adb743813c8db8fddb5d7801bf00d83532d0d515a4c2d9a514b1bfd501e7",
+  "source": "252125341c65e3ce8f4c8f133b810100c9eb9c29cee195963afec7f92176f6a9",
   "outputs": {
-    "app.js": "65edb2c13ab9cc8bf4ca22c4677f090a2eba852d3fc4b5a52f1c628db8155c6f",
+    "app.js": "4d02620aa1aee71510465ddc5044a87d391b7c7f405212f7a9d7bcc46874a339",
     "design.css": "306ff47abdf9d37b7d08fc780817c56c98ff2ffad3aed46162786af09720f0b9",
     "file-manager.css": "4c3ecef2f1b7f371bb7fb0bc94d7a0b932ae277caf4313a07ff21e42e3344964",
     "fonts/KaTeX_AMS-Regular.ttf": "68534840bcfdd2bffb6f0e8deb48684dd01e7f04ea2813267577afb906de1d13",
@@ -66,7 +66,7 @@
     "fonts/KaTeX_Typewriter-Regular.woff": "e14fed02b1aba7ce9f5afd5844b5d0321b22351febc720e0de8b8723527609f7",
     "fonts/KaTeX_Typewriter-Regular.woff2": "71d517d67827787cfabdf186914cc3358eda539e37931941f2b2fd4a21f68c0b",
     "html-reader.js": "77cc979350b577af0c64c10352a8634f27004a5fc01f65648ecb6f087b5a10f6",
-    "index.html": "3b157a693a8127311c6bb8b17f2a08f3b24b483b33d300508ddbed8bee0bddf3",
+    "index.html": "c5c245c20fab4093ef68fe7ba5e7768a7f2fd15d397b5fbfe083fc50b473479d",
     "katex.min.css": "d4ab5b8ee16989b070cdb0ea24bd6ad48fc8df1b787f280f29d3ae4f959f2c00",
     "licenses.js": "3705d9bd62317f3954b73f0bf72e37ce7c76c60a888fd64f9f0366572b13595a",
     "licenses/@codemirror-autocomplete.txt": "05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07",
@@ -323,10 +323,12 @@
     "pdf/pdf.worker.mjs": "bd88805178a26c729db8c0107a5b630cb900ec070f4d8c7529a3e45530afd41d",
     "project-archive-worker.js": "609f117f24a2d1513c3fd65666510f2e58827391ea1a22ad08285a2f13732b88",
     "style.css": "22eb7f811e799cf215cc61acfe599188eda4c8a0f7562b96c43f64ff1060141e",
+    "tex-component-worker.js": "7bee67450a3dd7b0783ce3c03f84f2e84a024444acde507d072e5786c2dcfcfe",
     "tex/NOTICE": "4c2c2c5272626e1074b7d7fdf3e6898f0a2886ebcc70310ef6fa4b29ec11f341",
     "tex/THIRD_PARTY_NOTICES.md": "f8864b80293837e63ff7f71ab3efb5fe5d121d9f85bfce0cd1bf81846ac8255d",
     "tex/busytex.js": "81aa161c71d8cca6586c11b7dbd76ddedd48d7523300ff75fa9ba49703885678",
     "tex/busytex.wasm": "cbbbf1799b460218a089504a70f323190cab44695a766f1acdf991eb19ad037c",
+    "tex/components.json": "2c38ee766c356ca8b3029aaa5509cec74bf1eb8a20ee292ea62fc68bb2b72d52",
     "tex/core.data": "1989128fa45214de38337a8ae44524ae711b0157d2e43aed06a1b418ca8d68ba",
     "tex/core.js": "66b4b78561a20abfa0b5538a13cc1972fd5fdf332618e1c5a51bf0a1b74047df",
     "tex/formats/pdflatex.fmt": "c0c98dbeb60ef522f1f4c8f3ced6b63ac302902098f1407c8131a20fcf20b48e",
@@ -335,7 +337,7 @@
     "tex/manifest.json": "b63c187f2f6f382f7967b52e6e56089185c67dd93fb0e2a0455eae7cb58bd140",
     "tex/vela-tex-cjk.zip": "e4f97354707194653bd219fdf7257f824643744718451d386b4346e7f6b6c80e",
     "tex/worker.js": "5b0b03d6957d79b9016ccf72b193f865f980a2971565d9cd793ece9147541905",
-    "ui.css": "ad0391e06cccee78b3241e43d715b7fbac867f7ab5d5e914bc9f01a29a9f46cf",
-    "version.json": "9011f6eb569be48022b9b7243031230f4b4163507a60ab8dff98a8b6bedf3710"
+    "ui.css": "81d77c1c1ffdcedbec4ebdb4791590127ecb87cd5245b65c7324a9a71e0d7b0a",
+    "version.json": "a14565a9ecdd2314d97f5256c18657315461905c7c908c96a9d6639a090e6c8b"
   }
 }

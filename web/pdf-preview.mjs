@@ -1,6 +1,7 @@
 import * as pdfjs from 'pdfjs-dist/legacy/build/pdf.mjs';
 import {exportPdf} from './tex-compiler.mjs';
 import {t} from './i18n.mjs';
+import {mountTexComponents} from './tex-component-view.mjs';
 pdfjs.GlobalWorkerOptions.workerSrc=new URL('./pdf/pdf.worker.mjs',location.href).href;
 const escape=text=>String(text??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
 // A separate canvas per visible page keeps large PDFs from allocating all pages at once.
@@ -11,6 +12,7 @@ export class PdfPreview {
   mount(root,doc,{reading=false,onReady}={}){
     this.dispose();this.root=root;this.doc=doc;this.reading=reading;this.onReady=onReady;this.page=1;this.zoom=1;this.compiling=false;this.pdf=null;this.renderEpoch=0;
     root.classList.add('tex-pdf');root.innerHTML=`<div class="tex-tools"><select class="tex-engine" aria-label="${t('编译引擎')}"><option value="xetex">XeLaTeX</option><option value="pdftex">pdfLaTeX</option></select><button class="primary tex-compile">${t('编译 PDF')}</button><button class="secondary tex-cancel" hidden>${t('取消')}</button><button class="secondary tex-export" disabled>${t('导出 PDF')}</button><span class="tex-status" role="status"></span></div><details class="tex-log"><summary>${t('编译日志')}</summary><div class="tex-diagnostics"></div><pre></pre></details><div class="pdf-tools"><button class="pdf-previous" disabled>←</button><span class="pdf-position"></span><button class="pdf-next" disabled>→</button></div><div class="pdf-canvas"></div>`;
+    if(this.compiler?.assets&&!/\.pdf$/i.test(doc.name))mountTexComponents(root,this.compiler,this.fail);
     root.querySelector('.tex-compile').onclick=()=>this.compile().catch(this.fail);root.querySelector('.tex-cancel').onclick=()=>this.abort?.abort();root.querySelector('.tex-export').onclick=()=>exportPdf(doc.name,this.bytes).catch(this.fail);root.querySelector('.pdf-previous').onclick=()=>this.turn(-1);root.querySelector('.pdf-next').onclick=()=>this.turn(1);
     this.resize=new ResizeObserver(()=>{if(this.pdf)this.render().catch(this.fail);});this.resize.observe(root.querySelector('.pdf-canvas'));
     const config=this.compiler?.host?.project?.(doc)?.config;root.querySelector('.tex-engine').value=config?.formats?.latex?.engine||'xetex';if(reading){root.classList.add('tex-reading');if(!/\.pdf$/i.test(doc.name))this.compile().catch(this.fail);}if(/\.pdf$/i.test(doc.name)){root.querySelector('.tex-tools').hidden=true;root.querySelector('.tex-log').hidden=true;}

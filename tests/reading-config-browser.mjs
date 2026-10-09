@@ -11,7 +11,7 @@ const state=()=>p.evaluate(()=>JSON.parse(localStorage.getItem('wenzhou.workspac
 const check=async(name,run)=>{await run();checks.push(name);console.log('PASS '+name);};
 const tap=async(fraction=.5)=>{await p.waitForTimeout(380);const box=await p.locator('.reader-viewport').boundingBox();await p.mouse.click(box.x+box.width*fraction,box.y+box.height*.5);await p.waitForTimeout(380);};
 try{
- await p.goto('http://127.0.0.1:4173');await p.locator('[data-recent]').filter({hasText:'小说.txt'}).click();await p.waitForSelector('.cm-editor');
+ await p.goto((process.env.VELA_TEST_URL||'http://127.0.0.1:4173'));await p.locator('[data-recent]').filter({hasText:'小说.txt'}).click();await p.waitForSelector('.cm-editor');
  await check('设置创建全局配置并列出全部内部文件，搜索与选择保留相对路径',async()=>{
   await p.locator('#more-tools').click();await p.locator('#settings').click();await p.locator('#edit-global-vela').click();await p.waitForSelector('#vela-form');
   assert.equal(await p.locator('[name=readingFiles]').count(),2);await p.locator('[data-vela-select=none]').click();await p.locator('#vela-file-search').fill('其他');await p.locator('[data-vela-select=all]').click();await p.locator('#vela-file-search').fill('');
