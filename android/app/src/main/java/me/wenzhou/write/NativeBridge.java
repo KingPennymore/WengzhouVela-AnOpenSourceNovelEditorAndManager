@@ -16,20 +16,21 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.net.ssl.HttpsURLConnection;
 
-/** No API ever returns the stored token. Only fixed GitHub origins accept credentials. */
+/** No API ever returns the stored token. Only fixed provider origins accept credentials. */
 final class NativeBridge {
     private final MainActivity activity;
     private final byte[] capability;
     final WorkspaceFiles files;
     final ProjectFiles projects;
     private final CredentialStore credentials;
+    private final CredentialStore giteeCredentials;
     private final ExecutorService workers = Executors.newFixedThreadPool(3);
     private final AtomicLong authGeneration = new AtomicLong();
     private final Object authLock = new Object();
 
     NativeBridge(MainActivity activity, String capability) throws Exception {
         this.activity = activity; this.capability = capability.getBytes(StandardCharsets.UTF_8);
-        files = new WorkspaceFiles(activity); projects = new ProjectFiles(activity, files); credentials = new CredentialStore(activity);
+        files = new WorkspaceFiles(activity); projects = new ProjectFiles(activity, files); credentials = new CredentialStore(activity); giteeCredentials = new CredentialStore(activity, "gitee");
     }
     private void authorize(String value) {
         if (value == null || value.length() > 80 || !MessageDigest.isEqual(capability, value.getBytes(StandardCharsets.UTF_8))) throw new SecurityException("不允许的页面调用。");
@@ -77,6 +78,10 @@ final class NativeBridge {
     }
     private Object dispatch(String operation, JSONObject data, long generation) throws Exception {
         if (projects.busy && Arrays.asList("manageFiles", "restoreTrash", "writeWorkspaceFiles").contains(operation)) throw ProjectFiles.fail("E_CONFLICT", "项目正在提交，请稍后重试。");
+        String provider = data.optString("provider", "github");
+        if (!provider.equals("github") && !provider.equals("gitee")) throw new IOException("不支持此代码托管平台。");
+        String origin = provider.equals("gitee") ? "https://gitee.com/api/v5" : "https://api.github.com";
+        CredentialStore store = provider.equals("gitee") ? giteeCredentials : credentials;
         switch (operation) {
             case "initializeStorage": case "refreshFolder": return files.scan();
             case "manageFiles": return files.manage(data.optString("action"), data.optString("path"), data.optString("destination"));
@@ -92,40 +97,41 @@ final class NativeBridge {
             case "appearance": activity.appearance(data.optBoolean("dark"), data.optString("background")); return true;
             case "fullscreen": activity.fullscreen(data.optBoolean("enabled")); return true;
             case "openAuth": activity.openAuthorization(); return true;
-            case "connection": return request("https://api.github.com", "GET", null, "");
+            case "connection": return request(origin + (provider.equals("gitee") ? "/emojis" : ""), "GET", null, "");
             case "publicApi": case "api": {
                 String path = data.optString("path"), method = data.optString("method", "GET");
                 if (!path.matches("^/(user(?:\\?.*|$)|user/repos(?:\\?.*|$)|repos/[\\w.-]+/[\\w.-]+(?:/.*|\\?.*|$))")
                     || path.matches("(?s).*[\\r\\n\\\\#].*") || path.contains("..")) throw new IOException("不允许的 GitHub 请求路径。");
                 if (!Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE").contains(method)) throw new IOException("不支持此请求方法。");
                 if (operation.equals("publicApi") && (!method.equals("GET") || !path.startsWith("/repos/"))) throw new IOException("Public repository reads only.");
-                String token = credentials.read();
+                String token = store.read();
                 if (token.isEmpty() && !operation.equals("publicApi")) return new JSONObject().put("status", 401).put("body", new JSONObject());
-                return request("https://api.github.com" + path, method, data.optJSONObject("body"), token);
+                return request(origin + path, method, data.optJSONObject("body"), token);
             }
             case "login": {
                 String token = data.optString("token").trim();
                 if (token.isEmpty() || token.length() > 4096 || token.matches("(?s).*\\s.*")) throw new IOException("访问令牌格式不正确。");
-                JSONObject user = request("https://api.github.com/user", "GET", null, token);
+                JSONObject user = request(origin + "/user", "GET", null, token);
                 verifyLoginStatus(user.getInt("status"));
                 synchronized (authLock) {
                     if (generation != authGeneration.get()) throw new IOException("登录已取消。");
-                    credentials.write(token);
+                    store.write(token);
                 }
                 return user.get("body");
             }
-            case "logout": synchronized (authLock) { if (generation == authGeneration.get()) credentials.clear(); } return true;
+            case "logout": synchronized (authLock) { if (generation == authGeneration.get()) store.clear(); } return true;
             case "oauth": {
+                if (!provider.equals("github")) throw new IOException("Gitee 请使用个人访问令牌登录。");
                 String path = data.optString("path");
                 if (!path.equals("/login/device/code") && !path.equals("/login/oauth/access_token")) throw new IOException("不允许的授权地址。");
                 JSONObject response = request("https://github.com" + path, "POST", data.optJSONObject("body"), "");
                 if (response.getInt("status") != 200) throw new IOException("GitHub 授权请求失败，请检查 Client ID 与网络。");
                 JSONObject oauth = response.getJSONObject("body"); String token = oauth.optString("access_token");
                 if (!token.isEmpty()) {
-                    JSONObject user = request("https://api.github.com/user", "GET", null, token); verifyLoginStatus(user.getInt("status"));
+                    JSONObject user = request(origin + "/user", "GET", null, token); verifyLoginStatus(user.getInt("status"));
                     synchronized (authLock) {
                         if (generation != authGeneration.get()) throw new IOException("登录已取消。");
-                        credentials.write(token);
+                        store.write(token);
                     }
                     return new JSONObject().put("authorized", true);
                 }
@@ -138,8 +144,8 @@ final class NativeBridge {
     private void verifyLoginStatus(int status) throws IOException {
         if (status == 200) return;
         if (status == 401) throw new IOException("访问令牌无效或已过期，请重新生成令牌。");
-        if (status == 403) throw new IOException("GitHub 拒绝访问，请检查令牌权限或请求额度。");
-        throw new IOException("GitHub 验证失败（HTTP " + status + "），请检查网络后重试。");
+        if (status == 403) throw new IOException("代码托管服务拒绝访问，请检查令牌权限或请求额度。");
+        throw new IOException("代码托管服务验证失败（HTTP " + status + "），请检查网络后重试。");
     }
     private JSONObject request(String url, String method, JSONObject body, String token) throws Exception {
         HttpsURLConnection connection = (HttpsURLConnection) new URL(url).openConnection();
@@ -147,8 +153,8 @@ final class NativeBridge {
             connection.setConnectTimeout(15000); connection.setReadTimeout(30000); connection.setInstanceFollowRedirects(false);
             connection.setRequestMethod(method); connection.setRequestProperty("Accept", "application/json");
             connection.setRequestProperty("Content-Type", "application/json"); connection.setRequestProperty("User-Agent", "Vela-Android/0.5.0");
-            if (!token.isEmpty()) {
-                connection.setRequestProperty("Authorization", "Bearer " + token);
+            if (!token.isEmpty()) connection.setRequestProperty("Authorization", "Bearer " + token);
+            if (!token.isEmpty() && url.startsWith("https://api.github.com/")) {
                 connection.setRequestProperty("Accept", "application/vnd.github+json"); connection.setRequestProperty("X-GitHub-Api-Version", "2022-11-28");
             }
             if (body != null) {
@@ -162,12 +168,12 @@ final class NativeBridge {
                 String text; try (InputStream input = stream) { text = new String(readStream(input, 16 * 1024 * 1024), StandardCharsets.UTF_8); }
                 if (!text.isEmpty()) {
                     try { result = new JSONTokener(text).nextValue(); }
-                    catch (Exception invalid) { if (status >= 200 && status < 300) throw new IOException("GitHub 响应格式异常，请检查设备网络。"); result = new JSONObject(); }
+                    catch (Exception invalid) { if (status >= 200 && status < 300) throw new IOException("代码托管服务响应格式异常，请检查设备网络。"); result = new JSONObject(); }
                 }
             }
             return new JSONObject().put("status", status).put("body", result);
         } catch (IOException network) {
-            if (network.getMessage() != null && network.getMessage().startsWith("GitHub 响应")) throw network;
+            if (network.getMessage() != null && network.getMessage().startsWith("代码托管服务响应")) throw network;
             throw new IOException("无法连接 GitHub，请检查设备网络或代理后重试。");
         } finally { connection.disconnect(); }
     }

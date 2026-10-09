@@ -8,7 +8,7 @@ export class GitHubError extends Error {
   }
 }
 export class GitHub {
-  constructor(transport) { this.transport = transport; }
+  constructor(transport) { this.transport = transport; this.provider='github'; }
   async request(path, method = 'GET', body, {signal}={}) {
     for(let attempt=0;;attempt++){signal?.throwIfAborted();try{const response=await this.transport('api',{path,method,body});signal?.throwIfAborted();if(response.status<200||response.status>=300)throw new GitHubError(response.status,response.body);return response.body;}catch(error){if(method!=='GET'||attempt>=2||signal?.aborted||error.status&&error.status<500)throw error;await abortableSleep(300*2**attempt,signal);}}
   }

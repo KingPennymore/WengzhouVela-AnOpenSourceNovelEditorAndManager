@@ -20,6 +20,7 @@ interface BridgeRequest {
   method?: string;
   body?: Object;
   token?: string;
+  provider?: string;
   name?: string;
   text?: string;
   data?: string;
@@ -58,11 +59,10 @@ interface EmptyBody { message: string; }
 
 export class NativeBridge {
   context: common.UIAbilityContext | undefined = undefined;
-  private token: string = '';
-  private tokenLoaded: boolean = false;
+  private tokens: Map<string, string> = new Map();
   private authGeneration: number = 0;
   private encoder: util.TextEncoder = new util.TextEncoder();
-  private alias: Uint8Array = new util.TextEncoder().encodeInto('wenzhou.github.token');
+  private credentialAlias(provider: string): Uint8Array { return new util.TextEncoder().encodeInto('wenzhou.' + provider + '.token'); }
   private workspaceFiles: WorkspaceFiles = new WorkspaceFiles();
   private projects: ProjectFiles = new ProjectFiles();
 
@@ -141,32 +141,33 @@ export class NativeBridge {
     }
   }
 
-  private async loadToken(): Promise<string> {
-    if (this.tokenLoaded) return this.token;
+  private async loadToken(provider: string = 'github'): Promise<string> {
+    if (this.tokens.has(provider)) return this.tokens.get(provider) || '';
+    let token = '';
     const query: asset.AssetMap = new Map();
-    query.set(asset.Tag.ALIAS, this.alias);
+    query.set(asset.Tag.ALIAS, this.credentialAlias(provider));
     query.set(asset.Tag.RETURN_TYPE, asset.ReturnType.ALL);
     try {
       const entries = await asset.query(query);
       if (entries.length > 0) {
         const bytes = entries[0].get(asset.Tag.SECRET) as Uint8Array;
-        this.token = util.TextDecoder.create('utf-8').decodeToString(bytes);
+        token = util.TextDecoder.create('utf-8').decodeToString(bytes);
       }
-      this.tokenLoaded = true;
-      return this.token;
+      this.tokens.set(provider, token);
+      return token;
     } catch (error) {
       const failure = operationError(error as Object, 'credentials');
       if (failure.code === 24000002) {
-        this.tokenLoaded = true;
+        this.tokens.set(provider, '');
         return '';
       }
       throw failure;
     }
   }
 
-  private async storeToken(token: string): Promise<void> {
+  private async storeToken(token: string, provider: string = 'github'): Promise<void> {
     const attributes: asset.AssetMap = new Map();
-    attributes.set(asset.Tag.ALIAS, this.alias);
+    attributes.set(asset.Tag.ALIAS, this.credentialAlias(provider));
     attributes.set(asset.Tag.SECRET, this.encoder.encodeInto(token));
     attributes.set(asset.Tag.ACCESSIBILITY, asset.Accessibility.DEVICE_UNLOCKED);
     attributes.set(asset.Tag.CONFLICT_RESOLUTION, asset.ConflictResolution.OVERWRITE);
@@ -175,8 +176,7 @@ export class NativeBridge {
     } catch (error) {
       throw operationError(error as Object, 'credentials');
     }
-    this.token = token;
-    this.tokenLoaded = true;
+    this.tokens.set(provider, token);
   }
 
   private async request(url: string, method: rcp.HttpMethod, body: Object | undefined,
@@ -187,8 +187,8 @@ export class NativeBridge {
       'Content-Type': 'application/json',
       'User-Agent': 'Wenzhou-HarmonyOS/0.3.0'
     };
-    if (token) {
-      headers['Authorization'] = 'Bearer ' + token;
+    if (token) headers['Authorization'] = 'Bearer ' + token;
+    if (token && url.startsWith('https://api.github.com/')) {
       headers['Accept'] = 'application/vnd.github+json';
       headers['X-GitHub-Api-Version'] = '2022-11-28';
     }
@@ -265,8 +265,11 @@ export class NativeBridge {
         return this.success(true);
       }
       if (operation === 'writeWorkspaceFiles') return this.success(this.workspaceFiles.writeFiles(data.files || [], data.folders || []));
+      const provider: string = data.provider || 'github';
+      if (provider !== 'github' && provider !== 'gitee') throw new Error('不支持此代码托管平台。');
+      const origin: string = provider === 'gitee' ? 'https://gitee.com/api/v5' : 'https://api.github.com';
       if (operation === 'connection') {
-        return this.success(await this.request('https://api.github.com', 'GET', undefined));
+        return this.success(await this.request(origin + (provider === 'gitee' ? '/emojis' : ''), 'GET', undefined));
       }
       if (operation === 'api' || operation === 'publicApi') {
         const path = data.path || '';
@@ -276,40 +279,40 @@ export class NativeBridge {
           throw new Error('不允许的 GitHub 请求路径。');
         }
         if (operation === 'publicApi' && ((data.method || 'GET') !== 'GET' || !path.startsWith('/repos/'))) throw new Error('Public repository reads only.');
-        const token = await this.loadToken();
+        const token = await this.loadToken(provider);
         if (!token && operation !== 'publicApi') {
           const empty: EmptyBody = { message: 'Not signed in' };
           const unauthorized: ApiResult = { status: 401, body: empty };
           return this.success(unauthorized);
         }
-        return this.success(await this.request('https://api.github.com' + path,
+        return this.success(await this.request(origin + path,
           this.apiMethod(data.method || 'GET'), data.body, token));
       }
       if (operation === 'login') {
         const generation = ++this.authGeneration;
         const token = (data.token || '').trim();
         if (!token || /\s/.test(token)) throw new Error('访问令牌格式不正确。');
-        const user = await this.request('https://api.github.com/user', 'GET', undefined, token);
+        const user = await this.request(origin + '/user', 'GET', undefined, token);
         if (user.status !== 200) throw loginStatusError(user.status);
         if (generation !== this.authGeneration) throw new Error('登录已取消。');
-        await this.storeToken(token);
+        await this.storeToken(token, provider);
         return this.success(user.body);
       }
       if (operation === 'logout') {
         this.authGeneration++;
         const query: asset.AssetMap = new Map();
-        query.set(asset.Tag.ALIAS, this.alias);
+        query.set(asset.Tag.ALIAS, this.credentialAlias(provider));
         try {
           await asset.remove(query);
         } catch (error) {
           const failure = operationError(error as Object, 'credentials');
           if (failure.code !== 24000002) throw failure;
         }
-        this.token = '';
-        this.tokenLoaded = true;
+        this.tokens.set(provider, '');
         return this.success(true);
       }
       if (operation === 'oauth') {
+        if (provider !== 'github') throw new Error('Gitee 请使用个人访问令牌登录。');
         const path = data.path || '';
         if (path !== '/login/device/code' && path !== '/login/oauth/access_token') {
           throw new Error('不允许的授权地址。');

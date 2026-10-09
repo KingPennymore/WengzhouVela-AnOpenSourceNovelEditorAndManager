@@ -16,14 +16,14 @@ export class UIShell {
     this.menu.setAttribute('role','menu');this.menu.setAttribute('aria-label','更多操作');
     document.body.append(this.menu);
     const global=document.createElement('div');global.className='global-tools';
-    global.append(document.querySelector('#settings'));
+    global.append(document.querySelector('#outline-toggle'));
     this.toggle=document.createElement('button');this.toggle.id='more-tools';
     this.toggle.title='更多操作';this.toggle.setAttribute('aria-label','更多操作');
     this.toggle.setAttribute('aria-expanded','false');this.toggle.setAttribute('aria-controls',this.menu.id);
     this.toggle.innerHTML='<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/></svg>';
     global.append(this.toggle);document.querySelector('.topbar').append(global);
-    this.secondary=['home-button','focus-toggle','theme','commands','add-glossary','plugins','export-doc'].map(id=>document.getElementById(id));
-    this.contextual=['search-editor','outline-toggle'].map(id=>document.getElementById(id));
+    this.secondary=['home-button','focus-toggle','theme','commands','add-glossary','plugins','export-doc','settings'].map(id=>document.getElementById(id));
+    this.contextual=['search-editor'].map(id=>document.getElementById(id));
     this.allTools=[...this.contextual,...this.secondary];
     for(const button of this.allTools){const label=document.createElement('span');label.className='menu-label';label.textContent=button.getAttribute('aria-label');button.append(label);}
     this.toggle.onclick=()=>this.menu.hidden?this.open():this.close(true);

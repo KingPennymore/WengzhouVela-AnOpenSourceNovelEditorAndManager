@@ -15,17 +15,18 @@ import javax.crypto.SecretKey;
 import javax.crypto.spec.GCMParameterSpec;
 
 final class CredentialStore {
-    private static final String ALIAS = "wenzhou.github.token";
     private final File file;
+    private final String alias;
 
-    CredentialStore(Context context) { file = new File(context.getNoBackupFilesDir(), "github-credential.json"); }
+    CredentialStore(Context context) { this(context, "github"); }
+    CredentialStore(Context context, String provider) { alias = "wenzhou." + provider + ".token"; file = new File(context.getNoBackupFilesDir(), provider + "-credential.json"); }
 
     private SecretKey key() throws Exception {
         KeyStore store = KeyStore.getInstance("AndroidKeyStore");
         store.load(null);
-        if (store.containsAlias(ALIAS)) return (SecretKey) store.getKey(ALIAS, null);
+        if (store.containsAlias(alias)) return (SecretKey) store.getKey(alias, null);
         KeyGenerator generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore");
-        generator.init(new KeyGenParameterSpec.Builder(ALIAS, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
+        generator.init(new KeyGenParameterSpec.Builder(alias, KeyProperties.PURPOSE_ENCRYPT | KeyProperties.PURPOSE_DECRYPT)
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
             .setRandomizedEncryptionRequired(true).build());
         return generator.generateKey();

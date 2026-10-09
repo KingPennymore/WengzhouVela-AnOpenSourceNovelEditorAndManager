@@ -1,4 +1,22 @@
 /* Platform chrome shares layout tokens; document typography stays independent. */
+/* Only rows scroll in the split glossary; keep search and pagination reachable. */
+.glossary-panel{display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.glossary-panel header,.glossary-panel footer{flex:none;position:static;background:var(--panel)}
+.glossary-panel header{padding-bottom:8px;min-width:0}
+.glossary-panel header strong{flex:1;min-width:0;overflow:hidden;white-space:nowrap}
+.glossary-panel header input{flex:1;min-width:0}
+.glossary-panel-rows{flex:1;min-height:0;overflow:auto}
+.glossary-panel-rows>button{grid-template-columns:minmax(0,1fr) minmax(0,.6fr) minmax(0,2fr)}
+.recent-files>button{overflow:hidden}
+.recent-files>button>div{flex:1;min-width:0;overflow:hidden}
+.recent-files strong,.recent-files small{text-overflow:clip;overflow:hidden;white-space:nowrap;max-width:100%}
+.recent-files .file-kind{flex:none}
+.vela-preview textarea,.glossary-preview textarea{resize:vertical;min-width:0;max-width:100%;width:100%}
+.reader-paged .reader-viewport{position:relative}
+.reader-page-overlay,.reader-page-incoming{position:absolute;inset:0;overflow:hidden;background:var(--paper);pointer-events:none;user-select:none;box-shadow:4px 0 18px #0003}
+.reader-page-overlay{z-index:5}.reader-page-incoming{z-index:4}
+.reader-turning>.reader-content{visibility:hidden}
+.reader-page-overlay>.reader-content,.reader-page-incoming>.reader-content{visibility:visible}
 :root{--control:36px;--radius:8px;--shell-top:52px;--footer-height:80px;--ui-font:13px;--panel-spacing:16px;--ui-shadow:0 12px 36px #0002}
 .cm-tooltip-autocomplete,.cm-tooltip.cm-completionInfo{font-family:"HarmonyOS Sans SC","Segoe UI","Microsoft YaHei",sans-serif;font-size:12px!important;line-height:1.5!important;border:1px solid var(--line)!important;border-radius:var(--radius);background:var(--paper)!important;color:var(--text)!important;box-shadow:var(--ui-shadow)}
 .cm-tooltip-autocomplete{display:flex;flex-direction:column;overflow:hidden;max-width:min(440px,calc(100vw - 24px))}
@@ -113,3 +131,9 @@ dialog.settings-dialog{top:33.3333dvh;bottom:0;height:66.6667dvh;max-height:66.6
 
 /* Project commits freeze host controls while owned plugin pages remain available. */
 body.project-busy #workspace,body.project-busy #doc-list,body.project-busy .topbar,body.project-busy .quick-bar{pointer-events:none}
+
+/* Constrain text to the card even while sidebar width is animating. */
+.recent-files strong,.recent-files small{text-overflow:clip}
+.reader-paged.reader-no-titlepage .reader-section-title.reader-indented-title{height:var(--reader-page-height);margin:0;display:flex;align-items:center;justify-content:center;text-align:center;break-before:column;break-after:column;break-inside:avoid;overflow:hidden}
+
+.start-stat{min-width:0;white-space:nowrap}

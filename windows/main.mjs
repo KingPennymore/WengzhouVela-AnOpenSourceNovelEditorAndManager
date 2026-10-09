@@ -24,17 +24,17 @@ function secureWindow(window){
   window.webContents.session.setPermissionRequestHandler((_web,_permission,callback)=>callback(false));window.webContents.session.setPermissionCheckHandler(()=>false);
 }
 async function request(url,method,body,token){
-  const parsed=new URL(url);if(!['api.github.com','github.com'].includes(parsed.hostname)||parsed.protocol!=='https:'||parsed.port||parsed.username||parsed.password)throw new Error('不允许的请求地址。');
-  const headers={Accept:'application/json','Content-Type':'application/json','User-Agent':'Vela-Windows/'+app.getVersion()};if(token){headers.Authorization='Bearer '+token;headers.Accept='application/vnd.github+json';headers['X-GitHub-Api-Version']='2022-11-28';}
+  const parsed=new URL(url);if(!['api.github.com','github.com','gitee.com'].includes(parsed.hostname)||parsed.protocol!=='https:'||parsed.port||parsed.username||parsed.password)throw new Error('不允许的请求地址。');
+  const headers={Accept:'application/json','Content-Type':'application/json','User-Agent':'Vela-Windows/'+app.getVersion()};if(token){headers.Authorization='Bearer '+token;}if(token&&parsed.hostname==='api.github.com'){headers.Accept='application/vnd.github+json';headers['X-GitHub-Api-Version']='2022-11-28';}
   const response=await net.fetch(url,{method,headers,body:body?JSON.stringify(body):undefined,redirect:'error',signal:AbortSignal.timeout(30000),bypassCustomProtocolHandlers:true});
   const chunks=[];let bytes=0;for await(const chunk of response.body||[]){bytes+=chunk.byteLength;if(bytes>16*1024*1024)throw new Error('GitHub 响应过大。');chunks.push(Buffer.from(chunk));}
   const text=Buffer.concat(chunks).toString('utf8');let value=null;try{if(text)value=JSON.parse(text);}catch{if(response.ok)throw new Error('GitHub 响应格式异常。');value={};}return {status:response.status,body:value};
 }
 function credentials(){
-  const file=path.join(files.base,'github-token.dat');return {
-    read:()=>{if(!fs.existsSync(file))return '';if(!safeStorage.isEncryptionAvailable())throw new Error('Windows 安全凭据存储不可用。');return safeStorage.decryptString(fs.readFileSync(file));},
-    write:token=>{if(!safeStorage.isEncryptionAvailable())throw new Error('Windows 安全凭据存储不可用。');atomic(file,safeStorage.encryptString(token));},
-    clear:()=>{if(fs.existsSync(file))fs.unlinkSync(file);}
+  const fileFor=provider=>path.join(files.base,provider==='gitee'?'gitee-token.dat':'github-token.dat');return {
+    read:(provider='github')=>{const file=fileFor(provider);if(!fs.existsSync(file))return '';if(!safeStorage.isEncryptionAvailable())throw new Error('Windows 安全凭据存储不可用。');return safeStorage.decryptString(fs.readFileSync(file));},
+    write:(token,provider='github')=>{const file=fileFor(provider);if(!safeStorage.isEncryptionAvailable())throw new Error('Windows 安全凭据存储不可用。');atomic(file,safeStorage.encryptString(token));},
+    clear:(provider='github')=>{const file=fileFor(provider);if(fs.existsSync(file))fs.unlinkSync(file);}
   };
 }
 function assetResponse(url){

@@ -1,5 +1,7 @@
 export const native = typeof window !== 'undefined' && !!window.WenzhouNative;
-let sessionToken = '';
+const sessionTokens=new Map();
+const providerOf=payload=>{const provider=payload.provider||'github';if(!['github','gitee'].includes(provider))throw Error('不支持此代码托管平台。');return provider;};
+const apiOrigin=provider=>provider==='gitee'?'https://gitee.com/api/v5':'https://api.github.com';
 export async function transport(operation,payload={}) {
   if(native) {
     const raw=await window.WenzhouNative.call(operation,JSON.stringify(payload));
@@ -10,28 +12,29 @@ export async function transport(operation,payload={}) {
     if(!response.ok) throw Object.assign(new Error(response.error || `设备操作失败${response.code?'（错误码 '+response.code+'）':''}。`),typeof response.code==='string'?{code:response.code,details:response.details||{},retryable:!!response.retryable}:{});
     return response.value;
   }
+  const provider=providerOf(payload),origin=apiOrigin(provider),sessionToken=sessionTokens.get(provider)||'';
   if(operation==='oauth') throw new Error('设备授权请在文舟应用中使用。浏览器预览可使用个人访问令牌登录。');
   if(operation==='connection') {
-    const result=await fetch('https://api.github.com',{redirect:'error',signal:AbortSignal.timeout(30000)});
+    const result=await fetch(origin+(provider==='gitee'?'/emojis':''),{redirect:'error',signal:AbortSignal.timeout(30000)});
     return {status:result.status,body:{}};
   }
-  if(operation==='logout') {sessionToken='';return true;}
+  if(operation==='logout') {sessionTokens.delete(provider);return true;}
   if(operation==='login') {
     const token=payload.token.trim();
-    const result=await fetch('https://api.github.com/user',{headers:headers(token)});
+    const result=await fetch(origin+'/user',{headers:headers(token,provider),redirect:'error',signal:AbortSignal.timeout(30000)});
     if(!result.ok) throw new Error('令牌验证失败，请检查令牌和网络。');
-    sessionToken=token;
-    return result.json();
+    const user=await result.json();sessionTokens.set(provider,token);
+    return user;
   }
   if(operation==='api'||operation==='publicApi') {
     if(operation==='publicApi'&&(!/^\/repos\/[\w.-]+\/[\w.-]+(?:[/?]|$)/.test(payload.path)||/[\r\n\\#]/.test(payload.path)||payload.path.includes('..')||payload.method!=='GET'))throw new Error('不允许的 GitHub 请求路径。');
     if(!sessionToken&&operation!=='publicApi') return {status:401,body:{}};
-    const result=await fetch('https://api.github.com'+payload.path,{method:payload.method,headers:sessionToken?headers(sessionToken):{Accept:"application/vnd.github+json"},body:payload.body ? JSON.stringify(payload.body):undefined,redirect:'error',signal:AbortSignal.timeout(30000)});
+    const result=await fetch(origin+payload.path,{method:payload.method,headers:sessionToken?headers(sessionToken,provider):{Accept:provider==='gitee'?'application/json':'application/vnd.github+json'},body:payload.body ? JSON.stringify(payload.body):undefined,redirect:'error',signal:AbortSignal.timeout(30000)});
     return {status:result.status,body:result.status===204?null:await result.json()};
   }
   throw new Error('当前环境不支持此操作。');
 }
-function headers(token) { return {'Authorization':`Bearer ${token}`,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'}; }
+function headers(token,provider='github') { if(provider==='gitee')return {'Authorization':`Bearer ${token}`,'Accept':'application/json','Content-Type':'application/json'};return {'Authorization':`Bearer ${token}`,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'}; }
 export function readWorkspace() { return native ? window.WenzhouNative.readWorkspace() : localStorage.getItem('wenzhou.workspace'); }
 export function saveWorkspace(value) {
   const data=JSON.stringify(value);

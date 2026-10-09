@@ -52,6 +52,12 @@ function fixture({ status = 200, networkError, storageError, closeError, text } 
 
 const token = 'ghp_fixture_private_value';
 
+test('Gitee 原生登录隔离安全资产与令牌，退出不影响 GitHub',async()=>{
+  const f=fixture();await f.call('login',{token,provider:'github'});await f.call('login',{token:'gitee_fixture_private_value',provider:'gitee'});
+  assert.equal(f.assets.size,2);await f.call('api',{path:'/user',provider:'gitee'});assert.equal(f.requests.at(-1).url,'https://gitee.com/api/v5/user');assert.equal(f.requests.at(-1).headers.Authorization,'Bearer gitee_fixture_private_value');assert.equal(f.requests.at(-1).headers['X-GitHub-Api-Version'],undefined);
+  await f.call('logout',{provider:'gitee'});assert.equal(f.assets.size,1);await f.call('api',{path:'/user'});assert.equal(f.requests.at(-1).headers.Authorization,`Bearer ${token}`);assert.equal((await f.call('api',{path:'/user',provider:'gitee'})).value.status,401);
+});
+
 test('原生登录成功后保存凭据，后续 API 使用凭据，并采用系统代理', async () => {
   const f = fixture();
   const result = await f.call('login', { token });

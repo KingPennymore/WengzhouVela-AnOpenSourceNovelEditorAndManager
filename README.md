@@ -1,12 +1,12 @@
 # 文舟 Vela · 开源小说创作 / 阅读工具
 
-文舟（Vela）是一款面向 HarmonyOS NEXT、Android 和 Windows 的开源小说创作与阅读工具。支持将整部小说写在一个 TXT / Markdown 文件中，也支持使用工作区组织多个文稿、附件和项目配置。文件按钮位于顶栏最左侧并以分隔线分组，四个入口分别用于写作、GitHub 仓库、仓库订阅与只读阅读，三端共享编辑器并使用各自原生文件服务、凭据存储和 Web 组件。
+文舟（Vela）是一款面向 HarmonyOS NEXT、Android 和 Windows 的开源小说创作与阅读工具。支持将整部小说写在一个 TXT / Markdown 文件中，也支持使用工作区组织多个文稿、附件和项目配置。文件按钮位于顶栏最左侧并以分隔线分组，四个入口分别用于写作、GitHub / Gitee 仓库、仓库订阅与只读阅读，三端共享编辑器并使用各自原生文件服务、凭据存储和 Web 组件。
 
 文舟是独立项目，不是 Acode 官方应用，也不代表 Acode Foundation。项目复用了 Acode 的部分 CodeMirror 编辑组件和 Acode-Writer 1.0.4 的章节识别代码，具体版权与许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-当前版本：鸿蒙 / Windows **0.9.3**，安卓 **0.9.3-android.1**，移动端版本代码 **10903**，包名 `me.wenzhou.write`。HarmonyOS 使用 API 24 SDK 编译，兼容 API 12；安卓最低 Android 8.0 / API 26，WebView 需 Chromium 105 或更新版本。
+当前版本：鸿蒙 / Windows **0.9.4**，安卓 **0.9.4-android.1**，移动端版本代码 **10904**，包名 `me.wenzhou.write`。HarmonyOS 使用 API 24 SDK 编译，兼容 API 12；安卓最低 Android 8.0 / API 26，WebView 需 Chromium 105 或更新版本。
 
-[下载 0.9.3](https://github.com/KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager/releases/tag/v0.9.3)：发布签名 HAP、鸿蒙市场提交用 APP.zip、安卓签名 APK / AAB、Windows x64 安装程序 / ZIP、源码及 SHA-256 清单。Windows 包尚无 Authenticode 签名。鸿蒙发布签名的直接安装受系统来源校验限制，不能替代调试签名安装。
+[下载 0.9.4](https://github.com/KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager/releases/tag/v0.9.4)：发布签名 HAP、鸿蒙市场提交用 APP.zip、安卓签名 APK / AAB、Windows x64 安装程序 / ZIP、源码及 SHA-256 清单。Windows 包尚无 Authenticode 签名。鸿蒙发布签名的直接安装受系统来源校验限制，不能替代调试签名安装。
 
 0.9.3 重写正文名词候选识别，200 万字基准识别约 990/1000 个专名，误报大幅减少；启动页统计卡片去掉图标。0.9.2 删除翻页动画，翻页直接切换；其余界面动画放缓，均不短于 200 毫秒。0.9.1 重新设计三端界面与动画：分段页面切换器、浮起的当前项、书封书库、页面淡入与卡片依次出现，保留原有配色与布局尺寸；减少动态效果时动画停用。
 
@@ -22,6 +22,8 @@
 - [验证范围](VALIDATION.md)、[更新说明](RELEASE_NOTES.md)
 
 文稿与设置保存在应用沙箱；导出备份和 GitHub 同步由用户控制，卸载移动应用会删除内部数据。令牌存放在平台安全存储，浏览器预览只保留于内存。签名材料在仓库外，本机构建输出 `dist/` 不纳入 Git。
+
+0.9.4 恢复左右覆盖翻页，修正同屏术语搜索与侧栏交互，并加入 GitHub / Gitee 令牌登录选择。Gitee 仓库能力与凭据隔离见 [Gitee 支持](docs/GITEE.md)。
 
 ## 已实现
 

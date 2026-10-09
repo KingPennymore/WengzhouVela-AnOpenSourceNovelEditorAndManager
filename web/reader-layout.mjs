@@ -6,7 +6,7 @@ export function renderPlainChapters(root,text,sections){
   for(const section of sections.filter(section=>section.heading)){
     const start=chapterOffset(text,section.row,offsets),end=text.indexOf('\n',start),stop=end<0?text.length:end+1;
     if(start>cursor)fragment.append(document.createTextNode(text.slice(cursor,start)));
-    const heading=document.createElement('h2');heading.className='reader-section-title';heading.textContent=text.slice(start,stop);fragment.append(heading);cursor=stop;
+    const heading=document.createElement('h2');heading.className='reader-section-title';if(/^[^\S\r\n]/u.test(text.slice(start,stop)))heading.classList.add('reader-indented-title');heading.textContent=text.slice(start,stop);fragment.append(heading);cursor=stop;
   }
   if(cursor<text.length)fragment.append(document.createTextNode(text.slice(cursor)));root.append(fragment);
 }
