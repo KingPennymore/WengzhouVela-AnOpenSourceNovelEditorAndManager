@@ -86,7 +86,7 @@ function themeCrossfade(){
     if(dark===last||reduced.matches){last=dark;return;}
     last=dark;
     document.documentElement.classList.add('theme-shift');clearTimeout(timer);
-    timer=setTimeout(()=>document.documentElement.classList.remove('theme-shift'),380);
+    timer=setTimeout(()=>document.documentElement.classList.remove('theme-shift'),480);
   }).observe(document.body,{attributes:true,attributeFilter:['class']});
 }
 

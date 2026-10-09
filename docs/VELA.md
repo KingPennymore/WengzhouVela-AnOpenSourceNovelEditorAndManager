@@ -21,7 +21,7 @@
   "project": {"name": "航程", "author": "作者", "description": "作品简介"},
   "editor": {"mode": "novel", "fontSize": 18, "wrap": true},
   "chapters": {"templates": ["幕 {number}：{title}"]},
-  "reader": {"mode": "auto", "titlePage": true, "motion": "system"},
+  "reader": {"mode": "auto", "titlePage": true},
   "reading": {
     "items": [{"id": "main", "path": "正文.txt", "title": "航程"}],
     "layout": {"fontSize": 20, "lineHeight": 1.9, "marginLeft": 32, "marginRight": 32}
@@ -52,7 +52,7 @@
 
 `appearancePolicy: personal` 让全局 `reader.layout` 覆盖作品阅读字号、行距和四边留白。它不会替换作品阅读清单或标题模板。`library.mode: auto` 根据作品清单建立书库；没有作品配置的文件按 `showUnconfiguredFiles` 显示。`manual` 使用全局 `library.items`，路径相对于内部根目录，允许跨作品选择。GUI 勾选个人书库条目会切换为自选书库。`workspaceDefaults` 仅影响新建作品。
 
-模式支持 `auto`、`scroll`、`pages`、`double`；自动模式在宽屏使用双页、窄屏使用滚动。`motion` 为 `system`、`slide` 或 `none`，系统减少动态效果始终优先。字号 10–40，行距 1–3.5，边距 0–240 CSS px，缩进 1–8 个普通空格，正文宽度 240–2400。标题模板最多 32 个，阅读条目和单文件配置最多 5000 项，配置文本最多 256 KB。标题始终自动识别，附加模板并不关闭标准规则。
+模式支持 `auto`、`scroll`、`pages`、`double`；自动模式在宽屏使用双页、窄屏使用滚动。翻页直接切换，不提供翻页动画；旧配置中的 `motion` 字段会被忽略。字号 10–40，行距 1–3.5，边距 0–240 CSS px，缩进 1–8 个普通空格，正文宽度 240–2400。标题模板最多 32 个，阅读条目和单文件配置最多 5000 项，配置文本最多 256 KB。标题始终自动识别，附加模板并不关闭标准规则。
 
 ## 配置备份与错误恢复
 

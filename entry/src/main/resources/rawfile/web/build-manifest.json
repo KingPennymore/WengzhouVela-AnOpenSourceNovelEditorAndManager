@@ -1,9 +1,9 @@
 {
   "format": 1,
-  "source": "c4044696f3c1b19a1d99595be85eb92f16a6e95f7037bcf100082714a2f4fec1",
+  "source": "b4cbb2f503e41e48fbe6f9937ccc5f9f6d983aaddf081f42cbde99ff9e52edb5",
   "outputs": {
-    "app.js": "103a57051c6d5a55de559efb1304eb03504e87593363c8657421f912403ad284",
-    "design.css": "0e6d079750a7ff763b0d34e5f9e150e55060edf5e561886f5b9ccc32af0ac73a",
+    "app.js": "5df05747e823289d0f7bd746b2ec07c8724739403eda667f6833e632aebf0e57",
+    "design.css": "65aaa7cddf2be655b337d7bf1852bc12155766e9dc0887222067c154ae997cda",
     "file-manager.css": "4c3ecef2f1b7f371bb7fb0bc94d7a0b932ae277caf4313a07ff21e42e3344964",
     "fonts/KaTeX_AMS-Regular.ttf": "68534840bcfdd2bffb6f0e8deb48684dd01e7f04ea2813267577afb906de1d13",
     "fonts/KaTeX_AMS-Regular.woff": "30da91e84c893f875e252689faebdc590b2871145e8adc7f9a9d4dbd8ce0b251",
@@ -65,7 +65,7 @@
     "fonts/KaTeX_Typewriter-Regular.ttf": "f01f3e87d9c6a61c0c081ceb577abd864eb00a612f7ac1620dd6915fad2ef5aa",
     "fonts/KaTeX_Typewriter-Regular.woff": "e14fed02b1aba7ce9f5afd5844b5d0321b22351febc720e0de8b8723527609f7",
     "fonts/KaTeX_Typewriter-Regular.woff2": "71d517d67827787cfabdf186914cc3358eda539e37931941f2b2fd4a21f68c0b",
-    "html-reader.js": "3feed30001f7160491a0b18f359225c9a82a640dea886f2d03606a70cb48ce03",
+    "html-reader.js": "dc12b5e5de67e29f50dffbafcb8174875a3d0a5c053cce8804caa43cc3a61097",
     "index.html": "2b530a56b7455b7f97f24e0f59a6982abccc4bafc548f3b35e37af79e7122803",
     "katex.min.css": "d4ab5b8ee16989b070cdb0ea24bd6ad48fc8df1b787f280f29d3ae4f959f2c00",
     "licenses.js": "3705d9bd62317f3954b73f0bf72e37ce7c76c60a888fd64f9f0366572b13595a",
@@ -322,7 +322,7 @@
     "pdf/fonts/LiberationSans-Regular.ttf": "f8ace1f892b2bd9dc1792ba7f097fa7588f84fed48321480e04de5390828221f",
     "pdf/pdf.worker.mjs": "bd88805178a26c729db8c0107a5b630cb900ec070f4d8c7529a3e45530afd41d",
     "project-archive-worker.js": "609f117f24a2d1513c3fd65666510f2e58827391ea1a22ad08285a2f13732b88",
-    "style.css": "72ed04e56c02894181472fa3126800babec5c342b5bdff7b605f96017845ebd5",
+    "style.css": "22eb7f811e799cf215cc61acfe599188eda4c8a0f7562b96c43f64ff1060141e",
     "tex/NOTICE": "4c2c2c5272626e1074b7d7fdf3e6898f0a2886ebcc70310ef6fa4b29ec11f341",
     "tex/THIRD_PARTY_NOTICES.md": "f8864b80293837e63ff7f71ab3efb5fe5d121d9f85bfce0cd1bf81846ac8255d",
     "tex/busytex.js": "81aa161c71d8cca6586c11b7dbd76ddedd48d7523300ff75fa9ba49703885678",
@@ -335,7 +335,7 @@
     "tex/manifest.json": "b63c187f2f6f382f7967b52e6e56089185c67dd93fb0e2a0455eae7cb58bd140",
     "tex/vela-tex-cjk.zip": "e4f97354707194653bd219fdf7257f824643744718451d386b4346e7f6b6c80e",
     "tex/worker.js": "5b0b03d6957d79b9016ccf72b193f865f980a2971565d9cd793ece9147541905",
-    "ui.css": "7a677f380e018152384c2a9d0ac3ddbcc910d36628c52d103916fe6689b0be32",
-    "version.json": "7bcd1cd2e26409d406975d4594eb2771678320e86406fc2253a451fe5ec5c47a"
+    "ui.css": "ae75edd11d35088e6d04608c6a0943a50f8197ca2c5c603457fd568ca8cef9a1",
+    "version.json": "5bd0310db53cd571db2f8fa2ffde49c6940d92561b281109a96a10d2626f56ad"
   }
 }

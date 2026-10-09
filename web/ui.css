@@ -84,8 +84,8 @@ body.reader-open .reader-header{position:relative;top:auto;left:auto;right:auto;
 .reader-tools-panel .button-row{justify-content:flex-end}.reader-tools-panel textarea,.reader-tools-panel input{width:100%}
 /* Settings are a bounded sheet with one internal scrolling pane. */
 dialog.settings-dialog{top:33.3333dvh;bottom:0;height:66.6667dvh;max-height:66.6667dvh;margin:0 auto;border-radius:20px 20px 0 0;overflow:hidden}
-.settings-dialog[open]{animation:settings-rise .18s cubic-bezier(.2,.8,.2,1)}
-.settings-dialog::backdrop{animation:settings-backdrop .18s ease-out}
+.settings-dialog[open]{animation:settings-rise .32s cubic-bezier(.2,.8,.2,1)}
+.settings-dialog::backdrop{animation:settings-backdrop .32s ease-out}
 .settings-dialog #dialog-form{height:100%;max-height:100%;min-height:0}
 .settings-dialog #dialog-body{flex:1;min-height:0;overflow:hidden}
 .settings-dialog .settings-content{min-height:0;overflow:auto;overscroll-behavior:contain;padding-right:4px}

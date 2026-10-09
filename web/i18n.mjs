@@ -23,7 +23,7 @@ Object.assign(dictionary,{'全局默认配置':'Global defaults','作品配置':
 
 Object.assign(dictionary,{"筛选订阅": "Filter subscriptions", "全部": "All", "未读更新": "Unread updates", "已下载": "Downloaded", "刷新失败": "Refresh failed", "取消刷新": "Cancel refresh", "每本文稿最多保存 1000 个标记。": "Each book supports up to 1,000 annotations.", "表格操作": "Table operations", "删除行": "Delete row", "删除列": "Delete column", "按列排序": "Sort by column", "排序保留第一行表头": "Keep the first row as a header", "降序": "Descending", "应用修改": "Apply changes", "更改标题": "Rename chapter", "移动章节": "Move chapter", "删除章节及正文": "Delete chapter and body", "新标题": "New title", "移到第几个位置": "Move to position", "词库": "Glossary", "片段": "Snippets", "搜索": "Search", "替换为": "Replace with", "范围": "Scope", "当前工作区": "Current workspace", "当前文稿": "Current document", "内部文件夹全部文本": "All internal text files", "区分大小写": "Case sensitive", "预览替换": "Preview replacement", "确认批量替换": "Review replacement", "替换全部": "Replace all", "标记当前位置或选择文字": "Mark current location or selection", "待修改": "To revise", "内容": "Content"} );
 
-Object.assign(dictionary,{'编辑模式':'Editing mode','小说':'Novel','小说缩进':'Novel indentation','两个全角空格':'Two full-width spaces','普通空格':'Spaces','翻页动画':'Page animation','滑动':'Slide'});
+Object.assign(dictionary,{'编辑模式':'Editing mode','小说':'Novel','小说缩进':'Novel indentation','两个全角空格':'Two full-width spaces','普通空格':'Spaces','滑动':'Slide'});
 
 Object.assign(dictionary,{'当前显示缓存的仓库列表；网络恢复后请刷新，写入操作暂不可用。':'Showing cached repositories. Refresh when connected; writes are temporarily unavailable.','离线':'Offline'});
 

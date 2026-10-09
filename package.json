@@ -1,7 +1,7 @@
 {
   "name": "wenzhou-harmonyos",
-  "version": "0.9.1",
-  "harmonyVersion": "0.9.1",
+  "version": "0.9.2",
+  "harmonyVersion": "0.9.2",
   "private": true,
   "description": "文舟 Vela：HarmonyOS NEXT / Android / Windows 开源小说创作与阅读工具",
   "scripts": {

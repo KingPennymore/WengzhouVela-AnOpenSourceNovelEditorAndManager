@@ -1,4 +1,4 @@
-const DURATION=140;
+const DURATION=240;
 const fields=['left','right','leftWidth','rightWidth','bottom'];
 
 // Both sidebar slots and the editor consume the same frame's layout dimensions.

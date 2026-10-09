@@ -28,7 +28,7 @@ try{
  await check('四方向触摸滑动翻页及覆盖动画，不改变字号',async()=>{
   const before=await p.locator('.reader-content').evaluate(e=>getComputedStyle(e).fontSize);
   async function swipe(dx,dy){await p.locator('.reader-viewport').evaluate((e,{dx,dy})=>{const box=e.getBoundingClientRect(),x=box.x+box.width/2,y=box.y+box.height/2;for(const [type,ex,ey] of [['pointerdown',x,y],['pointermove',x+dx,y+dy],['pointerup',x+dx,y+dy]])e.dispatchEvent(new PointerEvent(type,{pointerId:1,pointerType:'touch',clientX:ex,clientY:ey,bubbles:true}));},{dx,dy});}
-  await swipe(-100,0);assert.equal(await p.locator('.reader-page-overlay').count(),1);await p.waitForTimeout(260);assert.match(await p.locator('#reader-position').textContent(),/^2 \/ /);
+  await swipe(-100,0);assert.equal(await p.locator('.reader-page-overlay,.reader-page-incoming').count(),0);assert.match(await p.locator('#reader-position').textContent(),/^2 \/ /);
   await swipe(0,-100);await p.waitForTimeout(260);assert.match(await p.locator('#reader-position').textContent(),/^3 \/ /);await swipe(100,0);await p.waitForTimeout(260);await swipe(0,100);await p.waitForTimeout(260);assert.match(await p.locator('#reader-position').textContent(),/^1 \/ /);assert.equal(await p.locator('.reader-content').evaluate(e=>getComputedStyle(e).fontSize),before);
  });
  await check('个人排版覆盖保留自选书库范围，GUI 配置保持保存',async()=>{

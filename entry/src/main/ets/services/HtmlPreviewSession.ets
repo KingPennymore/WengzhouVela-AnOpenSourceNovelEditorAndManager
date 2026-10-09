@@ -10,7 +10,6 @@ export class HtmlPreviewSession {
   static pages: boolean = false;
   static spread: boolean = false;
   static titlePage: boolean = true;
-  static motion: string = 'system';
   static english: boolean = false;
   static fontSize: number = 16;
   static layout: ReaderLayout = { lineHeight: 1.9, marginTop: 24, marginBottom: 24, marginLeft: 35, marginRight: 35 };

@@ -3,7 +3,7 @@
 :root{
   --accent-tint:#23744e1f;--accent-ring:#23744e47;--accent-glow:#23744e33;
   --ease-out:cubic-bezier(.22,1,.36,1);--ease-spring:cubic-bezier(.34,1.45,.64,1);--ease-in-out:cubic-bezier(.65,0,.35,1);
-  --dur-fast:.12s;--dur:.22s;--dur-slow:.38s;
+  --dur-fast:.2s;--dur:.28s;--dur-slow:.45s;
   --elev-1:0 1px 2px #0f241808,0 1px 3px #0f24180d;
   --elev-2:0 10px 24px -12px #0f241838,0 2px 6px #0f24180f;
   --elev-3:0 28px 64px -20px #0f241852,0 4px 14px #0f241814;
@@ -157,28 +157,28 @@ dialog::backdrop{background:#0b140f73;backdrop-filter:blur(4px)}
 .update-dot{background:var(--accent)}
 
 /* Theme changes cross-fade colors instead of snapping. */
-html.theme-shift *,html.theme-shift *::before,html.theme-shift *::after{transition:background-color .32s ease,border-color .32s ease,color .32s ease,fill .32s ease,stroke .32s ease,box-shadow .32s ease!important}
+html.theme-shift *,html.theme-shift *::before,html.theme-shift *::after{transition:background-color .4s ease,border-color .4s ease,color .4s ease,fill .4s ease,stroke .4s ease,box-shadow .4s ease!important}
 
 @media(prefers-reduced-motion:no-preference){
-  .nav-indicator.ready{transition:transform .34s var(--ease-spring),width .34s var(--ease-spring),height .34s var(--ease-out),opacity var(--dur) ease}
+  .nav-indicator.ready{transition:transform .42s var(--ease-spring),width .42s var(--ease-spring),height .42s var(--ease-out),opacity var(--dur) ease}
   .toolbar button:active:not(:disabled),.page-navigation button:active,.global-tools button:active,.quickbar button:active:not(:disabled),#mobile-library:active,.primary:active:not(:disabled),.secondary:active:not(:disabled),.start-actions button:active,.tab-close:active,.reader-header button:active,.display-options button:active,.dialog-heading button:active{transform:scale(.92)}
   .repo-card:hover,.recent-files>button:hover,.reader-book:hover,.start-stat:hover{transform:translateY(-2px)}
   .repo-card:active,.recent-files>button:active,.reader-book:active{transform:translateY(0) scale(.985)}
   .view-enter{animation:vela-view-in var(--dur-slow) var(--ease-out) both}
   .view-enter.view-enter-fade{animation-name:vela-fade-in}
-  .stagger-in{animation:vela-rise .42s var(--ease-out) both;animation-delay:calc(var(--stagger,0) * 38ms)}
-  dialog[open]:not(.settings-dialog){animation:vela-dialog-in .26s var(--ease-out)}
-  dialog[open]:not(.settings-dialog)::backdrop{animation:vela-fade-in .22s ease-out}
-  #toolbar-overflow:not([hidden]){animation:vela-pop .2s var(--ease-out)}
-  #toolbar-overflow:not([hidden]) button{animation:vela-rise .28s var(--ease-out) both}
+  .stagger-in{animation:vela-rise .5s var(--ease-out) both;animation-delay:calc(var(--stagger,0) * 50ms)}
+  dialog[open]:not(.settings-dialog){animation:vela-dialog-in .32s var(--ease-out)}
+  dialog[open]:not(.settings-dialog)::backdrop{animation:vela-fade-in .28s ease-out}
+  #toolbar-overflow:not([hidden]){animation:vela-pop .26s var(--ease-out)}
+  #toolbar-overflow:not([hidden]) button{animation:vela-rise .32s var(--ease-out) both}
   #toolbar-overflow:not([hidden]) button:nth-child(2){animation-delay:20ms}#toolbar-overflow:not([hidden]) button:nth-child(3){animation-delay:40ms}
   #toolbar-overflow:not([hidden]) button:nth-child(4){animation-delay:60ms}#toolbar-overflow:not([hidden]) button:nth-child(5){animation-delay:80ms}
   #toolbar-overflow:not([hidden]) button:nth-child(6){animation-delay:100ms}#toolbar-overflow:not([hidden]) button:nth-child(n+7){animation-delay:120ms}
-  #toast:not([hidden]){animation:vela-toast .34s var(--ease-spring)}
+  #toast:not([hidden]){animation:vela-toast .4s var(--ease-spring)}
   .update-dot:not([hidden]){animation:vela-pulse 2.4s ease-out infinite}
   .saved.saved-flash::before{animation:vela-saved .7s var(--ease-out)}
-  .document-tab.tab-enter{animation:vela-tab-in .3s var(--ease-out)}
-  .cm-tooltip-autocomplete{animation:vela-fade-in .12s ease-out}
+  .document-tab.tab-enter{animation:vela-tab-in .32s var(--ease-out)}
+  .cm-tooltip-autocomplete{animation:vela-fade-in .2s ease-out}
   .start-page-header>svg{animation:vela-sail 5s ease-in-out infinite}
 }
 @keyframes vela-view-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
