@@ -1,13 +1,19 @@
+import {unzipSync} from 'fflate';
+export function isTexComponentArchive(bytes){let component=false;unzipSync(bytes,{filter:file=>{if(['busytex.wasm','core.data','vela-tex-cjk.zip'].includes(file.name))component=true;return false;}});return component;}
 async function database(){return new Promise((resolve,reject)=>{const request=indexedDB.open('vela.tex-components',1);request.onupgradeneeded=()=>request.result.createObjectStore('files');request.onsuccess=()=>resolve(request.result);request.onerror=()=>reject(Error('无法打开离线排版组件存储。'));});}
 async function transaction(mode,run){const db=await database();try{return await new Promise((resolve,reject)=>{const tx=db.transaction('files',mode);let value;run(tx.objectStore('files'),result=>value=result);tx.oncomplete=()=>resolve(value);tx.onabort=tx.onerror=()=>reject(Error('离线排版组件保存失败，请检查可用空间。'));});}finally{db.close();}}
 export class TexAssets {
   constructor(){this.urls=new Map();this.loading=null;}
   async descriptor(){return this.info??=await fetch(new URL('./tex/components.json',location.href)).then(response=>{if(!response.ok)throw Error('缺少排版组件清单，请重新安装应用。');return response.json();});}
   async install(bytes){
+    if(this.installing)throw Error('请等待当前组件安装结束。');
+    this.installing=true;
+    try{
     const descriptor=await this.descriptor();
     const files=await new Promise((resolve,reject)=>{const worker=new Worker(new URL('./tex-component-worker.js',location.href));worker.onmessage=({data})=>{worker.terminate();data.error?reject(Error(data.error)):resolve(data.files);};worker.onerror=()=>{worker.terminate();reject(Error('排版组件无法读取。'));};worker.postMessage({bytes,descriptor},[bytes.buffer]);});
     await transaction('readwrite',store=>{for(const [name,data] of Object.entries(files))store.put(data,descriptor.id+'/'+name);});
-    this.dispose();return this.status();
+    this.dispose();return await this.status();
+    }finally{this.installing=false;}
   }
   async status(){const descriptor=await this.descriptor();if(descriptor.builtin)return {ready:true,engine:true,chinese:true,builtin:true};const found=await transaction('readonly',(store,done)=>{const found=new Set();for(const name of Object.keys(descriptor.files)){const request=store.getKey(descriptor.id+'/'+name);request.onsuccess=()=>{if(request.result)found.add(name);done(found);};}});const groups=Object.fromEntries(Object.entries(descriptor.groups).map(([name,files])=>[name,files.every(file=>found.has(file))]));return {...groups,ready:Object.values(groups).every(Boolean),builtin:false};}
   async load(){

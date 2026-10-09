@@ -22,6 +22,7 @@ final class NativeBridge {
     private final byte[] capability;
     final WorkspaceFiles files;
     final ProjectFiles projects;
+    final ImportedArchives imports;
     private final CredentialStore credentials;
     private final CredentialStore giteeCredentials;
     private final ExecutorService workers = Executors.newFixedThreadPool(3);
@@ -30,7 +31,7 @@ final class NativeBridge {
 
     NativeBridge(MainActivity activity, String capability) throws Exception {
         this.activity = activity; this.capability = capability.getBytes(StandardCharsets.UTF_8);
-        files = new WorkspaceFiles(activity); projects = new ProjectFiles(activity, files); credentials = new CredentialStore(activity); giteeCredentials = new CredentialStore(activity, "gitee");
+        files = new WorkspaceFiles(activity); projects = new ProjectFiles(activity, files); imports = new ImportedArchives(activity); credentials = new CredentialStore(activity); giteeCredentials = new CredentialStore(activity, "gitee");
     }
     private void authorize(String value) {
         if (value == null || value.length() > 80 || !MessageDigest.isEqual(capability, value.getBytes(StandardCharsets.UTF_8))) throw new SecurityException("不允许的页面调用。");
@@ -83,6 +84,7 @@ final class NativeBridge {
         String origin = provider.equals("gitee") ? "https://gitee.com/api/v5" : "https://api.github.com";
         CredentialStore store = provider.equals("gitee") ? giteeCredentials : credentials;
         switch (operation) {
+            case "releaseImport": return imports.release(data.optString("token"));
             case "initializeStorage": case "refreshFolder": return files.scan();
             case "manageFiles": return files.manage(data.optString("action"), data.optString("path"), data.optString("destination"));
             case "listTrash": return files.listTrash();
@@ -195,5 +197,5 @@ final class NativeBridge {
     static String success(Object value) { try { return new JSONObject().put("ok", true).put("value", value == null ? JSONObject.NULL : value).toString(); } catch (Exception impossible) { return "{\"ok\":false,\"error\":\"返回格式异常\"}"; } }
     static String failure(Exception error) { try { JSONObject value = new JSONObject().put("ok", false).put("error", message(error)); if (error instanceof ProjectFiles.Failure) value.put("code", ((ProjectFiles.Failure) error).code).put("retryable", ((ProjectFiles.Failure) error).code.equals("E_CONFLICT")).put("details", new JSONObject()); return value.toString(); } catch (Exception impossible) { return "{\"ok\":false,\"error\":\"设备操作失败\"}"; } }
     void work(Runnable job) { workers.execute(job); }
-    void close() { workers.shutdown(); }
+    void close() { workers.shutdown(); imports.close(); }
 }

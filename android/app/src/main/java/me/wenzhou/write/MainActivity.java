@@ -77,6 +77,7 @@ public final class MainActivity extends Activity {
                 if ("https".equals(uri.getScheme()) && "wenzhou-project.local".equals(uri.getHost())) return bridge.projects.resource(request);
                 if ("https".equals(uri.getScheme()) && "wenzhou-preview.local".equals(uri.getHost()) && !request.isForMainFrame()) return embeddedHtml(uri);
                 if (ORIGIN.equals(uri.getScheme() + "://" + uri.getHost())) {
+                    if (uri.getPath().startsWith("/imports/")) return bridge.imports.resource(request);
                     if (request.isForMainFrame() && PAGE.equals(uri.toString())) {
                         try { return new WebResourceResponse("text/html", "UTF-8", new ByteArrayInputStream(editorPage())); }
                         catch (IOException error) { return blocked(); }
@@ -251,7 +252,7 @@ public final class MainActivity extends Activity {
                         stream.write(output); stream.flush();
                     }
                     value = true;
-                } else if (operation.equals("importPlugin")) value = new JSONObject().put("name", displayName(uris.get(0))).put("data", android.util.Base64.encodeToString(documentBytes(uris.get(0), 64 * 1024 * 1024), android.util.Base64.NO_WRAP));
+                } else if (operation.equals("importPlugin")) value = bridge.imports.stage(getContentResolver().openInputStream(uris.get(0)), displayName(uris.get(0)));
                 else {
                     JSONArray files = new JSONArray();
                     for (Uri uri : uris) {

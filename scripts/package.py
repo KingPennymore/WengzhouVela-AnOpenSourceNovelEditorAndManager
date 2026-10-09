@@ -9,6 +9,7 @@ import argparse
 parser = argparse.ArgumentParser()
 parser.add_argument('--signed-hap', type=Path)
 parser.add_argument('--signed-app', type=Path)
+parser.add_argument('--source-only', action='store_true', help='Package source without copying native artifacts')
 args = parser.parse_args()
 
 root = Path(__file__).resolve().parent.parent
@@ -53,6 +54,11 @@ with ZipFile(source, "w", ZIP_DEFLATED, compresslevel=9) as archive:
             if file.suffix.lower() in [".jks", ".keystore", ".p12", ".cer", ".p7b"]:
                 continue
             archive.write(file, "Vela/" + relative)
+if args.source_only:
+    manifest = [{"file": source.name, "bytes": source.stat().st_size, "sha256": hashlib.sha256(source.read_bytes()).hexdigest()}]
+    (out / "release.json").write_text(json.dumps(manifest, ensure_ascii=False, indent=2), encoding="utf-8")
+    print(json.dumps(manifest, ensure_ascii=False, indent=2))
+    raise SystemExit(0)
 hap = args.signed_hap or root / "entry/build/default/outputs/default/entry-default-unsigned.hap"
 if not hap.is_file():
     raise SystemExit("请先构建 HAP。")

@@ -2,6 +2,10 @@ import concurrent.futures, hashlib, json, pathlib, subprocess, urllib.error, url
 
 root = pathlib.Path(__file__).resolve().parent.parent
 dist = root / 'dist'
+metadata = dist / 'metadata' / '0.9.5'
+metadata.mkdir(parents=True, exist_ok=True)
+def metadata_path(name):
+    return metadata / name if (metadata / name).is_file() else dist / name
 repo = 'KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager'
 api_root = f'https://api.github.com/repos/{repo}'
 credential = subprocess.run(['git', 'credential', 'fill'], input='protocol=https\nhost=github.com\n\n', text=True, capture_output=True, cwd=root, check=True)
@@ -28,21 +32,21 @@ if remote_tag['type'] == 'tag':
 if remote_tag['sha'] != head:
     raise RuntimeError('remote release tag does not match the verified commit')
 
-assets = json.loads((dist / 'release-assets-0.9.5.json').read_text(encoding='utf-8'))
+assets = json.loads(metadata_path('release-assets-0.9.5.json').read_text(encoding='utf-8'))
 release_list = api(api_root + '/releases?per_page=100')
 release = next((item for item in release_list if item['tag_name'] == 'v0.9.5' or item['name'] == 'Vela 0.9.5'), None)
 if release and not release['draft']:
     print('Updating the already published v0.9.5 asset set after the final tag verification.')
 if not release:
-    release = api(api_root + '/releases', 'POST', {'tag_name': 'v0.9.5', 'name': 'Vela 0.9.5', 'body': (dist / 'release-notes-0.9.5.md').read_text(encoding='utf-8'), 'draft': True, 'prerelease': False, 'generate_release_notes': False})
+    release = api(api_root + '/releases', 'POST', {'tag_name': 'v0.9.5', 'name': 'Vela 0.9.5', 'body': metadata_path('release-notes-0.9.5.md').read_text(encoding='utf-8'), 'draft': True, 'prerelease': False, 'generate_release_notes': False})
 else:
-    release = api(api_root + '/releases/' + str(release['id']), 'PATCH', {'tag_name': 'v0.9.5', 'target_commitish': head, 'name': 'Vela 0.9.5', 'body': (dist / 'release-notes-0.9.5.md').read_text(encoding='utf-8')})
+    release = api(api_root + '/releases/' + str(release['id']), 'PATCH', {'tag_name': 'v0.9.5', 'target_commitish': head, 'name': 'Vela 0.9.5', 'body': metadata_path('release-notes-0.9.5.md').read_text(encoding='utf-8')})
 release_url = api_root + '/releases/' + str(release['id'])
 upload_url = release['upload_url'].split('{', 1)[0]
 
 def local_path(name):
     path = dist / name
-    return next(p for p in [path, dist / 'windows' / name, dist / 'windows-lite' / name, dist / 'tex-components' / name] if p.exists())
+    return next(p for p in [dist / 'releases' / '0.9.5' / name, path, dist / 'windows' / name, dist / 'windows-lite' / name, dist / 'tex-components' / name] if p.exists())
 
 def upload(name):
     path = local_path(name)
@@ -97,5 +101,5 @@ latest = api(api_root + '/releases/latest')
 if published['draft'] or published['tag_name'] != 'v0.9.5' or latest['tag_name'] != 'v0.9.5':
     raise RuntimeError('release publication verification failed')
 result = {'url': published['html_url'], 'id': published['id'], 'tag': published['tag_name'], 'assets': uploaded}
-(dist / 'release-0.9.5-result.json').write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding='utf-8')
+(metadata / 'release-0.9.5-result.json').write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding='utf-8')
 print(json.dumps(result, ensure_ascii=False, indent=2))

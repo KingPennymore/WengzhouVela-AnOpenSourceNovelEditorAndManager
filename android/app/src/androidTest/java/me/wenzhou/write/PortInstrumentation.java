@@ -29,7 +29,7 @@ public final class PortInstrumentation extends Instrumentation {
                 @Override public File getFilesDir() { return directory; }
                 @Override public File getNoBackupFilesDir() { return new File(directory, "no-backup"); }
             };
-            credentials(); workspace(); rollback(); crashRecovery(); htmlResources(); textZoom(); projects();
+            credentials(); workspace(); rollback(); crashRecovery(); htmlResources(); textZoom(); projects(); archiveImports();
             result.putString("results", new JSONObject().put("passed", passed.length()).put("checks", passed).toString());
             finish(Activity.RESULT_OK, result);
         } catch (Throwable error) { result.putString("failure", error.getClass().getSimpleName() + ": " + error.getMessage()); finish(Activity.RESULT_CANCELED, result); }
@@ -148,6 +148,31 @@ public final class PortInstrumentation extends Instrumentation {
         try{require(TextZoom.factor(scroll)==1,"Ordinary two-finger scrolling must not resize text");require(TextZoom.factor(ctrl)>1,"Ctrl-wheel trackpad pinch must resize text");if(android.os.Build.VERSION.SDK_INT>=34)require(Math.abs(TextZoom.factor(pinch)-1.2f)<.001f,"Native trackpad pinch axis must resize text");}
         finally{scroll.recycle();ctrl.recycle();pinch.recycle();}
         passed.put("Trackpad pinch and ctrl-wheel text zoom preserve normal scrolling");
+    }
+
+    private void archiveImports() throws Exception {
+        ImportedArchives archives = new ImportedArchives(fixture);
+        try {
+            final long size = 54L * 1024 * 1024;
+            java.io.InputStream generated = new java.io.InputStream() {
+                long remaining = size;
+                @Override public int read() { if (remaining == 0) return -1; remaining--; return 42; }
+                @Override public int read(byte[] bytes, int offset, int length) { if (remaining == 0) return -1; int count = (int)Math.min(remaining, length); java.util.Arrays.fill(bytes, offset, offset + count, (byte)42); remaining -= count; return count; }
+            };
+            JSONObject imported = archives.stage(generated, "engine.zip");
+            require(imported.getLong("size") == size && imported.toString().length() < 512 && !imported.has("data"), "Large archive must return a tiny descriptor, never base64");
+            android.webkit.WebResourceRequest request = new android.webkit.WebResourceRequest() {
+                public android.net.Uri getUrl() { return android.net.Uri.parse(imported.optString("url")); }
+                public boolean isForMainFrame() { return false; } public boolean isRedirect() { return false; } public boolean hasGesture() { return false; }
+                public String getMethod() { return "GET"; } public java.util.Map<String,String> getRequestHeaders() { return java.util.Collections.emptyMap(); }
+            };
+            android.webkit.WebResourceResponse response = archives.resource(request);
+            require(response.getStatusCode() == 200, "Staged archive must stream successfully");
+            long actual = 0; byte[] buffer = new byte[65536]; try (java.io.InputStream input = response.getData()) { int count; while ((count = input.read(buffer)) != -1) actual += count; }
+            require(actual == size, "Stream must preserve all archive bytes");
+            archives.release(imported.getString("importToken"));require(archives.resource(request).getStatusCode() == 404, "Released archives must be inaccessible");
+            passed.put("54 MB archive import uses bounded native buffers, same-origin streaming and explicit cleanup");
+        } finally { archives.close(); }
     }
 
 }
