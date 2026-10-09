@@ -186,3 +186,11 @@ body[data-keyboard=true] .glossary-panel{min-height:76px;max-height:34%;padding:
 @media(max-width:600px){.cm-search.vela-search-panel{padding:8px 10px}.vela-search-panel .search-fields{grid-template-columns:minmax(0,1fr)}.vela-search-panel .search-actions button{min-height:40px;flex:1}.vela-search-panel .search-options{gap:8px 12px}.vela-search-panel .search-options label{min-height:36px}.vela-search-panel header{gap:4px}.vela-search-panel .search-feedback{max-width:40%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}}
 
 .vela-search-panel header{position:sticky;top:-10px;z-index:2;background:var(--panel);padding:6px 0}
+
+/* Keep mobile editing statistics in one centered, corner-safe row. */
+@media(max-width:600px){
+ .statusbar{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,2.8fr) max-content;align-items:center;justify-content:center;column-gap:8px;height:calc(28px + var(--safe-bottom,0px));padding-left:max(28px,calc(8vw + var(--safe-left,0px)));padding-right:max(28px,calc(8vw + var(--safe-right,0px)));overflow:hidden;white-space:nowrap}
+ .statusbar #current-chapter,.statusbar #word-count,.statusbar #cursor-position{min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center;line-height:1.4}
+ .statusbar .status-right{display:contents;margin:0}
+ .statusbar #selection-count,.statusbar .status-right>span:nth-child(2),.statusbar>.sync-state{display:none}
+}

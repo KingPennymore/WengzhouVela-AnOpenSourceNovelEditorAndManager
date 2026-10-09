@@ -30,13 +30,13 @@ if remote_tag['sha'] != head:
 
 assets = json.loads((dist / 'release-assets-0.9.5.json').read_text(encoding='utf-8'))
 release_list = api(api_root + '/releases?per_page=100')
-release = next((item for item in release_list if item['tag_name'] == 'v0.9.5'), None)
+release = next((item for item in release_list if item['tag_name'] == 'v0.9.5' or item['name'] == 'Vela 0.9.5'), None)
 if release and not release['draft']:
     print('Updating the already published v0.9.5 asset set after the final tag verification.')
 if not release:
     release = api(api_root + '/releases', 'POST', {'tag_name': 'v0.9.5', 'name': 'Vela 0.9.5', 'body': (dist / 'release-notes-0.9.5.md').read_text(encoding='utf-8'), 'draft': True, 'prerelease': False, 'generate_release_notes': False})
 else:
-    release = api(api_root + '/releases/' + str(release['id']), 'PATCH', {'name': 'Vela 0.9.5', 'body': (dist / 'release-notes-0.9.5.md').read_text(encoding='utf-8')})
+    release = api(api_root + '/releases/' + str(release['id']), 'PATCH', {'tag_name': 'v0.9.5', 'target_commitish': head, 'name': 'Vela 0.9.5', 'body': (dist / 'release-notes-0.9.5.md').read_text(encoding='utf-8')})
 release_url = api_root + '/releases/' + str(release['id'])
 upload_url = release['upload_url'].split('{', 1)[0]
 
@@ -75,9 +75,9 @@ runs = api(api_root + '/actions/runs?head_sha=' + head)['workflow_runs']
 verify_runs = [run for run in runs if run['name'] == 'Verify' and run['head_sha'] == head]
 if not verify_runs or verify_runs[0]['status'] != 'completed' or verify_runs[0]['conclusion'] != 'success':
     raise RuntimeError('Assets verified; keeping the release draft until Verify succeeds for this commit')
-published = api(release_url, 'PATCH', {'draft': False, 'prerelease': False, 'make_latest': 'true'})
+published = api(release_url, 'PATCH', {'tag_name': 'v0.9.5', 'target_commitish': head, 'draft': False, 'prerelease': False, 'make_latest': 'true'})
 latest = api(api_root + '/releases/latest')
-if published['draft'] or latest['tag_name'] != 'v0.9.5':
+if published['draft'] or published['tag_name'] != 'v0.9.5' or latest['tag_name'] != 'v0.9.5':
     raise RuntimeError('release publication verification failed')
 result = {'url': published['html_url'], 'id': published['id'], 'tag': published['tag_name'], 'assets': uploaded}
 (dist / 'release-0.9.5-result.json').write_text(json.dumps(result, ensure_ascii=False, indent=2), encoding='utf-8')
