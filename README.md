@@ -4,9 +4,11 @@
 
 文舟是独立项目，不是 Acode 官方应用，也不代表 Acode Foundation。项目复用了 Acode 的部分 CodeMirror 编辑组件和 Acode-Writer 1.0.4 的章节识别代码，具体版权与许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-当前版本：鸿蒙 / Windows **0.9.0**，安卓 **0.9.0-android.1**，移动端版本代码 **10900**，包名 `me.wenzhou.write`。HarmonyOS 使用 API 24 SDK 编译，兼容 API 12；安卓最低 Android 8.0 / API 26，WebView 需 Chromium 105 或更新版本。
+当前版本：鸿蒙 / Windows **0.9.1**，安卓 **0.9.1-android.1**，移动端版本代码 **10901**，包名 `me.wenzhou.write`。HarmonyOS 使用 API 24 SDK 编译，兼容 API 12；安卓最低 Android 8.0 / API 26，WebView 需 Chromium 105 或更新版本。
 
-[下载 0.9.0](https://github.com/KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager/releases/tag/v0.9.0)：发布签名 HAP、鸿蒙市场提交用 APP.zip、安卓签名 APK / AAB、Windows x64 安装程序 / ZIP、源码及 SHA-256 清单。Windows 包尚无 Authenticode 签名。鸿蒙发布签名的直接安装受系统来源校验限制，不能替代调试签名安装。
+[下载 0.9.1](https://github.com/KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager/releases/tag/v0.9.1)：发布签名 HAP、鸿蒙市场提交用 APP.zip、安卓签名 APK / AAB、Windows x64 安装程序 / ZIP、源码及 SHA-256 清单。Windows 包尚无 Authenticode 签名。鸿蒙发布签名的直接安装受系统来源校验限制，不能替代调试签名安装。
+
+0.9.1 重新设计三端界面与动画：分段页面切换器、浮起的当前项、书封书库、页面淡入与卡片依次出现，保留原有配色与布局尺寸；减少动态效果时动画停用。
 
 0.9.0 补齐分镜中的逐行差异预览、提交历史、文件状态、订阅下载进度与取消、页内书签/批注及双页翻书；新增本地正文名词候选补全。术语库同屏和正文术语提示均可选，默认关闭。详见 [分镜核对与验证记录](docs/STORYBOARD-AUDIT.md)。
 

@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 export const resourceDir = 'entry/src/main/resources/rawfile/web';
 const manifestName = 'build-manifest.json';
-const required = ['index.html', 'app.js', 'style.css', 'file-manager.css', 'ui.css', 'licenses.js', 'version.json', 'noun-worker.js'];
+const required = ['index.html', 'app.js', 'style.css', 'file-manager.css', 'ui.css', 'design.css', 'licenses.js', 'version.json', 'noun-worker.js'];
 
 function filesIn(root, directory) {
   return readdirSync(join(root, directory), { withFileTypes: true }).flatMap(entry => {

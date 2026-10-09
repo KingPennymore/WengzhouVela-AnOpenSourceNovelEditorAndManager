@@ -1,0 +1,202 @@
+/* Vela 0.9.1 visual layer: same palettes and layout geometry, refreshed surfaces and motion.
+   Loaded last; it only restyles, so measured chrome (bars, sidebars, editor edges) keeps its size. */
+:root{
+  --accent-tint:#23744e1f;--accent-ring:#23744e47;--accent-glow:#23744e33;
+  --ease-out:cubic-bezier(.22,1,.36,1);--ease-spring:cubic-bezier(.34,1.45,.64,1);--ease-in-out:cubic-bezier(.65,0,.35,1);
+  --dur-fast:.12s;--dur:.22s;--dur-slow:.38s;
+  --elev-1:0 1px 2px #0f241808,0 1px 3px #0f24180d;
+  --elev-2:0 10px 24px -12px #0f241838,0 2px 6px #0f24180f;
+  --elev-3:0 28px 64px -20px #0f241852,0 4px 14px #0f241814;
+  --hairline:var(--line);
+}
+body.dark{--elev-1:0 1px 2px #0005;--elev-2:0 12px 28px -12px #000a,0 2px 6px #0004;--elev-3:0 30px 70px -18px #000c,0 4px 14px #0006}
+body{background:var(--bg);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+
+/* Scrollbars stay thin so side panels read as surfaces, not frames. */
+*{scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+::-webkit-scrollbar{width:10px;height:10px}::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--line);border-radius:10px;border:3px solid transparent;background-clip:padding-box}
+::-webkit-scrollbar-thumb:hover{background:var(--muted);background-clip:padding-box;border:3px solid transparent}
+
+/* Controls */
+button{transition:background-color var(--dur-fast) ease,color var(--dur-fast) ease,box-shadow var(--dur) var(--ease-out),border-color var(--dur-fast) ease,transform var(--dur) var(--ease-out),opacity var(--dur-fast) ease}
+button:hover{background:var(--soft)}
+button:focus-visible,a:focus-visible{outline:2px solid var(--accent);outline-offset:2px;box-shadow:0 0 0 4px var(--accent-tint)}
+input,select,textarea{transition:border-color var(--dur-fast) ease,box-shadow var(--dur) var(--ease-out),background-color var(--dur-fast) ease}
+input:focus,select:focus,textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-tint)}
+.primary{background:var(--accent);color:var(--paper);box-shadow:0 1px 0 #ffffff1f inset,0 6px 16px -8px var(--accent-glow);font-weight:500}
+.primary:hover{background:var(--accent);opacity:1;box-shadow:0 1px 0 #ffffff1f inset,0 10px 22px -8px var(--accent-ring);filter:brightness(1.06)}
+.secondary{background:var(--paper);border:1px solid var(--line);box-shadow:var(--elev-1)}
+.secondary:hover{border-color:var(--accent-ring);background:var(--paper);color:var(--accent)}
+.text-button:hover{background:var(--accent-tint)}
+
+/* Top bar: a quiet panel with a sail wordmark and a segmented page switcher. */
+.topbar{background:var(--panel);border-bottom:1px solid var(--hairline);box-shadow:0 1px 0 #ffffff66 inset}
+body.dark .topbar{box-shadow:none}
+.app-name{display:inline-flex;align-items:center;gap:6px;color:var(--text);font-weight:600;letter-spacing:.5px}
+.app-name::before{content:'';width:11px;height:13px;background:linear-gradient(160deg,var(--accent),var(--accent) 55%,transparent 56%);clip-path:polygon(45% 0,100% 100%,0 100%);opacity:.9}
+.slash{color:var(--muted);opacity:.5}
+.breadcrumb strong{color:var(--text);font-weight:500}
+.page-navigation{position:relative;isolation:isolate;border-radius:calc(var(--radius) + 2px);background:var(--bg);box-shadow:inset 0 0 0 1px var(--hairline)}
+.page-navigation .nav-item{position:relative;z-index:1;background:transparent}
+.page-navigation .nav-item:hover{background:transparent;color:var(--text)}
+.page-navigation button.active,.page-navigation .nav-item.active{background:transparent;color:var(--accent)}
+.nav-indicator{position:absolute;z-index:0;left:0;top:0;width:0;height:0;border-radius:var(--radius);background:var(--paper);box-shadow:var(--elev-1),inset 0 0 0 1px var(--accent-tint);pointer-events:none;opacity:0}
+.nav-indicator.ready{opacity:1}
+.nav-indicator::after{content:'';position:absolute;left:50%;bottom:3px;width:12px;height:2px;margin-left:-6px;border-radius:2px;background:var(--accent);opacity:.85}
+.page-navigation .update-dot{z-index:2;box-shadow:0 0 0 2px var(--bg)}
+#mobile-library{color:var(--muted)}
+#mobile-library[aria-expanded=true]{color:var(--accent);background:var(--accent-tint)}
+.toolbar>button:hover,.global-tools button:hover{color:var(--text)}
+.active-tool,.toolbar button.active-tool{background:var(--accent-tint);color:var(--accent)}
+.global-tools{border-left-color:var(--hairline)}
+.saved{display:inline-flex;align-items:center;gap:0}
+.saved::before{display:inline-block;content:'';width:7px;height:7px;border-radius:50%;background:var(--success);margin-right:7px;box-shadow:0 0 0 3px transparent}
+.saved.dirty::before{background:var(--warning)}
+
+/* Document tabs: an animated accent rail instead of a static inset shadow. */
+.file-rowbar,.document-tabs{background:var(--panel)}
+.document-tab{position:relative;color:var(--muted);border-right-color:var(--hairline)}
+.document-tab:hover{background:var(--bg);color:var(--text)}
+.document-tab.active{background:var(--paper);color:var(--text);box-shadow:none}
+.document-tab::after{content:'';position:absolute;left:10px;right:10px;bottom:0;height:2px;border-radius:2px 2px 0 0;background:var(--accent);transform:scaleX(0);transition:transform var(--dur) var(--ease-out)}
+.document-tab.active::after{transform:scaleX(1)}
+.document-tab .file-kind{padding:2px 5px;border-radius:5px;background:var(--accent-tint);font-size:9px;letter-spacing:.3px}
+.document-tab .tab-close{opacity:.55}.document-tab:hover .tab-close,.document-tab.active .tab-close{opacity:1}
+.document-tab .tab-dirty{color:var(--warning)}
+.display-options button[aria-pressed=true],.display-options button.active{color:var(--accent);background:var(--accent-tint)}
+
+/* Side panels */
+.library,.outline{background:var(--panel)}
+.library{border-right-color:var(--hairline)}.outline{border-left-color:var(--hairline)}
+.library-heading h1,.outline-heading h2{letter-spacing:.3px}
+.search-box{background:var(--paper);border-color:var(--line);transition:border-color var(--dur-fast) ease,box-shadow var(--dur) var(--ease-out)}
+.search-box:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-tint)}
+.search-box input:focus{box-shadow:none}
+.workspace-controls{border-bottom-color:var(--hairline)}
+.doc-item{transition:background-color var(--dur-fast) ease}
+.doc-item:hover{background:var(--bg)}
+.doc-item.active{background:var(--paper);box-shadow:var(--elev-1),inset 0 0 0 1px var(--accent-tint)}
+.doc-item::before{content:'';position:absolute;left:0;top:50%;width:3px;height:0;border-radius:0 3px 3px 0;background:var(--accent);transform:translateY(-50%);transition:height var(--dur) var(--ease-out)}
+.doc-item.active::before{height:56%}
+.doc-open:hover{background:transparent}
+.doc-symbol{border:0;border-radius:7px;background:var(--accent-tint);color:var(--accent);font-weight:600;letter-spacing:.2px}
+.doc-item.active .doc-info strong{color:var(--accent);font-weight:500}
+.github-connect{margin-top:10px;padding:12px 10px;border:1px solid var(--hairline);border-radius:var(--radius);background:var(--paper)}
+.github-connect:hover{border-color:var(--accent-ring);background:var(--paper);box-shadow:var(--elev-2)}
+.chapter{position:relative}
+.chapter:hover{background:var(--bg)}
+.chapter.active{background:var(--paper);color:var(--accent);box-shadow:var(--elev-1),inset 0 0 0 1px var(--accent-tint)}
+.chapter .chapter-number{min-width:20px;padding:2px 4px;border-radius:5px;text-align:center}
+.chapter.active .chapter-number{background:var(--accent);color:var(--paper)}
+
+/* Editor surface and writing footer */
+.cm-gutters{background:var(--paper)!important;border-right-color:var(--hairline)!important}
+.cm-activeLine{background:var(--accent-tint)!important}.cm-activeLineGutter{background:transparent!important;color:var(--accent)!important;font-weight:600}
+.quickbar{background:var(--paper);border-top-color:var(--hairline)}
+.quickbar button{color:var(--muted)}
+.quickbar button:hover{background:var(--soft);color:var(--text)}
+.quickbar button:first-child{color:var(--accent);background:var(--accent-tint)}
+.quickbar i{border-right-color:var(--hairline)}
+.statusbar{background:var(--panel);border-top-color:var(--hairline);letter-spacing:.2px}
+.status-right>span{position:relative}
+
+/* Start page: hero card, stat tiles with icons, lifted recent-file cards. */
+#start-page{background:radial-gradient(120% 60% at 0% 0%,var(--accent-tint),transparent 60%),var(--paper)}
+.start-hero{position:relative;margin-bottom:24px}
+.start-page-header{margin-bottom:22px}
+.start-page-header>svg{width:30px;height:30px;padding:11px;box-sizing:content-box;border-radius:16px;color:var(--paper);background:var(--accent);box-shadow:0 12px 26px -10px var(--accent-ring),inset 0 1px 0 #ffffff33}
+.start-page-header h1{font-weight:700;letter-spacing:1px}
+.start-stats{margin-bottom:0}
+.start-stat{position:relative;display:flex;flex-direction:column;justify-content:flex-end;min-height:96px;background:var(--paper);border-color:var(--hairline);box-shadow:var(--elev-1);overflow:hidden}
+.start-stat strong{color:var(--accent);font-size:28px;font-variant-numeric:tabular-nums;line-height:1.1}
+.start-stat .stat-icon{position:absolute;right:12px;top:12px;display:grid;place-items:center;width:30px;height:30px;border-radius:9px;background:var(--accent-tint);color:var(--accent)}
+.start-stat .stat-icon svg{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+.start-toolbar{display:flex;align-items:center;gap:10px;flex-wrap:wrap;padding:12px 0 20px;border-bottom:1px solid var(--hairline);margin-bottom:4px}
+.start-toolbar .start-primary,.start-toolbar .start-actions{margin:0;padding:0;border:0}
+.start-toolbar .start-divider{width:1px;height:28px;background:var(--hairline);margin:0 4px}
+.start-primary .primary{border-radius:14px}
+.start-actions button{border:1px solid var(--hairline);border-radius:var(--radius);background:var(--paper)}
+.start-actions button:hover{color:var(--accent);border-color:var(--accent-ring)}
+#start-page h2{font-size:12px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;color:var(--muted)}
+.recent-files>button{background:var(--paper);border-color:var(--hairline);box-shadow:var(--elev-1)}
+.recent-files .file-kind{border:0;background:var(--accent-tint);color:var(--accent);font-weight:600;text-align:center}
+
+/* Cards everywhere share one hover language: border warms to accent, shadow deepens. */
+.repo-card,.recent-files>button,.reader-book,.start-stat,.vela-card,.glossary-entry,.subscription-card,.empty-state{transition:transform var(--dur) var(--ease-out),box-shadow var(--dur) var(--ease-out),border-color var(--dur-fast) ease,background-color var(--dur-fast) ease}
+.repo-card:hover,.recent-files>button:hover,.reader-book:hover{background:var(--paper);border-color:var(--accent-ring);box-shadow:var(--elev-2)}
+.subscription-card:hover{border-color:var(--accent-ring);box-shadow:var(--elev-2)}
+.repo-card,.subscription-card,.vela-card,.glossary-entry,.empty-state{border-color:var(--hairline);box-shadow:var(--elev-1);background:var(--paper)}
+.repo-card small{display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:999px;background:var(--accent-tint)}
+.empty-state .large-icon,.empty-state>svg{color:var(--accent)}
+.notice{background:var(--accent-tint);border:1px solid var(--accent-tint)}
+.count-badge{background:var(--accent-tint);border-radius:999px}
+.file-list{border-color:var(--hairline);box-shadow:var(--elev-1)}
+.file-row{transition:background-color var(--dur-fast) ease}.file-row:hover{background:var(--bg)}
+.page-kicker{display:inline-block;padding:3px 9px;border-radius:999px;background:var(--accent-tint);letter-spacing:1.2px;font-weight:600}
+
+/* Reader library: books get real covers — accent cloth, light sheen, darker spine. */
+.reader-library{background:radial-gradient(90% 50% at 100% 0%,var(--accent-tint),transparent 60%),var(--paper)}
+.reader-book{background:var(--paper);border-color:var(--hairline);box-shadow:var(--elev-1);gap:2px}
+.book-cover{position:relative;overflow:hidden;border:0;border-radius:6px 10px 10px 6px;background:linear-gradient(155deg,#ffffff38 0%,transparent 42%,#0000002e 100%),var(--accent);color:var(--paper);font-weight:600;letter-spacing:2px;box-shadow:inset 7px 0 0 #00000026,inset 9px 0 0 #ffffff1f,0 8px 18px -10px var(--accent-ring)}
+.book-cover::after{content:'';position:absolute;left:18px;right:14px;bottom:12px;height:2px;border-radius:2px;background:#ffffff55}
+.reader-book:hover .book-cover{filter:brightness(1.05)}
+.reader-book progress{border-radius:4px;overflow:hidden}
+.book-progress progress{accent-color:var(--accent)}
+
+/* Floating layers */
+dialog{border-color:var(--hairline);box-shadow:var(--elev-3)}
+dialog::backdrop{background:#0b140f73;backdrop-filter:blur(4px)}
+.dialog-heading{border-bottom-color:var(--hairline)}.dialog-actions{border-top-color:var(--hairline)}
+.settings-navigation button[aria-current],.settings-navigation button:hover{color:var(--accent);background:var(--accent-tint)}
+#toolbar-overflow{border-color:var(--hairline);box-shadow:var(--elev-3);transform-origin:top right}
+#toolbar-overflow button{border-radius:calc(var(--radius) - 2px)}
+#toolbar-overflow button:hover{background:var(--accent-tint);color:var(--accent)}
+#toast{border-radius:999px;padding:11px 20px;box-shadow:var(--elev-3);font-weight:500;letter-spacing:.2px}
+.cm-tooltip-autocomplete{box-shadow:var(--elev-3)!important;border-color:var(--hairline)!important}
+.update-dot{background:var(--accent)}
+
+/* Theme changes cross-fade colors instead of snapping. */
+html.theme-shift *,html.theme-shift *::before,html.theme-shift *::after{transition:background-color .32s ease,border-color .32s ease,color .32s ease,fill .32s ease,stroke .32s ease,box-shadow .32s ease!important}
+
+@media(prefers-reduced-motion:no-preference){
+  .nav-indicator.ready{transition:transform .34s var(--ease-spring),width .34s var(--ease-spring),height .34s var(--ease-out),opacity var(--dur) ease}
+  .toolbar button:active:not(:disabled),.page-navigation button:active,.global-tools button:active,.quickbar button:active:not(:disabled),#mobile-library:active,.primary:active:not(:disabled),.secondary:active:not(:disabled),.start-actions button:active,.tab-close:active,.reader-header button:active,.display-options button:active,.dialog-heading button:active{transform:scale(.92)}
+  .repo-card:hover,.recent-files>button:hover,.reader-book:hover,.start-stat:hover{transform:translateY(-2px)}
+  .repo-card:active,.recent-files>button:active,.reader-book:active{transform:translateY(0) scale(.985)}
+  .view-enter{animation:vela-view-in var(--dur-slow) var(--ease-out) both}
+  .view-enter.view-enter-fade{animation-name:vela-fade-in}
+  .stagger-in{animation:vela-rise .42s var(--ease-out) both;animation-delay:calc(var(--stagger,0) * 38ms)}
+  dialog[open]:not(.settings-dialog){animation:vela-dialog-in .26s var(--ease-out)}
+  dialog[open]:not(.settings-dialog)::backdrop{animation:vela-fade-in .22s ease-out}
+  #toolbar-overflow:not([hidden]){animation:vela-pop .2s var(--ease-out)}
+  #toolbar-overflow:not([hidden]) button{animation:vela-rise .28s var(--ease-out) both}
+  #toolbar-overflow:not([hidden]) button:nth-child(2){animation-delay:20ms}#toolbar-overflow:not([hidden]) button:nth-child(3){animation-delay:40ms}
+  #toolbar-overflow:not([hidden]) button:nth-child(4){animation-delay:60ms}#toolbar-overflow:not([hidden]) button:nth-child(5){animation-delay:80ms}
+  #toolbar-overflow:not([hidden]) button:nth-child(6){animation-delay:100ms}#toolbar-overflow:not([hidden]) button:nth-child(n+7){animation-delay:120ms}
+  #toast:not([hidden]){animation:vela-toast .34s var(--ease-spring)}
+  .update-dot:not([hidden]){animation:vela-pulse 2.4s ease-out infinite}
+  .saved.saved-flash::before{animation:vela-saved .7s var(--ease-out)}
+  .document-tab.tab-enter{animation:vela-tab-in .3s var(--ease-out)}
+  .cm-tooltip-autocomplete{animation:vela-fade-in .12s ease-out}
+  .start-page-header>svg{animation:vela-sail 5s ease-in-out infinite}
+}
+@keyframes vela-view-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+@keyframes vela-fade-in{from{opacity:0}to{opacity:1}}
+@keyframes vela-rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+@keyframes vela-dialog-in{from{opacity:0;transform:translateY(12px) scale(.97)}to{opacity:1;transform:none}}
+@keyframes vela-pop{from{opacity:0;transform:scale(.94) translateY(-4px)}to{opacity:1;transform:none}}
+@keyframes vela-toast{from{opacity:0;transform:translate(-50%,16px) scale(.94)}to{opacity:1;transform:translate(-50%,0)}}
+@keyframes vela-pulse{0%{box-shadow:0 0 0 2px var(--bg),0 0 0 2px var(--accent-ring)}70%{box-shadow:0 0 0 2px var(--bg),0 0 0 8px transparent}100%{box-shadow:0 0 0 2px var(--bg),0 0 0 8px transparent}}
+@keyframes vela-saved{0%{transform:scale(.4);box-shadow:0 0 0 0 var(--accent-ring)}50%{transform:scale(1.35)}100%{transform:scale(1);box-shadow:0 0 0 7px transparent}}
+@keyframes vela-tab-in{from{opacity:0;transform:translateY(-6px)}to{opacity:1;transform:none}}
+@keyframes vela-sail{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-3px) rotate(-2deg)}}
+
+@media(max-width:600px){
+  .page-navigation{background:transparent;box-shadow:none}
+  .nav-indicator{background:var(--accent-tint);box-shadow:none}
+  .nav-indicator::after{display:none}
+  .start-stat{min-height:80px}.start-stat .stat-icon{width:24px;height:24px;right:8px;top:8px;border-radius:7px}.start-stat .stat-icon svg{width:14px;height:14px}
+  .start-toolbar{gap:8px}.start-toolbar .start-divider{display:none}
+  .book-cover{border-radius:4px 8px 8px 4px}
+}

@@ -1,8 +1,9 @@
 {
   "format": 1,
-  "source": "f394e89246c64ea3d48f40f31e537aa95c8d63a1a2fe480e967eb239e3de02f9",
+  "source": "2fdf553024ff2bda3ae85d150ba298d5e0a69d50ed631dda1380045283006692",
   "outputs": {
-    "app.js": "65b5098a5e4aa4daa2670c9515cb72ab4920e701754a7465e28c209408403a71",
+    "app.js": "103a57051c6d5a55de559efb1304eb03504e87593363c8657421f912403ad284",
+    "design.css": "0e6d079750a7ff763b0d34e5f9e150e55060edf5e561886f5b9ccc32af0ac73a",
     "file-manager.css": "4c3ecef2f1b7f371bb7fb0bc94d7a0b932ae277caf4313a07ff21e42e3344964",
     "fonts/KaTeX_AMS-Regular.ttf": "68534840bcfdd2bffb6f0e8deb48684dd01e7f04ea2813267577afb906de1d13",
     "fonts/KaTeX_AMS-Regular.woff": "30da91e84c893f875e252689faebdc590b2871145e8adc7f9a9d4dbd8ce0b251",
@@ -65,7 +66,7 @@
     "fonts/KaTeX_Typewriter-Regular.woff": "e14fed02b1aba7ce9f5afd5844b5d0321b22351febc720e0de8b8723527609f7",
     "fonts/KaTeX_Typewriter-Regular.woff2": "71d517d67827787cfabdf186914cc3358eda539e37931941f2b2fd4a21f68c0b",
     "html-reader.js": "3feed30001f7160491a0b18f359225c9a82a640dea886f2d03606a70cb48ce03",
-    "index.html": "3a1f64267f81ec57b58b12ad51d8571b61abd35f6c6b965864c07e327aedaee1",
+    "index.html": "2b530a56b7455b7f97f24e0f59a6982abccc4bafc548f3b35e37af79e7122803",
     "katex.min.css": "d4ab5b8ee16989b070cdb0ea24bd6ad48fc8df1b787f280f29d3ae4f959f2c00",
     "licenses.js": "3705d9bd62317f3954b73f0bf72e37ce7c76c60a888fd64f9f0366572b13595a",
     "licenses/@codemirror-autocomplete.txt": "05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07",
@@ -335,6 +336,6 @@
     "tex/vela-tex-cjk.zip": "e4f97354707194653bd219fdf7257f824643744718451d386b4346e7f6b6c80e",
     "tex/worker.js": "5b0b03d6957d79b9016ccf72b193f865f980a2971565d9cd793ece9147541905",
     "ui.css": "7a677f380e018152384c2a9d0ac3ddbcc910d36628c52d103916fe6689b0be32",
-    "version.json": "55a710cf25f8ecb37fb430db50ccb406d8b4646307de64d9b87a3491d74c6f1f"
+    "version.json": "7bcd1cd2e26409d406975d4594eb2771678320e86406fc2253a451fe5ec5c47a"
   }
 }

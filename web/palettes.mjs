@@ -7,4 +7,6 @@ export const palettes=[
   {id:'graphite',name:'石墨',light:colors('#eef1f2','#f5f7f8','#ffffff','#2d373e','#697780','#dce3e7','#52636d','#e6ecef','#90a5b266'),dark:colors('#1b2023','#232b30','#29333a','#dce3e7','#a0afb9','#46535d','#b0c4d1','#3b4a55','#90a5b266')}
 ];
 export function paletteFor(id,dark){const palette=palettes.find(item=>item.id===id)||palettes[0];return {id:palette.id,colors:dark?palette.dark:palette.light};}
-export function applyPalette(element,id,dark){const selected=paletteFor(id,dark);for(const [name,color] of Object.entries(selected.colors))element.style.setProperty('--'+name,color);return selected.id;}
+// Translucent accent layers for tints, focus rings and glows; Chromium 105 has no color-mix().
+const accentLayers={tint:'1f',ring:'47',glow:'33'};
+export function applyPalette(element,id,dark){const selected=paletteFor(id,dark);for(const [name,color] of Object.entries(selected.colors))element.style.setProperty('--'+name,color);for(const [name,alpha] of Object.entries(accentLayers))element.style.setProperty('--accent-'+name,selected.colors.accent+alpha);return selected.id;}
