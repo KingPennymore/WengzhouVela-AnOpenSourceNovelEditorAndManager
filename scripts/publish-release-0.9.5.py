@@ -71,6 +71,10 @@ for name in assets:
     expected = 'sha256:' + hashlib.sha256(path.read_bytes()).hexdigest()
     if item['size'] != path.stat().st_size or item.get('digest') != expected:
         raise RuntimeError('release hash mismatch: ' + name)
+runs = api(api_root + '/actions/runs?head_sha=' + head)['workflow_runs']
+verify_runs = [run for run in runs if run['name'] == 'Verify' and run['head_sha'] == head]
+if not verify_runs or verify_runs[0]['status'] != 'completed' or verify_runs[0]['conclusion'] != 'success':
+    raise RuntimeError('Assets verified; keeping the release draft until Verify succeeds for this commit')
 published = api(release_url, 'PATCH', {'draft': False, 'prerelease': False, 'make_latest': 'true'})
 latest = api(api_root + '/releases/latest')
 if published['draft'] or latest['tag_name'] != 'v0.9.5':

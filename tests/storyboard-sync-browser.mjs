@@ -1,7 +1,8 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {textFingerprint} from '../web/document-service.mjs';
-import {writeFile} from 'node:fs/promises';
+import {mkdir,writeFile} from 'node:fs/promises';
+await mkdir('test-results/storyboard',{recursive:true});
 const A='a'.repeat(40),B='b'.repeat(40),C='c'.repeat(40),repo='author/voyage',original='第一章\n原来的正文\n',updated='第一章\n修改后的正文\n';let head=A,delay=false;const writes=[];
 const seed={version:1,documents:[{id:'book',name:'航程.txt',path:'Novel/航程.txt',text:updated,updatedAt:1,remote:{repo,branch:'main',path:'航程.txt',sha:B,lastSyncedText:original}}],folders:['Novel'],openIds:['book'],activeId:'book',repositories:[{repo,branch:'main',folder:'Novel',commit:A,baseFiles:{'航程.txt':{sha:B,hash:textFingerprint(original)}}}],settings:{theme:'light'}};
 const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'}),context=await browser.newContext({viewport:{width:1280,height:850}}),errors=[];
