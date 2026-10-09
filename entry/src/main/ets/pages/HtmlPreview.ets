@@ -4,7 +4,7 @@ import { util } from '@kit.ArkTS';
 import { url } from '@kit.ArkTS';
 import { HtmlPreviewSession, ReaderLayout } from '../services/HtmlPreviewSession';
 
-interface HtmlReaderOptions { path: string; english: boolean; dark: boolean; pages: boolean; spread: boolean; titlePage: boolean; motion: string; fontSize: number; layout: ReaderLayout; }
+interface HtmlReaderOptions { path: string; english: boolean; dark: boolean; pages: boolean; spread: boolean; titlePage: boolean; fontSize: number; layout: ReaderLayout; }
 
 @Entry
 @Component
