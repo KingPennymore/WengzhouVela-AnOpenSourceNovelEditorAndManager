@@ -6,7 +6,7 @@
 
 当前版本：鸿蒙 / Windows **0.9.5**，安卓 **0.9.5-android.1**，移动端版本代码 **10905**，包名 `me.wenzhou.write`。HarmonyOS 使用 API 24 SDK 编译，兼容 API 12；安卓最低 Android 8.0 / API 26，WebView 需 Chromium 105 或更新版本。
 
-[下载 0.9.5](https://github.com/KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager/releases/tag/v0.9.5)：三端完整版与轻量版，包括发布签名 HAP、鸿蒙市场提交用 APP.zip、安卓签名 APK / AAB、Windows x64 安装程序 / ZIP；另附源码、两份可选离线排版组件及 SHA-256 清单。Windows 包尚无 Authenticode 签名。鸿蒙发布签名的直接安装受系统来源校验限制，不能替代调试签名安装。
+[下载 0.9.5](https://github.com/KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager/releases/tag/v0.9.5)：本次仅提供三端轻量版，包括发布签名 HAP、鸿蒙市场提交用 APP.zip、安卓签名 APK / AAB、Windows x64 安装程序 / ZIP；另附源码、两份可选离线排版组件及 SHA-256 清单。Windows 包尚无 Authenticode 签名。鸿蒙发布签名的直接安装受系统来源校验限制，不能替代调试签名安装。
 
 0.9.3 重写正文名词候选识别，200 万字基准识别约 990/1000 个专名，误报大幅减少；启动页统计卡片去掉图标。0.9.2 删除翻页动画，翻页直接切换；其余界面动画放缓，均不短于 200 毫秒。0.9.1 重新设计三端界面与动画：分段页面切换器、浮起的当前项、书封书库、页面淡入与卡片依次出现，保留原有配色与布局尺寸；减少动态效果时动画停用。
 
@@ -283,4 +283,4 @@ Windows x64 安装包与 ZIP、移动安装包可在 GitHub Releases 获取。�
 
 查找与替换采用统一的应用面板和中英文文案；侧栏可拖动边界或使用方向键调整宽度，双击边界恢复默认，手机与宽屏分别记忆。屏幕键盘覆盖页面时，编辑区、菜单和对话框跟随可见高度。
 
-同步冲突提供本地、远端及合并结果，不重叠的段落自动组合，重叠的段落逐项选择或编辑后确认；保留本地历史和远端基线。轻量构建与离线排版组件、统一回归入口见 [构建与发布检查](docs/BUILD-AND-VERIFY.md)。0.9.5 同时提供完整版、轻量版及两份可选离线排版组件；轻量版编译 LaTeX 前需导入引擎组件，中文排版还需中文组件。
+同步冲突提供本地、远端及合并结果，不重叠的段落自动组合，重叠的段落逐项选择或编辑后确认；保留本地历史和远端基线。轻量构建与离线排版组件、统一回归入口见 [构建与发布检查](docs/BUILD-AND-VERIFY.md)。0.9.5 仅发布轻量安装包及两份可选离线排版组件；轻量版编译 LaTeX 前需导入引擎组件，中文排版还需中文组件。

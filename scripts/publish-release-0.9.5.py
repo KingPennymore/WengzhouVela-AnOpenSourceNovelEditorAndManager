@@ -1,4 +1,4 @@
-import concurrent.futures, hashlib, json, pathlib, subprocess, urllib.error, urllib.parse, urllib.request
+import concurrent.futures, hashlib, json, pathlib, subprocess, urllib.error, urllib.parse, urllib.request, os, re
 
 root = pathlib.Path(__file__).resolve().parent.parent
 dist = root / 'dist'
@@ -60,6 +60,14 @@ def upload(name):
         raise RuntimeError(f'asset verification failed: {name}')
     return {'name': name, 'size': item['size'], 'digest': item['digest'], 'reused': False}
 
+# Remove only the six full packages explicitly excluded from this release.
+full_packages = {'Vela-0.9.5-release-signed.hap', 'Vela-0.9.5-release-signed.app.zip',
+                 'Vela-0.9.5-android.1-release-signed.apk', 'Vela-0.9.5-android.1-release-signed.aab',
+                 'Vela-0.9.5-windows-setup-x64.exe', 'Vela-0.9.5-windows-x64.zip'}
+for item in api(release_url + '/assets'):
+    if item['name'] in full_packages and item['name'] not in assets:
+        api(api_root + '/releases/assets/' + str(item['id']), 'DELETE')
+
 with concurrent.futures.ThreadPoolExecutor(max_workers=2) as pool:
     uploaded = list(pool.map(upload, assets))
 server_assets = api(release_url + '/assets')
@@ -71,8 +79,17 @@ for name in assets:
     expected = 'sha256:' + hashlib.sha256(path.read_bytes()).hexdigest()
     if item['size'] != path.stat().st_size or item.get('digest') != expected:
         raise RuntimeError('release hash mismatch: ' + name)
-runs = api(api_root + '/actions/runs?head_sha=' + head)['workflow_runs']
-verify_runs = [run for run in runs if run['name'] == 'Verify' and run['head_sha'] == head]
+ci_commit = os.environ.get('VELA_VERIFIED_CI_COMMIT', head)
+if not re.fullmatch('[0-9a-f]{40}', ci_commit):
+    raise RuntimeError('invalid verified commit')
+if ci_commit != head:
+    subprocess.run(['git', 'merge-base', '--is-ancestor', ci_commit, head], cwd=root, check=True)
+    changed = set(subprocess.check_output(['git', 'diff', '--name-only', ci_commit, head, '--'], cwd=root, text=True).splitlines())
+    release_only = {'README.md', 'RELEASE_NOTES.md', 'VALIDATION.md', 'scripts/finalize-release.py', 'scripts/publish-release-0.9.5.py'}
+    if not changed <= release_only:
+        raise RuntimeError('application or test code changed after the verified commit')
+runs = api(api_root + '/actions/runs?head_sha=' + ci_commit)['workflow_runs']
+verify_runs = [run for run in runs if run['name'] == 'Verify' and run['head_sha'] == ci_commit]
 if not verify_runs or verify_runs[0]['status'] != 'completed' or verify_runs[0]['conclusion'] != 'success':
     raise RuntimeError('Assets verified; keeping the release draft until Verify succeeds for this commit')
 published = api(release_url, 'PATCH', {'tag_name': 'v0.9.5', 'target_commitish': head, 'draft': False, 'prerelease': False, 'make_latest': 'true'})

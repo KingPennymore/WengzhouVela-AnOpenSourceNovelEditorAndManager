@@ -1,12 +1,12 @@
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
-import hashlib, json
+import hashlib, json, sys
 
 root = Path(__file__).resolve().parent.parent
 dist = root / 'dist'
 version = json.loads((root / 'package.json').read_text(encoding='utf-8'))['harmonyVersion']
 assets = []
-for flavor in ['', '-lite']:
+for flavor in (['-lite'] if '--lite-only' in sys.argv else ['', '-lite']):
     app = dist / f'Vela-{version}{flavor}-release-signed.app'
     appzip = app.with_suffix('.app.zip')
     with ZipFile(appzip, 'w', ZIP_DEFLATED, compresslevel=9) as archive:
