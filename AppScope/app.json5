@@ -1,1 +1,1 @@
-{ "app": { "bundleName": "me.wenzhou.write", "vendor": "wenzhou", "versionCode": 10902, "versionName": "0.9.2", "icon": "$media:layered_image", "label": "$string:app_name" } }
+{ "app": { "bundleName": "me.wenzhou.write", "vendor": "wenzhou", "versionCode": 10903, "versionName": "0.9.3", "icon": "$media:layered_image", "label": "$string:app_name" } }
