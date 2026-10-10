@@ -138,7 +138,7 @@ export class WorkspaceFiles {
       entries.push(entry);
       if (entry.directory) { folders.push(relative); this.walk(relative, old, documents, folders, entries); }
       else if (stat.isFile()) {
-        if (this.lazyPaths.includes(relative) && !old.some(doc => (doc.path || doc.name) === relative) && name !== ".vela") { entry.editable = this.lazyTexts.includes(relative) || /\.(txt|md|csv|tsv|json|html?|css|[cm]?js|ts|py|java|ets|tex|yaml|yml|xml|toml|gly|glossary)$/i.test(name); entry.reason = "按需读取项目文件"; continue; }
+        if (this.lazyPaths.includes(relative) && !old.some(doc => (doc.path || doc.name) === relative) && name !== ".vela") { entry.editable = this.lazyTexts.includes(relative) || /\.(txt|md|csv|tsv|json|html?|css|[cm]?js|ts|py|java|ets|tex|yaml|yml|xml|toml|velaodt|vodt|fodt|fods|fodp|fodg|gly|glossary)$/i.test(name); entry.reason = "按需读取项目文件"; continue; }
         try {
           const text = this.readText(path), previous = old.find(doc => (doc.path || doc.name) === relative);
           const doc: StoredDocument = { id: previous?.id || util.generateRandomUUID(), name: name, path: relative, kind: previous?.kind, delimiter: previous?.delimiter, text: text, updatedAt: previous?.text === text ? previous.updatedAt : Date.now(), remote: previous?.remote || null, subscription: previous?.subscription };

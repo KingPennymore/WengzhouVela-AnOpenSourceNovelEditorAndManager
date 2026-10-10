@@ -71,7 +71,7 @@ final class NativeBridge {
                     }
                     activity.deliver(requestId, success(projects.call(action, owner, args))); return;
                 }
-                if (Arrays.asList("import", "export", "exportPdf", "importPlugin").contains(operation)) { activity.pick(requestId, operation, data); return; }
+                if (Arrays.asList("import", "export", "exportPdf", "exportOdt", "importPlugin").contains(operation)) { activity.pick(requestId, operation, data); return; }
                 Object value = dispatch(operation, data, generation);
                 activity.deliver(requestId, success(value));
             } catch (Exception error) { activity.deliver(requestId, failure(operation.equals("project") ? projectError(error) : error)); }
@@ -84,6 +84,19 @@ final class NativeBridge {
         String origin = provider.equals("gitee") ? "https://gitee.com/api/v5" : "https://api.github.com";
         CredentialStore store = provider.equals("gitee") ? giteeCredentials : credentials;
         switch (operation) {
+            case "clipboardWrite": {
+                String text = data.optString("text"); if (text.length() > 8 * 1024 * 1024) throw new IOException("剪贴板内容过大。");
+                java.util.concurrent.FutureTask<Boolean> task = new java.util.concurrent.FutureTask<>(() -> {
+                    android.content.ClipboardManager clipboard = (android.content.ClipboardManager) activity.getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+                    clipboard.setPrimaryClip(android.content.ClipData.newPlainText("文舟", text)); return true;
+                }); activity.runOnUiThread(task); return task.get();
+            }
+            case "clipboardRead": {
+                java.util.concurrent.FutureTask<String> task = new java.util.concurrent.FutureTask<>(() -> {
+                    android.content.ClipboardManager clipboard = (android.content.ClipboardManager) activity.getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+                    android.content.ClipData clip = clipboard.getPrimaryClip(); return clip == null || clip.getItemCount() == 0 ? "" : clip.getItemAt(0).coerceToText(activity).toString();
+                }); activity.runOnUiThread(task); return task.get();
+            }
             case "releaseImport": return imports.release(data.optString("token"));
             case "initializeStorage": case "refreshFolder": return files.scan();
             case "manageFiles": return files.manage(data.optString("action"), data.optString("path"), data.optString("destination"));

@@ -29,6 +29,10 @@ final class PreviewResource {
             case "ogg": case "oga": return "audio/ogg";
             case "ogv": return "video/ogg";
             case "wav": return "audio/wav";
+            case "epub": return "application/epub+zip";
+            case "fb2": return "application/x-fictionbook+xml";
+            case "mobi": return "application/x-mobipocket-ebook";
+            case "azw": case "azw3": return "application/vnd.amazon.ebook";
             case "zip": return "application/zip";
             case "mp3": return "audio/mpeg";
             case "csv": return "text/csv";

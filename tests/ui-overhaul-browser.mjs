@@ -1,3 +1,4 @@
+import {openRecentFile} from './start-page-helper.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
@@ -12,7 +13,7 @@ try{
  for(const [profile,width,height] of [['windows',1440,960],['harmonyos',1280,850],['android',390,844]]){
   const context=await browser.newContext({viewport:{width,height},colorScheme:'light'});
   await context.addInitScript(seed=>localStorage.setItem('wenzhou.workspace',JSON.stringify(seed)),seed);
-  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto((process.env.VELA_TEST_URL||'http://127.0.0.1:4173')+'/?ui='+profile);if(await page.locator('#start-page').isVisible())await page.locator('[data-recent=book]').click();await page.waitForSelector('.cm-editor');
+  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto((process.env.VELA_TEST_URL||'http://127.0.0.1:4173')+'/?ui='+profile);if(await page.locator('#start-page').isVisible())await openRecentFile(page,page.locator('[data-recent=book]'));await page.waitForSelector('.cm-editor');
   assert.equal(await page.locator('body').getAttribute('data-ui'),profile);
   await page.locator('#mobile-library').click();if(width>600)await page.locator('#outline-toggle').click();await page.waitForTimeout(200);
   await page.screenshot({path:`${out}/${profile}-editor.png`});
@@ -25,7 +26,7 @@ try{
   await page.keyboard.press('Control+Alt+h');await page.screenshot({path:`${out}/${profile}-home-en.png`});
   await page.locator('[data-view=reader]').click();await page.screenshot({path:`${out}/${profile}-library-en.png`});assert.equal(await page.locator('[data-read=book] strong').textContent(),'航程');await page.locator('[data-read=book]').click();assert.equal(await page.locator('#reader-title').textContent(),'航程');assert.equal(await page.locator('#preview-toggle').count(),0);await page.waitForTimeout(350);await page.screenshot({path:`${out}/${profile}-reader-en.png`});
   await page.locator('#reader-back').click();await page.locator('[data-view=write]').click();
-  await page.keyboard.press('Control+Alt+h');await page.locator('[data-recent=config]').click();await page.locator('[data-display=preview]').click();await page.screenshot({path:`${out}/${profile}-vela-en.png`});assert.equal(await page.locator('.vela-config-actions').evaluate(el=>getComputedStyle(el).position),'static');
+  await page.keyboard.press('Control+Alt+h');await openRecentFile(page,page.locator('[data-recent=config]'));await page.locator('[data-display=preview]').click();await page.screenshot({path:`${out}/${profile}-vela-en.png`});assert.equal(await page.locator('.vela-config-actions').evaluate(el=>getComputedStyle(el).position),'static');
   {await page.locator('#more-tools').click();await page.evaluate(()=>window.dispatchEvent(new Event('resize')));assert.equal(await page.locator('#toolbar-overflow').isVisible(),true);for(const id of ['focus-toggle','theme','commands','plugins'])assert.equal(await page.locator('#toolbar-overflow #'+id).isVisible(),true);await page.keyboard.press('Escape');assert.equal(await page.locator('#toolbar-overflow').isVisible(),false);assert.equal(await page.locator('#more-tools').evaluate(el=>el===document.activeElement),true);}
   await page.emulateMedia({colorScheme:'dark'});await page.screenshot({path:`${out}/${profile}-vela-dark.png`});
   checks.push(profile+' navigation, settings, English, home, library, reader, VELA, dark mode and bounds');await context.close();

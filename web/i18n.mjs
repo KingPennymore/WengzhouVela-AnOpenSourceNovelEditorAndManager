@@ -42,3 +42,16 @@ Object.assign(dictionary,{'术语':'Term','正文':'Text','关键词':'Keyword',
 Object.assign(dictionary,{'正文名词候选补全':'Suggest names from manuscript','正文与术语库同屏':'Show glossary alongside manuscript','正文术语高亮与释义':'Highlight glossary terms and definitions','本地推测人名、地名等候选，不自动加入术语库。':'Infer names locally without adding them to glossaries.','正文候选':'Manuscript candidate','候选':'Candidate','从当前正文推测，未加入术语库。':'Inferred from this manuscript; not in a glossary.','提交记录':'Commit history','暂无提交记录':'No commits','差异过长，仅显示前 300 行。':'Long diff: showing the first 300 lines.','对照内容':'Compare changes','二进制附件':'Binary attachment','取消拉取':'Cancel download'});
 
 Object.assign(dictionary,{'查找':'Find','输入要查找的内容':'Search text','输入替换内容，可留空':'Replacement text (may be empty)','上一处':'Previous','下一处':'Next','选择全部匹配':'Select all matches','替换当前':'Replace current','全部替换':'Replace all','全词匹配':'Whole words','正则表达式':'Regular expression','输入内容开始查找':'Enter text to search','正则表达式无效':'Invalid regular expression','没有找到匹配内容':'No matches found','处匹配':'matches','关闭查找与替换':'Close find and replace','本地内容':'Local content','远端内容':'Remote content','合并结果':'Merged result','冲突':'Conflict','保留本地这一段':'Keep local section','采用远端这一段':'Use remote section','编辑这一段的合并内容':'Edit merged section','确认这一段':'Confirm section','缺少共同版本，请核对完整文件。':'No common version. Review the entire file.','尚待处理的冲突':'Unresolved conflicts','冲突已处理，可保存合并结果。':'Conflicts resolved. The merged result can be saved.','正在同步…':'Syncing…','同步失败':'Sync failed','本地已修改 · 待同步':'Local changes · Pending sync','已与远端同步':'Synced with remote','导入离线排版组件':'Import offline typesetting components','离线排版组件已就绪':'Offline typesetting components are ready','分别导入引擎包和中文包':'Import both the engine and Chinese packages','引擎':'Engine','中文':'Chinese','正在校验并保存组件…':'Verifying and saving components…'});
+
+Object.assign(dictionary,{
+ '返回启动页':'Back to start',
+ '启动页操作':'Start page actions',
+ '开始新的文稿或工作区文件':'Start a manuscript or workspace file',
+ '从设备添加文稿与阅读文件':'Add writing and reading files from your device',
+ '继续查看或编辑已有文件':'Continue reading or editing existing files',
+ '连接 GitHub / Gitee，管理与同步文件':'Connect GitHub / Gitee to manage and sync files',
+ '了解文舟的功能与使用方法':'Learn about Vela and how to use it',
+ '查找操作与键盘快捷键':'Find commands and keyboard shortcuts',
+ '安装、启停和管理扩展功能':'Install, enable and manage extensions',
+ '调整外观、语言与编辑偏好':'Adjust appearance, language and editor preferences'
+});

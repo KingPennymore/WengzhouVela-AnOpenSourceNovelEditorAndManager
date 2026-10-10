@@ -4,6 +4,8 @@
 
 Vela 使用 CodeMirror 6，并兼容一部分 Acode 插件接口。不是所有 Acode 插件都可以直接运行：依赖 Ace、Cordova、Android 插件原生接口或 Acode 私有 DOM 的插件需要适配。插件是有权访问本地文稿的 JavaScript 程序，只安装可信来源。
 
+可选组件统一管理和开发协议见 [COMPONENTS.md](COMPONENTS.md)。排版组件以现有固定资源包导入，不要求 plugin.json；电子书等可执行组件使用下述插件协议。
+
 ## 安装与包结构
 
 通过顶栏插件按钮选择本地 ZIP。ZIP 根目录必须有 `plugin.json`；禁止绝对路径及 `..`。JavaScript ZIP 最大 8 MB，解压最大 16 MB、512 文件。插件页提供启用、停用、删除和设置。加载失败会停用插件并显示原因。

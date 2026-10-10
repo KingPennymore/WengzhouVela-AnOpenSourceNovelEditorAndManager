@@ -1,0 +1,22 @@
+{
+  "passed": true,
+  "errors": [],
+  "unit": {
+    "fb": "FB测试",
+    "fbHtml": "<!doctype html><html><head><meta charset=\"utf-8\"><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><style>body{margin:24px auto;padding:0 20px;max-width:760px;line-height:1.85;overflow-wrap:anywhere;font-size:20px;background:#fff;color:#252a30}img{max-width:100%;height:auto}pre{white-space:pre-wrap}table{max-width:100%;border-collapse:collapse}td,th{border:1px solid #888;padding:6px}h1,h2,h3{line-height:1.4}</style></head><body><section><h2><p>FB章节</p></h2><p>正文</p></section></body></html>",
+    "palm": [
+      97,
+      98,
+      99,
+      97,
+      98,
+      99
+    ],
+    "mobi": "<!doctype html><html><head><meta charset=\"utf-8\"><meta http-equiv=\"Content-Security-Policy\" content=\"default-src 'none'; img-src data:; style-src 'unsafe-inline'; base-uri 'none'; form-action 'none'\"><meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"><style>body{margin:24px auto;padding:0 20px;max-width:760px;line-height:1.85;overflow-wrap:anywhere;font-size:20px;background:#fff;color:#252a30}img{max-width:100%;height:auto}pre{white-space:pre-wrap}table{max-width:100%;border-collapse:collapse}td,th{border:1px solid #888;padding:6px}h1,h2,h3{line-height:1.4}</style></head><body><h1>MOBI中文</h1></body></html>",
+    "drm": "此 MOBI/AZW 含 DRM，阅读组件不支持。",
+    "kf8": "暂不支持 KF8/AZW3/KFX 的版面重建，请使用 EPUB 或 MOBI7。",
+    "badZip": "invalid zip data",
+    "path": "电子书资源越过包根目录。",
+    "sanitized": "<p>ok</p><a>bad</a>"
+  }
+}

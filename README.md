@@ -4,9 +4,11 @@
 
 文舟是独立项目，不是 Acode 官方应用，也不代表 Acode Foundation。项目复用了 Acode 的部分 CodeMirror 编辑组件和 Acode-Writer 1.0.4 的章节识别代码，具体版权与许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-当前版本：鸿蒙 / Windows **0.9.5**，安卓 **0.9.5-android.1**，移动端版本代码 **10905**，包名 `me.wenzhou.write`。HarmonyOS 使用 API 24 SDK 编译，兼容 API 12；安卓最低 Android 8.0 / API 26，WebView 需 Chromium 105 或更新版本。
+当前版本：鸿蒙 / Windows **0.9.6**，安卓 **0.9.6-android.1**，移动端版本代码 **10906**，包名 `me.wenzhou.write`。HarmonyOS 使用 API 24 SDK 编译，兼容 API 12；安卓最低 Android 8.0 / API 26，WebView 需 Chromium 105 或更新版本。
 
-[下载 0.9.5](https://github.com/KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager/releases/tag/v0.9.5)：本次仅提供三端轻量版，包括发布签名 HAP、鸿蒙市场提交用 APP.zip、安卓签名 APK / AAB、Windows x64 安装程序 / ZIP；另附源码、两份可选离线排版组件及 SHA-256 清单。Windows 包尚无 Authenticode 签名。鸿蒙发布签名的直接安装受系统来源校验限制，不能替代调试签名安装。
+[下载 0.9.6](https://github.com/KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager/releases/tag/v0.9.6)：本次仅提供三端轻量版，包括发布签名 HAP、鸿蒙市场提交用 APP.zip、安卓签名 APK / AAB、Windows x64 安装程序 / ZIP；另附源码、四份可选组件（排版引擎、中文排版、电子书/PDF、ODF）及 SHA-256 清单。Windows 包尚无 Authenticode 签名。鸿蒙发布签名的直接安装受系统来源校验限制，不能替代调试签名安装。
+
+0.9.6 合并分享对话中的启动页、固定顶底栏、格式模板、竖向选区菜单与 VODT 图文编辑更新；插件页统一管理排版、电子书/PDF 和 ODF 可选组件。ODF 复杂排版及原生选区菜单兼容边界见组件文档。
 
 0.9.5 修复移动编辑底栏和安卓排版组件安装；术语库支持多关键词，查找替换统一界面与中文文案。精简版可在 LaTeX 预览或插件页面导入两个离线组件。
 
@@ -286,3 +288,15 @@ Windows x64 安装包与 ZIP、移动安装包可在 GitHub Releases 获取。�
 查找与替换采用统一的应用面板和中英文文案；侧栏可拖动边界或使用方向键调整宽度，双击边界恢复默认，手机与宽屏分别记忆。屏幕键盘覆盖页面时，编辑区、菜单和对话框跟随可见高度。
 
 同步冲突提供本地、远端及合并结果，不重叠的段落自动组合，重叠的段落逐项选择或编辑后确认；保留本地历史和远端基线。轻量构建与离线排版组件、统一回归入口见 [构建与发布检查](docs/BUILD-AND-VERIFY.md)。0.9.5 仅发布轻量安装包及两份可选离线排版组件；轻量版编译 LaTeX 前需导入引擎组件，中文排版还需中文组件。
+
+## 0.9.5 基础改进：VODT 实验性图文编辑
+
+固定屏幕布局、按格式过滤的写作模板、竖向选区菜单，以及 `.velaodt` / `.vodt` 图文编辑原型见 [改进说明](docs/VODT-AND-SELECTION.md)。该原型不代表完整办公排版支持，真机验证范围见 [验证说明](docs/VODT-VALIDATION.md)。
+
+### 此源码修订：组件统一管理与电子书阅读
+
+LaTeX 离线引擎和中文支持进入“插件与组件”列表，已有导入自动识别，支持启停及轻量版卸载。构建额外生成约 29 KiB 的可安装电子书组件，支持 EPUB、FB2、TXT/HTML 和无 DRM MOBI7/AZW；KF8/AZW3/KFX 暂不支持。组件开发见 [docs/COMPONENTS.md](docs/COMPONENTS.md)，后续可选化建议见 [docs/OPTIONAL-COMPONENTS-ANALYSIS.md](docs/OPTIONAL-COMPONENTS-ANALYSIS.md)。版本号仍为 0.9.5，此包为源码修订，未生成新的原生安装包。
+
+## 可选 ODF 文档组件修订
+
+ODF 导入、编辑、渲染与导出已从主程序拆出，通过插件列表安装/启停/卸载 `dist/plugins/Vela-ODF-1.0.0.zip`。未安装时，已有 VODT/Flat ODF 可查看纯文本和源码。支持 ODT 普通段落兼容编辑和包附件保留，ODS/ODP/ODG 基础预览及原格式导出；完整支持边界、签名/加密和开发接口见 [ODF 组件文档](docs/ODF-COMPONENT.md)。电子书组件包含此前新增的 PDF 阅读。此源码修订继续使用 0.9.5 版本号，不是已签名的三端发布安装包。

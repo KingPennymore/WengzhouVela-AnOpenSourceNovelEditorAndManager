@@ -1,0 +1,15 @@
+{
+  "id": "vela.component.odf",
+  "name": "ODF 文档组件",
+  "version": "1.0.0",
+  "main": "main.js",
+  "vela": {
+    "type": "document-component",
+    "api": ">=3 <4",
+    "requiredCapabilities": [
+      "document-formats-v1"
+    ]
+  },
+  "description": "ODT/VODT 富文本编辑与包资源保留；ODS/ODP/ODG 基础预览及原格式导出。",
+  "license": "MIT"
+}

@@ -47,7 +47,7 @@ test('resolving a workspace conflict retains the remote baseline rather than mar
  assert.equal(downloadPlan(workspace,{repo:'o/book',branch:'main',files:[{path:'a.txt',text:'newer remote'}]},'Book')[0].state,'conflict');
 });
 test('keyboard geometry never subtracts the native resized viewport twice or mistakes pinch zoom for a keyboard',()=>{
- assert.deepEqual(viewportGeometry(850,{height:400,offsetTop:20,scale:1}),{height:400,top:20,keyboard:true});
+ assert.deepEqual(viewportGeometry(850,{height:400,offsetTop:20,scale:1}),{height:400,top:0,keyboard:true});
  assert.deepEqual(viewportGeometry(400,{height:400,offsetTop:0,scale:1}),{height:400,top:0,keyboard:false});
  assert.deepEqual(viewportGeometry(850,{height:425,offsetTop:30,scale:2}),{height:850,top:0,keyboard:false});
 });

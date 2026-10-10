@@ -1,4 +1,5 @@
-import { common } from '@kit.AbilityKit';
+import { pasteboard } from '@kit.BasicServicesKit';
+import { common, abilityAccessCtrl } from '@kit.AbilityKit';
 import { rcp } from '@kit.RemoteCommunicationKit';
 import { fileIo as fs, picker, fileUri } from '@kit.CoreFileKit';
 import { asset } from '@kit.AssetStoreKit';
@@ -337,16 +338,28 @@ export class NativeBridge {
         await this.getContext().startAbility({ action: 'ohos.want.action.viewData', uri: 'https://github.com/login/device' });
         return this.success(true);
       }
-      if (operation === 'export' || operation === 'exportPdf') {
+      if (operation === 'clipboardWrite') {
+        if ((data.text || '').length > 8 * 1024 * 1024) throw new Error('剪贴板内容过大。');
+        await pasteboard.getSystemPasteboard().setData(pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, data.text || ''));
+        return this.success(true);
+      }
+      if (operation === 'clipboardRead') {
+        const access = abilityAccessCtrl.createAtManager();
+        const result = await access.requestPermissionsFromUser(this.getContext(), ['ohos.permission.READ_PASTEBOARD']);
+        if (result.authResults.some(value => value !== 0)) throw new Error('未获得剪贴板权限，未改变选区。');
+        const clip = await pasteboard.getSystemPasteboard().getData();
+        return this.success(await clip.getPrimaryText());
+      }
+      if (operation === 'export' || operation === 'exportPdf' || operation === 'exportOdt') {
         const name = data.name || '文稿.txt';
         if (/[\\/\x00-\x1f]/.test(name)) throw new Error('文件名无效。');
         const documentPicker = new picker.DocumentViewPicker(this.getContext());
         const options: picker.DocumentSaveOptions = { newFileNames: [name] };
         const uris = await documentPicker.save(options);
         if (uris.length === 0) return this.success(false);
-        if (operation === 'exportPdf') {
+        if (operation === 'exportPdf' || operation === 'exportOdt') {
           const bytes = new util.Base64Helper().decodeSync(data.data || '');
-          if (bytes.length < 5 || bytes.length > 32 * 1024 * 1024 || new util.TextDecoder('utf-8').decodeToString(bytes.slice(0, 5)) !== '%PDF-') throw new Error('PDF 无效或超过 32 MB。');
+          if (bytes.length < 5 || bytes.length > 32 * 1024 * 1024 || (operation === 'exportPdf' ? new util.TextDecoder('utf-8').decodeToString(bytes.slice(0, 5)) !== '%PDF-' : bytes[0] !== 0x50 || bytes[1] !== 0x4b)) throw new Error('PDF 无效或超过 32 MB。');
           const file = fs.openSync(uris[0], fs.OpenMode.WRITE_ONLY | fs.OpenMode.CREATE | fs.OpenMode.TRUNC);
           try { const buffer = new ArrayBuffer(bytes.byteLength); new Uint8Array(buffer).set(bytes); fs.writeSync(file.fd, buffer); } finally { fs.closeSync(file); }
         } else this.writeFile(uris[0], data.text || '');
@@ -354,7 +367,7 @@ export class NativeBridge {
       }
       if (operation === 'import') {
         const documentPicker = new picker.DocumentViewPicker(this.getContext());
-        const options: picker.DocumentSelectOptions = { fileSuffixFilters: ['所有文件|.*', '文本|.txt', 'Markdown|.md,.markdown,.mdown,.mkd', 'HTML|.html,.htm', 'CSV|.csv'], maxSelectNumber: 10 };
+        const options: picker.DocumentSelectOptions = { fileSuffixFilters: ['所有文件|.*', '文本|.txt', 'Markdown|.md,.markdown,.mdown,.mkd', 'HTML|.html,.htm', 'CSV|.csv', 'ODF 文档|.velaodt,.vodt,.fodt,.fods,.fodp,.fodg,.odt,.ott,.ods,.ots,.odp,.otp,.odg,.otg'], maxSelectNumber: 10 };
         const uris = await documentPicker.select(options);
         const files: ImportedFile[] = [];
         for (const uri of uris) {

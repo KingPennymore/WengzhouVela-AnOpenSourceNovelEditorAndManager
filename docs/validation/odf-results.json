@@ -1,0 +1,32 @@
+{
+  "passed": true,
+  "checks": [
+    "package/format preservation, signatures/encryption, XML/path limits, editable/protected paragraphs",
+    "missing-component prompt, install, import complex ODT and save retained XML",
+    "disable/restart preserves pure text; enable restores editor",
+    "ODS/ODP/ODG and all four template MIME types import and export",
+    "signed UI readonly; uninstall retains all user documents",
+    "ODF engine and styles excluded from host bundle"
+  ],
+  "errors": [],
+  "unit": {
+    "page": true,
+    "simple": true,
+    "first": true,
+    "list": true,
+    "span": true,
+    "resources": true,
+    "flatGuard": true,
+    "patch": true,
+    "protected": true,
+    "signed": true,
+    "signedUnchanged": true,
+    "signedBlocked": true,
+    "encrypted": true,
+    "dtd": true,
+    "traversal": true,
+    "deep": true,
+    "script": true,
+    "styleOwnership": true
+  }
+}

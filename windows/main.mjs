@@ -1,4 +1,4 @@
-import {app,BrowserWindow,ipcMain,protocol,session,nativeTheme,safeStorage,dialog,net,shell,Menu,screen} from 'electron';
+import {app,BrowserWindow,ipcMain,protocol,session,nativeTheme,safeStorage,dialog,net,shell,Menu,screen,clipboard} from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
@@ -20,6 +20,7 @@ const failure=error=>JSON.stringify({ok:false,error:error.message||'操作失败
 const environment=()=>JSON.stringify({platform:'windows',version:app.getVersion(),dark:nativeTheme.shouldUseDarkColors,credentialStore:'Windows DPAPI',top:0,bottom:0,left:0,right:0});
 function trusted(event){return main&&!main.isDestroyed()&&event.sender===main.webContents&&event.senderFrame===main.webContents.mainFrame&&event.senderFrame.url===PAGE;}
 function secureWindow(window){
+  window.webContents.on('context-menu',event=>{event.preventDefault();window.webContents.executeJavaScript('window.wenzhouShowSelectionMenu?.()').catch(()=>{});});
   window.webContents.setWindowOpenHandler(()=>({action:'deny'}));window.webContents.on('will-attach-webview',event=>event.preventDefault());window.webContents.on('will-navigate',(event,url)=>{if(url!==PAGE)event.preventDefault();});
   window.webContents.session.setPermissionRequestHandler((_web,_permission,callback)=>callback(false));window.webContents.session.setPermissionCheckHandler(()=>false);
 }
@@ -64,8 +65,8 @@ async function previewHtml(options){
   await window.loadURL(url);return true;
 }
 async function picker(operation,data){
-  if(operation==='export'||operation==='exportPdf'){
-    if(typeof data.name!=='string'||!data.name||/[\\/\x00-\x1f]/.test(data.name))throw new Error('文件名无效。');let bytes;if(operation==='exportPdf'){if(typeof data.data!=='string'||data.data.length>96*1024*1024)throw new Error('PDF 数据无效。');bytes=Buffer.from(data.data,'base64');if(!bytes.subarray(0,5).equals(Buffer.from('%PDF-')))throw new Error('PDF 数据无效。');}else{if(typeof data.text!=='string'||Buffer.byteLength(data.text)>64*1024*1024)throw new Error('导出数据无效。');bytes=Buffer.from(data.text);}
+  if(operation==='export'||operation==='exportPdf'||operation==='exportOdt'){
+    if(typeof data.name!=='string'||!data.name||/[\\/\x00-\x1f]/.test(data.name))throw new Error('文件名无效。');let bytes;if(operation==='exportPdf'||operation==='exportOdt'){if(typeof data.data!=='string'||data.data.length>96*1024*1024)throw new Error('PDF 数据无效。');bytes=Buffer.from(data.data,'base64');if(operation==='exportPdf'?!bytes.subarray(0,5).equals(Buffer.from('%PDF-')):!bytes.subarray(0,2).equals(Buffer.from('PK')))throw new Error('PDF 数据无效。');}else{if(typeof data.text!=='string'||Buffer.byteLength(data.text)>64*1024*1024)throw new Error('导出数据无效。');bytes=Buffer.from(data.text);}
     const result=await dialog.showSaveDialog(main,{defaultPath:data.name,filters:[{name:operation==='exportPdf'?'PDF':'Document',extensions:[path.extname(data.name).slice(1)||'txt']}]});if(result.canceled)return false;atomic(result.filePath,bytes);return true;
   }
   const result=await dialog.showOpenDialog(main,{properties:operation==='import'?['openFile','multiSelections']:['openFile'],filters:operation==='importPlugin'?[{name:data.purpose==='tex-component'?'Offline typesetting component':'Plugin ZIP',extensions:['zip']}]:undefined});if(result.canceled)return operation==='import'?[]:false;
@@ -87,7 +88,9 @@ async function dispatch(operation,data){
     case 'fullscreen':main.setFullScreen(data.enabled===true);return true;
     case 'openAuth':await shell.openExternal('https://github.com/login/device');return true;
     case 'openRelease':if(typeof data.url!=='string'||!/^https:\/\/github\.com\/KingPennymore\/WengzhouVela-AnOpenSourceNovelEditorAndManager\/releases\/tag\/v?\d+\.\d+\.\d+(?:\.\d+)?$/.test(data.url))throw Error('发布地址无效。');await shell.openExternal(data.url);return true;
-    case 'import':case 'export':case 'exportPdf':case 'importPlugin':return picker(operation,data);
+    case 'clipboardWrite':if(typeof data.text!=='string'||data.text.length>8*1024*1024)throw Error('剪贴板内容无效。');clipboard.writeText(data.text);return true;
+    case 'clipboardRead':return clipboard.readText();
+    case 'import':case 'export':case 'exportPdf':case 'exportOdt':case 'importPlugin':return picker(operation,data);
     default:return github.call(operation,data);
   }
 }

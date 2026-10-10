@@ -1,3 +1,4 @@
+import {registerDocumentFormat} from './document-components.mjs';
 import * as state from '@codemirror/state';
 import * as view from '@codemirror/view';
 import * as commands from '@codemirror/commands';
@@ -10,7 +11,8 @@ import {error as velaError} from './project-contract.mjs';
 import {readPluginStore,writePluginStore} from './platform.mjs';
 import {isTexPackage,storeTexPackage,removeTexPackage} from './tex-packages.mjs';
 
-const mime=name=>/\.css$/i.test(name)?'text/css':/\.js$/i.test(name)?'text/javascript':/\.json$/i.test(name)?'application/json':/\.svg$/i.test(name)?'image/svg+xml':/\.png$/i.test(name)?'image/png':/\.jpe?g$/i.test(name)?'image/jpeg':/\.woff2?$/i.test(name)?'font/woff2':'text/plain';
+const isComponent=record=>record.manifest.vela?.type==='tex-component';
+const mime=name=>/\.css$/i.test(name)?'text/css':/\.(js|mjs)$/i.test(name)?'text/javascript':/\.json$/i.test(name)?'application/json':/\.svg$/i.test(name)?'image/svg+xml':/\.png$/i.test(name)?'image/png':/\.jpe?g$/i.test(name)?'image/jpeg':/\.woff2?$/i.test(name)?'font/woff2':'text/plain';
 class Events {
   listeners=new Map();
   owned=[];
@@ -23,7 +25,7 @@ class Events {
 export class PluginRuntime {
   records=[];running=new Map();commands=new Map();modules=new Map();moduleOwners=new Map();initializers=new Map();unmounts=new Map();settingsPages=new Map();assetUrls=new Map();fileObjects=new Map();manager=new Events();settings=new Events();
   constructor(host) {
-    this.host=host;
+    this.host=host;this.ready=new Promise(resolve=>{this.finishBoot=resolve;});
     this.queue=Promise.resolve();for(const events of [this.manager,this.settings]){events.owner=()=>this.loadingId;events.fail=host.fail;}
     Object.defineProperties(this.manager,{
       editor:{get:()=>host.getView()},activeFile:{get:()=>this.file(host.getDoc())},
@@ -80,7 +82,8 @@ export class PluginRuntime {
   extensions(){return [...this.running.values()].flatMap(item=>[...item.extensions.values()]);}
   service(id){if(!id||!this.running.has(id))throw new Error('请在插件初始化期间获取 vela API');const runtime=this,resources=this.running.get(id),alive=()=>{if(runtime.running.get(id)!==resources||resources.stopping)throw velaError('E_PLUGIN_STOPPED','插件已停用。');};
     resources.project||=this.host.projects?.bind(id,this.records.find(p=>p.manifest.id===id)?.manifest.name||id);
-    return Object.freeze({...resources.project?.api,version:3,platform:this.host.projects?.host.platform||window.WenzhouNative?.platform||'browser',capabilities:Object.freeze(['editor-extensions','completion','documents','configuration-v2','chapters','local-history','tex',...(this.host.projects?.featureNames()||[])]),
+    return Object.freeze({...resources.project?.api,version:3,platform:this.host.projects?.host.platform||window.WenzhouNative?.platform||'browser',capabilities:Object.freeze(['editor-extensions','completion','documents','configuration-v2','chapters','local-history','tex','document-formats-v1',...(this.host.projects?.featureNames()||[])]),
+      registerDocumentFormat(provider){alive();const dispose=registerDocumentFormat(id,provider);resources.disposers.push(dispose);return dispose;},
       addExtension(extension){alive();const key=Symbol();resources.extensions.set(key,extension);runtime.host.refreshCommands();return ()=>{resources.extensions.delete(key);runtime.host.refreshCommands();};},
       addCompletion(source,kinds=[]){alive();const dispose=registerCompletion(id,source,kinds);resources.disposers.push(dispose);return dispose;},
       on(event,fn){alive();runtime.manager.on(event,fn);const dispose=()=>runtime.manager.off(event,fn);resources.disposers.push(dispose);return dispose;},
@@ -115,14 +118,17 @@ export class PluginRuntime {
     const path=prefix?assetPath(uri.slice(prefix.length)):'';
     return {readFile:async(encoding='utf-8')=>{if(!record?.files[path])throw new Error('插件资源不存在。');const bytes=fromBase64(record.files[path]);return encoding===null?bytes:new TextDecoder().decode(bytes);},writeFile:async text=>{if(!record||!path.startsWith('cache/'))throw new Error('插件只能写入自身 cache 目录。');const bytes=typeof text==='string'?new TextEncoder().encode(text):new Uint8Array(text);if(bytes.length>MAX_PLUGIN_BYTES)throw new Error('缓存文件超过 8 MB');const previous=record.files[path];record.files[path]=toBase64(bytes);try{this.save();}catch(error){if(previous===undefined)delete record.files[path];else record.files[path]=previous;throw error;}const base=prefix+path,old=this.assetUrls.get(base),url=URL.createObjectURL(new Blob([bytes],{type:mime(path)}));if(old?.startsWith('blob:'))URL.revokeObjectURL(old);this.assetUrls.set(base,url);this.running.get(record.manifest.id)?.urls.push(url);},exists:async()=>!!record?.files[path]};
   }
-  save(){if(this.records[0])this.records[0].hostSettings={...this.settings.value};writePluginStore(this.records);}
-  async boot() {
+  save(){const records=this.records.filter(record=>!isComponent(record));if(records[0])records[0].hostSettings={...this.settings.value};writePluginStore(records);}
+  async boot() {try{
     const raw=readPluginStore();this.records=raw?validatePluginStore(JSON.parse(raw)):[];
     if(this.records[0]?.hostSettings)Object.assign(this.settings.value,this.records[0].hostSettings);
+    if(this.host.components)this.records.push(...await this.host.components().records());
     for(const record of this.records.filter(p=>p.enabled)){try{await this.load(record);}catch(e){record.error=e.message;record.enabled=false;}}
     if(this.records.length)this.save();
-  }
+  }finally{this.finishBoot();}}
   bindings(){return [...this.commands.values()].flatMap(c=>{let key=typeof c.bindKey==='string'?c.bindKey:c.bindKey?.win;key=key?.replace(/^Ctrl-/i,'Mod-').replace(/-([a-z])$/i,(_,s)=>'-'+s.toLowerCase());return key?[{key,run:v=>{Promise.resolve(c.exec(v)).catch(this.host.fail);return true;}}]:[];});}
+  installComponent(bytes){return this.enqueue(async()=>{await this.host.beforeComponentChange();const status=await this.host.components().install(bytes);await this.syncComponents();return this.records.find(record=>isComponent(record)&&record.componentGroup===status.installedGroup);});}
+  async syncComponents(){for(const record of this.records.filter(isComponent))await this.unload(record.manifest.id);this.records=this.records.filter(record=>!isComponent(record));const records=await this.host.components().records();this.records.push(...records);for(const record of records.filter(record=>record.enabled))await this.load(record);}
   install(record){return this.enqueue(()=>this.installNow(record));}
   async installNow(record) {
     if(isTexPackage(record))await storeTexPackage(record);
@@ -135,10 +141,10 @@ export class PluginRuntime {
   }
   async load(record) {
     const id=record.manifest.id;if(this.running.has(id))return;
-    checkPluginCompatibility(record.manifest,3,['editor-extensions','completion','documents','configuration-v2','chapters','local-history','tex',...(this.host.projects?.featureNames()||[])]);
+    checkPluginCompatibility(record.manifest,3,['editor-extensions','completion','documents','configuration-v2','chapters','local-history','tex','document-formats-v1',...(this.host.projects?.featureNames()||[])]);
     const resources={urls:[],nodes:[],page:null,extensions:new Map(),disposers:[]};this.running.set(id,resources);this.loadingId=id;
     try {
-      if(isTexPackage(record)){record.enabled=true;record.error='';return;}
+      if(isComponent(record)||isTexPackage(record)){record.enabled=true;record.error='';return;}
       const base=`wenzhou-plugin://${id}/`;
       for(const [name,data] of Object.entries(record.files)){
         if(/\.css$/i.test(name))continue;
@@ -174,8 +180,8 @@ export class PluginRuntime {
       this.host.refreshCommands();
     }
   }
-  enable(record,enabled){return this.enqueue(async()=>{if(enabled)await this.load(record);else await this.unload(record.manifest.id);record.enabled=enabled;record.error='';this.save();});}
-  remove(record){return this.enqueue(async()=>{await this.unload(record.manifest.id);this.records=this.records.filter(p=>p!==record);this.save();if(isTexPackage(record))await removeTexPackage(record);});}
+  enable(record,enabled){return this.enqueue(async()=>{if(isComponent(record)){await this.host.beforeComponentChange();await this.host.components().setEnabled(record.componentGroup,enabled);}if(enabled)await this.load(record);else await this.unload(record.manifest.id);record.enabled=enabled;record.error='';this.save();});}
+  remove(record){return this.enqueue(async()=>{if(isComponent(record)){await this.host.beforeComponentChange();await this.host.components().remove(record.componentGroup);for(const derived of this.records.filter(item=>item.sourceComponent===record.manifest.id)){await this.unload(derived.manifest.id);if(isTexPackage(derived))await removeTexPackage(derived);this.records=this.records.filter(item=>item!==derived);}}await this.unload(record.manifest.id);this.records=this.records.filter(p=>p!==record);this.save();if(isTexPackage(record))await removeTexPackage(record);});}
   emit(event,...args){try{this.manager.emit(event,...args);}catch(e){this.host.fail(e);}}
 }
 

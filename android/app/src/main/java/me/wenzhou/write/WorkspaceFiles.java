@@ -151,7 +151,7 @@ final class WorkspaceFiles {
             entries.put(entry);
             if (file.isDirectory()) { folders.put(path); walk(path, previous, docs, folders, entries); }
             else if (file.isFile()) {
-                if (lazyProjectPaths.contains(path) && !previous.containsKey(path) && !name.equals(".vela")) { entry.put("editable", lazyTextPaths.contains(path) || path.matches("(?i).*(\\.(txt|md|csv|tsv|json|html?|css|[cm]?js|ts|py|java|ets|tex|yaml|yml|xml|toml|gly|glossary))$")).put("reason", "按需读取项目文件"); continue; }
+                if (lazyProjectPaths.contains(path) && !previous.containsKey(path) && !name.equals(".vela")) { entry.put("editable", lazyTextPaths.contains(path) || path.matches("(?i).*(\\.(txt|md|csv|tsv|json|html?|css|[cm]?js|ts|py|java|ets|tex|yaml|yml|xml|toml|velaodt|vodt|fodt|fods|fodp|fodg|gly|glossary))$")).put("reason", "按需读取项目文件"); continue; }
                 try {
                     String text = FileText.decode(read(file, FileText.MAX_BYTES));
                     JSONObject before = previous.get(path);

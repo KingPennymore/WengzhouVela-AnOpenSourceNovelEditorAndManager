@@ -1,3 +1,4 @@
+import {openRecentFile} from './start-page-helper.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
@@ -20,7 +21,7 @@ try{
     };
   },seed);
   const t0=performance.now();await page.goto('http://127.0.0.1:4173/?ui=android');
-  if(await page.locator('#start-page').isVisible())await page.locator('[data-recent=long]').click();
+  if(await page.locator('#start-page').isVisible())await openRecentFile(page,page.locator('[data-recent=long]'));
   await page.waitForSelector('.cm-editor');result.editorReadyMs=performance.now()-t0;
   const type=()=>page.evaluate(async()=>{const v=editorManager.editor,times=[];for(let i=0;i<30;i++){const t=performance.now();v.dispatch({changes:{from:0,insert:'字'}});await new Promise(requestAnimationFrame);times.push(performance.now()-t);}times.sort((a,b)=>a-b);return {p95Ms:times[28],maxMs:times[29]};});
   result.typingDuringIndex=await type();

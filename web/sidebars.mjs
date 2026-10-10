@@ -49,7 +49,7 @@ export class SidebarLayout {
     return {left:leftOpen?leftWidth*ratio:0,right:rightOpen?rightWidth*ratio:0,
       leftWidth:leftOpen?leftWidth*ratio:this.current.left>0?this.current.leftWidth:leftWidth,
       rightWidth:rightOpen?rightWidth*ratio:this.current.right>0?this.current.rightWidth:rightWidth,
-      bottom:!document.querySelector('#write-view').hidden?this.footerHeight:0};
+      bottom:!document.querySelector('#write-view').hidden&&!document.body.classList.contains('start-open')?this.footerHeight:0};
   }
   apply(values,target){
     this.current=values;

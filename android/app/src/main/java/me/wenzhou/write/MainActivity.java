@@ -12,6 +12,7 @@ import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.OpenableColumns;
+import android.view.View;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -57,7 +58,28 @@ public final class MainActivity extends Activity {
         setContentView(root);
         try { bridge = new NativeBridge(this, capability); }
         catch (Exception error) { new AlertDialog.Builder(this).setTitle("无法读取文稿").setMessage("内部文件已保留，请勿清除应用数据。" + NativeBridge.message(error)).setPositiveButton("关闭", (dialog, which) -> finish()).show(); return; }
-        web = new WebView(this);
+        web = new WebView(this) {
+            private android.view.ActionMode.Callback selectionCallback(android.view.ActionMode.Callback delegate) {
+                return new android.view.ActionMode.Callback2() {
+                    @Override public boolean onCreateActionMode(android.view.ActionMode mode, android.view.Menu menu) {
+                        boolean created = delegate.onCreateActionMode(mode, menu); menu.clear();
+                        evaluateJavascript("window.wenzhouShowSelectionMenu?.()", null); return created;
+                    }
+                    @Override public boolean onPrepareActionMode(android.view.ActionMode mode, android.view.Menu menu) {
+                        delegate.onPrepareActionMode(mode, menu); menu.clear();
+                        evaluateJavascript("window.wenzhouShowSelectionMenu?.()", null); return true;
+                    }
+                    @Override public boolean onActionItemClicked(android.view.ActionMode mode, android.view.MenuItem item) { return delegate.onActionItemClicked(mode, item); }
+                    @Override public void onDestroyActionMode(android.view.ActionMode mode) { delegate.onDestroyActionMode(mode); }
+                    @Override public void onGetContentRect(android.view.ActionMode mode, View view, android.graphics.Rect rect) {
+                        if (delegate instanceof android.view.ActionMode.Callback2) ((android.view.ActionMode.Callback2) delegate).onGetContentRect(mode, view, rect);
+                        else super.onGetContentRect(mode, view, rect);
+                    }
+                };
+            }
+            @Override public android.view.ActionMode startActionMode(android.view.ActionMode.Callback callback) { return super.startActionMode(selectionCallback(callback)); }
+            @Override public android.view.ActionMode startActionMode(android.view.ActionMode.Callback callback, int type) { return super.startActionMode(selectionCallback(callback), type); }
+        };
         root.addView(web, new FrameLayout.LayoutParams(-1, -1));
         WebSettings settings = web.getSettings();
         settings.setJavaScriptEnabled(true); settings.setDomStorageEnabled(true);
@@ -203,7 +225,7 @@ public final class MainActivity extends Activity {
             if (pickerId != null) { deliver(id, NativeBridge.failure(new IOException("请先完成当前文件选择。"))); return; }
             try {
                 Intent intent;
-                if ((operation.equals("export") || operation.equals("exportPdf") || operation.equals("project-export"))) {
+                if ((operation.equals("export") || (operation.equals("exportPdf") || operation.equals("exportOdt")) || operation.equals("project-export"))) {
                     String name = data.optString("name", "文稿.txt");
                     if (name.isEmpty() || name.matches("(?s).*[\\\\/\u0000-\u001f].*")) throw new IOException("文件名无效。");
                     intent = new Intent(Intent.ACTION_CREATE_DOCUMENT).setType(operation.equals("project-export") ? PreviewResource.mime(name) : mime(name)); intent.putExtra(Intent.EXTRA_TITLE, name);
@@ -224,7 +246,11 @@ public final class MainActivity extends Activity {
     }
     private String mime(String name) {
         String lower = name.toLowerCase(java.util.Locale.ROOT);
-        return lower.endsWith(".pdf") ? "application/pdf" : lower.endsWith(".csv") ? "text/csv" : lower.endsWith(".html") || lower.endsWith(".htm") ? "text/html" : lower.endsWith(".md") ? "text/markdown" : "text/plain";
+        if (lower.endsWith(".ods") || lower.endsWith(".ots")) return "application/vnd.oasis.opendocument.spreadsheet" + (lower.endsWith(".ots") ? "-template" : "");
+        if (lower.endsWith(".odp") || lower.endsWith(".otp")) return "application/vnd.oasis.opendocument.presentation" + (lower.endsWith(".otp") ? "-template" : "");
+        if (lower.endsWith(".odg") || lower.endsWith(".otg")) return "application/vnd.oasis.opendocument.graphics" + (lower.endsWith(".otg") ? "-template" : "");
+        if (lower.endsWith(".ott")) return "application/vnd.oasis.opendocument.text-template";
+        return lower.endsWith(".odt") ? "application/vnd.oasis.opendocument.text" : lower.endsWith(".fodt") || lower.endsWith(".fods") || lower.endsWith(".fodp") || lower.endsWith(".fodg") || lower.endsWith(".velaodt") || lower.endsWith(".vodt") ? "application/xml" : lower.endsWith(".pdf") ? "application/pdf" : lower.endsWith(".csv") ? "text/csv" : lower.endsWith(".html") || lower.endsWith(".htm") ? "text/html" : lower.endsWith(".md") ? "text/markdown" : "text/plain";
     }
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
@@ -244,11 +270,11 @@ public final class MainActivity extends Activity {
                     value = new JSONObject().put("cancelled", false).put("selections", selections);
                 } else if (operation.equals("project-export")) {
                     value = bridge.projects.deliver(payload.getString("owner"), payload.getJSONObject("args"), uris.get(0));
-                } else if ((operation.equals("export") || operation.equals("exportPdf"))) {
+                } else if ((operation.equals("export") || (operation.equals("exportPdf") || operation.equals("exportOdt")))) {
                     try (OutputStream stream = getContentResolver().openOutputStream(uris.get(0), "wt")) {
                         if (stream == null) throw new IOException("无法写入所选文件。");
-                        byte[] output = operation.equals("exportPdf") ? android.util.Base64.decode(payload.optString("data"), android.util.Base64.DEFAULT) : payload.optString("text").getBytes(StandardCharsets.UTF_8);
-                        if (operation.equals("exportPdf") && (output.length < 5 || output.length > 32 * 1024 * 1024 || !new String(output, 0, 5, StandardCharsets.US_ASCII).equals("%PDF-"))) throw new IOException("PDF 无效或超过 32 MB。");
+                        byte[] output = (operation.equals("exportPdf") || operation.equals("exportOdt")) ? android.util.Base64.decode(payload.optString("data"), android.util.Base64.DEFAULT) : payload.optString("text").getBytes(StandardCharsets.UTF_8);
+                        if ((operation.equals("exportPdf") || operation.equals("exportOdt")) && (output.length < 5 || output.length > 32 * 1024 * 1024 || (operation.equals("exportPdf") ? !new String(output, 0, 5, StandardCharsets.US_ASCII).equals("%PDF-") : output[0] != 0x50 || output[1] != 0x4b))) throw new IOException("导出文档无效或超过 32 MB。");
                         stream.write(output); stream.flush();
                     }
                     value = true;

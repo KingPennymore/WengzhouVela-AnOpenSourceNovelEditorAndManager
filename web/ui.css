@@ -194,3 +194,17 @@ body[data-keyboard=true] .glossary-panel{min-height:76px;max-height:34%;padding:
  .statusbar .status-right{display:contents;margin:0}
  .statusbar #selection-count,.statusbar .status-right>span:nth-child(2),.statusbar>.sync-state{display:none}
 }
+
+/* Only inner surfaces scroll. Root movement must never carry the shell bars. */
+html,body{width:100%;height:100%;overflow:hidden;overscroll-behavior:none}
+body{position:fixed;inset:0}
+#app{position:absolute;inset:0 0 auto;height:calc(var(--app-height,100dvh) - var(--selection-dock-height,0px));max-height:100%;overflow:hidden;overscroll-behavior:none}
+.workspace,.writing-view,.writing-layout,.paper{min-height:0}
+.topbar,.file-rowbar,#writing-footer{flex-shrink:0}
+.topbar,#writing-footer{overscroll-behavior:none;user-select:none;touch-action:pan-x}
+#writing-footer{margin-top:auto}
+.cm-scroller,#preview,.doc-list,#outline-list,.reader-viewport,.odf-scroll{overscroll-behavior:contain}
+.selection-menu{position:fixed;z-index:95;display:flex;flex-direction:column;overflow:auto;background:var(--paper);border:1px solid var(--line);border-radius:10px;box-shadow:var(--ui-shadow);padding:4px;overscroll-behavior:contain}
+.selection-menu button{flex:0 0 auto;min-height:44px;width:100%;justify-content:flex-start;padding:8px 14px;white-space:nowrap}
+.selection-docked{border-radius:0;padding-bottom:max(4px,var(--safe-bottom));box-shadow:none}
+.selection-docked button{width:min(240px,100%);align-self:center}

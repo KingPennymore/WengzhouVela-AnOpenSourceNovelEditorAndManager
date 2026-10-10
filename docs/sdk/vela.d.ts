@@ -36,7 +36,16 @@ export interface Page {
   onVisible(listener: () => void): Unsubscribe; onHide(listener: () => void): Unsubscribe;
   onBeforeClose(listener: () => boolean | Promise<boolean>): Unsubscribe;
 }
+export interface DocumentFormatProvider {
+  id: string; extensions: string[];
+  importBytes(bytes: Uint8Array, name: string): { name: string; text: string };
+  validate?(source: string): unknown;
+  plainText(source: string): string;
+  toHtml(source: string): string;
+  render(options: { root: HTMLElement; doc: { id: string; name: string; text: string }; onChange(text: string): void; onCopy(text: string): void; onError(error: Error): void; onGlossary?: (text: string) => void; manage(): void; exportText(name: string, text: string): Promise<unknown>; exportBinary(name: string, bytes: Uint8Array, mime?: string): Promise<unknown> }): void;
+}
 export interface Vela {
+  registerDocumentFormat(provider: DocumentFormatProvider): Unsubscribe;
   readonly version: 3; readonly platform: string; readonly capabilities: readonly string[];
   workspace: {
     current(): Promise<WorkspaceHandle | null>;

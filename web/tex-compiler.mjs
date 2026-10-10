@@ -11,7 +11,7 @@ export class TexCompiler {
     if(!this.initializing)this.initializing=(async()=>{const {base,inventory,locateAsset}=await this.assets.load();return createTypesetter({assetsBaseUrl:base.href,workerUrl:new URL('worker.js',base).href,inventory,locateAsset,bundles:{preload:['core'],onDemand:[]},expectAssetsVersion:'0.1.1'});})().catch(error=>{this.initializing=null;throw error;});
     return this.initializing;
   }
-  async installChinese(){const runtime=this.host.plugins();if(runtime.records.some(record=>record.manifest.id==='vela.tex.cjk'&&record.enabled))return;const {chinese}=await this.assets.load(),response=await fetch(chinese);if(!response.ok)throw new Error('中文宏包资源不存在');await runtime.install(await readPluginZip(new Uint8Array(await response.arrayBuffer())));}
+  async installChinese(){const runtime=this.host.plugins();if(runtime.records.some(record=>record.manifest.id==='vela.tex.cjk'&&record.enabled))return;const {chinese}=await this.assets.load(),response=await fetch(chinese);if(!response.ok)throw new Error('中文宏包资源不存在');const record=readPluginZip(new Uint8Array(await response.arrayBuffer()));record.sourceComponent='vela.component.tex.chinese';await runtime.install(record);}
   async project(doc){
     const workspace=this.host.workspace(),path=documentPath(doc),config=this.host.project(doc),folder=config?.folder||path.split('/').slice(0,-1).join('/'),prefix=folder?folder+'/':'',entry=path.slice(prefix.length);
     const files=await texPackageFiles(this.host.plugins().records);let total=Object.values(files).reduce((size,data)=>size+data.byteLength,0);

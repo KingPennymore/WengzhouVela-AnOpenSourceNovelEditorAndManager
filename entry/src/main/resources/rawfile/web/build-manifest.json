@@ -1,9 +1,9 @@
 {
   "format": 1,
-  "source": "f858aff07c315f19d2fc4c6ad9f322ea67d958b7399f872d73b66eba02047373",
+  "source": "031844c84e5a98c8a1c6f54d90cc15551ce66cffd4ce761b3fc1a4642b9da4fb",
   "outputs": {
-    "app.js": "57d8e24f53a45043fa5e5cd6ba3be03c6291ee0427bad4a854720733226c0e5e",
-    "design.css": "306ff47abdf9d37b7d08fc780817c56c98ff2ffad3aed46162786af09720f0b9",
+    "app.js": "4d6cef9e299e5266c40b22bd81adb0db545ccb4f031d46271fef43e8f8597a44",
+    "design.css": "c817cfa2dffd704ee158d5bf183f5b04505406aba9ed7f8d5e61d61e2c84e7f5",
     "file-manager.css": "4c3ecef2f1b7f371bb7fb0bc94d7a0b932ae277caf4313a07ff21e42e3344964",
     "fonts/KaTeX_AMS-Regular.ttf": "68534840bcfdd2bffb6f0e8deb48684dd01e7f04ea2813267577afb906de1d13",
     "fonts/KaTeX_AMS-Regular.woff": "30da91e84c893f875e252689faebdc590b2871145e8adc7f9a9d4dbd8ce0b251",
@@ -65,8 +65,8 @@
     "fonts/KaTeX_Typewriter-Regular.ttf": "f01f3e87d9c6a61c0c081ceb577abd864eb00a612f7ac1620dd6915fad2ef5aa",
     "fonts/KaTeX_Typewriter-Regular.woff": "e14fed02b1aba7ce9f5afd5844b5d0321b22351febc720e0de8b8723527609f7",
     "fonts/KaTeX_Typewriter-Regular.woff2": "71d517d67827787cfabdf186914cc3358eda539e37931941f2b2fd4a21f68c0b",
-    "html-reader.js": "77cc979350b577af0c64c10352a8634f27004a5fc01f65648ecb6f087b5a10f6",
-    "index.html": "c5c245c20fab4093ef68fe7ba5e7768a7f2fd15d397b5fbfe083fc50b473479d",
+    "html-reader.js": "f6a2aefa01dbd1f380b8227fff8fe3a5c4b7035f1bd0b1def347befe7f5383bf",
+    "index.html": "fb825fadfecd16e9aef4e676963b3ed47fa5e6d9a022212a562d34749697bd98",
     "katex.min.css": "d4ab5b8ee16989b070cdb0ea24bd6ad48fc8df1b787f280f29d3ae4f959f2c00",
     "licenses.js": "3705d9bd62317f3954b73f0bf72e37ce7c76c60a888fd64f9f0366572b13595a",
     "licenses/@codemirror-autocomplete.txt": "05c6130cda97e7600ca91427a41e8a065efcf82365fc0293e7de80faec494c07",
@@ -321,15 +321,15 @@
     "pdf/fonts/LiberationSans-Italic.ttf": "832b4406dbef23628800d3aaad21048534ac84d7e3ad955be83b8172ed8ef512",
     "pdf/fonts/LiberationSans-Regular.ttf": "f8ace1f892b2bd9dc1792ba7f097fa7588f84fed48321480e04de5390828221f",
     "pdf/pdf.worker.mjs": "bd88805178a26c729db8c0107a5b630cb900ec070f4d8c7529a3e45530afd41d",
-    "project-archive-worker.js": "609f117f24a2d1513c3fd65666510f2e58827391ea1a22ad08285a2f13732b88",
-    "style.css": "22eb7f811e799cf215cc61acfe599188eda4c8a0f7562b96c43f64ff1060141e",
+    "project-archive-worker.js": "9cc726c7b430e146ece854e904b59fbef58178ef4ec1347f776df1b69c0d49b6",
+    "style.css": "f0c38fde88e27aa72f5c4b0c392787be223962a3c95bd163db34b572b12aad31",
     "tex-component-worker.js": "7bee67450a3dd7b0783ce3c03f84f2e84a024444acde507d072e5786c2dcfcfe",
     "tex/NOTICE": "4c2c2c5272626e1074b7d7fdf3e6898f0a2886ebcc70310ef6fa4b29ec11f341",
     "tex/THIRD_PARTY_NOTICES.md": "f8864b80293837e63ff7f71ab3efb5fe5d121d9f85bfce0cd1bf81846ac8255d",
     "tex/components.json": "c4eb729f3845832d1ae18781824415ff467d145aef71dfe33d1c49dc42659a84",
     "tex/manifest.json": "b63c187f2f6f382f7967b52e6e56089185c67dd93fb0e2a0455eae7cb58bd140",
     "tex/worker.js": "5b0b03d6957d79b9016ccf72b193f865f980a2971565d9cd793ece9147541905",
-    "ui.css": "af208903c084da96d637cf0060ee513fa968512a6efd56b4dc7a8721d2ed604f",
-    "version.json": "040f49746416aa581694cf3e49478db40f3a7b15f9d887374c878c012f436b61"
+    "ui.css": "3c59798ec61fc6b62cfbc7d4cfcfdd0a9352ac63bef58abf95c5cec744f7ba64",
+    "version.json": "f34f043132f29fdaf5d08c547a2632fea873740d1537da53ad620207ce35b5bd"
   }
 }

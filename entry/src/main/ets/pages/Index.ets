@@ -67,6 +67,10 @@ struct Index {
         .height('100%')
         .javaScriptAccess(true)
         .domStorageAccess(true)
+        .editMenuOptions({ onCreateMenu: (_items: Array<TextMenuItem>): Array<TextMenuItem> => {
+          this.controller.runJavaScript('window.wenzhouShowSelectionMenu?.()').catch(() => {});
+          return [];
+        }, onMenuItemClick: (_item: TextMenuItem, _range: TextRange): boolean => false })
         .fileAccess(false)
         .onlineImageAccess(false)
         .mixedMode(MixedMode.None)

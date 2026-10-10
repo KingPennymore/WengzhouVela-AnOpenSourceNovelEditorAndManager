@@ -11,14 +11,27 @@ export class TexAssets {
     try{
     const descriptor=await this.descriptor();
     const files=await new Promise((resolve,reject)=>{const worker=new Worker(new URL('./tex-component-worker.js',location.href));worker.onmessage=({data})=>{worker.terminate();data.error?reject(Error(data.error)):resolve(data.files);};worker.onerror=()=>{worker.terminate();reject(Error('排版组件无法读取。'));};worker.postMessage({bytes,descriptor},[bytes.buffer]);});
-    await transaction('readwrite',store=>{for(const [name,data] of Object.entries(files))store.put(data,descriptor.id+'/'+name);});
-    this.dispose();return await this.status();
+    const group=Object.keys(descriptor.groups).find(group=>descriptor.groups[group].every(name=>files[name]));
+    await transaction('readwrite',store=>{for(const [name,data] of Object.entries(files))store.put(data,descriptor.id+'/'+name);store.put({enabled:true},this.stateKey(descriptor,group));});
+    this.dispose();return {...await this.status(),installedGroup:group};
     }finally{this.installing=false;}
   }
-  async status(){const descriptor=await this.descriptor();if(descriptor.builtin)return {ready:true,engine:true,chinese:true,builtin:true};const found=await transaction('readonly',(store,done)=>{const found=new Set();for(const name of Object.keys(descriptor.files)){const request=store.getKey(descriptor.id+'/'+name);request.onsuccess=()=>{if(request.result)found.add(name);done(found);};}});const groups=Object.fromEntries(Object.entries(descriptor.groups).map(([name,files])=>[name,files.every(file=>found.has(file))]));return {...groups,ready:Object.values(groups).every(Boolean),builtin:false};}
+  stateKey(descriptor,group){return descriptor.id+'/state/'+group;}
+  async groups(){
+    const descriptor=await this.descriptor();
+    return transaction('readonly',(store,done)=>{
+      const states=Object.fromEntries(Object.keys(descriptor.groups).map(group=>[group,{installed:descriptor.builtin,enabled:true}])),found=new Set();
+      for(const name of Object.keys(descriptor.files)){const request=store.getKey(descriptor.id+'/'+name);request.onsuccess=()=>{if(request.result)found.add(name);};}
+      for(const [group,names] of Object.entries(descriptor.groups)){const request=store.get(this.stateKey(descriptor,group));request.onsuccess=()=>{states[group]={installed:descriptor.builtin||names.every(name=>found.has(name)),enabled:request.result?.enabled!==false};done(states);};}
+    });
+  }
+  async records(){const descriptor=await this.descriptor(),groups=await this.groups();return Object.entries(groups).filter(([,state])=>state.installed).map(([group,state])=>({manifest:{id:'vela.component.tex.'+group,name:group==='engine'?'LaTeX 离线引擎':'LaTeX 中文支持',version:descriptor.version,vela:{type:'tex-component'}},componentGroup:group,componentId:descriptor.id,builtin:descriptor.builtin,enabled:state.enabled,files:{}}));}
+  async setEnabled(group,enabled){const descriptor=await this.descriptor(),groups=await this.groups();if(!groups[group]?.installed)throw Error('组件尚未安装。');await transaction('readwrite',store=>store.put({enabled:!!enabled},this.stateKey(descriptor,group)));this.dispose();}
+  async remove(group){const descriptor=await this.descriptor();if(descriptor.builtin)throw Error('内置组件可停用，不能卸载；需要节省安装空间请使用轻量版。');if(!descriptor.groups[group])throw Error('未知组件。');await transaction('readwrite',store=>{for(const name of descriptor.groups[group])store.delete(descriptor.id+'/'+name);store.delete(this.stateKey(descriptor,group));});this.dispose();}
+  async status(){const descriptor=await this.descriptor(),states=await this.groups(),groups=Object.fromEntries(Object.entries(states).map(([name,state])=>[name,state.installed&&state.enabled]));return {...groups,ready:Object.values(groups).every(Boolean),builtin:descriptor.builtin};}
   async load(){
     if(this.loading)return this.loading;
-    this.loading=(async()=>{const descriptor=await this.descriptor(),inventory=await fetch(new URL('./tex/manifest.json',location.href)).then(r=>r.json()),base=new URL('./tex/',location.href);
+    this.loading=(async()=>{const status=await this.status();if(!status.ready)throw Error('请在插件与组件列表中导入并启用离线排版引擎包和中文包，再编译 PDF。');const descriptor=await this.descriptor(),inventory=await fetch(new URL('./tex/manifest.json',location.href)).then(r=>r.json()),base=new URL('./tex/',location.href);
       if(descriptor.builtin)return {inventory,base,locateAsset:undefined,chinese:new URL('vela-tex-cjk.zip',base).href};
       const files=await transaction('readonly',(store,done)=>{const files={};for(const name of Object.keys(descriptor.files)){const request=store.get(descriptor.id+'/'+name);request.onsuccess=()=>{if(request.result)files[name]=request.result;done(files);};}});
       if(Object.keys(files).length!==Object.keys(descriptor.files).length)throw Error('请先导入离线排版引擎包和中文包，再编译 PDF。');

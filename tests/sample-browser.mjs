@@ -1,3 +1,4 @@
+import {openRecentFile} from './start-page-helper.mjs';
 import {chromium} from 'playwright';
 import {readdir,readFile,mkdir,writeFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
@@ -8,7 +9,7 @@ const docs=await documents(),browser=await chromium.launch({headless:true,execut
 page.on('pageerror',error=>errors.push(error.message));
 await page.addInitScript(documents=>{if(window.top!==window)return;if(!localStorage.getItem('wenzhou.workspace'))localStorage.setItem('wenzhou.workspace',JSON.stringify({version:1,documents,openIds:[],activeId:null,settings:{libraryOpen:false}}));},docs);
 await mkdir('test-results',{recursive:true});
-const open=async path=>{await page.locator('#more-tools').click();await page.locator('#home-button').click();await page.locator(`[data-recent="${path}"]`).click();};
+const open=async path=>{await page.locator('#more-tools').click();await page.locator('#home-button').click();await openRecentFile(page,page.locator(`[data-recent="${path}"]`));};
 async function compile(path,engine){await open(path);await page.locator('[data-display=preview]').click();await page.locator('.tex-engine').selectOption(engine);await page.locator('.tex-compile').click();await page.waitForFunction(()=>!document.querySelector('.tex-compile').disabled,{},{timeout:180000});const log=await page.locator('.tex-log pre').textContent();await writeFile('test-results/sample-'+engine+'.log',log);assert.equal(await page.locator('.tex-status').textContent(),'编译完成',log.slice(-3000));assert.ok(await page.locator('canvas').evaluate(el=>el.width>0));const wait=page.waitForEvent('download');await page.locator('.tex-export').click();await(await wait).saveAs('test-results/sample-'+engine+'.pdf');return log;}
 try{
   await page.goto('http://127.0.0.1:4173');await page.waitForFunction(()=>!!window.editorManager);

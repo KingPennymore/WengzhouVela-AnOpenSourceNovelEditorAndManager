@@ -18,8 +18,8 @@ out.mkdir(exist_ok=True)
 # Refuse to publish a source archive without its ready-to-build editor resources.
 resources = root / "entry/src/main/resources/rawfile/web"
 state = json.loads((resources / "build-manifest.json").read_text(encoding="utf-8"))
-inputs = [file.relative_to(root).as_posix() for directory in ["web", "vendor/acode/src/cm", "vendor/wasmtex", "vendor/jieba"] for file in (root / directory).rglob("*") if file.is_file()]
-inputs += ["vendor/acode/LICENSE", "vendor/acode-writer/src/core.js", "vendor/acode-writer/LICENSE", "package.json", "package-lock.json", "scripts/build.mjs", "scripts/frontend-state.mjs", "scripts/tex-assets.mjs"]
+inputs = [file.relative_to(root).as_posix() for directory in ["web", "vendor/acode/src/cm", "vendor/wasmtex", "vendor/jieba", "components"] for file in (root / directory).rglob("*") if file.is_file()]
+inputs += ["vendor/acode/LICENSE", "vendor/acode-writer/src/core.js", "vendor/acode-writer/LICENSE", "package.json", "package-lock.json", "scripts/build.mjs", "scripts/frontend-state.mjs", "scripts/tex-assets.mjs", "scripts/package-ebook-component.mjs", "scripts/package-odf-component.mjs"]
 source_hash = hashlib.sha256()
 for name in sorted(inputs):
     checksum = hashlib.sha256((root / name).read_bytes()).hexdigest()
@@ -36,7 +36,7 @@ for name, expected in state["outputs"].items():
 package_info = json.loads((root / "package.json").read_text(encoding="utf-8"))
 version = package_info.get("harmonyVersion", package_info["version"])
 source = out / f"Vela-{version}-source.zip"
-folders = [".github", "web", "scripts", "tests", "vendor", "hvigor", "AppScope", "entry/src", "previews", "android", "windows", "docs", "examples", "测试文件"]
+folders = [".github", "web", "scripts", "tests", "vendor", "hvigor", "AppScope", "entry/src", "previews", "android", "windows", "docs", "examples", "components", "测试文件"]
 files = ["package.json", "package-lock.json", "oh-package.json5", "build-profile.json5", "hvigorfile.ts", ".gitignore", ".gitattributes", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "VALIDATION.md", "RELEASE_NOTES.md", "entry/oh-package.json5", "entry/build-profile.json5", "entry/hvigorfile.ts"]
 with ZipFile(source, "w", ZIP_DEFLATED, compresslevel=9) as archive:
     for name in files:

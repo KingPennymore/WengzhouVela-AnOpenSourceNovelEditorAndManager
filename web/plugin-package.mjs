@@ -24,6 +24,7 @@ export function readPluginZip(bytes) {
   if(!extracted['plugin.json'])throw new Error('ZIP 根目录缺少 Acode plugin.json。');
   let manifest;try{manifest=JSON.parse(strFromU8(extracted['plugin.json']));}catch{throw new Error('plugin.json 格式不正确。');}
   if(!/^[a-z0-9][\w.-]{1,127}$/i.test(manifest.id||'')||typeof manifest.name!=='string'||typeof manifest.version!=='string')throw new Error('插件缺少有效的 id、name 或 version。');
+  if(manifest.id.startsWith('vela.component.tex.')||manifest.vela?.type==='tex-component')throw new Error('此组件 ID 或类型由宿主保留；排版资源请使用匹配的固定组件包。');
   validateApiRequirement(manifest);
   if(manifest.vela?.type==='tex-package')return {manifest,files:{'plugin.json':toBase64(extracted['plugin.json'])},texPending:extracted,enabled:true};
   if(bytes.length>MAX_PLUGIN_BYTES||total>16*1024*1024||count>512)throw new Error('JavaScript 插件限 8 MB，解压限 16 MB / 512 个文件。');

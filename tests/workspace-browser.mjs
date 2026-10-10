@@ -1,3 +1,4 @@
+import {openRecentFile} from './start-page-helper.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
@@ -14,7 +15,7 @@ const seed={version:1,documents:[doc('book','未命名小说.txt','第一章 开
 async function check(name,run){await run();checks.push(name);console.log('PASS '+name);}
 const save=p=>p.evaluate(()=>{window.wenzhouSave();return JSON.parse(localStorage.getItem('wenzhou.workspace'));});
 const nativeSave=p=>p.evaluate(()=>{window.wenzhouSave();return JSON.parse(window.WenzhouNative.readWorkspace());});
-async function ready(p){await p.goto(url);await p.waitForFunction(()=>window.editorManager&&document.querySelector('#current-name').textContent);if(await p.locator('#start-page').isVisible()&&await p.locator('[data-recent=book]').count())await p.locator('[data-recent=book]').click();}
+async function ready(p){await p.goto(url);await p.waitForFunction(()=>window.editorManager&&document.querySelector('#current-name').textContent);if(await p.locator('#start-page').isVisible()&&await p.locator('[data-recent=book]').count())await openRecentFile(p,p.locator('[data-recent=book]'));}
 async function importFile(p,name,buffer){await p.locator('#file-input').setInputFiles({name,mimeType:'text/plain',buffer:Buffer.isBuffer(buffer)?buffer:Buffer.from(buffer)});await p.waitForFunction(name=>document.querySelector('#current-name').textContent===name,name);}
 const ctx=await browser.newContext({viewport:{width:1440,height:900},colorScheme:'light'});
 await ctx.addInitScript(data=>{if(window===window.top&&!localStorage.getItem('wenzhou.workspace'))localStorage.setItem('wenzhou.workspace',JSON.stringify(data));},seed);
@@ -30,7 +31,7 @@ try{
     await p.locator('#mobile-library').click();await p.locator('#library').waitFor({state:'hidden'});assert.equal(await p.locator('#library').isVisible(),false);await p.locator('#mobile-library').click();await p.locator('[data-return-write]').click();
     await p.locator('[data-close=book]').click();assert.equal(await p.locator('#library').isVisible(),true);await p.locator('[data-doc=book]').click();
     await importFile(p,'导入.txt','正文');assert.equal(await p.locator('#library').isVisible(),true);await p.reload();await p.waitForSelector('#mobile-library');assert.equal(await p.locator('#library').isVisible(),true);
-    await p.locator('#mobile-library').click();await p.locator('#library').waitFor({state:'hidden'});await p.locator('#more-tools').click();await p.locator('#home-button').click();assert.equal(await p.locator('#library').isVisible(),false);
+    await p.locator('#mobile-library').click();await p.locator('#library').waitFor({state:'hidden'});await p.keyboard.press('Control+Alt+h');assert.equal(await p.locator('#library').isVisible(),false);
   });
   await check('五套配色可切换、持久化，并分别跟随系统深浅模式',async()=>{
     for(const palette of palettes){await p.locator('#more-tools').click();await p.locator('#settings').click();await p.locator(`[name=palette][value=${palette.id}]`).check();await p.locator('[name=theme]').selectOption('system');await p.locator('#dialog-submit').click();assert.equal(await p.locator('body').evaluate(el=>getComputedStyle(el).getPropertyValue('--accent').trim()),palette.light.accent);await p.emulateMedia({colorScheme:'dark'});await p.waitForFunction(color=>getComputedStyle(document.body).getPropertyValue('--accent').trim()===color,palette.dark.accent);await p.emulateMedia({colorScheme:'light'});}

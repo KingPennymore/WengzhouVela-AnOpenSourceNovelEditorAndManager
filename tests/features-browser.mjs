@@ -1,3 +1,4 @@
+import {openRecentFile} from './start-page-helper.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
@@ -56,7 +57,7 @@ try{
   await check('关闭文件标签保存内容且保留文件，关闭全部后显示启动页并能重新打开',async()=>{
     await w.locator('[data-close="book"]').click();assert.equal(await w.locator('#start-page').isVisible(),true);assert.equal(await w.locator('[data-tab]').count(),0);
     const store=await saved(w);assert.equal(store.documents.length,1);assert.ok(store.documents[0].text.startsWith('增加'));
-    await w.locator('[data-recent="book"]').click();await w.waitForSelector('.cm-editor');assert.ok((await w.locator('.cm-content').innerText()).includes('正文乙'));
+    await openRecentFile(w,w.locator('[data-recent="book"]'));await w.waitForSelector('.cm-editor');assert.ok((await w.locator('.cm-content').innerText()).includes('正文乙'));
   });
   await check('CSV 默认显示表格，带逗号、换行和引号的单元格可编辑、保存与撤回',async()=>{
     await importFile(w,'角色.csv','姓名,备注\n甲,"引号""内容\n第二行"\n乙,原文');
@@ -84,8 +85,8 @@ try{
   });
   await check('没有操作指南时启动显示最近文件页，已有正文不被修改',async()=>{
     const existing=await context({version:1,activeId:'existing',documents:[doc('existing','我的小说.txt','私有正文')],settings:{}});
-    assert.equal(await existing.p.locator('#start-page').isVisible(),true);assert.equal(await existing.p.locator('[data-recent="existing"]').innerText().then(t=>t.includes('我的小说.txt')),true);
-    await existing.p.locator('[data-recent="existing"]').click();assert.equal((await saved(existing.p)).documents[0].text,'私有正文');await existing.ctx.close();
+    await existing.p.locator('#start-page').waitFor({state:'visible'});assert.equal(await existing.p.locator('[data-recent="existing"]').textContent().then(t=>t.includes('我的小说.txt')),true);
+    await openRecentFile(existing.p,existing.p.locator('[data-recent="existing"]'));assert.equal((await saved(existing.p)).documents[0].text,'私有正文');await existing.ctx.close();
   });
   await check('CSV 大表按页查看全部数据，切换页不丢失前页修改',async()=>{
     await importFile(w,'全表.csv',Array.from({length:205},(_,i)=>`${i},值${i}`).join('\n'));await w.locator('[data-cell-row="1"][data-cell-column="1"]').fill('已修改');await w.locator('#csv-next').click();assert.equal(await w.locator('[data-cell-row="100"][data-cell-column="1"]').inputValue(),'值100');await w.locator('#csv-next').click();assert.equal(await w.locator('tbody tr').count(),5);await w.locator('#csv-prev').click();await w.locator('#csv-prev').click();assert.equal(await w.locator('[data-cell-row="1"][data-cell-column="1"]').inputValue(),'已修改');
@@ -93,9 +94,9 @@ try{
   const writerZip=zipSync({'plugin.json':new Uint8Array(await readFile('vendor/acode-writer/plugin.json')),'main.js':new Uint8Array(await readFile('vendor/acode-writer/main.js'))});
   await check('真实 Acode Writer 1.0.4 ZIP 可安装并运行，命令注册、停用和重启加载正常',async()=>{
     await w.locator('[data-tab="book"]').click();await w.locator('#more-tools').click();await w.locator('#plugins').click();await w.locator('#plugin-input').setInputFiles({name:'Writer-1.0.4.zip',mimeType:'application/zip',buffer:Buffer.from(writerZip)});
-    await w.waitForSelector('.aw-bar');assert.equal(await w.locator('.plugin-card').count(),1);assert.equal(await w.locator('#dialog-error').innerText(),'');
+    await w.waitForSelector('.aw-bar');assert.equal(await w.locator('.plugin-card').filter({hasText:'com.tuyuan.acode.writer'}).count(),1);assert.equal(await w.locator('#dialog-error').innerText(),'');
     await w.locator('#dialog-cancel').click();await w.locator('#more-tools').click();await w.locator('#commands').click();assert.ok((await w.locator('#command-list').innerText()).includes('写作：章节目录'));await w.locator('#dialog-cancel').click();
-    await w.locator('#more-tools').click();await w.locator('#plugins').click();await w.locator('[data-plugin-enable]').click();assert.equal(await w.locator('.aw-bar').count(),0);await w.locator('[data-plugin-enable]').click();await w.waitForSelector('.aw-bar');assert.equal(await w.locator('.aw-bar').count(),1);await w.locator('#dialog-cancel').click();
+    await w.locator('#more-tools').click();await w.locator('#plugins').click();await w.locator('.plugin-card').filter({hasText:'com.tuyuan.acode.writer'}).locator('[data-plugin-enable]').click();assert.equal(await w.locator('.aw-bar').count(),0);await w.locator('.plugin-card').filter({hasText:'com.tuyuan.acode.writer'}).locator('[data-plugin-enable]').click();await w.waitForSelector('.aw-bar');assert.equal(await w.locator('.aw-bar').count(),1);await w.locator('#dialog-cancel').click();
     await w.reload();await w.waitForSelector('.aw-bar');assert.equal(await w.locator('.aw-bar').count(),1);await w.locator('#more-tools').click();await w.locator('#plugins').click();await w.locator('[data-plugin-remove]').click();assert.equal(await w.locator('.aw-bar').count(),0);await w.locator('#dialog-cancel').click();
   });
   await check('Acode 插件包内脚本、CSS、资源、编辑命令与卸载清理可用',async()=>{
@@ -119,7 +120,7 @@ try{
   await check('未实现的插件接口给出具体加载原因，停用记录在重启后保留',async()=>{
     const bytes=zipSync({'plugin.json':strToU8(JSON.stringify({id:'com.example.unsupported',name:'依赖检查',version:'1.0.0',main:'main.js'})),'main.js':strToU8('acode.require("terminal");')});
     await w.locator('#more-tools').click();await w.locator('#plugins').click();await w.locator('#plugin-input').setInputFiles({name:'unsupported.zip',mimeType:'application/zip',buffer:Buffer.from(bytes)});await w.waitForFunction(()=>document.querySelector('#dialog-error').textContent.includes('terminal'));await w.locator('#dialog-cancel').click();
-    await w.reload();await w.waitForSelector('.cm-editor');await w.locator('#more-tools').click();await w.locator('#plugins').click();assert.ok((await w.locator('.plugin-card .error').innerText()).includes('terminal'));await w.locator('[data-plugin-remove]').click();await w.locator('#dialog-cancel').click();
+    await w.reload();await w.waitForSelector('.cm-editor');await w.locator('#more-tools').click();await w.locator('#plugins').click();assert.ok((await w.locator('.plugin-card .error').innerText()).includes('terminal'));await w.locator('.plugin-card').filter({hasText:'com.example.unsupported'}).locator('[data-plugin-remove]').click();await w.locator('#dialog-cancel').click();
   });
   await w.screenshot({path:'test-results/features-desktop.png'});
   await check('鸿蒙系统主题与安全区变化更新页面，原生双指缩放只调整字号',async()=>{

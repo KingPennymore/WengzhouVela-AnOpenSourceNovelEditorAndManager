@@ -1,3 +1,4 @@
+import {openRecentFile} from './start-page-helper.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
@@ -7,7 +8,7 @@ const browser=await chromium.launch({headless:true,executablePath:process.env.WE
 try{
  for(const platform of ['android','harmonyos'])for(const width of [320,360,390,411,600]){
   const context=await browser.newContext({viewport:{width,height:844}});await context.addInitScript(seed=>localStorage.setItem('wenzhou.workspace',JSON.stringify(seed)),seed);const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
-  await page.goto((process.env.VELA_TEST_URL||'http://127.0.0.1:4173')+'/?ui='+platform);await page.locator('[data-recent=book]').click();
+  await page.goto((process.env.VELA_TEST_URL||'http://127.0.0.1:4173')+'/?ui='+platform);await openRecentFile(page,page.locator('[data-recent=book]'));
   assert.equal(await page.locator('.statusbar #sync-state').count(),0);assert.equal(await page.locator('#sync-state').isVisible(),false);assert.equal(await page.locator('#save-state').isVisible(),false);
   assert.match(await page.locator('#word-count').textContent(),/本章.*全文/);assert.match(await page.locator('#cursor-position').textContent(),/行.*列/);
   for(const large of [false,true]){

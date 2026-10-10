@@ -1,3 +1,4 @@
+import {odfReadingHtml} from './document-components.mjs';
 import {documentKind} from './model.mjs';
 import {documentPath} from './workspace.mjs';
 import {readingDocuments,projectConfig,projectWriter,readingLayout} from './vela.mjs';
@@ -41,6 +42,7 @@ export class Reader {
     if(this.kind==='HTML'){content.innerHTML=`<button id="reader-html" class="secondary" title="${t('打开 HTML 阅读')}" aria-label="${t('打开 HTML 阅读')}">${icon('external')}</button>`;root.querySelector('#reader-html').onclick=()=>this.html(doc,this.size,this.readingLayout).catch(this.fail);}
     else if(this.kind==='CSV'){this.csv=parseCsv(doc.text,doc.delimiter||csvDelimiter(doc.text));this.csvRow=this.position?.csvRow||0;this.csvColumn=this.position?.csvColumn||0;this.renderCsv();}
     else if(['TEX','PDF'].includes(this.kind)){this.pdfPane=this.latex(content,doc,pane=>{pane.page=Math.max(1,Math.min(pane.pdf.numPages,this.position?.pdfPage||1));pane.onPage=(page,pages,end=page)=>{this.position={pdfPage:page,updatedAt:Date.now()};this.root.querySelector('#reader-position').textContent=`${page}${end!==page?'–'+end:''} / ${pages}`;this.root.querySelector('#reader-percent').textContent=`${Math.round(end/pages*100)}%`;this.renderMarks();this.persist();};pane.render().catch(this.fail);});}
+    else if(this.kind==='VODT'){content.innerHTML=odfReadingHtml(doc.text,doc.name);content.querySelectorAll('a').forEach(a=>a.onclick=e=>e.preventDefault());}
     else if(this.kind==='MD'){content.innerHTML=this.sanitize(this.markdown.render(doc.text,{path:documentPath(doc)}),{FORBID_TAGS:['iframe','form','input','button','video','audio','style'],FORBID_ATTR:['style','contenteditable']});this.assets?.(content);}
     else{content.classList.add('reader-plain');if(this.windowModel)this.renderChunk(this.chunk,content);else renderPlainChapters(content,doc.text,sections);}
     if(this.kind==='MD'){content.querySelectorAll('h1,h2,h3,h4,h5,h6').forEach(heading=>heading.classList.add('reader-section-title'));highlightMarkdown(content).then(()=>{if(epoch===this.epoch&&content.isConnected){invalidateTextIndex(content);this.layout();}});}

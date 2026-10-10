@@ -21,7 +21,7 @@ export function sourceDigest(root) {
   const inputs = [
     ...filesIn(root, 'web'), ...filesIn(root,'vendor/jieba'), ...filesIn(root, 'vendor/acode/src/cm'),
     'vendor/acode/LICENSE', 'vendor/acode-writer/src/core.js', 'vendor/acode-writer/LICENSE',
-    'package.json', 'package-lock.json', 'scripts/build.mjs', 'scripts/frontend-state.mjs','scripts/tex-assets.mjs',...filesIn(root,'vendor/wasmtex')
+    'package.json', 'package-lock.json', 'scripts/build.mjs', 'scripts/frontend-state.mjs','scripts/tex-assets.mjs','scripts/package-ebook-component.mjs','scripts/package-odf-component.mjs',...filesIn(root,'components'),...filesIn(root,'vendor/wasmtex')
   ].sort();
   const hash = createHash('sha256');
   for (const file of inputs) hash.update(`${file}\0${digest(join(root, file))}\n`);

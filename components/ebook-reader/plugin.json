@@ -1,0 +1,16 @@
+{
+  "id": "vela.component.ebook-reader",
+  "name": "电子书阅读组件",
+  "version": "1.0.0",
+  "main": "main.js",
+  "vela": {
+    "type": "reader-component",
+    "api": ">=3 <4",
+    "requiredCapabilities": [
+      "filesystem-v1",
+      "file-transactions-v1"
+    ]
+  },
+  "description": "离线阅读 EPUB、FB2、TXT、HTML、PDF 与无 DRM 的传统 MOBI/AZW；不支持 KF8/AZW3、KFX、HUFF/CDIC 或加密 PDF。",
+  "license": "MIT"
+}

@@ -1,0 +1,32 @@
+{
+  "checks": [
+    {
+      "platform": "harmonyos",
+      "layout": "fixed",
+      "template": "filtered",
+      "selection": "copy and avoidance",
+      "richtext": "bold/images/resize/save/reopen",
+      "alias": "velaodt",
+      "odf": "ODT roundtrip / DTD / resources"
+    },
+    {
+      "platform": "android",
+      "layout": "fixed",
+      "template": "filtered",
+      "selection": "copy and avoidance",
+      "richtext": "bold/images/resize/save/reopen",
+      "alias": "vodt",
+      "odf": "ODT roundtrip / DTD / resources"
+    },
+    {
+      "platform": "windows",
+      "layout": "fixed",
+      "template": "filtered",
+      "selection": "copy and avoidance",
+      "richtext": "bold/images/resize/save/reopen",
+      "alias": "velaodt",
+      "odf": "ODT roundtrip / DTD / resources"
+    }
+  ],
+  "errors": []
+}
