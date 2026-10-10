@@ -16,7 +16,7 @@ assets = []
 def asset_path(name):
     # Prefer fresh build outputs over a previously collected release.
     candidates = [dist / name, dist / 'windows' / name, dist / 'windows-lite' / name,
-                  dist / 'tex-components' / name, dist / 'plugins' / name, dist / 'intermediates' / version / name, release / name]
+                  dist / 'tex-components' / name, dist / 'plugins' / name, dist / 'intermediates' / version / name, release / name,]
     return next(p for p in candidates if p.is_file())
 
 def digest(path):
@@ -34,7 +34,7 @@ for flavor in (['-lite'] if '--lite-only' in sys.argv else ['', '-lite']):
                f'Vela-{version}-windows{flavor}-setup-x64.exe',
                f'Vela-{version}-windows{flavor}-x64.zip']
 assets += [f'Vela-{version}-source.zip', 'Vela-TeX-0.1.1-engine.zip', 'Vela-TeX-0.1.1-chinese.zip',
-           'Vela-Ebook-Reader-1.0.0.zip', 'Vela-ODF-1.0.0.zip']
+           'Vela-Ebook-Reader-1.0.0-EXPRIMENTAL.zip', 'Vela-ODF-1.0.0-EXPRIMENTAL.zip']
 lines = []
 for name in assets:
     source, target = asset_path(name), release / name
