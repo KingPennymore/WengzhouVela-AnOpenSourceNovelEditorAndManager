@@ -48,6 +48,7 @@ import {bindTextZoom} from './gestures.mjs';
 import {PluginRuntime} from './plugins.mjs';
 import {PluginUiHost} from './plugin-ui.mjs';
 import {readWorkspaceBackup,prepareBackupRestore,mergeBackupRestore} from './workspace-backup.mjs';
+import {chapterExport,chapterFileName} from './chapter-export.mjs';
 import {readPluginZip,fromBase64,MAX_TEX_PLUGIN_BYTES} from './plugin-package.mjs';
 import {documentPath,uniquePath,preparePaths,adoptFolder,folderTree,gitFileState} from './workspace.mjs';
 import {applyRemoteFile,repositoryFolder,applyRepository,resolveRepositoryConflict} from './git-workspace.mjs';
@@ -193,7 +194,7 @@ function updateEditorVisibility(){
   document.body.classList.toggle('start-open',home&&pageName==='write');
   updateGlossaryPanel();
   renderDisplayOptions();const split=workspace.settings.splitPreview&&innerWidth>=1000&&isPreview&&!home&&documentKind(current())!=='VODT';document.body.classList.toggle('split-preview',!!split);$('#markdown-tools').hidden=home||isPreview&&!split||documentKind(current())!=='MD';document.querySelectorAll('#markdown-tools button').forEach(button=>button.disabled=home||documentKind(current())!=='MD');$('#editor').hidden=home||isPreview&&!split;$('#preview').hidden=home||!isPreview;
-  for(const id of ['search-editor','outline-toggle','focus-toggle','export-doc','quick-top','quick-bottom','quick-chapter-top','quick-chapter-bottom','append-chapter','locate-chapter'])$('#'+id).disabled=home;
+  for(const id of ['search-editor','outline-toggle','focus-toggle','export-doc','quick-top','quick-bottom','quick-chapter-top','quick-chapter-bottom','append-chapter','locate-chapter','export-chapters'])$('#'+id).disabled=home;
   $('#add-glossary').disabled=home||isPreview||pageName!=='write';
   if(home){$('#quick-undo').disabled=true;$('#quick-redo').disabled=true;}
 }
@@ -343,6 +344,7 @@ function renameDocument(doc){renameItem(documentPath(doc));}
 $('#document-tabs').onclick=e=>{const close=e.target.closest('[data-close]');if(close){closeDocument(close.dataset.close);return;}const b=e.target.closest('[data-tab]');if(b)switchDocument(b.dataset.tab);};
 $('#outline-list').onclick=e=>{const b=e.target.closest('[data-row]');if(b){jump(view.state.doc.line(Number(b.dataset.row)+1).from);}};
 $('#chapter-search').oninput=()=>{outlineLimit=200;outlineRevision='';updateStats();};
+$('#export-chapters').onclick=()=>showChapterExport();
 $('#locate-chapter').onclick=()=>{$('#chapter-search').value='';outlineRevision='';updateStats();$('#outline-list .active')?.scrollIntoView({block:'center'});};
 $('#append-chapter').onclick=()=>{const idx=ensureIndex();openModal('追加章节',`<label>章节标题<input name="title" required value="第${idx.chapterCount+1}章" placeholder="例如：第四章 标题"></label><small>在当前小说文件的末尾追加章节，保留现有正文。</small>`,f=>{const title=f.get('title').trim();if(title.includes('\n')||!chapterMatcher(projectWriter(workspace,current()))(title))throw new Error('未识别为章节标题，请使用标准标题或添加对应标题模板。');const end=view.state.doc.length,insert=(end?'\n\n':'')+title+'\n\n';if(isPreview)togglePreview();view.dispatch({changes:{from:end,insert},selection:{anchor:end+insert.length},scrollIntoView:true});view.focus();updateStats();});};
 $('#search-editor').onclick=()=>{if(isPreview)togglePreview();openSearchPanel(view);};
@@ -550,12 +552,25 @@ document.addEventListener('keydown',e=>{if(pageName==='reader'&&!(e.ctrlKey||e.m
   const shortcut=shortcuts.find(([,key])=>matchesKey(e,key));if(shortcut){e.preventDefault();e.stopPropagation();runAction(shortcut[0]);}
 },true);
 $('#commands').onclick=()=>{
-  const items=[{name:'本地历史与恢复',key:'',run:showLocalHistory},...(editing?.commands()||[]),...shortcuts.map(([id,,key,name])=>({name,key,run:()=>runAction(id)})),...[...(plugins?.commands.values()||[])].map(command=>({name:command.title,key:command.shortcut||'',run:()=>plugins.execute(command.name)}))];
+  const items=[{name:'本地历史与恢复',key:'',run:showLocalHistory},{name:'导出章节文本…',key:'',run:showChapterExport},{name:'复制本章文本',key:'',run:copyCurrentChapter},...(editing?.commands()||[]),...shortcuts.map(([id,,key,name])=>({name,key,run:()=>runAction(id)})),...[...(plugins?.commands.values()||[])].map(command=>({name:command.title,key:command.shortcut||'',run:()=>plugins.execute(command.name)}))];
   openModal('命令与快捷键','<input id="command-search" placeholder="搜索命令" aria-label="搜索命令" autofocus><div id="command-list"></div><small>Tab：缩进两个全角空格；Shift+Tab：取消缩进。Ctrl+加号 / 减号 / 0：调整或重置文字字号。</small>',null,{noSubmit:true});
   const render=()=>{const query=$('#command-search').value.toLowerCase();$('#command-list').innerHTML=items.map((item,i)=>({item,i})).filter(({item})=>item.name.toLowerCase().includes(query)||item.key.toLowerCase().includes(query)).map(({item,i})=>`<button type="button" class="command-item" data-command="${i}"><span>${esc(item.name)}</span><kbd>${esc(item.key)}</kbd></button>`).join('');};render();$('#command-search').oninput=render;
   $('#command-list').onclick=e=>{const b=e.target.closest('[data-command]');if(b){closeModal();Promise.resolve(items[Number(b.dataset.command)].run()).catch(fail);}};
 };
 function showLocalHistory(){const doc=current();if(!doc)return;const versions=documents.history(doc);openModal('本地历史与恢复',`<div class="history-list">${versions.map((item,i)=>`<button type="button" class="secondary" data-history="${i}">${esc(new Date(item.createdAt).toLocaleString())} · r${item.revision} · ${item.text.length} 字符</button>`).join('')||'<p>暂无历史版本。保存修改后会保留之前的内容。</p>'}</div><pre id="history-diff" class="history-diff"></pre><button type="button" class="primary" id="restore-history" disabled>恢复所选版本</button>`,null,{noSubmit:true});let selected=-1;$('.history-list').onclick=e=>{const b=e.target.closest('[data-history]');if(!b)return;selected=Number(b.dataset.history);const diff=diffLines(documents.restore(doc,selected),doc.text);$('#history-diff').textContent=`行 ${diff.from}\n`+diff.removed.map(line=>'- '+line).join('\n')+'\n'+diff.added.map(line=>'+ '+line).join('\n')+(diff.truncated?'\n…':'' );$('#restore-history').disabled=false;};$('#restore-history').onclick=()=>{const text=documents.restore(doc,selected);documents.snapshot(doc,true);closeModal();if(view)view.dispatch({changes:{from:0,to:view.state.doc.length,insert:text},userEvent:'input.restore'});else documents.change(doc,text,[],{important:true});save(true);};}
+async function copyText(text){if(native)await transport('clipboardWrite',{text});else await navigator.clipboard.writeText(text);}
+/** Current chapter index for the cursor, so dialogs and commands default to the chapter being written. */
+function currentSectionIndex(sections){const row=view.state.doc.lineAt(view.state.selection.main.head).number-1;return Math.max(0,sections.findIndex(section=>row>=section.row&&row<section.endRow));}
+function chapterSelection(form,sections){const from=Number(form.get('from')),to=Number(form.get('to'));if(to<from)throw Error('结束章节不能在起始章节之前。');return {from,to,result:chapterExport(view.state.doc.toString(),sections,{from,to,includeTitle:form.has('title'),stripMarkdown:form.has('plain')})};}
+/** Export one chapter or a range as TXT, or copy it to the clipboard; the document itself is not changed. */
+function showChapterExport(){
+  if(!current()||!view)return;const sections=ensureIndex().sections,at=currentSectionIndex(sections),markdown=documentKind(current())==='MD',options=sections.map((section,index)=>`<option value="${index}"${index===at?' selected':''}>${esc(String(index+1).padStart(2,'0')+'　'+section.title)}</option>`).join('');
+  openModal('导出章节',`<label>起始章节<select name="from">${options}</select></label><label>结束章节<select name="to">${options}</select></label><label class="checkbox"><input name="title" type="checkbox" checked>包含章节标题</label>${markdown?'<label class="checkbox"><input name="plain" type="checkbox" checked>去除 Markdown 标记</label>':''}<p><button type="button" class="secondary" id="copy-chapters">复制到剪贴板</button></p><small>导出为 UTF-8 TXT，章节之间空一行；原文稿不会被修改。</small>`,async form=>{
+    const {from,to,result}=chapterSelection(form,sections);if(!result.text)throw Error('所选章节没有正文。');const saved=await exportText(chapterFileName(current().name,sections,from,to),result.text);if(saved!==false)toast('已导出 '+result.chapters+' 章');
+  },{label:'导出 TXT'});
+  $('#copy-chapters').onclick=async()=>{const button=$('#copy-chapters');button.disabled=true;$('#dialog-error').textContent='';try{const {result}=chapterSelection(new FormData($('#dialog-form')),sections);if(!result.text)throw Error('所选章节没有正文。');await copyText(result.text);closeModal();toast('已复制 '+result.chapters+' 章，共 '+Writer.countText(result.text,workspace.settings.writer.countMode).toLocaleString()+' 字');}catch(cause){$('#dialog-error').textContent=cause.message;}finally{button.disabled=false;}};
+}
+async function copyCurrentChapter(){if(!current()||!view)return;const sections=ensureIndex().sections,at=currentSectionIndex(sections),result=chapterExport(view.state.doc.toString(),sections,{from:at,stripMarkdown:documentKind(current())==='MD'});if(!result.text)throw Error('当前章节没有正文。');await copyText(result.text);toast('已复制本章：'+sections[at].title);}
 async function pickBackupFile(){
   if(native){const files=await transport('import',{}),file=files?.[0];if(!file)return null;return typeof file.text==='string'?new TextEncoder().encode(file.text):fromBase64(file.data);}
   return new Promise(resolve=>{const input=document.createElement('input');input.type='file';input.accept='.json,application/json';input.onchange=async()=>{const file=input.files[0];resolve(file?new Uint8Array(await file.arrayBuffer()):null);};input.oncancel=()=>resolve(null);input.click();});
