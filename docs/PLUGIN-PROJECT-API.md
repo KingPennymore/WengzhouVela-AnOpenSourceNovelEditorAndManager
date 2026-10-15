@@ -1,6 +1,6 @@
 # Vela 项目扩展接口 v3
 
-本文对应当前源码中的实际接口。[类型声明](sdk/vela.d.ts)与[完整示例插件](../examples/plugins/project-workbench)可以直接用于开发。接口由 `acode.require('vela')` 提供；原有顶层 v2 文稿、配置、章节、历史、补全与宏包编译方法继续保留。
+本文对应当前源码中的实际接口。[类型声明](sdk/vela.d.ts)与[完整示例插件](../examples/plugins/project-workbench)可以直接用于开发。插件接口 4 中，项目接口位于 `activate(vela)` 的 `vela.project`；文稿、配置、章节、历史、补全与宏包编译改为 `vela.documents`、`vela.editor`、`vela.tex` 等分组方法，见 [PLUGINS.md](PLUGINS.md)。
 
 ## 插件清单与初始化
 
@@ -123,7 +123,7 @@ Page 是带 `body/content/container` 的真实 DOM 页。`onVisible/onHide/onBef
 
 所有新增接口使用 `code/message/details/retryable`：冲突、目标存在、未找到、无效路径、无效数据、超过上限、空间不足、取消、不支持、未授权、游标过期、插件停用、需要恢复。冲突时重读并让用户决定；不要自动强行覆盖。恢复错误要保留原始数据并重启。
 
-JavaScript/Acode 插件仍是可信同页代码，这些授权、令牌、隔离预览和停用检查是 SDK 边界，**不是不可信插件的强沙箱**。插件可以自行访问同页对象，因此只能安装可信来源。独立试演隔离不等于整个插件已经沙箱化。
+插件（接口 4）仍是可信同页代码，这些授权、令牌、隔离预览和停用检查是 SDK 边界，**不是不可信插件的强沙箱**。插件可以自行访问同页对象，因此只能安装可信来源。独立试演隔离不等于整个插件已经沙箱化。
 
 ## 构建与验证
 

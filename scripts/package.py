@@ -19,7 +19,7 @@ out.mkdir(exist_ok=True)
 resources = root / "entry/src/main/resources/rawfile/web"
 state = json.loads((resources / "build-manifest.json").read_text(encoding="utf-8"))
 inputs = [file.relative_to(root).as_posix() for directory in ["web", "vendor/acode/src/cm", "vendor/wasmtex", "vendor/jieba", "components"] for file in (root / directory).rglob("*") if file.is_file()]
-inputs += ["vendor/acode/LICENSE", "vendor/acode-writer/src/core.js", "vendor/acode-writer/LICENSE", "package.json", "package-lock.json", "scripts/build.mjs", "scripts/frontend-state.mjs", "scripts/tex-assets.mjs", "scripts/package-ebook-component.mjs", "scripts/package-odf-component.mjs"]
+inputs += ["vendor/acode/LICENSE", "vendor/acode-writer/src/core.js", "vendor/acode-writer/LICENSE", "package.json", "package-lock.json", "scripts/build.mjs", "scripts/frontend-state.mjs", "scripts/tex-assets.mjs", "scripts/package-ebook-component.mjs"]
 source_hash = hashlib.sha256()
 for name in sorted(inputs):
     checksum = hashlib.sha256((root / name).read_bytes()).hexdigest()

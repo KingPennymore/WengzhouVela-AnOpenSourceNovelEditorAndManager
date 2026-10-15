@@ -13,7 +13,7 @@ try{
   const context=await browser.newContext({viewport:{width,height}});await context.addInitScript(seed=>localStorage.setItem('wenzhou.workspace',JSON.stringify(seed)),seed);
   const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));await page.goto((process.env.VELA_TEST_URL||'http://127.0.0.1:4173')+'/?ui='+profile);await openRecentFile(page,page.locator('[data-recent=book]'));await page.waitForSelector('.cm-editor');
   for(const nearBottom of [false,true]){
-   await page.evaluate(nearBottom=>{const v=editorManager.editor,text=(nearBottom?'正文\n'.repeat(60):'')+'阿德',suffix='\n阿德里蒙出航 阿德船长到港 阿德里蒙归航';v.dispatch({changes:{from:0,to:v.state.doc.length,insert:text+suffix},selection:{anchor:text.length},scrollIntoView:true});v.focus();},nearBottom);
+   await page.evaluate(nearBottom=>{const v=velaEditorView,text=(nearBottom?'正文\n'.repeat(60):'')+'阿德',suffix='\n阿德里蒙出航 阿德船长到港 阿德里蒙归航';v.dispatch({changes:{from:0,to:v.state.doc.length,insert:text+suffix},selection:{anchor:text.length},scrollIntoView:true});v.focus();},nearBottom);
    await page.keyboard.press('Control+Space');await page.waitForSelector('.vela-completion-info');await page.waitForTimeout(160);
    const popup=page.locator('.cm-tooltip-autocomplete'),list=popup.locator('ul'),info=popup.locator('.cm-completionInfo'),selected=list.locator('[aria-selected]');
    const a=await list.boundingBox(),b=await info.boundingBox(),box=await popup.boundingBox(),row=await selected.boundingBox();

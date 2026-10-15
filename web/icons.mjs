@@ -9,3 +9,6 @@ paths.recent='M3 11a9 9 0 1 1 2 7M3 4v7h7M12 7v5l3 2';
 
 Object.assign(paths,{back:'M14 5l-7 7 7 7M7 12h14',close:'M6 6l12 12M18 6 6 18',annotation:'M4 3h13v18H4zM8 7h5M8 11h3M14 16l5-5 2 2-5 5-3 1z',bookmark:'M6 3h12v18l-6-4-6 4z',trash:'M3 6h18M9 6V3h6v3M5 6l1 15h12l1-15M10 10v7M14 10v7',code:'M8 6l-6 6 6 6M16 6l6 6-6 6M14 3l-4 18',newFile:'M4 3h10l5 5v5M14 3v5h5M4 3v18h9M18 15v8M14 19h8',import:'M12 2v13M7 10l5 5 5-5M4 16v5h16v-5',guide:'M12 22a10 10 0 1 0 0-20 10 10 0 0 0 0 20M9 8a3 3 0 1 1 5 2l-2 2v2M12 17h.01',external:'M14 3h7v7M21 3l-9 9M10 4H3v17h17v-7'});
 Object.assign(paths,{refresh:'M20 8a8 8 0 1 0 1 7M20 3v5h-5',newWorkspace:'M3 5h7l2 2h9v6M3 5v15h10M18 15v8M14 19h8',root:'M4 18h16V7H4zM12 15V3M8 7l4-4 4 4',paste:'M9 3h6v4H9zM9 5H5v16h14V5h-4M8 12h8M8 16h6',locate:'M12 3v3M12 18v3M3 12h3M18 12h3M18 12a6 6 0 1 0-12 0 6 6 0 0 0 12 0M12 10a2 2 0 1 0 0 4 2 2 0 0 0 0-4',list:'M8 5h13M8 12h13M8 19h13M3 5h1M3 12h1M3 19h1',task:'M3 5h5v5H3zM12 7h9M3 14l2 2 4-4M12 16h9',quote:'M3 7h6v6H5v4H3zM14 7h6v6h-4v4h-2z'});
+
+// Names plugins may use for their buttons; plugins never supply their own SVG.
+export const iconNames=Object.freeze([...Object.keys(paths),'settings']);

@@ -2,6 +2,7 @@ import {repoPath,documentKind} from './model.mjs';
 import {documentPath} from './workspace.mjs';
 import {projectConfig,globalConfig} from './vela.mjs';
 import {t} from './i18n.mjs';
+import {glossaryCandidates} from './completion-core.mjs';
 
 export function parseGlossary(text){
   if(typeof text!=='string'||text.length>1024*1024)throw Error('术语库最多 1 MB。');
@@ -42,16 +43,7 @@ export function glossaryTerms(workspace,doc){
 }
 
 export function glossaryCompletion(context,entries){
-  if(!entries.length)return null;
-  const before=context.state.doc.sliceString(Math.max(0,context.pos-120),context.pos),options=[];let from=context.pos;
-  for(const entry of entries){for(const label of [entry.term,...entry.aliases]){
-    let length=0;const limit=Math.min(before.length,label.length);
-    for(let n=limit;n>0;n--)if(before.slice(-n).toLocaleLowerCase()===label.slice(0,n).toLocaleLowerCase()){length=n;break;}
-    if(!length&&(!context.explicit||/[\p{L}\p{N}_]$/u.test(before)))continue;
-    const start=context.pos-length;if(options.length&&start!==from){if(start>from)continue;options.length=0;}from=start;
-    const names=(entry.sources||[entry.source]).filter(Boolean).map(path=>path.split('/').at(-1));
-    options.push({label,apply:entry.term,type:'text',velaKind:'term',boost:99,detail:[names.join(' · ')||t('术语库'),entry.category].filter(Boolean).join(' · '),info:(entry.aliases.length?t('别名')+'：'+entry.aliases.join('、')+'\n':'')+(entry.definitions?.map(item=>item.source+(item.text?'\n'+item.text:'')).join('\n\n')||entry.definition||entry.term)});
-    if(options.length>=200)return {from,options,validFor:/^[\p{L}\p{N}_ \u3000'-]*$/u};
-  }}
-  return options.length?{from,options,validFor:/^[\p{L}\p{N}_ \u3000'-]*$/u}:null;
+  const offset=Math.max(0,context.pos-120),text=context.state.doc.sliceString(offset,context.pos);
+  const values=glossaryCandidates({text,position:text.length,explicit:context.explicit},entries,t);
+  return values.length?{from:offset+values[0].from,options:values.map(value=>({label:value.label,apply:value.insertText,type:'text',velaKind:value.kind,boost:value.score,detail:value.detail,info:value.info})),validFor:/^[\p{L}\p{N}_ \u3000'-]*$/u}:null;
 }

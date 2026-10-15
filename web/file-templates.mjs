@@ -4,10 +4,10 @@ import {createVelaV2,velaText} from './vela.mjs';
 import {createVelaOdt} from './odf-base.mjs';
 export const templates=[
  {id:'empty',label:'空白文件',kinds:['*'],description:'保留所选文件格式，创建空白内容。'},
- {id:'chapters',label:'小说正文',kinds:['TXT','MD','VODT'],description:'第一章、第二章及正文占位。'},
- {id:'outline',label:'故事大纲',kinds:['TXT','MD','VODT'],description:'梗概、人物目标、冲突、转折与结局。'},
- {id:'character',label:'人物设定',kinds:['TXT','MD','VODT'],description:'身份、外貌、性格、动机、关系与人物弧光。'},
- {id:'world',label:'世界观设定',kinds:['TXT','MD','VODT'],description:'地理、历史、社会规则与专有名词。'},
+ {id:'chapters',label:'小说正文',kinds:['TXT','MD'],description:'第一章、第二章及正文占位。'},
+ {id:'outline',label:'故事大纲',kinds:['TXT','MD'],description:'梗概、人物目标、冲突、转折与结局。'},
+ {id:'character',label:'人物设定',kinds:['TXT','MD'],description:'身份、外貌、性格、动机、关系与人物弧光。'},
+ {id:'world',label:'世界观设定',kinds:['TXT','MD'],description:'地理、历史、社会规则与专有名词。'},
  {id:'plan',label:'章节规划表',kinds:['CSV'],description:'章节、视角、地点、事件、目标字数、进度。'},
  {id:'html',label:'阅读页',kinds:['HTML'],description:'离线可用、适合移动阅读的 HTML 文稿。'},
  {id:'tex',label:'中文文稿排版',kinds:['TEX'],description:'ctexart 中文文稿；编译仍需现有离线 TeX 组件。'},

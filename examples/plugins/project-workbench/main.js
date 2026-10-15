@@ -1,10 +1,10 @@
 (() => {
   const id = 'sample.vela.project-workbench';
   let page, api, handle, task, stopWatch, snapshotId, stopped = false;
-  acode.setPluginInit(id, async () => {
-    api = acode.require('vela');
-    const Page = acode.require('page');
-    page = new Page('项目接口示例');
+  VelaPlugins.register(id, {async activate(vela) {
+    // The project API (workspace, files, imports, snapshots) lives at vela.project.
+    api = {...vela.project, dispose: fn => vela.dispose(fn)};
+    page = vela.ui.createPage('项目接口示例');
     const root = page.body;
     root.innerHTML = '<div style="max-width:860px;margin:auto;padding:20px"><h2>项目工作台</h2><p>示例只操作授权的工作区；新建的数据文件默认不进入阅读清单。</p><div style="display:flex;gap:8px;flex-wrap:wrap"><button data-action="current">当前工作区</button><button data-action="create">新建示例工程</button><button data-action="seed">创建数据文件</button><button data-action="import">导入素材</button><button data-action="zip">导入 ZIP</button><button data-action="snapshot">保存快照</button><button data-action="export">导出 ZIP</button><button data-action="preview">独立试演</button><button data-action="cancel">取消任务</button><button data-action="close">关闭</button></div><pre role="status" style="white-space:pre-wrap"></pre><ul></ul></div>';
     const status = root.querySelector('[role=status]'), list = root.querySelector('ul');
@@ -70,8 +70,7 @@
     };
     page.onBeforeClose(async () => { if (task) await task.cancel(); return true; });
     page.onHide(() => log('工作台已隐藏；再次打开可继续操作。'));
-    acode.require('commands').addCommand({name: id + '.open', description: '打开项目接口示例', exec: () => page.show()});
+    vela.commands.register({id: 'open', title: '打开项目接口示例', run: () => page.show()});
     api.dispose(() => { stopped = true; stopWatch?.(); });
-  });
-  acode.setPluginUnmount(id, async () => { stopped = true; stopWatch?.(); await task?.cancel(); page?.destroy(); });
+  }, async deactivate() { stopped = true; stopWatch?.(); await task?.cancel(); }});
 })();

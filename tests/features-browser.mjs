@@ -21,7 +21,7 @@ async function check(name,run){await run();checks.push(name);console.log('PASS '
 async function context(seed,options={}){
   const ctx=await browser.newContext({viewport:{width:1440,height:900},...options});
   if(seed)await ctx.addInitScript(data=>{if(window!==window.top)return;if(!localStorage.getItem('wenzhou.workspace'))localStorage.setItem('wenzhou.workspace',JSON.stringify(data));},seed);
-  const p=await ctx.newPage();p.on('pageerror',e=>errors.push(e.message));await p.goto(url);await p.waitForFunction(()=>window.editorManager&&document.querySelector('#current-name').textContent);return {ctx,p};
+  const p=await ctx.newPage();p.on('pageerror',e=>errors.push(e.message));await p.goto(url);await p.waitForFunction(()=>window.velaReady&&document.querySelector('#current-name').textContent);return {ctx,p};
 }
 const doc=(id,name,text)=>({id,name,text,updatedAt:1,remote:null});
 const saved=p=>p.evaluate(()=>{window.wenzhouSave();return JSON.parse(localStorage.getItem('wenzhou.workspace'));});
@@ -92,33 +92,49 @@ try{
     await importFile(w,'全表.csv',Array.from({length:205},(_,i)=>`${i},值${i}`).join('\n'));await w.locator('[data-cell-row="1"][data-cell-column="1"]').fill('已修改');await w.locator('#csv-next').click();assert.equal(await w.locator('[data-cell-row="100"][data-cell-column="1"]').inputValue(),'值100');await w.locator('#csv-next').click();assert.equal(await w.locator('tbody tr').count(),5);await w.locator('#csv-prev').click();await w.locator('#csv-prev').click();assert.equal(await w.locator('[data-cell-row="1"][data-cell-column="1"]').inputValue(),'已修改');
   });
   const writerZip=zipSync({'plugin.json':new Uint8Array(await readFile('vendor/acode-writer/plugin.json')),'main.js':new Uint8Array(await readFile('vendor/acode-writer/main.js'))});
-  await check('真实 Acode Writer 1.0.4 ZIP 可安装并运行，命令注册、停用和重启加载正常',async()=>{
+  await check('旧版 Acode 插件（Writer 1.0.4）被明确拒绝，入口不执行',async()=>{
     await w.locator('[data-tab="book"]').click();await w.locator('#more-tools').click();await w.locator('#plugins').click();await w.locator('#plugin-input').setInputFiles({name:'Writer-1.0.4.zip',mimeType:'application/zip',buffer:Buffer.from(writerZip)});
-    await w.waitForSelector('.aw-bar');assert.equal(await w.locator('.plugin-card').filter({hasText:'com.tuyuan.acode.writer'}).count(),1);assert.equal(await w.locator('#dialog-error').innerText(),'');
-    await w.locator('#dialog-cancel').click();await w.locator('#more-tools').click();await w.locator('#commands').click();assert.ok((await w.locator('#command-list').innerText()).includes('写作：章节目录'));await w.locator('#dialog-cancel').click();
-    await w.locator('#more-tools').click();await w.locator('#plugins').click();await w.locator('.plugin-card').filter({hasText:'com.tuyuan.acode.writer'}).locator('[data-plugin-enable]').click();assert.equal(await w.locator('.aw-bar').count(),0);await w.locator('.plugin-card').filter({hasText:'com.tuyuan.acode.writer'}).locator('[data-plugin-enable]').click();await w.waitForSelector('.aw-bar');assert.equal(await w.locator('.aw-bar').count(),1);await w.locator('#dialog-cancel').click();
-    await w.reload();await w.waitForSelector('.aw-bar');assert.equal(await w.locator('.aw-bar').count(),1);await w.locator('#more-tools').click();await w.locator('#plugins').click();await w.locator('[data-plugin-remove]').click();assert.equal(await w.locator('.aw-bar').count(),0);await w.locator('#dialog-cancel').click();
+    await w.waitForFunction(()=>document.querySelector('#dialog-error').textContent.includes('旧版 Acode'));assert.equal(await w.locator('.aw-bar').count(),0);assert.ok((await w.locator('.plugin-card').filter({hasText:'com.tuyuan.acode.writer'}).innerText()).includes('旧版 Acode'));
+    await w.locator('.plugin-card').filter({hasText:'com.tuyuan.acode.writer'}).locator('[data-plugin-remove]').click();await w.locator('#dialog-cancel').click();
   });
-  await check('Acode 插件包内脚本、CSS、资源、编辑命令与卸载清理可用',async()=>{
-    const id='com.example.compat';
-    const code=`let node;acode.setPluginInit('${id}',async(base)=>{const link=document.createElement('link');link.rel='stylesheet';link.href=base+'style.css';document.head.append(link);window.__pluginLink=link;const data=await fetch(base+'data.json').then(r=>r.json());node=document.createElement('div');node.className='fixture-plugin';node.textContent=data.text;document.body.append(node);acode.require('commands').addCommand({name:'${id}.insert',description:'测试：插入',exec:()=>{const v=editorManager.editor;v.dispatch(v.state.replaceSelection('插件内容'));}});});acode.setPluginUnmount('${id}',()=>{node?.remove();window.__pluginLink?.remove();});`;
-    const bytes=zipSync({'plugin.json':strToU8(JSON.stringify({id,name:'兼容测试',version:'1.0.0',main:'main.js'})),'main.js':strToU8(code),'style.css':strToU8('.fixture-plugin{position:fixed;top:100px;right:10px;color:rgb(1,2,3)}'),'data.json':strToU8('{"text":"包内资源已加载"}')});
-    await w.locator('#more-tools').click();await w.locator('#plugins').click();await w.locator('#plugin-input').setInputFiles({name:'compat.zip',mimeType:'application/zip',buffer:Buffer.from(bytes)});await w.waitForSelector('.fixture-plugin');assert.equal(await w.locator('.fixture-plugin').innerText(),'包内资源已加载');await w.waitForFunction(()=>getComputedStyle(document.querySelector('.fixture-plugin')).color==='rgb(1, 2, 3)');await w.locator('#dialog-cancel').click();
+  const api4=(id,name,extra={})=>JSON.stringify({id,name,version:'1.0.0',main:'main.js',...extra,vela:{api:'>=4 <5',...extra.vela}});
+  await check('API 4 插件包内脚本、CSS、资源、命令与卸载清理可用',async()=>{
+    const id='com.example.assets';
+    const code=`let node,link;VelaPlugins.register('${id}',{async activate(vela){link=document.createElement('link');link.rel='stylesheet';link.href=vela.assets.url('style.css');document.head.append(link);const data=JSON.parse(await vela.assets.read('data.json'));node=document.createElement('div');node.className='fixture-plugin';node.textContent=data.text;document.body.append(node);vela.commands.register({id:'insert',title:'测试：插入',run:()=>{const v=vela.editor.view;v.dispatch(v.state.replaceSelection('插件内容'));}});},deactivate(){node?.remove();link?.remove();}});`;
+    const bytes=zipSync({'plugin.json':strToU8(api4(id,'资源测试')),'main.js':strToU8(code),'style.css':strToU8('.fixture-plugin{position:fixed;top:100px;right:10px;color:rgb(1,2,3)}'),'data.json':strToU8('{"text":"包内资源已加载"}')});
+    await w.locator('#more-tools').click();await w.locator('#plugins').click();await w.locator('#plugin-input').setInputFiles({name:'assets.zip',mimeType:'application/zip',buffer:Buffer.from(bytes)});await w.waitForSelector('.fixture-plugin');assert.equal(await w.locator('.fixture-plugin').innerText(),'包内资源已加载');await w.waitForFunction(()=>getComputedStyle(document.querySelector('.fixture-plugin')).color==='rgb(1, 2, 3)');await w.locator('#dialog-cancel').click();
     await w.locator('#quick-top').click();await w.locator('#more-tools').click();await w.locator('#commands').click();await w.locator('#command-search').fill('测试：插入');await w.locator('.command-item').click();assert.ok((await saved(w)).documents.find(d=>d.id==='book').text.startsWith('插件内容'));
     await w.locator('#more-tools').click();await w.locator('#plugins').click();await w.locator('[data-plugin-remove]').click();assert.equal(await w.locator('.fixture-plugin').count(),0);await w.locator('#dialog-cancel').click();
+    assert.equal(await w.evaluate(()=>typeof window.acode+typeof window.editorManager),'undefinedundefined','Acode globals are gone');
   });
-  await check('Vela 插件扩展、补全和事件跨文件切换，卸载异常仍完成清理',async()=>{
-    const main=`acode.setPluginInit('test.vela.lifecycle',()=>{const vela=acode.require('vela'),{EditorView}=acode.require('@codemirror/view');vela.addExtension(EditorView.theme({'.cm-content':{color:'rgb(17, 88, 33)'}}));vela.addCompletion(context=>({from:context.pos,options:[{label:'vela-plugin-completion'}]}));vela.on('file-content-changed',()=>window.velaEventCount=(window.velaEventCount||0)+1);vela.dispose(()=>window.velaDisposed=true);});acode.setPluginUnmount('test.vela.lifecycle',()=>{throw Error('fixture unmount error');});`;
-    const bytes=zipSync({'plugin.json':strToU8(JSON.stringify({id:'test.vela.lifecycle',name:'Lifecycle',version:'1.0',main:'main.js'})),'main.js':strToU8(main)});
-    await w.locator('#plugin-input').setInputFiles({name:'lifecycle.zip',mimeType:'application/zip',buffer:Buffer.from(bytes)});await w.waitForFunction(()=>getComputedStyle(document.querySelector('.cm-content')).color==='rgb(17, 88, 33)');await w.locator('#dialog-cancel').click();
-    await w.evaluate(()=>{const editor=editorManager.editor;editor.dispatch({changes:{from:editor.state.doc.length,insert:'x'}});editor.focus();});assert.equal(await w.evaluate(()=>window.velaEventCount),1);await w.keyboard.press('Control+Space');await w.waitForFunction(()=>document.querySelector('.cm-tooltip-autocomplete')?.textContent.includes('vela-plugin-completion'));await w.keyboard.press('Escape');
+  await check('插件按钮进入顶栏、文稿工具区、底栏、两侧侧栏与选区菜单，面板和内置按钮调整在停用后恢复',async()=>{
+    const id='com.example.slots';
+    const code=`VelaPlugins.register('${id}',{activate(vela){const press=location=>()=>{window.slotRuns=[...(window.slotRuns||[]),location];};for(const location of ['top-toolbar','document-toolbar','bottom-toolbar','library-sidebar','outline-sidebar'])vela.ui.addButton({id:'b-'+location,title:'插件'+location,icon:'task',location,run:press(location)});vela.ui.addButton({id:'sel',title:'插件选区',location:'selection-menu',run:context=>{window.slotSelection=context.selection.text;}});const toggle=vela.ui.addButton({id:'toggle',title:'插件切换',location:'bottom-toolbar',toggle:true,run:()=>toggle.update({checked:true})});const panel=vela.ui.addPanel({id:'notes',title:'插件面板',location:'outline-sidebar'});panel.body.textContent='面板内容';vela.ui.setBuiltin('quick-git',{hidden:true});window.slotBuiltins=vela.ui.builtins('bottom-toolbar').map(item=>item.id);}});`;
+    const bytes=zipSync({'plugin.json':strToU8(api4(id,'插槽测试',{vela:{requiredCapabilities:['ui-slots']}})),'main.js':strToU8(code)});
+    await w.locator('[data-tab="book"]').click();await w.locator('#more-tools').click();await w.locator('#plugins').click();await w.locator('#plugin-input').setInputFiles({name:'slots.zip',mimeType:'application/zip',buffer:Buffer.from(bytes)});await w.waitForSelector('[data-plugin-button="com.example.slots/b-bottom-toolbar"]',{state:'attached'});await w.locator('#dialog-cancel').click();
+    for(const location of ['document-toolbar','bottom-toolbar','library-sidebar','outline-sidebar'])assert.equal(await w.locator('#plugin-'+location+' [data-plugin-button="com.example.slots/b-'+location+'"]').count(),1,location+' button placed in its existing region');
+    assert.equal(await w.locator('[data-plugin-button="com.example.slots/b-top-toolbar"]').count(),1,'top toolbar button placed in toolbar or overflow menu');
+    await w.locator('#plugin-bottom-toolbar [data-plugin-button="com.example.slots/b-bottom-toolbar"]').click();await w.waitForFunction(()=>window.slotRuns?.includes('bottom-toolbar'));
+    await w.locator('[data-plugin-button="com.example.slots/toggle"]').click();await w.waitForFunction(()=>document.querySelector('[data-plugin-button="com.example.slots/toggle"]').getAttribute('aria-pressed')==='true');
+    assert.ok(await w.locator('#quick-git').evaluate(el=>getComputedStyle(el).display==='none'),'built-in quick bar button hidden by plugin');assert.ok((await w.evaluate(()=>window.slotBuiltins)).includes('quick-save'),'built-ins are listed by location');
+    assert.equal(await w.locator('#plugin-outline-sidebar-panels .plugin-panel-body').textContent(),'面板内容');
+    await w.evaluate(()=>{const v=velaEditorView;v.dispatch({selection:{anchor:0,head:2}});v.focus();});await w.waitForSelector('#selection-menu:not([hidden])');await w.locator('#selection-menu button',{hasText:'插件选区'}).click();assert.equal((await w.evaluate(()=>window.slotSelection)).length,2);
+    await w.locator('#more-tools').click();await w.locator('#plugins').click();await w.locator('.plugin-card').filter({hasText:'插槽测试'}).locator('[data-plugin-enable]').click();await w.locator('#dialog-cancel').click();
+    assert.equal(await w.locator('[data-plugin-button^="com.example.slots/"]').count(),0,'all plugin buttons removed when disabled');assert.equal(await w.locator('#plugin-outline-sidebar-panels .plugin-panel').count(),0);assert.ok(await w.locator('#quick-git').evaluate(el=>getComputedStyle(el).display!=='none'),'built-in button restored');
+    await w.locator('#more-tools').click();await w.locator('#plugins').click();await w.locator('.plugin-card').filter({hasText:'插槽测试'}).locator('[data-plugin-remove]').click();await w.locator('#dialog-cancel').click();
+  });
+  await check('插件扩展、补全和事件跨文件切换，停用异常仍完成清理',async()=>{
+    const main=`VelaPlugins.register('test.vela.lifecycle',{activate(vela){const {EditorView}=vela.editor.codemirror.view;vela.editor.addExtension(EditorView.theme({'.cm-content':{color:'rgb(17, 88, 33)'}}));vela.editor.addCompletion(context=>({from:context.pos,options:[{label:'vela-plugin-completion'}]}));vela.on('file-content-changed',()=>window.velaEventCount=(window.velaEventCount||0)+1);vela.dispose(()=>window.velaDisposed=true);},deactivate(){throw Error('fixture deactivate error');}});`;
+    const bytes=zipSync({'plugin.json':strToU8(api4('test.vela.lifecycle','Lifecycle')),'main.js':strToU8(main)});
+    await w.locator('#more-tools').click();await w.locator('#plugins').click();await w.locator('#plugin-input').setInputFiles({name:'lifecycle.zip',mimeType:'application/zip',buffer:Buffer.from(bytes)});await w.waitForFunction(()=>getComputedStyle(document.querySelector('.cm-content')).color==='rgb(17, 88, 33)');await w.locator('#dialog-cancel').click();
+    await w.evaluate(()=>{const editor=velaEditorView;editor.dispatch({changes:{from:editor.state.doc.length,insert:'x'}});editor.focus();});assert.equal(await w.evaluate(()=>window.velaEventCount),1);await w.keyboard.press('Control+Space');await w.waitForFunction(()=>document.querySelector('.cm-tooltip-autocomplete')?.textContent.includes('vela-plugin-completion'));await w.keyboard.press('Escape');
     const ids=await w.locator('[data-tab]').evaluateAll(items=>items.map(item=>item.dataset.tab));const alternate=ids.find(id=>id!=='book');if(alternate){await w.locator(`[data-tab="${alternate}"]`).click();await w.locator('[data-tab=book]').click();}
     await w.locator('#more-tools').click();await w.locator('#plugins').click();await w.locator('.plugin-card').filter({hasText:'Lifecycle'}).locator('[data-plugin-remove]').click();await w.waitForFunction(()=>window.velaDisposed===true);await w.locator('#dialog-cancel').click();assert.notEqual(await w.locator('.cm-content').evaluate(el=>getComputedStyle(el).color),'rgb(17, 88, 33)');
     if(alternate){await w.locator(`[data-tab="${alternate}"]`).click();await w.locator('[data-tab=book]').click();assert.notEqual(await w.locator('.cm-content').evaluate(el=>getComputedStyle(el).color),'rgb(17, 88, 33)');}
-    await w.evaluate(()=>{const editor=editorManager.editor;editor.dispatch({changes:{from:editor.state.doc.length,insert:'y'}});});assert.equal(await w.evaluate(()=>window.velaEventCount),1);
+    await w.evaluate(()=>{const editor=velaEditorView;editor.dispatch({changes:{from:editor.state.doc.length,insert:'y'}});});assert.equal(await w.evaluate(()=>window.velaEventCount),1);
   });
-  await check('未实现的插件接口给出具体加载原因，停用记录在重启后保留',async()=>{
-    const bytes=zipSync({'plugin.json':strToU8(JSON.stringify({id:'com.example.unsupported',name:'依赖检查',version:'1.0.0',main:'main.js'})),'main.js':strToU8('acode.require("terminal");')});
+  await check('缺少的插件能力给出具体加载原因，停用记录在重启后保留',async()=>{
+    const bytes=zipSync({'plugin.json':strToU8(api4('com.example.unsupported','依赖检查',{vela:{requiredCapabilities:['terminal']}})),'main.js':strToU8('throw Error("must not run");')});
     await w.locator('#more-tools').click();await w.locator('#plugins').click();await w.locator('#plugin-input').setInputFiles({name:'unsupported.zip',mimeType:'application/zip',buffer:Buffer.from(bytes)});await w.waitForFunction(()=>document.querySelector('#dialog-error').textContent.includes('terminal'));await w.locator('#dialog-cancel').click();
     await w.reload();await w.waitForSelector('.cm-editor');await w.locator('#more-tools').click();await w.locator('#plugins').click();assert.ok((await w.locator('.plugin-card .error').innerText()).includes('terminal'));await w.locator('.plugin-card').filter({hasText:'com.example.unsupported'}).locator('[data-plugin-remove]').click();await w.locator('#dialog-cancel').click();
   });
@@ -138,15 +154,15 @@ try{
     const n=await ctx.newPage();n.on('pageerror',e=>errors.push(e.message));await n.goto(url);await n.waitForSelector('.cm-editor');
     const text='第一章 标题\n　　'+('正文，包含“引号”与标点。'.repeat(15))+'\n\n　　下一段落，选择到这里结束。\n第二章';
     const from=text.indexOf('包含'),to=text.indexOf('这里')+2;
-    await n.evaluate(text=>{const v=editorManager.editor;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:text}});v.focus();},text);
+    await n.evaluate(text=>{const v=velaEditorView;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:text}});v.focus();},text);
     await n.waitForFunction(()=>document.querySelector('.cm-line')?.textContent==='第一章 标题');
     assert.ok(await n.locator('.cm-content wbr').count()>0);
-    await n.evaluate(({from,to})=>{const v=editorManager.editor,a=v.domAtPos(from),b=v.domAtPos(to);getSelection().setBaseAndExtent(a.node,a.offset,b.node,b.offset);},{from,to});
-    await n.waitForFunction(({from,to})=>editorManager.editor.state.selection.main.from===from&&editorManager.editor.state.selection.main.to===to,{from,to});
-    const copied=await n.evaluate(()=>{let copied='';const event=new ClipboardEvent('copy',{bubbles:true,cancelable:true,clipboardData:new DataTransfer()});editorManager.editor.contentDOM.dispatchEvent(event);copied=event.clipboardData.getData('text/plain');return copied;});
+    await n.evaluate(({from,to})=>{const v=velaEditorView,a=v.domAtPos(from),b=v.domAtPos(to);getSelection().setBaseAndExtent(a.node,a.offset,b.node,b.offset);},{from,to});
+    await n.waitForFunction(({from,to})=>velaEditorView.state.selection.main.from===from&&velaEditorView.state.selection.main.to===to,{from,to});
+    const copied=await n.evaluate(()=>{let copied='';const event=new ClipboardEvent('copy',{bubbles:true,cancelable:true,clipboardData:new DataTransfer()});velaEditorView.contentDOM.dispatchEvent(event);copied=event.clipboardData.getData('text/plain');return copied;});
     assert.equal(copied,text.slice(from,to));assert.equal(await n.locator('.cm-editor').evaluate(el=>el.classList.contains('has-selection')),true);assert.equal(await n.locator('.cm-activeLine').evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)');
-    await n.keyboard.insertText('替换内容');assert.notEqual(await n.locator('.cm-activeLine').evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)');assert.equal(await n.evaluate(()=>editorManager.editor.state.doc.toString()),text.slice(0,from)+'替换内容'+text.slice(to));
-    await n.keyboard.press('Control+z');assert.equal(await n.evaluate(()=>editorManager.editor.state.doc.toString()),text);
+    await n.keyboard.insertText('替换内容');assert.notEqual(await n.locator('.cm-activeLine').evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)');assert.equal(await n.evaluate(()=>velaEditorView.state.doc.toString()),text.slice(0,from)+'替换内容'+text.slice(to));
+    await n.keyboard.press('Control+z');assert.equal(await n.evaluate(()=>velaEditorView.state.doc.toString()),text);
     await ctx.close();
   });
   await check('选区左右边界与段落一致，窄屏、深浅色、字号和部分文字选择保持准确',async()=>{
@@ -155,19 +171,19 @@ try{
     const {ctx,p}=await context(seed);
     for(const [width,dark,ratio] of [[900,false,1],[390,true,1.5],[600,false,1.667]]){
       await p.setViewportSize({width,height:1000});await p.emulateMedia({colorScheme:dark?'dark':'light'});
-      await p.evaluate(ratio=>{window.wenzhouNativePinch(1,'start');window.wenzhouNativePinch(ratio,'move');window.wenzhouNativePinch(1,'end');const v=editorManager.editor;v.dispatch({selection:{anchor:2,head:v.state.doc.length-3}});v.focus();},ratio);
+      await p.evaluate(ratio=>{window.wenzhouNativePinch(1,'start');window.wenzhouNativePinch(ratio,'move');window.wenzhouNativePinch(1,'end');const v=velaEditorView;v.dispatch({selection:{anchor:2,head:v.state.doc.length-3}});v.focus();},ratio);
       await p.waitForFunction(()=>{
         const line=document.querySelector('#editor .cm-line').getBoundingClientRect(),rects=[...document.querySelectorAll('.wenzhou-selection-layer>.cm-selectionBackground')].map(el=>el.getBoundingClientRect());
         return rects.length>0&&rects.every(r=>r.left>=line.left-.5&&r.right<=line.right+.5)&&rects.some(r=>Math.abs(r.width-line.width)<.5);
       });
-      const selection=await p.evaluate(()=>editorManager.editor.state.selection.main.toJSON());assert.deepEqual(selection,{anchor:2,head:text.length-3});
+      const selection=await p.evaluate(()=>velaEditorView.state.selection.main.toJSON());assert.deepEqual(selection,{anchor:2,head:text.length-3});
       assert.equal(await p.locator('.cm-activeLine').evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)');
       await p.screenshot({path:`test-results/selection-${width}.png`});
     }
     await p.setViewportSize({width:900,height:1000});
-    await p.evaluate(()=>{const v=editorManager.editor;v.dispatch({selection:{anchor:1,head:3}});});
+    await p.evaluate(()=>{const v=velaEditorView;v.dispatch({selection:{anchor:1,head:3}});});
     await p.waitForFunction(()=>{
-      const v=editorManager.editor,a=v.coordsAtPos(1),b=v.coordsAtPos(3),rects=[...document.querySelectorAll('.wenzhou-selection-layer>.cm-selectionBackground')].map(el=>el.getBoundingClientRect());
+      const v=velaEditorView,a=v.coordsAtPos(1),b=v.coordsAtPos(3),rects=[...document.querySelectorAll('.wenzhou-selection-layer>.cm-selectionBackground')].map(el=>el.getBoundingClientRect());
       return rects.length===1&&Math.abs(rects[0].left-a.left)<.5&&Math.abs(rects[0].right-b.right)<.5;
     });
     await ctx.close();

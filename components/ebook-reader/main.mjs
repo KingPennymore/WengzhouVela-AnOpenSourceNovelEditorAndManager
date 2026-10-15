@@ -1,13 +1,14 @@
 import {PdfBook} from './pdf.mjs';
 import {readBook,chapterDocument,MAX_BOOK_BYTES} from './engine.mjs';
 const id='vela.component.ebook-reader';
-acode.setPluginInit(id,async(base)=>{
-  const api=acode.require('vela'),Page=acode.require('page'),page=new Page('电子书阅读'),root=page.body;
+VelaPlugins.register(id,{async activate(vela){
+  // The project API (workspaces, files, imports) is unchanged; settings and teardown come from the plugin API.
+  const api={...vela.project,getSettings:()=>vela.settings.get(),updateSettings:value=>vela.settings.update(value),dispose:fn=>vela.dispose(fn)},page=vela.ui.createPage('电子书阅读'),root=page.body;
   let book=null,index=0,stopped=false,task=null,epoch=0,busy=false;
   const settings=api.getSettings(),progress={...(settings.readingProgress||{})};let bookKey='';
   root.innerHTML='<div class="ebook-reader" style="height:100%;display:flex;flex-direction:column;padding:12px;box-sizing:border-box"><div class="button-row" style="flex-wrap:wrap"><button data-book-import>导入电子书</button><button data-book-project>工作区书籍</button><button data-book-prev disabled>上一章</button><select aria-label="电子书章节" data-book-chapters disabled style="max-width:100%;width:240px"></select><button data-book-next disabled>下一章</button><label>字号 <input aria-label="电子书字号" type="number" min="12" max="36" value="20" data-book-font style="width:60px"></label><label><input type="checkbox" data-book-dark>夜间</label></div><p role="status" data-book-status>支持 EPUB、FB2、TXT/HTML、无 DRM 的传统 MOBI/AZW（MOBI7）。KF8/AZW3、KFX、HUFF/CDIC 暂不支持；PDF 支持分页、缩放、文字选择与搜索（不支持加密 PDF）。导入的书籍保存在工作区。</p><div data-book-list></div><div data-pdf-tools hidden><label>缩放 <select data-pdf-zoom aria-label="PDF 缩放"><option value="1">适合宽度</option><option value="1.25">125%</option><option value="1.5">150%</option><option value="2">200%</option></select></label><input data-pdf-query aria-label="搜索 PDF" placeholder="搜索 PDF 文字"><button data-pdf-search>搜索</button><button data-pdf-search-cancel>取消搜索</button><div data-pdf-results></div></div><div class="ebook-pdf" hidden style="overflow:auto;flex:1;min-height:55vh;max-height:70vh;padding:12px"></div><iframe title="电子书正文" sandbox="" style="width:100%;flex:1;min-height:55vh;border:0" referrerpolicy="no-referrer"></iframe></div>';
   const find=s=>root.querySelector(s),frame=find('iframe'),status=find('[data-book-status]'),select=find('[data-book-chapters]'),font=find('[data-book-font]'),dark=find('[data-book-dark]');font.value=settings.fontSize||20;dark.checked=!!settings.dark;
-  const pdfRoot=find('.ebook-pdf'),pdfTools=find('[data-pdf-tools]'),pdf=new PdfBook(pdfRoot,base);pdf.onError=error=>log(error);
+  const pdfRoot=find('.ebook-pdf'),pdfTools=find('[data-pdf-tools]'),pdf=new PdfBook(pdfRoot,path=>vela.assets.url(path));pdf.onError=error=>log(error);
   const log=error=>{if(!stopped)status.textContent=error.message||String(error);};
   const display=()=>{if(!book||stopped)return;const isPdf=book.format==='PDF';frame.hidden=isPdf;pdfRoot.hidden=!isPdf;pdfTools.hidden=!isPdf;font.disabled=isPdf;dark.disabled=isPdf;
     if(isPdf){frame.removeAttribute('srcdoc');pdf.page=index+1;pdf.render().catch(log);}else frame.srcdoc=chapterDocument(book,index,{fontSize:font.value,dark:dark.checked});
@@ -23,7 +24,7 @@ acode.setPluginInit(id,async(base)=>{
   find('[data-pdf-search-cancel]').onclick=()=>pdf.cancelSearch();
   page.onHide(()=>pdf.cancelSearch());
   const style=document.createElement('style');style.textContent='.ebook-pdf .pdf-page{position:relative;flex-shrink:0;margin:auto;background:white}.ebook-pdf .textLayer{position:absolute;inset:0;overflow:hidden;line-height:1;user-select:text;touch-action:pan-x pan-y;transform-origin:0 0}.ebook-pdf .textLayer :is(span,br){color:transparent;position:absolute;white-space:pre;cursor:text;transform-origin:0 0}.ebook-pdf .textLayer ::selection{background:#70b58b66}.ebook-pdf .textLayer .markedContent{display:contents}';root.append(style);
-  acode.require('commands').addCommand({name:id+'.open',description:'电子书：打开阅读器',exec:()=>page.show()});
+  vela.commands.register({id:'open',title:'电子书：打开阅读器',run:()=>page.show()});
+  vela.ui.addButton({id:'open',title:'电子书',icon:'reader',location:'top-toolbar',run:()=>page.show()});
   api.dispose(()=>{stopped=true;epoch++;task?.cancel();book=null;frame.removeAttribute('srcdoc');pdf.destroy().catch(()=>{});});
-});
-acode.setPluginUnmount(id,()=>{});
+}});

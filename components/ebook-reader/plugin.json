@@ -1,12 +1,14 @@
 {
   "id": "vela.component.ebook-reader",
   "name": "电子书阅读组件",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "main": "main.js",
   "vela": {
     "type": "reader-component",
-    "api": ">=3 <4",
+    "api": ">=4 <5",
     "requiredCapabilities": [
+      "pages",
+      "ui-slots",
       "filesystem-v1",
       "file-transactions-v1"
     ]

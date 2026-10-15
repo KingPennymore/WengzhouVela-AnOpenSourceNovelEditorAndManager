@@ -3,10 +3,12 @@ import assert from 'node:assert/strict';
 import {templatesFor,templateText} from '../web/file-templates.mjs';
 import {fileKind} from '../web/model.mjs';
 import {menuPlacement} from '../web/selection-menu.mjs';
-import {createVelaOdt} from '../web/velaodt.mjs';
+import {createVelaOdt} from '../web/odf-base.mjs';
 
 test('templates follow actual extension and use valid structured defaults',()=>{
- for(const name of ['book.txt','book.md','book.velaodt','book.vodt']){assert.ok(templatesFor(name).some(t=>t.id==='character'));assert.ok(!templatesFor(name).some(t=>t.id==='html'));}
+ for(const name of ['book.txt','book.md']){assert.ok(templatesFor(name).some(t=>t.id==='character'));assert.ok(!templatesFor(name).some(t=>t.id==='html'));}
+ // The ODF component was removed: existing VODT files stay readable, new ones only get the empty template.
+ for(const name of ['book.velaodt','book.vodt'])assert.deepEqual(templatesFor(name).map(t=>t.id),['empty']);
  assert.deepEqual(templatesFor('a.js').map(t=>t.id),['empty']);assert.deepEqual(templatesFor('a.tex').map(t=>t.id),['empty','tex']);
  assert.ok(templateText('story.md','chapters').startsWith('# 第一章'));
  assert.ok(templateText('plan.tsv','plan').includes('\t'));assert.equal(JSON.parse(templateText('terms.gly','empty')).entries.length,0);
