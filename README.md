@@ -4,9 +4,11 @@
 
 文舟是独立项目，不是 Acode 官方应用，也不代表 Acode Foundation。项目复用了 Acode 的部分 CodeMirror 编辑组件和 Acode-Writer 1.0.4 的章节识别代码，具体版权与许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-当前版本：鸿蒙 / Windows **0.9.6**，安卓 **0.9.6-android.1**，移动端版本代码 **10906**，包名 `me.wenzhou.write`。HarmonyOS 使用 API 24 SDK 编译，兼容 API 12；安卓最低 Android 8.0 / API 26，WebView 需 Chromium 105 或更新版本。
+当前版本：鸿蒙 / Windows **0.9.7**，安卓 **0.9.7-android.1**，移动端版本代码 **10907**，包名 `me.wenzhou.write`。HarmonyOS 使用 API 24 SDK 编译，兼容 API 12；安卓最低 Android 8.0 / API 26，WebView 需 Chromium 105 或更新版本。
 
-[下载 0.9.6](https://github.com/KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager/releases/tag/v0.9.6)：本次仅提供三端轻量版，包括发布签名 HAP、鸿蒙市场提交用 APP.zip、安卓签名 APK / AAB、Windows x64 安装程序 / ZIP；另附源码、四份可选组件（排版引擎、中文排版、电子书/PDF、ODF）及 SHA-256 清单。Windows 包尚无 Authenticode 签名。鸿蒙发布签名的直接安装受系统来源校验限制，不能替代调试签名安装。
+[下载 0.9.7](https://github.com/KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager/releases/tag/v0.9.7)（预发布）：提供鸿蒙发布签名 HAP、鸿蒙市场提交用 APP.zip、Windows x64 安装程序 / 便携版、源码和可选组件；安卓签名安装包稍后补充。
+
+0.9.7 重写插件平台为插件接口 4（移除 Acode 运行时，插件可在顶栏、文稿栏、底栏、两侧侧栏和选区菜单添加按钮与面板），删除 ODF 组件。新增 TXT 格式：粗体、着重号、居中、注音、插图和命名样式，格式另存为同名 `.vela` 旁注（.vela 第三版），TXT 正文保持纯文字，外部改稿后自动重新定位；阅读页与预览显示格式。新增按章节导出 TXT / Markdown / HTML、复制到剪贴板，以及 EPUB 3 导出（EPUBCheck 无错误）。界面方面合并编辑页的标签、格式与视图切换为一行，桌面快捷操作移入状态栏，正文区占比从 75% 提高到 85%；新增自选配色；预览内可直接跳转章节；修复深色模式分隔线颜色。
 
 0.9.6 合并分享对话中的启动页、固定顶底栏、格式模板、竖向选区菜单与 VODT 图文编辑更新；插件页统一管理排版、电子书/PDF 和 ODF 可选组件。ODF 复杂排版及原生选区菜单兼容边界见组件文档。
 

@@ -1,7 +1,7 @@
 {
   "name": "wenzhou-harmonyos",
-  "version": "0.9.6",
-  "harmonyVersion": "0.9.6",
+  "version": "0.9.7",
+  "harmonyVersion": "0.9.7",
   "private": true,
   "description": "文舟 Vela：HarmonyOS NEXT / Android / Windows 开源小说创作与阅读工具",
   "scripts": {
@@ -27,8 +27,6 @@
     "test:vodt": "node tests/velaodt-browser.mjs",
     "package:ebook": "node scripts/package-ebook-component.mjs",
     "test:components": "node tests/components-browser.mjs",
-    "package:odf": "node scripts/package-odf-component.mjs",
-    "test:odf": "node tests/odf-component-browser.mjs",
     "test:start": "node tests/start-page-browser.mjs"
   },
   "dependencies": {
