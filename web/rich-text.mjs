@@ -140,3 +140,24 @@ export function buildSidecar(target,text,entries,review=[],previous={}){
   if(review.length)sidecar.review=review.map(({from:_f,to:_to,...entry})=>entry);
   return sidecar;
 }
+
+// ---- Reading and export ----
+
+const formatCache=new WeakMap();
+/** Placed entries of `doc` from its sidecar among `documents`, for read-only use; [] without a valid sidecar. */
+export function documentFormats(documents,doc){
+  const path=doc&&(doc.path||doc.name),sidecar=path&&documents.find(item=>(item.path||item.name)===sidecarPath(path));if(!sidecar)return [];
+  const cached=formatCache.get(doc);if(cached&&cached.sidecar===sidecar.text&&cached.text===doc.text)return cached.entries;
+  let entries=[];try{entries=resolveSidecar(doc.text,readSidecar(sidecar.text)).entries;}catch{/* An invalid sidecar is reported when the TXT is edited. */}
+  formatCache.set(doc,{sidecar:sidecar.text,text:doc.text,entries});return entries;
+}
+/** Splits text[from, to) into runs, each with the known inline formats active on all of it. Joined runs equal the text. */
+export function inlineRuns(text,from,to,marks){
+  const active=marks.filter(mark=>mark.group==='marks'&&INLINE_TYPES.includes(mark.type)&&mark.from<to&&mark.to>from);
+  if(!active.length)return to>from?[{text:text.slice(from,to),types:[]}]:[];
+  const points=[...new Set([from,to,...active.flatMap(mark=>[mark.from,mark.to]).filter(at=>at>from&&at<to)])].sort((a,b)=>a-b),runs=[];
+  for(let i=0;i<points.length-1;i++){const start=points[i],end=points[i+1];runs.push({text:text.slice(start,end),types:[...new Set(active.filter(mark=>mark.from<=start&&mark.to>=end).map(mark=>mark.type))].sort()});}
+  return runs;
+}
+/** Line start → alignment value for paragraph alignment entries. */
+export const alignedLines=entries=>new Map(entries.filter(entry=>entry.group==='blocks'&&entry.type==='align'&&ALIGN_VALUES.includes(entry.value)).map(entry=>[entry.from,entry.value]));

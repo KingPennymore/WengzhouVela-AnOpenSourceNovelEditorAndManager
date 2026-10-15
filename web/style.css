@@ -129,6 +129,7 @@ body.reader-open .workspace{position:relative}.reader-pagebar{padding:8px 18px c
 .reader-viewport{position:relative}.reader-viewport:focus,.reader-viewport:focus-visible{outline:none}
 .reader-content:not(.tex-pdf){padding:var(--reader-marginTop,24px) var(--reader-marginRight,35px) var(--reader-marginBottom,24px) var(--reader-marginLeft,35px);line-height:var(--reader-lineHeight,1.9);max-width:none;width:100%;margin:0}
 .reader-paged .reader-viewport{touch-action:none}.reader-paged .reader-content:not(.tex-pdf){column-width:calc(var(--page-width) - var(--reader-marginLeft,35px) - var(--reader-marginRight,35px));column-gap:calc(var(--reader-gap,48px) + var(--reader-marginLeft,35px) + var(--reader-marginRight,35px));background:var(--paper)}
+.reader-format-strong{font-weight:700}.reader-format-emphasis{text-emphasis:filled dot;text-emphasis-position:under right;-webkit-text-emphasis:filled dot;-webkit-text-emphasis-position:under right}.reader-format-block{display:block}.reader-format-center{text-align:center}.reader-format-right{text-align:right}
 .reader-section-title{font-size:1.5em;font-weight:600;line-height:1.5;margin:1em 0 .7em;white-space:normal;overflow-wrap:anywhere}
 .reader-paged .reader-section-title{height:var(--reader-page-height);margin:0;display:flex;align-items:center;justify-content:center;text-align:center;break-before:column;break-after:column;break-inside:avoid;overflow:hidden}
 .reader-paged .reader-viewport>.reader-content{position:relative;z-index:1}

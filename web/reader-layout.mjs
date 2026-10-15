@@ -1,14 +1,27 @@
+import {inlineRuns,alignedLines} from './rich-text.mjs';
 export const displayChapterTitle=value=>String(value||'').replace(/[\p{P}\p{Z}\s]+$/gu,'');
 export function lineOffsets(text){const offsets=[0];for(let i=0;i<text.length;i++)if(text.charCodeAt(i)===10)offsets.push(i+1);return offsets;}
 export function chapterOffset(text,row,offsets){return (offsets||lineOffsets(text))[row]??text.length;}
-export function renderPlainChapters(root,text,sections){
+/**
+ * Plain text with chapter headings as blocks. TXT formats (`formats`: sidecar entries with offsets in the whole
+ * document, `base`: where `text` starts in it) become spans and aligned line blocks. The rendered textContent
+ * always equals `text`, so reading positions, bookmarks and search offsets are unaffected.
+ */
+export function renderPlainChapters(root,text,sections,{formats=[],base=0}={}){
   root.replaceChildren();let cursor=0;const offsets=lineOffsets(text),fragment=document.createDocumentFragment();
-  for(const section of sections.filter(section=>section.heading)){
-    const start=chapterOffset(text,section.row,offsets),end=text.indexOf('\n',start),stop=end<0?text.length:end+1;
-    if(start>cursor)fragment.append(document.createTextNode(text.slice(cursor,start)));
-    const heading=document.createElement('h2');heading.className='reader-section-title';if(/^[^\S\r\n]/u.test(text.slice(start,stop)))heading.classList.add('reader-indented-title');heading.textContent=text.slice(start,stop);fragment.append(heading);cursor=stop;
+  const local=formats.length?formats.filter(entry=>entry.to>=base&&entry.from<=base+text.length).map(entry=>({...entry,from:entry.from-base,to:entry.to-base})):[],aligned=alignedLines(local);
+  const inline=(parent,from,to)=>{for(const run of inlineRuns(text,from,to,local)){if(!run.types.length){parent.append(document.createTextNode(run.text));continue;}const span=document.createElement('span');span.className=run.types.map(type=>'reader-format-'+type).join(' ');span.textContent=run.text;parent.append(span);}};
+  const lineEnd=start=>{const end=text.indexOf('\n',start);return end<0?text.length:end+1;};
+  const blocks=sections.filter(section=>section.heading).map(section=>{const start=chapterOffset(text,section.row,offsets);return {start,stop:lineEnd(start),heading:true,value:aligned.get(start)};});
+  for(const [start,value] of aligned)if(start>=0&&start<text.length&&!blocks.some(block=>block.start===start))blocks.push({start,stop:lineEnd(start),value});
+  for(const block of blocks.sort((a,b)=>a.start-b.start)){
+    if(block.start<cursor)continue;inline(fragment,cursor,block.start);let element;
+    if(block.heading){element=document.createElement('h2');element.className='reader-section-title';if(/^[^\S\r\n]/u.test(text.slice(block.start,block.stop)))element.classList.add('reader-indented-title');}
+    else{element=document.createElement('span');element.className='reader-format-block';}
+    if(block.value)element.classList.add('reader-format-'+block.value);
+    inline(element,block.start,block.stop);fragment.append(element);cursor=block.stop;
   }
-  if(cursor<text.length)fragment.append(document.createTextNode(text.slice(cursor)));root.append(fragment);
+  inline(fragment,cursor,text.length);root.append(fragment);
 }
 export function fitReadingLayout(layout,width,height){
   const result={...layout},horizontal=Math.max(0,width-80),vertical=Math.max(0,height-80);
