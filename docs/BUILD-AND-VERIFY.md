@@ -6,6 +6,8 @@
 
 GitHub Actions 的 `Verify` 工作流在 master 推送、拉取请求或手动启动时分别执行完整版和轻量版的共享检查与真实 TeX 编译。工作流只有仓库读取权限，不使用发布签名或私人账号，也不会自动发布。
 
+新写的浏览器测试可以用 `tests/source-app-server.mjs` 的 `startSourceAppServer()` 直接从 `web/` 源码在内存中打包并提供页面，不需要先 `npm run build`，也不会改写 `entry/` 或 `dist/web`。TeX 等复制类资源仍取自最近一次构建。单独运行 `node tests/source-app-server.mjs` 可在 4174 端口预览源码（`VELA_PREVIEW_PORT` 可改）。
+
 ## 完整版与轻量版
 
 默认 `npm run build`、`npm run build:android` 和 `npm run build:windows` 继续生成完整版，内置离线 TeX 引擎及中文包。

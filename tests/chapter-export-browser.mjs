@@ -2,14 +2,11 @@ import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
-import http from 'node:http';
-import path from 'node:path';
+import {startSourceAppServer} from './source-app-server.mjs';
 
 // Chapter sidebar → 导出章节: a chapter range downloads as TXT and a chapter copies to the clipboard; the document is unchanged.
-const root=path.resolve('dist/web');
-const server=http.createServer(async(req,res)=>{const pathname=new URL(req.url,'http://localhost').pathname,file=path.resolve(root,'.'+(pathname==='/'?'/index.html':decodeURIComponent(pathname)));if(!file.startsWith(root+path.sep)){res.writeHead(403).end();return;}let body;try{body=await readFile(file);}catch{res.writeHead(404).end();return;}res.writeHead(200,{'Content-Type':{'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css'}[path.extname(file)]||'application/octet-stream'}).end(body);});
-await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-const origin='http://127.0.0.1:'+server.address().port,browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||(existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe')?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined)});
+const server=await startSourceAppServer();
+const origin=server.url,browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||(existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe')?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined)});
 const context=await browser.newContext({viewport:{width:1280,height:800},acceptDownloads:true});await context.grantPermissions(['clipboard-read','clipboard-write'],{origin});
 const page=await context.newPage(),errors=[],checks=[];page.on('pageerror',error=>errors.push(error.message));
 const check=async(name,run)=>{await run();checks.push(name);console.log('PASS '+name);};
