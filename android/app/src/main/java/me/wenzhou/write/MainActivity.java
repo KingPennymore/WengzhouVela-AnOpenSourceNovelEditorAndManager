@@ -250,7 +250,7 @@ public final class MainActivity extends Activity {
         if (lower.endsWith(".odp") || lower.endsWith(".otp")) return "application/vnd.oasis.opendocument.presentation" + (lower.endsWith(".otp") ? "-template" : "");
         if (lower.endsWith(".odg") || lower.endsWith(".otg")) return "application/vnd.oasis.opendocument.graphics" + (lower.endsWith(".otg") ? "-template" : "");
         if (lower.endsWith(".ott")) return "application/vnd.oasis.opendocument.text-template";
-        return lower.endsWith(".odt") ? "application/vnd.oasis.opendocument.text" : lower.endsWith(".fodt") || lower.endsWith(".fods") || lower.endsWith(".fodp") || lower.endsWith(".fodg") || lower.endsWith(".velaodt") || lower.endsWith(".vodt") ? "application/xml" : lower.endsWith(".pdf") ? "application/pdf" : lower.endsWith(".csv") ? "text/csv" : lower.endsWith(".html") || lower.endsWith(".htm") ? "text/html" : lower.endsWith(".md") ? "text/markdown" : "text/plain";
+        return lower.endsWith(".odt") ? "application/vnd.oasis.opendocument.text" : lower.endsWith(".fodt") || lower.endsWith(".fods") || lower.endsWith(".fodp") || lower.endsWith(".fodg") || lower.endsWith(".velaodt") || lower.endsWith(".vodt") ? "application/xml" : lower.endsWith(".pdf") ? "application/pdf" : lower.endsWith(".csv") ? "text/csv" : lower.endsWith(".html") || lower.endsWith(".htm") ? "text/html" : lower.endsWith(".md") ? "text/markdown" : lower.endsWith(".epub") ? "application/epub+zip" : "text/plain";
     }
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);

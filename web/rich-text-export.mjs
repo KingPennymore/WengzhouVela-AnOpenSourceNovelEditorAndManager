@@ -40,7 +40,8 @@ export function chapterMarkdown(text,sections,entries,options){
   return {text:out?out+'\n':'',chapters:chapters.length};
 }
 
-const htmlLine=(text,line,entries)=>inlineRuns(text,line.start,line.end,entries).map(run=>{let out=escapeHtml(run.text);if(run.types.includes('emphasis'))out='<em class="emphasis">'+out+'</em>';if(run.types.includes('strong'))out='<strong>'+out+'</strong>';return out;}).join('');
+/** One exported line as (X)HTML-safe markup with its inline formats. */
+export const htmlLine=(text,line,entries)=>inlineRuns(text,line.start,line.end,entries).map(run=>{let out=escapeHtml(run.text);if(run.types.includes('emphasis'))out='<em class="emphasis">'+out+'</em>';if(run.types.includes('strong'))out='<strong>'+out+'</strong>';return out;}).join('');
 /** HTML body for a chapter range: one paragraph per non-blank line, `h2` titles, aligned lines keep their alignment. */
 export function chapterHtmlBody(text,sections,entries,options){
   const aligned=alignedLines(entries),chapters=exportLines(text,sections,options);
