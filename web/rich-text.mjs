@@ -10,6 +10,9 @@ export const MAX_ENTRIES=50000;
 const CONTEXT=16,GROUPS=['marks','blocks','inserts'];
 /** Formats the editor can apply. Other types in a sidecar are kept and re-anchored but not rendered. */
 export const INLINE_TYPES=Object.freeze(['strong','emphasis']);
+/** Inline formats that carry a value: `ruby` (the reading) and `style` (a named style ID). */
+export const VALUE_TYPES=Object.freeze(['ruby','style']);
+export const MAX_RUBY=64;
 export const ALIGN_VALUES=Object.freeze(['center','right']);
 
 export const sidecarPath=path=>path+SIDECAR_SUFFIX;
@@ -151,13 +154,43 @@ export function documentFormats(documents,doc){
   let entries=[];try{entries=resolveSidecar(doc.text,readSidecar(sidecar.text)).entries;}catch{/* An invalid sidecar is reported when the TXT is edited. */}
   formatCache.set(doc,{sidecar:sidecar.text,text:doc.text,entries});return entries;
 }
-/** Splits text[from, to) into runs, each with the known inline formats active on all of it. Joined runs equal the text. */
+/**
+ * Splits text[from, to) into runs, each with the inline formats active on all of it: `strong`, `emphasis` and
+ * `style:<id>`. Ruby is handled by inlineSegments. Joined runs equal the text.
+ */
 export function inlineRuns(text,from,to,marks){
-  const active=marks.filter(mark=>mark.group==='marks'&&INLINE_TYPES.includes(mark.type)&&mark.from<to&&mark.to>from);
+  const key=mark=>mark.type==='style'?'style:'+mark.value:mark.type;
+  const active=marks.filter(mark=>mark.group==='marks'&&(INLINE_TYPES.includes(mark.type)||mark.type==='style'&&typeof mark.value==='string')&&mark.from<to&&mark.to>from);
   if(!active.length)return to>from?[{text:text.slice(from,to),types:[]}]:[];
   const points=[...new Set([from,to,...active.flatMap(mark=>[mark.from,mark.to]).filter(at=>at>from&&at<to)])].sort((a,b)=>a-b),runs=[];
-  for(let i=0;i<points.length-1;i++){const start=points[i],end=points[i+1];runs.push({text:text.slice(start,end),types:[...new Set(active.filter(mark=>mark.from<=start&&mark.to>=end).map(mark=>mark.type))].sort()});}
+  for(let i=0;i<points.length-1;i++){const start=points[i],end=points[i+1];runs.push({text:text.slice(start,end),types:[...new Set(active.filter(mark=>mark.from<=start&&mark.to>=end).map(key))].sort()});}
   return runs;
+}
+/**
+ * Runs of text[from, to) grouped under ruby: plain items are runs, ruby items are {ruby, runs} covering the base
+ * text. Overlapping ruby entries keep the earlier one. Joined text equals text[from, to).
+ */
+export function inlineSegments(text,from,to,marks){
+  const rubies=marks.filter(mark=>mark.group==='marks'&&mark.type==='ruby'&&typeof mark.value==='string'&&mark.value&&mark.from>=from&&mark.to<=to&&mark.to>mark.from).sort((a,b)=>a.from-b.from),items=[];let at=from;
+  for(const ruby of rubies){if(ruby.from<at)continue;items.push(...inlineRuns(text,at,ruby.from,marks));items.push({ruby:ruby.value,runs:inlineRuns(text,ruby.from,ruby.to,marks)});at=ruby.to;}
+  items.push(...inlineRuns(text,at,to,marks));return items;
 }
 /** Line start → alignment value for paragraph alignment entries. */
 export const alignedLines=entries=>new Map(entries.filter(entry=>entry.group==='blocks'&&entry.type==='align'&&ALIGN_VALUES.includes(entry.value)).map(entry=>[entry.from,entry.value]));
+/** Line start → named style ID for paragraph styles. */
+export const styledLines=entries=>new Map(entries.filter(entry=>entry.group==='blocks'&&entry.type==='style'&&typeof entry.value==='string').map(entry=>[entry.from,entry.value]));
+/** Line end → images inserted after that line, in order. */
+export function imagesByLine(text,entries){
+  const map=new Map();
+  for(const entry of entries.filter(entry=>entry.group==='inserts'&&entry.type==='image'&&typeof entry.src==='string').sort((a,b)=>a.from-b.from)){
+    const end=text.indexOf('\n',Math.min(entry.from,text.length)),at=end<0?text.length:end;if(!map.has(at))map.set(at,[]);map.get(at).push(entry);
+  }
+  return map;
+}
+/** Relative image path inside the workspace; no absolute, parent or URL paths. */
+export function imagePath(value){
+  const path=String(value||'').trim().replace(/\\/g,'/');
+  if(!path||path.startsWith('/')||/^[a-z][\w+.-]*:/i.test(path)||path.split('/').some(part=>!part||part==='.'||part==='..')||/[\x00-\x1f]/.test(path))throw Error('请填写工作区内的相对路径，例如 插图/雪夜.png。');
+  if(!/\.(png|jpe?g|gif|webp)$/i.test(path))throw Error('插图须为 PNG、JPEG、GIF 或 WebP 图片。');
+  return path;
+}

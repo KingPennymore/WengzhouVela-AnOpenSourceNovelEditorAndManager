@@ -2,8 +2,9 @@
 // Format reference: EPUB 3.3 (https://www.w3.org/TR/epub-33/): `mimetype` first and uncompressed, OCF container,
 // package document with dc:identifier/title/language and dcterms:modified, a nav document, XHTML content.
 import {zipSync,strToU8} from 'fflate';
-import {exportLines,htmlLine} from './rich-text-export.mjs';
-import {alignedLines} from './rich-text.mjs';
+import {exportLines,htmlLine,lineClass,escapeHtml,FIGURE_CSS} from './rich-text-export.mjs';
+import {alignedLines,styledLines,imagesByLine} from './rich-text.mjs';
+import {styleSheet} from './rich-text-styles.mjs';
 
 const NS={opf:'http://www.idpf.org/2007/opf',dc:'http://purl.org/dc/elements/1.1/',xhtml:'http://www.w3.org/1999/xhtml',epub:'http://www.idpf.org/2007/ops',ncx:'http://www.daisy.org/z3986/2005/ncx/',container:'urn:oasis:names:tc:opendocument:xmlns:container'};
 export const COVER_TYPES=Object.freeze({'image/jpeg':'jpg','image/png':'png','image/gif':'gif','image/webp':'webp'});
@@ -15,8 +16,8 @@ const xml=value=>clean(value).replace(/[&<>"]/g,char=>({'&':'&amp;','<':'&lt;','
 const modified=date=>date.toISOString().replace(/\.\d{3}Z$/,'Z');
 const pad=index=>String(index).padStart(3,'0');
 
-function chapterXhtml({title,lines,text,entries,aligned,language,id}){
-  const body=lines.filter(line=>line.text.trim()).map(line=>{const align=aligned.get(line.start),attribute=align?` class="${align}"`:'',markup=clean(htmlLine(text,line,entries));return line.heading?`<h1${attribute}>${markup.trim()}</h1>`:`<p${attribute}>${markup}</p>`;}).join('\n');
+function chapterXhtml({title,lines,text,entries,aligned,styled,images,figure,language,id}){
+  const body=lines.flatMap(line=>{const parts=[];if(line.text.trim()){const attribute=lineClass(line,aligned,styled),markup=clean(htmlLine(text,line,entries));parts.push(line.heading?`<h1${attribute}>${markup.trim()}</h1>`:`<p${attribute}>${markup}</p>`);}for(const image of images.get(line.end)||[])parts.push(...figure(image));return parts;}).join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="${NS.xhtml}" xmlns:epub="${NS.epub}" lang="${xml(language)}" xml:lang="${xml(language)}">
@@ -42,22 +43,24 @@ strong{font-weight:bold}
 em.emphasis{font-style:normal;text-emphasis:filled dot;text-emphasis-position:under right;-webkit-text-emphasis:filled dot;-webkit-text-emphasis-position:under right;-epub-text-emphasis:filled dot;-epub-text-emphasis-position:under right}
 .cover{margin:0;padding:0;text-align:center}
 .cover img{max-width:100%;max-height:100%}
-`;
+`+FIGURE_CSS+'\n';
 
 /**
  * Builds an EPUB from sections[from..to] of a TXT. `entries` are placed sidecar formats; `cover` is optional
  * {bytes, type}. Chapters without text are skipped. Returns the archive bytes and the files it contains.
  */
-export function buildEpub({text,sections,entries=[],from=0,to=sections.length-1,includeTitle=true,metadata={},cover=null,clock=()=>new Date()}){
+export function buildEpub({text,sections,entries=[],from=0,to=sections.length-1,includeTitle=true,metadata={},cover=null,styles={},images=new Map(),clock=()=>new Date()}){
   const title=clean(metadata.title||'').trim(),language=metadata.language||'zh-CN',identifier=metadata.identifier||'urn:uuid:'+crypto.randomUUID();
   if(!title||title.length>1000)throw failure('请填写书名（最多 1000 字）。');
   if(!/^[a-zA-Z]{2,8}(?:-[a-zA-Z0-9]{1,8})*$/.test(language))throw failure('语言代码无效，例如 zh-CN。');
   if(cover){if(!COVER_TYPES[cover.type])throw failure('封面须为 JPEG、PNG、GIF 或 WebP 图片。');if(!(cover.bytes instanceof Uint8Array)||!cover.bytes.length||cover.bytes.length>MAX_COVER_BYTES)throw failure('封面图片不能超过 5 MB。');}
-  const aligned=alignedLines(entries),chapters=[];
+  const aligned=alignedLines(entries),styled=styledLines(entries),byLine=imagesByLine(text,entries),chapters=[],illustrations=new Map(),missing=[];
+  // Each distinct illustration is stored once; ones that could not be read are left out and reported.
+  const figure=image=>{const data=images.get(image.src);if(!data||!COVER_TYPES[data.type]||!(data.bytes instanceof Uint8Array)){missing.push(image.src);return [];}if(!illustrations.has(image.src))illustrations.set(image.src,{...data,file:'images/illustration-'+pad(illustrations.size+1)+'.'+COVER_TYPES[data.type]});const alt=escapeHtml(clean(image.alt||''));return [`<figure class="illustration"><img src="../${illustrations.get(image.src).file}" alt="${alt}"/>${alt?`<figcaption>${alt}</figcaption>`:''}</figure>`];};
   for(let at=from;at<=to;at++){
     const [lines]=exportLines(text,sections,{from:at,to:at,includeTitle});if(!lines?.some(line=>line.text.trim()))continue;
     const id='chapter-'+pad(chapters.length+1),name=sections[at].title.trim()||'第 '+(chapters.length+1)+' 部分';
-    chapters.push({id,file:'text/'+id+'.xhtml',title:name,xhtml:chapterXhtml({title:name,lines,text,entries,aligned,language,id})});
+    chapters.push({id,file:'text/'+id+'.xhtml',title:name,xhtml:chapterXhtml({title:name,lines,text,entries,aligned,styled,images:byLine,figure,language,id})});
   }
   if(!chapters.length)throw failure('所选章节没有正文。');
   const files=new Map(),add=(path,value)=>files.set(path,value);
@@ -76,7 +79,8 @@ export function buildEpub({text,sections,entries=[],from=0,to=sections.length-1,
 </html>
 `);}
   for(const chapter of chapters)add('OEBPS/'+chapter.file,chapter.xhtml);
-  add('OEBPS/styles/book.css',STYLE);
+  for(const item of illustrations.values())add('OEBPS/'+item.file,item.bytes);
+  add('OEBPS/styles/book.css',STYLE+styleSheet(styles)+'\n');
   add('OEBPS/nav.xhtml',`<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="${NS.xhtml}" xmlns:epub="${NS.epub}" lang="${xml(language)}" xml:lang="${xml(language)}">
@@ -112,7 +116,7 @@ ${cover?'<meta name="cover" content="cover-image"/>\n':''}</metadata>
 <item id="nav" href="nav.xhtml" media-type="application/xhtml+xml" properties="nav"/>
 <item id="ncx" href="toc.ncx" media-type="application/x-dtbncx+xml"/>
 <item id="style" href="styles/book.css" media-type="text/css"/>
-${cover?`<item id="cover-image" href="${coverFile}" media-type="${cover.type}" properties="cover-image"/>\n<item id="cover" href="text/cover.xhtml" media-type="application/xhtml+xml"/>\n`:''}${chapters.map(chapter=>`<item id="${chapter.id}" href="${chapter.file}" media-type="application/xhtml+xml"/>`).join('\n')}
+${cover?`<item id="cover-image" href="${coverFile}" media-type="${cover.type}" properties="cover-image"/>\n<item id="cover" href="text/cover.xhtml" media-type="application/xhtml+xml"/>\n`:''}${[...illustrations.values()].map((item,index)=>`<item id="illustration-${pad(index+1)}" href="${item.file}" media-type="${item.type}"/>\n`).join('')}${chapters.map(chapter=>`<item id="${chapter.id}" href="${chapter.file}" media-type="application/xhtml+xml"/>`).join('\n')}
 </manifest>
 <spine toc="ncx">
 ${cover?'<itemref idref="cover" linear="yes"/>\n':''}${chapters.map(chapter=>`<itemref idref="${chapter.id}"/>`).join('\n')}
@@ -120,7 +124,7 @@ ${cover?'<itemref idref="cover" linear="yes"/>\n':''}${chapters.map(chapter=>`<i
 </package>
 `);
   const archive={};for(const [path,value] of files)archive[path]=path==='mimetype'?[strToU8(value),{level:0}]:typeof value==='string'?strToU8(value):value;
-  return {bytes:zipSync(archive,{level:6}),files,chapters:chapters.length,identifier};
+  return {bytes:zipSync(archive,{level:6}),files,chapters:chapters.length,identifier,missing:[...new Set(missing)]};
 }
 /** “书名.epub” with characters file systems reject replaced. */
 export const epubFileName=title=>(String(title||'').replace(/[\\/:*?"<>|\x00-\x1f\x7f]+/g,' ').replace(/\s+/g,' ').trim().slice(0,120).trim()||'电子书')+'.epub';

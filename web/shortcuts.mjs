@@ -19,7 +19,7 @@ export const shortcuts=[
   ['new-doc','Mod-n','Ctrl+N','新建文件'],
   ['close-active','Mod-w','Ctrl+W','关闭当前标签'],
   ['home-button','Mod-Alt-h','Ctrl+Alt+H','启动页'],
-  ['plugins','Mod-Alt-p','Ctrl+Alt+P','Acode 插件'],
+  ['plugins','Mod-Alt-p','Ctrl+Alt+P','插件与组件'],
   ['commands','Mod-Shift-k','Ctrl+Shift+K','命令与快捷键'],
   ['append-chapter','Mod-Alt-Enter','Ctrl+Alt+Enter','追加章节'],
   ['locate-chapter','Mod-Alt-l','Ctrl+Alt+L','定位当前章节'],

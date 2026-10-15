@@ -7,10 +7,10 @@
   --elev-1:0 1px 2px #0f241808,0 1px 3px #0f24180d;
   --elev-2:0 10px 24px -12px #0f241838,0 2px 6px #0f24180f;
   --elev-3:0 28px 64px -20px #0f241852,0 4px 14px #0f241814;
-  --hairline:var(--line);
 }
 body.dark{--elev-1:0 1px 2px #0005;--elev-2:0 12px 28px -12px #000a,0 2px 6px #0004;--elev-3:0 30px 70px -18px #000c,0 4px 14px #0006}
-body{background:var(--bg);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
+/* Defined on body, where the palette tokens are set inline; on :root it would keep the light --line in dark mode. */
+body{--hairline:var(--line);background:var(--bg);-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 
 /* Scrollbars stay thin so side panels read as surfaces, not frames. */
 *{scrollbar-width:thin;scrollbar-color:var(--line) transparent}

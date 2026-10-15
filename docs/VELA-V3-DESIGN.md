@@ -202,10 +202,14 @@
 
 - 回收站里 TXT 与旁注是两条记录（恢复 TXT 时会自动恢复旁注）。
 - 旁注在别处被改（同步拉取、手动编辑源码）后，打开中的 TXT 会在下次保存时重新载入旁注，而不是覆盖它；这次重新载入不进入撤销历史。
-- 搜索结果和插件接口尚未使用格式；注音、插图、命名样式尚未实现（随之而来的阅读页渲染和导出也未做）。
+- 搜索结果和插件接口尚未使用格式。
+- 插图只在原生应用中显示和导出（通过 `readWorkspaceAsset` 读取工作区图片）；浏览器预览显示占位框，导出时省略并提示。
 
 - 阅读页（P3）：`renderPlainChapters` 按旁注把行内格式渲染为 span、把对齐行渲染为块级 span，行尾换行包在块内，`textContent` 与正文完全一致，阅读位置、书签、搜索偏移不受影响；长篇分块显示和分页测量使用同一渲染，偏移按区块起点换算。
 - 导出（P4）：`web/rich-text-export.mjs`。“导出章节”对话框可选 TXT、Markdown、HTML。Markdown 每个非空行一段、章节标题为 `##`；粗体为 `**`，着重号为斜体，紧挨中文标点时改用 `<strong>`、`<em>`（CommonMark 的分隔符规则在中文标点旁失效），正文里的 Markdown 字符会转义；Markdown 无法表示居中。HTML 是不含脚本和外部资源的单文件，保留全部格式；复制 HTML 时剪贴板同时放入带格式内容和纯文本，可粘贴到支持富文本的编辑器（原生端暂只复制纯文本）。命令面板另有“导出全书为 HTML（保留格式）”。
 - EPUB 导出：`web/epub-export.mjs`。命令面板“导出 EPUB…”或“导出章节”中的“导出 EPUB…”。EPUB 3 结构（`mimetype` 不压缩且在首位、OCF 容器、package、nav），另附 NCX 目录供只认 EPUB 2 的阅读器使用；每章一个 XHTML，保留粗体、着重号（`em.emphasis` 加 `text-emphasis`，含 `-epub-` 前缀）和居中。书名、作者、简介取自作品配置，可在对话框修改；可选封面（JPEG、PNG、GIF、WebP，≤5 MB）同时写入 EPUB 3 的 `cover-image` 和 EPUB 2 的 `<meta name="cover">`。书籍标识 `urn:uuid:` 按文稿保存在本机工作区数据中，重复导出时阅读器会认作同一本书。XML 不允许的控制字符在导出时去掉。2026-10-15 用 W3C EPUBCheck 5.4.0（EPUB 3.4 规则）校验了 4 种导出：带封面与全部格式、不含章节标题、章节范围加繁体语言代码、3000 段 11 章长篇。结果均为 0 错误、0 警告。尚未在实体阅读器上验收。
+- 注音：`marks` 中 `type: "ruby"`、`value` 为读音（最多 64 字符）。编辑器和阅读页用伪元素把读音画在字的上方，不产生文本节点；在注音末尾继续输入不会扩大注音范围。导出 HTML、EPUB 为 `<ruby>…<rp>（</rp><rt>…</rt><rp>）</rp></ruby>`，Markdown 为内联 `<ruby>`。
+- 插图：`inserts` 中 `type: "image"`、`src` 为相对本 TXT 所在文件夹的工作区路径（PNG、JPEG、GIF、WebP），可带 `alt`。插图挂在段落末尾：在段末输入或回车，插图都留在原段落之后。编辑器显示为块级图片，点击可编辑或删除；阅读页是不含文字、高度固定的块（分页测量与图片是否加载完无关）。原生端可从本机导入图片到 `插图/`。导出时 Markdown 写成 `![说明](路径)`，HTML 内嵌为 data URL，EPUB 每张图只打包一次并登记到 manifest。
+- 命名样式：作品或全局配置的 `styles`（需要 `version: 3`），属性限定为对齐、缩进、字体、字号、颜色、加粗、边框，见 `web/rich-text-styles.mjs`。内置“系统提示”“书信”“回忆”（段落）和“旁注”（行内），配置可按 ID 覆盖或新增，最多 32 个。段落样式是 `blocks` 中的 `type: "style"`，行内样式是 `marks` 中的 `type: "style"`，`value` 为样式 ID；同一段文字只能有一个行内样式。“管理样式…”写入作品 `.vela`，没有作品配置时写入 `.global.vela`。编辑器和阅读页使用配色变量，导出使用适合白底和电子书的固定颜色，生成 `.style-<id>` 样式表；Markdown 不输出样式。
 
-测试：`tests/rich-text.test.mjs`（旁注与重定位，包括第 7 节实验的回归断言：随机改稿下不得错位）、`tests/rich-text-editor.test.mjs`（格式层映射与撤销）、`tests/rich-text-export.test.mjs`（Markdown 与 HTML 导出）、`tests/epub-export.test.mjs` 与 `tests/epub-export-browser.mjs`（EPUB 结构、元数据、格式、封面、XML 良构、标识稳定）、`tests/rich-text-browser.mjs`（工具栏、快捷键、保存重开、阅读页与长篇分块、HTML/Markdown 导出与复制、外部改稿与待确认、重命名、回收站、旁注摘要）。
+测试：`tests/rich-text.test.mjs`（旁注与重定位，包括第 7 节实验的回归断言：随机改稿下不得错位）、`tests/rich-text-editor.test.mjs`（格式层映射与撤销）、`tests/rich-text-export.test.mjs`（Markdown 与 HTML 导出）、`tests/rich-text-formats.test.mjs` 与 `tests/rich-text-formats-browser.mjs`（注音、样式、插图在旁注、编辑器、阅读页和三种导出中的表现）、`tests/epub-export.test.mjs` 与 `tests/epub-export-browser.mjs`（EPUB 结构、元数据、格式、封面、XML 良构、标识稳定）、`tests/rich-text-browser.mjs`（工具栏、快捷键、保存重开、阅读页与长篇分块、HTML/Markdown 导出与复制、外部改稿与待确认、重命名、回收站、旁注摘要）。
