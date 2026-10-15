@@ -5,7 +5,7 @@ import {bindSelectionMenu} from './selection-menu.mjs';
 import {readImportedArchive} from './imported-archive.mjs';
 import {isTexComponentArchive} from './tex-component.mjs';
 import {icon} from './icons.mjs';
-import {EditorState,Compartment} from '@codemirror/state';
+import {EditorState,Compartment,Transaction} from '@codemirror/state';
 import {EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter} from '@codemirror/view';
 import {history, historyKeymap, defaultKeymap, undo, redo, undoDepth, redoDepth} from '@codemirror/commands';
 import {searchKeymap, openSearchPanel, highlightSelectionMatches} from '@codemirror/search';
@@ -68,6 +68,8 @@ import {bindViewport} from './viewport.mjs';
 import {editorSearch} from './search-panel.mjs';
 import {diffMarkup,bindDiffPreviews} from './sync-preview.mjs';
 import {textFingerprint} from './document-service.mjs';
+import {readSidecar,resolveSidecar,buildSidecar,sidecarText,sidecarPath,sidecarTarget} from './rich-text.mjs';
+import {richTextExtensions,formatsOf,setFormats,toggleInline,toggleAlign,settleReview,isFormatActive} from './rich-text-editor.mjs';
 import {checkUpdates} from './updates.mjs';
 import {highlightCode,highlightMarkdown} from './code-preview.mjs';
 
@@ -118,7 +120,7 @@ function save(show=false){
   if(projectLocked)return false;
   clearTimeout(saveTimer);saveTimer=null;
   if(bootFailed)return false;
-  try{const clean=documents?documents.save():(saveWorkspace(workspace),true);dirty=!clean;status(clean?'已保存到本机':'未保存',!clean);renderTabDirty();if(show&&clean)toast('文件已保存到本机');projects?.changed();return clean;}
+  try{if(documents)flushFormats();const clean=documents?documents.save():(saveWorkspace(workspace),true);dirty=!clean;status(clean?'已保存到本机':'未保存',!clean);renderTabDirty();if(show&&clean)toast('文件已保存到本机');projects?.changed();return clean;}
   catch(e){dirty=true;status('保存失败 · 请导出备份',true);fail(new Error('保存失败：'+e.message));return false;}
 }
 function scheduleSave(){dirty=true;status('未保存',true);renderTabDirty();if(!saveTimer)saveTimer=setTimeout(()=>save(),1200);}
@@ -151,14 +153,57 @@ function languageFor(doc){return languageSupport(doc);}
 function activateLanguage(doc){const name=doc.name,kind=doc.kind;loadLanguage(doc).then(extension=>{if(current()?.id===doc.id&&current()?.name===name&&current()?.kind===kind&&view)view.dispatch({effects:languages.reconfigure(extension)});}).catch(fail);}
 function refreshFileType(doc){const effects=[languages.reconfigure(languageFor(doc)),completer.reconfigure(projectConfig(workspace,doc)?.config?.editor?.completion===false?[]:completionExtensions(doc,()=>({documents:workspace.documents,autoNouns:workspace.settings.autoNouns,highlightTerms:workspace.settings.highlightTerms,terms:glossaryTerms(workspace,doc),glossary:workspace.writingTools?.glossary||[],snippets:workspace.writingTools?.snippets||[],packages:(plugins?.records||[]).filter(record=>record.enabled).flatMap(record=>(record.texFiles||[]).map(file=>file.path))})))];if(workspace.activeId===doc.id&&view)view.dispatch({effects});else if(editorStates.has(doc.id))editorStates.set(doc.id,editorStates.get(doc.id).update({effects}).state);activateLanguage(doc);updateEditorVisibility();if(isPreview&&current())renderPreview();renderDocuments();}
 function editorIndent(v,remove=false){if(v.composing)return false;const config=projectConfig(workspace,current())?.config?.editor;if(documentKind(current())==='TXT'&&config?.mode!=='code'&&config?.novelIndent!=='spaces')return fullWidthIndent(v,remove);const n=config?.indentSize||2;if(!remove){v.dispatch(v.state.replaceSelection(' '.repeat(n)));return true;}const line=v.state.doc.lineAt(v.state.selection.main.head),count=line.text.match(/^ +/)?.[0].length||0;v.dispatch({changes:{from:line.from,to:line.from+Math.min(n,count),insert:''}});return true;}
-function makeState(doc){const editor=projectConfig(workspace,doc)?.config?.editor,position=workspace.editorPositions?.[doc.id];return EditorState.create({doc:doc.text,selection:position?{anchor:Math.min(doc.text.length,position.anchor),head:Math.min(doc.text.length,position.head)}:undefined,extensions:[projectReadonly.of(EditorState.readOnly.of(projectLocked)),history(),pluginExtras.of(plugins?.extensions()||[]),completer.of(editor?.completion===false?[]:completionExtensions(doc,()=>({documents:workspace.documents,autoNouns:workspace.settings.autoNouns,highlightTerms:workspace.settings.highlightTerms,terms:glossaryTerms(workspace,doc),glossary:workspace.writingTools?.glossary||[],snippets:workspace.writingTools?.snippets||[],packages:(plugins?.records||[]).filter(record=>record.enabled).flatMap(record=>(record.texFiles||[]).map(file=>file.path))}))),keymap.of([{key:'Enter',run:v=>documentKind(doc)==='TXT'&&editor?.mode!=='code'?paragraphNewline(v):false,shift:v=>documentKind(doc)==='TXT'&&editor?.mode!=='code'?paragraphNewline(v):false},{key:'Tab',run:v=>editorIndent(v)},{key:'Shift-Tab',run:v=>editorIndent(v,true)},...defaultKeymap,...historyKeymap,...searchKeymap]),pluginKeys.of(keymap.of(plugins?.bindings()||[])),lineNumbers(),highlightActiveLine(),highlightActiveLineGutter(),paragraphSelection(),highlightSelectionMatches(),editorSearch(),languages.of(languageFor(doc)),syntaxHighlighting(defaultHighlightStyle),editor?.wrap===false?[]:indentedLineWrapping('same'),EditorView.theme({'.cm-content':{lineHeight:String(editor?.lineHeight||1.8),maxWidth:(editor?.maxWidth||1000)+'px',margin:'0 auto'}}),scrollPastEndCustom(.35),EditorView.contentAttributes.of({'aria-label':'文稿正文','spellcheck':'false'}),EditorView.updateListener.of(update=>{
+// TXT formatting: .vela v3 sidecars beside the TXT (正文.txt → 正文.txt.vela), see docs/VELA-V3-DESIGN.md.
+const brokenSidecars=new Set(),sidecarSeen=new Map();
+const sidecarOf=doc=>doc&&workspace.documents.find(item=>documentPath(item)===sidecarPath(documentPath(doc)));
+function richTextEnabled(doc){return documentKind(doc)==='TXT'&&(!!sidecarOf(doc)||projectConfig(workspace,doc)?.config?.richText?.enabled===true||workspace.settings.richText===true);}
+/** Formats of `doc` placed in its current text; text edited outside Vela is re-anchored and leftovers go to review. */
+function loadFormats(doc){
+  const sidecar=sidecarOf(doc);brokenSidecars.delete(doc.id);sidecarSeen.set(doc.id,sidecar?.text??null);if(!sidecar)return {};
+  try{const parsed=readSidecar(sidecar.text),result=resolveSidecar(doc.text,parsed),fresh=result.review.length-(parsed.review?.length||0);
+    if(result.moved||fresh>0)setTimeout(()=>toast(doc.name+'：正文在文舟外有改动'+(result.moved?'，已按原文重新定位 '+result.moved+' 处格式':'')+(fresh>0?'，'+fresh+' 处格式待确认':'')+'。'),0);
+    return {entries:result.entries,review:result.review,source:parsed};}
+  catch(error){brokenSidecars.add(doc.id);setTimeout(()=>toast(doc.name+' 的格式未加载：'+error.message+' 旁注文件保持原样。'),0);return {};}
+}
+/** Writes the sidecar of each open TXT whose formats or text changed. A sidecar changed elsewhere is reloaded, not overwritten. */
+function flushFormats(){
+  const states=new Map(editorStates);if(view&&current())states.set(current().id,view.state);
+  for(const [id,state] of states){
+    const doc=workspace.documents.find(item=>item.id===id),value=formatsOf(state);if(!doc||!value||brokenSidecars.has(id)||documentKind(doc)!=='TXT'||state.doc.toString()!==doc.text)continue;
+    const sidecar=sidecarOf(doc);
+    if(sidecarSeen.has(id)&&(sidecar?.text??null)!==sidecarSeen.get(id)){if(current()?.id===id&&view)view.dispatch({effects:setFormats.of({entries:[],review:[],...loadFormats(doc)}),annotations:Transaction.addToHistory.of(false)});else editorStates.delete(id);continue;}
+    if(!sidecar&&!value.entries.length&&!value.review.length)continue;
+    let source;try{source=sidecarText(buildSidecar(doc.name,doc.text,value.entries,value.review,value.source||{}));}catch(error){fail(error);continue;}
+    if(sidecar){if(sidecar.text===source)continue;documents.change(sidecar,source);editorStates.delete(sidecar.id);if(current()?.id===sidecar.id&&view){view.setState(makeState(sidecar));if(isPreview)renderPreview();}}
+    else{const created=newDocument(sidecarPath(doc.name),source);created.path=sidecarPath(documentPath(doc));workspace.documents.push(created);renderDocuments();}
+    sidecarSeen.set(id,source);
+  }
+}
+function renderFormatTools(){
+  const tools=$('#format-tools');if(!tools)return;const doc=current(),value=view&&formatsOf(view.state),show=!home&&!isPreview&&!!doc&&!!value&&richTextEnabled(doc);tools.hidden=!show;if(!show)return;
+  const state=view.state,line=state.doc.lineAt(state.selection.main.head);
+  $('#format-strong').setAttribute('aria-pressed',String(isFormatActive(state,'strong')));$('#format-emphasis').setAttribute('aria-pressed',String(isFormatActive(state,'emphasis')));
+  $('#format-center').setAttribute('aria-pressed',String(value.entries.some(entry=>entry.group==='blocks'&&entry.type==='align'&&entry.value==='center'&&entry.from===line.from)));
+  const review=$('#format-review');review.hidden=!value.review.length;review.textContent='待确认 '+value.review.length;
+}
+function showFormatReview(){
+  const value=view&&formatsOf(view.state);if(!value?.review.length){toast('没有待确认的格式。');return;}const names={strong:'粗体',emphasis:'着重号',align:'对齐'};
+  openModal('格式待确认',`<p>正文在文舟外改动后，下面的格式找不到原来的文字。在正文中选中正确的文字后点“应用到选区”，或删除。</p>${value.review.map(item=>`<div class="trash-row"><span>${esc(names[item.type]||item.type)}：${esc((item.quote||'').slice(0,40))}<small>${esc(item.reason||'')}</small></span><button type="button" class="secondary" data-apply="${esc(item.id)}">应用到选区</button><button type="button" class="danger" data-drop="${esc(item.id)}">删除</button></div>`).join('')}<p><button type="button" class="danger" id="drop-all-review">全部删除</button></p>`,null,{noSubmit:true});
+  const settle=(id,apply)=>{try{settleReview(view,id,{apply});closeModal();renderFormatTools();if(!apply&&formatsOf(view.state).review.length)showFormatReview();}catch(error){$('#dialog-error').textContent=error.message;}};
+  $('#dialog-body').querySelectorAll('[data-apply]').forEach(button=>button.onclick=()=>settle(button.dataset.apply,true));
+  $('#dialog-body').querySelectorAll('[data-drop]').forEach(button=>button.onclick=()=>settle(button.dataset.drop,false));
+  $('#drop-all-review').onclick=()=>{for(const item of [...formatsOf(view.state).review])settleReview(view,item.id);closeModal();renderFormatTools();};
+}
+function makeState(doc){const editor=projectConfig(workspace,doc)?.config?.editor,position=workspace.editorPositions?.[doc.id];return EditorState.create({doc:doc.text,selection:position?{anchor:Math.min(doc.text.length,position.anchor),head:Math.min(doc.text.length,position.head)}:undefined,extensions:[projectReadonly.of(EditorState.readOnly.of(projectLocked)),history(),documentKind(doc)==='TXT'?richTextExtensions(loadFormats(doc)):[],pluginExtras.of(plugins?.extensions()||[]),completer.of(editor?.completion===false?[]:completionExtensions(doc,()=>({documents:workspace.documents,autoNouns:workspace.settings.autoNouns,highlightTerms:workspace.settings.highlightTerms,terms:glossaryTerms(workspace,doc),glossary:workspace.writingTools?.glossary||[],snippets:workspace.writingTools?.snippets||[],packages:(plugins?.records||[]).filter(record=>record.enabled).flatMap(record=>(record.texFiles||[]).map(file=>file.path))}))),keymap.of([{key:'Enter',run:v=>documentKind(doc)==='TXT'&&editor?.mode!=='code'?paragraphNewline(v):false,shift:v=>documentKind(doc)==='TXT'&&editor?.mode!=='code'?paragraphNewline(v):false},{key:'Tab',run:v=>editorIndent(v)},{key:'Shift-Tab',run:v=>editorIndent(v,true)},...defaultKeymap,...historyKeymap,...searchKeymap]),pluginKeys.of(keymap.of(plugins?.bindings()||[])),lineNumbers(),highlightActiveLine(),highlightActiveLineGutter(),paragraphSelection(),highlightSelectionMatches(),editorSearch(),languages.of(languageFor(doc)),syntaxHighlighting(defaultHighlightStyle),editor?.wrap===false?[]:indentedLineWrapping('same'),EditorView.theme({'.cm-content':{lineHeight:String(editor?.lineHeight||1.8),maxWidth:(editor?.maxWidth||1000)+'px',margin:'0 auto'}}),scrollPastEndCustom(.35),EditorView.contentAttributes.of({'aria-label':'文稿正文','spellcheck':'false'}),EditorView.updateListener.of(update=>{
   if(update.docChanged){if(update.view.hasFocus||update.transactions.some(tr=>tr.isUserEvent('input')||tr.isUserEvent('delete')||tr.isUserEvent('undo')||tr.isUserEvent('redo')))setSidebar('outline',false);const d=current();if(!d)return;const changes=[];update.changes.iterChanges((from,to,_a,_b,insert)=>changes.push({from,to,insert:insert.toString()}));documents.changeTree(d,update.state.doc,changes);if(indexService&&indexSettings===JSON.stringify(projectWriter(workspace,d))&&indexService.update(update)){index=indexService.value;indexDoc=update.state.doc;outlineRevision='';}scheduleSave();projects?.changed('editor',[documentPath(d)]);plugins?.emit('file-content-changed',plugins.activeFile);if(!statsTimer)statsTimer=setTimeout(()=>{statsTimer=null;updateStats();if(document.body.classList.contains('show-library'))renderDocuments();},200);}
-  if(update.selectionSet){selectionMenu.changed();const range=update.state.selection.main;workspace.editorPositions={...workspace.editorPositions,[workspace.activeId]:{anchor:range.anchor,head:range.head}};if(!update.docChanged)updateStats();}
+  if(!update.docChanged&&formatsOf(update.state)!==formatsOf(update.startState)){scheduleSave();renderFormatTools();}
+  if(update.selectionSet){renderFormatTools();selectionMenu.changed();const range=update.state.selection.main;workspace.editorPositions={...workspace.editorPositions,[workspace.activeId]:{anchor:range.anchor,head:range.head}};if(!update.docChanged)updateStats();}
   if(update.docChanged||update.selectionSet){$('#quick-undo').disabled=undoDepth(update.state)===0;$('#quick-redo').disabled=redoDepth(update.state)===0;}
 })]});}
 function renderDocuments(){
   const query=$('#doc-search').value.toLowerCase();
-  const docs=workspace.documents.filter(d=>documentPath(d).toLowerCase().includes(query)||d.text.toLowerCase().includes(query));
+  const allPaths=new Set(workspace.documents.map(documentPath));
+  const docs=workspace.documents.filter(d=>!allPaths.has(sidecarTarget(documentPath(d)))&&(documentPath(d).toLowerCase().includes(query)||d.text.toLowerCase().includes(query)));
   $('#doc-count').textContent=workspace.documents.length;
   $('#workspace-name').textContent='内部文件夹';
   $('#workspace-name').title=workspace.storage?.root||'';
@@ -193,7 +238,7 @@ function updateGlossaryPanel(){
 function updateEditorVisibility(){
   document.body.classList.toggle('start-open',home&&pageName==='write');
   updateGlossaryPanel();
-  renderDisplayOptions();const split=workspace.settings.splitPreview&&innerWidth>=1000&&isPreview&&!home&&documentKind(current())!=='VODT';document.body.classList.toggle('split-preview',!!split);$('#markdown-tools').hidden=home||isPreview&&!split||documentKind(current())!=='MD';document.querySelectorAll('#markdown-tools button').forEach(button=>button.disabled=home||documentKind(current())!=='MD');$('#editor').hidden=home||isPreview&&!split;$('#preview').hidden=home||!isPreview;
+  renderDisplayOptions();const split=workspace.settings.splitPreview&&innerWidth>=1000&&isPreview&&!home&&documentKind(current())!=='VODT';document.body.classList.toggle('split-preview',!!split);$('#markdown-tools').hidden=home||isPreview&&!split||documentKind(current())!=='MD';document.querySelectorAll('#markdown-tools button').forEach(button=>button.disabled=home||documentKind(current())!=='MD');$('#editor').hidden=home||isPreview&&!split;$('#preview').hidden=home||!isPreview;renderFormatTools();
   for(const id of ['search-editor','outline-toggle','focus-toggle','export-doc','quick-top','quick-bottom','quick-chapter-top','quick-chapter-bottom','append-chapter','locate-chapter','export-chapters'])$('#'+id).disabled=home;
   $('#add-glossary').disabled=home||isPreview||pageName!=='write';
   if(home){$('#quick-undo').disabled=true;$('#quick-redo').disabled=true;}
@@ -268,6 +313,12 @@ function togglePreview(){if(!current()||!view)return;isPreview=!isPreview;update
 for(const [id,mark] of [['md-bold','**'],['md-italic','*'],['md-strike','~~'],['md-code','`']])$('#'+id).onclick=()=>inlineMarkup(view,mark);
 for(const [id,prefix] of [['md-heading','# '],['md-list','- '],['md-task','- [ ] '],['md-quote','> ']])$('#'+id).onclick=()=>lineMarkup(view,prefix);
 $('#markdown-tools').addEventListener('mousedown',e=>e.preventDefault());
+$('#format-tools').addEventListener('mousedown',e=>e.preventDefault());
+const formatCommand=run=>()=>{if(!view||!richTextEnabled(current()))return;if(view.state.readOnly){toast('项目正在提交，请稍后再改格式。');return;}if(run(view)===false)toast('请先选中要设置格式的文字。');renderFormatTools();view.focus();};
+$('#format-strong').onclick=formatCommand(v=>toggleInline(v,'strong'));
+$('#format-emphasis').onclick=formatCommand(v=>toggleInline(v,'emphasis'));
+$('#format-center').onclick=formatCommand(v=>toggleAlign(v,'center'));
+$('#format-review').onclick=()=>showFormatReview();
 $('#preview').addEventListener('click',e=>{if(e.target.closest('a')){e.preventDefault();toast('阅读预览中的外部链接不在应用内打开。');}});
 function openModal(title,html,submit,options={}){
   ui.close();$('#dialog').classList.remove('settings-dialog');
@@ -320,8 +371,11 @@ function applyFileState(result){
 async function manageFile(action,path,destination=''){
   if(!save())throw new Error('请先保存或导出当前文稿。');
   const before=structuredClone(workspace);
-  if(native)applyFileState(await transport('manageFiles',{action,path,destination}));
-  else{const candidate=structuredClone(workspace);applyFileOperation(candidate,action,path,destination);const change=action==='delete'?{kind:'delete',path,trashId:candidate.trash.at(-1).id}:{kind:action,from:path,to:destination};if(action==='delete')candidate.trash.at(-1).projectPayload=true;await projects.backend.call('apply','host',{root:'',changes:[change],workspace:JSON.stringify(candidate),expected:[]});workspace=candidate;applyFileState({...candidate});}
+  const apply=async(path,destination)=>{if(native)applyFileState(await transport('manageFiles',{action,path,destination}));
+  else{const candidate=structuredClone(workspace);applyFileOperation(candidate,action,path,destination);const change=action==='delete'?{kind:'delete',path,trashId:candidate.trash.at(-1).id}:{kind:action,from:path,to:destination};if(action==='delete')candidate.trash.at(-1).projectPayload=true;await projects.backend.call('apply','host',{root:'',changes:[change],workspace:JSON.stringify(candidate),expected:[]});workspace=candidate;applyFileState({...candidate});}};
+  await apply(path,destination);
+  // A TXT's format sidecar moves, copies and goes to the trash with it.
+  const companion=sidecarPath(path);if(sidecarTarget(companion)&&before.documents.some(doc=>documentPath(doc)===companion)&&workspace.documents.some(doc=>documentPath(doc)===companion)){try{await apply(companion,action==='delete'?'':sidecarPath(destination));}catch(error){toast('格式旁注未能一并处理：'+error.message);}}
   workspace.treeRevision=(workspace.treeRevision||0)+1;rewriteVelaFiles(before,workspace,action,path,destination);for(const doc of workspace.documents.filter(doc=>documentKind(doc)==='VELA'))editorStates.delete(doc.id);if(current()&&documentKind(current())==='VELA'&&view){view.setState(makeState(current()));if(isPreview)renderPreview();}index=null;updateStats();save();
   projects.changed('external');toast(action==='delete'?'已移入回收站':action==='copy'?'已保存副本':'项目已移动或重命名');
 }
@@ -336,8 +390,10 @@ async function showTrash(){
   const items=native?await transport('listTrash'):workspace.trash||[];
   openModal('回收站',items.length?items.map(item=>`<div class="trash-row"><span>${esc(item.path)}<small>${esc(new Date(item.createdAt).toLocaleString('zh-CN'))}</small></span><button type="button" class="secondary" data-restore="${esc(item.id)}">恢复</button><button type="button" class="danger" data-permanent="${esc(item.id)}">永久删除</button></div>`).join(''):'<p>当前工作区的回收站为空。</p>',null,{noSubmit:true});
   const restore=async(id,permanent=false)=>{if(!save())throw new Error('请先保存文稿。');if(native)applyFileState(await transport('restoreTrash',{id,permanent}));else if(workspace.trash?.find(item=>item.id===id)?.projectPayload){const candidate=structuredClone(workspace);restoreFile(candidate,id,permanent);await projects.backend.call('restoreTrashPayload','host',{id,permanent,workspace:JSON.stringify(candidate)});adoptProjectState(candidate);}else{restoreFile(workspace,id,permanent);applyFileState({storage:workspace.storage,documents:workspace.documents,folders:workspace.folders,entries:workspace.entries,repositories:workspace.repositories});}};
-  $('#dialog-body').querySelectorAll('[data-restore]').forEach(button=>button.onclick=async()=>{button.disabled=true;try{await restore(button.dataset.restore);await showTrash();}catch(error){$('#dialog-error').textContent=error.message;button.disabled=false;}});
-  $('#dialog-body').querySelectorAll('[data-permanent]').forEach(button=>button.onclick=()=>openModal('永久删除',`<p>永久删除“${esc(items.find(item=>item.id===button.dataset.permanent).path)}”？此操作无法恢复。</p>`,async()=>{await restore(button.dataset.permanent,true);setTimeout(()=>showTrash().catch(fail),0);},{label:'永久删除'}));
+  const companionOf=id=>{const item=items.find(entry=>entry.id===id);return item&&!item.directory&&sidecarTarget(sidecarPath(item.path))?items.filter(entry=>entry.path===sidecarPath(item.path)).sort((a,b)=>b.createdAt-a.createdAt)[0]:null;};
+  const withCompanion=async(id,permanent=false)=>{const companion=companionOf(id);await restore(id,permanent);if(companion)await restore(companion.id,permanent).catch(error=>toast('格式旁注未能一并处理：'+error.message));};
+  $('#dialog-body').querySelectorAll('[data-restore]').forEach(button=>button.onclick=async()=>{button.disabled=true;try{await withCompanion(button.dataset.restore);await showTrash();}catch(error){$('#dialog-error').textContent=error.message;button.disabled=false;}});
+  $('#dialog-body').querySelectorAll('[data-permanent]').forEach(button=>button.onclick=()=>openModal('永久删除',`<p>永久删除“${esc(items.find(item=>item.id===button.dataset.permanent).path)}”？此操作无法恢复。</p>`,async()=>{await withCompanion(button.dataset.permanent,true);setTimeout(()=>showTrash().catch(fail),0);},{label:'永久删除'}));
 }
 $('#current-name').ondblclick=()=>{if(current())renameDocument(current());};
 function renameDocument(doc){renameItem(documentPath(doc));}
@@ -539,7 +595,7 @@ function commitDocument(suggestRepo,suggestBranch){
   if(remote)$('#read-remote').onclick=async()=>{try{if(await openRemote(remote.repo,remote.branch,remote.path))closeModal();}catch(e){$('#dialog-error').textContent=e.message;}};
 }
 
-function runAction(id){if(pageName==='reader'&&!['outline-toggle','settings','theme','mobile-library','commands','quick-git','plugins'].includes(id))return false;if(id==='toggle-display'){if(!home)togglePreview();return true;}if(id==='close-active'){if(current())closeDocument(current().id);return true;}const button=$('#'+id);if(button&&!button.disabled)button.click();return true;}
+function runAction(id){if(id==='md-bold'&&!$('#format-tools').hidden)id='format-strong';if(pageName==='reader'&&!['outline-toggle','settings','theme','mobile-library','commands','quick-git','plugins'].includes(id))return false;if(id==='toggle-display'){if(!home)togglePreview();return true;}if(id==='close-active'){if(current())closeDocument(current().id);return true;}const button=$('#'+id);if(button&&!button.disabled)button.click();return true;}
 for(const [id,,keys,label] of shortcuts){const button=$('#'+id);if(button){button.title=`${label} (${keys})`;button.setAttribute('aria-keyshortcuts',keys.replaceAll('+','+'));}}
 document.addEventListener('keydown',e=>{if(pageName==='reader'&&!(e.ctrlKey||e.metaKey))return;
   if(e.defaultPrevented||e.isComposing||$('#dialog').open||e.target.closest('.plugin-page'))return;
@@ -552,7 +608,7 @@ document.addEventListener('keydown',e=>{if(pageName==='reader'&&!(e.ctrlKey||e.m
   const shortcut=shortcuts.find(([,key])=>matchesKey(e,key));if(shortcut){e.preventDefault();e.stopPropagation();runAction(shortcut[0]);}
 },true);
 $('#commands').onclick=()=>{
-  const items=[{name:'本地历史与恢复',key:'',run:showLocalHistory},{name:'导出章节文本…',key:'',run:showChapterExport},{name:'复制本章文本',key:'',run:copyCurrentChapter},...(editing?.commands()||[]),...shortcuts.map(([id,,key,name])=>({name,key,run:()=>runAction(id)})),...[...(plugins?.commands.values()||[])].map(command=>({name:command.title,key:command.shortcut||'',run:()=>plugins.execute(command.name)}))];
+  const items=[{name:'本地历史与恢复',key:'',run:showLocalHistory},{name:(workspace.settings.richText?'关闭':'开启')+' TXT 格式工具（本机）',key:'',run:()=>{workspace.settings.richText=!workspace.settings.richText;save();updateEditorVisibility();toast(workspace.settings.richText?'TXT 格式工具已开启：粗体、着重号、居中，格式另存为同名 .vela 旁注。':'TXT 格式工具已关闭；已有格式仍会显示。');}},{name:'格式待确认…',key:'',run:showFormatReview},{name:'导出章节文本…',key:'',run:showChapterExport},{name:'复制本章文本',key:'',run:copyCurrentChapter},...(editing?.commands()||[]),...shortcuts.map(([id,,key,name])=>({name,key,run:()=>runAction(id)})),...[...(plugins?.commands.values()||[])].map(command=>({name:command.title,key:command.shortcut||'',run:()=>plugins.execute(command.name)}))];
   openModal('命令与快捷键','<input id="command-search" placeholder="搜索命令" aria-label="搜索命令" autofocus><div id="command-list"></div><small>Tab：缩进两个全角空格；Shift+Tab：取消缩进。Ctrl+加号 / 减号 / 0：调整或重置文字字号。</small>',null,{noSubmit:true});
   const render=()=>{const query=$('#command-search').value.toLowerCase();$('#command-list').innerHTML=items.map((item,i)=>({item,i})).filter(({item})=>item.name.toLowerCase().includes(query)||item.key.toLowerCase().includes(query)).map(({item,i})=>`<button type="button" class="command-item" data-command="${i}"><span>${esc(item.name)}</span><kbd>${esc(item.key)}</kbd></button>`).join('');};render();$('#command-search').oninput=render;
   $('#command-list').onclick=e=>{const b=e.target.closest('[data-command]');if(b){closeModal();Promise.resolve(items[Number(b.dataset.command)].run()).catch(fail);}};

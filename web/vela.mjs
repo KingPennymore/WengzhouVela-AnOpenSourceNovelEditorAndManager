@@ -2,6 +2,7 @@ import {documentKind} from './model.mjs';
 import {chapterSettings} from './chapters.mjs';
 import {documentPath} from './workspace.mjs';
 import {parseV2,effectiveVela,effectiveFileVela,itemId} from './vela-v2.mjs';
+import {parseDocumentVela,sidecarText,MAX_SIDECAR_CHARS} from './rich-text.mjs';
 export {createVelaV2,effectiveVela} from './vela-v2.mjs';
 
 export const readable=doc=>['TXT','MD','HTML','CSV','TEX','CODE','PDF','VODT'].includes(documentKind(doc));
@@ -19,12 +20,15 @@ export function readingLayout(value={}){
 }
 export const readingItems=config=>(config?.kind==='global'?config.library?.items:config?.reading?.items)||[];
 export function parseVela(text){
-  if(typeof text!=='string'||text.length>262144)throw new Error('工作区配置不能超过 256 KB。');
+  if(typeof text!=='string'||text.length>MAX_SIDECAR_CHARS)throw new Error('工作区配置不能超过 256 KB。');
   const raw=JSON.parse(text);
-  if(raw?.version!==2)throw new Error('不支持此 .vela 配置版本，请使用 version: 2 并重新创建配置。');
+  // Format sidecars (kind: document, v3) may be larger; workspace and global configurations stay within 256 KB.
+  if(raw?.kind==='document')return parseDocumentVela(raw);
+  if(text.length>262144)throw new Error('工作区配置不能超过 256 KB。');
+  if(raw?.version!==2&&raw?.version!==3)throw new Error('不支持此 .vela 配置版本，请使用 version: 2 或 3 并重新创建配置。');
   return parseV2(raw);
 }
-export const velaText=value=>JSON.stringify(parseVela(JSON.stringify(value)),null,2)+'\n';
+export const velaText=value=>value?.kind==='document'?sidecarText(parseDocumentVela(value)):JSON.stringify(parseVela(JSON.stringify(value)),null,2)+'\n';
 export const configFolder=path=>path.split('/').slice(0,-1).join('/');
 const configCache=new WeakMap(),effectiveCache=new WeakMap(),directoryCache=new WeakMap(),pathSets=new WeakMap();
 function directory(workspace){let value=directoryCache.get(workspace);if(!value||value.documents!==workspace.documents||value.length!==workspace.documents.length||value.revision!==workspace.treeRevision){const all=workspace.documents.filter(doc=>doc.name==='.vela'||documentPath(doc)===GLOBAL_VELA_PATH);value={documents:workspace.documents,length:workspace.documents.length,revision:workspace.treeRevision,global:all.find(doc=>documentPath(doc)===GLOBAL_VELA_PATH),projects:all.filter(doc=>doc.name==='.vela'&&documentPath(doc)!==GLOBAL_VELA_PATH).map(doc=>({doc,folder:configFolder(documentPath(doc))})).sort((a,b)=>b.folder.length-a.folder.length||documentPath(a.doc).localeCompare(documentPath(b.doc)))};directoryCache.set(workspace,value);}return value;}
@@ -77,6 +81,7 @@ export function rewriteVelaFiles(before,after,action,path,destination=''){
     try{
       const config=parseVela(doc.text),oldFolder=configFolder(documentPath(original)),newFolder=configFolder(documentPath(doc)),copied=action==='copy'&&doc.id!==original.id;
       if(copied&&config.kind==='workspace')config.id=crypto.randomUUID();
+      if(config.kind==='document'){const target=documentPath(doc).split('/').at(-1).replace(/\.vela$/i,'');if(config.target!==target){config.target=target;doc.text=velaText(config);doc.updatedAt=Date.now();}continue;}
       const rewrite=relative=>{let full=(oldFolder?oldFolder+'/':'')+relative;if(affected(full)&&(action==='move'||copied))full=destination+full.slice(path.length);if(newFolder&&!full.startsWith(newFolder+'/'))return null;return full.slice(newFolder?newFolder.length+1:0);};
       {
         const container=config.kind==='global'?config.library:config.reading;
