@@ -9,7 +9,11 @@ export const palettes=[
 export function paletteFor(id,dark){const palette=palettes.find(item=>item.id===id)||custom.find(item=>item.id===id)||palettes[0];return {id:palette.id,colors:dark?palette.dark:palette.light};}
 // Translucent accent layers for tints, focus rings and glows; Chromium 105 has no color-mix().
 const accentLayers={tint:'1f',ring:'47',glow:'33'};
-export function applyPalette(element,id,dark){const selected=paletteFor(id,dark);for(const [name,color] of Object.entries(selected.colors))element.style.setProperty('--'+name,color);for(const [name,alpha] of Object.entries(accentLayers))element.style.setProperty('--accent-'+name,selected.colors.accent+alpha);return selected.id;}
+export function applyPalette(element,id,dark){const selected=paletteFor(id,dark);for(const [name,color] of Object.entries(selected.colors))element.style.setProperty('--'+name,color);for(const [name,alpha] of Object.entries(accentLayers))element.style.setProperty('--accent-'+name,selected.colors.accent+alpha);
+  // Light-mode shadows take their tint from the palette's text colour; dark mode keeps the black shadows in design.css.
+  const ink=selected.colors.text,shadows={'elev-1':`0 1px 2px ${ink}08,0 1px 3px ${ink}0d`,'elev-2':`0 10px 24px -12px ${ink}38,0 2px 6px ${ink}0f`,'elev-3':`0 28px 64px -20px ${ink}52,0 4px 14px ${ink}14`};
+  for(const [name,value] of Object.entries(shadows))if(dark)element.style.removeProperty('--'+name);else element.style.setProperty('--'+name,value);
+  return selected.id;}
 
 // ---- Custom palettes: three base colours per mode; the other tokens are derived so they stay consistent. ----
 export const MAX_CUSTOM_PALETTES=8;

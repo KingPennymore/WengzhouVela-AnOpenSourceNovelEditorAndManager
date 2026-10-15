@@ -84,12 +84,12 @@ const theme=EditorView.baseTheme({
   '.vela-format-center':{textAlign:'center'},
   '.vela-format-right':{textAlign:'right'},
   // The reading is drawn by a pseudo-element, so it adds no text to the document or the DOM text.
-  '.vela-format-ruby':{position:'relative',borderBottom:'1px dotted color-mix(in srgb, currentColor 35%, transparent)'},
+  '.vela-format-ruby':{position:'relative',borderBottom:'1px dotted var(--muted, #999)'},
   '.vela-format-ruby::before':{content:'attr(data-ruby)',position:'absolute',left:'50%',bottom:'100%',transform:'translateX(-50%)',fontSize:'.55em',lineHeight:'1',whiteSpace:'nowrap',opacity:'.8',pointerEvents:'none'},
-  '.vela-format-image':{margin:'.6em auto',padding:'8px',maxWidth:'min(100%, 480px)',textAlign:'center',border:'1px solid color-mix(in srgb, currentColor 15%, transparent)',borderRadius:'6px',cursor:'pointer'},
+  '.vela-format-image':{margin:'.6em auto',padding:'8px',maxWidth:'min(100%, 480px)',textAlign:'center',border:'1px solid var(--line, #ddd)',borderRadius:'6px',cursor:'pointer'},
   '.vela-format-image img':{display:'block',maxWidth:'100%',maxHeight:'360px',margin:'0 auto'},
   '.vela-format-image figcaption':{fontSize:'.8em',opacity:'.75',marginTop:'4px'},
-  '.vela-format-image-missing':{padding:'24px 12px',fontSize:'.85em',opacity:'.7',background:'color-mix(in srgb, currentColor 6%, transparent)',borderRadius:'4px'}
+  '.vela-format-image-missing':{padding:'24px 12px',fontSize:'.85em',opacity:'.7',background:'var(--soft, #f2f2f2)',borderRadius:'4px'}
 });
 
 /** Editor extensions with the initial entries (already placed in `doc`) and review list. */

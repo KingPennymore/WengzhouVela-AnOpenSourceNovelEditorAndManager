@@ -253,3 +253,53 @@ body.start-open .library-shell{bottom:0}
  .start-panel,#start-page[data-panel=recent] .start-panel{transition:none}
  #start-page .start-action{transition:none;transform:none}
 }
+
+/* 0.9.7 editor chrome (docs/FRONTEND-PROPOSAL.md levels A and B). */
+.markdown-tools button{display:inline-flex;align-items:center;justify-content:center;flex:none;width:30px;min-width:30px;height:30px;min-height:0;padding:0;border-radius:6px;color:var(--muted)}
+.markdown-tools button:hover{color:var(--text);background:var(--soft)}
+.markdown-tools button svg{width:18px;height:18px;stroke-width:1.75}
+.markdown-tools .format-review{width:auto;padding:0 8px;font-size:12px}
+.tool-separator{display:inline-block;width:1px;height:16px;margin:0 4px;background:var(--hairline);flex:none}
+.document-tools{display:flex;align-items:center;gap:2px;min-width:0;overflow-x:auto;scrollbar-width:none}
+.document-tools::-webkit-scrollbar{display:none}
+.document-tools[hidden]{display:none!important}
+.document-tools .markdown-tools{flex:none;height:auto;border:0;background:none;padding:0 6px}
+.document-tools .markdown-tools[hidden]{display:none}
+.document-tools .display-options{margin-left:auto;align-self:stretch}
+.wide-shell .document-tools{flex:0 1 auto;max-width:64%;align-self:stretch}
+.wide-shell .document-tools .markdown-tools{border-left:1px solid var(--hairline)}
+body:not(.wide-shell) .document-tools{height:36px;flex-shrink:0;border-bottom:1px solid var(--hairline);background:var(--panel)}
+body:not(.wide-shell) .document-tools .display-options{border-left:1px solid var(--hairline)}
+.wide-shell .quickbar{display:none}
+.status-actions{display:flex;align-items:center;gap:1px;margin-left:auto;height:100%}
+.status-actions+.status-right{margin-left:8px}
+.status-actions button{display:inline-flex;align-items:center;justify-content:center;width:24px;height:22px;min-height:0;padding:0;border:0;border-radius:4px;background:none;color:var(--muted)}
+.status-actions button:hover:not(:disabled){background:var(--soft);color:var(--text)}
+.status-actions button:first-child{color:var(--accent);background:none}
+.status-actions button:disabled{opacity:.35}
+.status-actions button svg{width:14px;height:14px}
+.status-actions>i{width:1px;height:12px;margin:0 4px;background:var(--hairline);border:0}
+.status-actions .plugin-action-strip{display:flex;gap:1px}
+#command-list .command-group{margin:12px 4px 4px;font-size:11px;font-weight:600;letter-spacing:.5px;color:var(--muted)}
+#command-list .command-group:first-child{margin-top:4px}
+.command-item .command-group-tag{margin-left:auto;margin-right:8px;font-size:11px;color:var(--muted)}
+.reader-library header,.reader-books{max-width:1100px;margin-left:auto;margin-right:auto}
+.book-cover.has-cover{background-size:cover;background-position:center;color:transparent}
+.book-cover.has-cover::after{display:none}
+.status-actions button small{display:none}
+.status-actions button>span{display:inline-flex;align-items:center}
+.format-tools select{height:30px;max-width:112px;font-size:12px;text-overflow:ellipsis}
+body:not(.wide-shell) .document-tools .markdown-tools{padding:0 2px}
+body:not(.wide-shell) .markdown-tools button{width:28px;min-width:28px;height:28px}
+body:not(.wide-shell) .format-tools select{max-width:72px;padding-right:18px}
+body:not(.wide-shell) .tool-separator{margin:0 2px}
+body:not(.wide-shell) .document-tools .display-options button{padding:0 7px}
+.document-tools-scroll{display:flex;align-items:center;gap:2px;min-width:0;flex:0 1 auto;overflow-x:auto;scrollbar-width:none;align-self:stretch}
+.document-tools-scroll::-webkit-scrollbar{display:none}
+.document-tools{overflow:visible}
+body:not(.wide-shell) .document-tools-scroll{flex:1 1 auto}
+.document-tools .display-options svg{width:18px;height:18px}
+body:not(.wide-shell) .format-tools select{height:28px}
+/* The TXT preview uses the editor's centred measure, so switching views keeps the text in place. */
+#preview.plain-preview{padding-left:max(5%,calc(50% - 480px));padding-right:max(5%,calc(50% - 480px))}
+#preview.plain-preview .reader-section-title{margin-top:1.2em}

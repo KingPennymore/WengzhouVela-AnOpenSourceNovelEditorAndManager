@@ -74,7 +74,7 @@ export class UIShell {
 // Keep every control in one form, so category navigation never discards unsaved settings.
 export function organizeSettings(root) {
   document.querySelector('#dialog').classList.add('settings-dialog');
-  const groups=[['外观与语言',['language','theme','palette']],['编辑',['fontSize','autoNouns','glossaryPanel','highlightTerms','countMode','includeHeading']],['阅读',['readingMode','globalVelaOverride','edit-global-vela']],['工作区配置',['create-vela']],['GitHub',['clientId']],['备份与应用',['backup-all','show-licenses','check-updates','updateChecks']]];
+  const groups=[['外观与语言',['language','theme','palette']],['编辑',['fontSize','autoNouns','glossaryPanel','highlightTerms','novelLineNumbers','richText','countMode','includeHeading']],['阅读',['readingMode','globalVelaOverride','edit-global-vela']],['工作区配置',['create-vela']],['GitHub',['clientId']],['备份与应用',['backup-all','show-licenses','check-updates','updateChecks']]];
   const original=[...root.children],nav=document.createElement('nav');nav.className='settings-navigation';nav.setAttribute('aria-label',t('设置分类'));
   const content=document.createElement('div');content.className='settings-content';
   groups.forEach(([title,names],index)=>{
