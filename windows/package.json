@@ -25,8 +25,14 @@
     "files": [
       "*.mjs",
       "*.cjs",
+      "!after-pack.cjs",
       "package.json"
     ],
+    "electronLanguages": [
+      "zh-CN",
+      "en-US"
+    ],
+    "afterPack": "./after-pack.cjs",
     "extraResources": [
       {
         "from": "../dist/web",
