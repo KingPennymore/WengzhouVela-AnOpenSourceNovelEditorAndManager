@@ -24,6 +24,8 @@ import {RELEASE_KEYS} from '../web/release-keys.mjs';
 const root=path.resolve(path.dirname(fileURLToPath(import.meta.url)),'..');process.chdir(root);
 const configFile='scripts/release-config.json',config=JSON.parse(readFileSync(configFile,'utf8'));
 const STAGES=['preflight','build','sign','package','verify','publish-github','mirror-gitee','restore'],EXTERNAL=new Set(['publish-github','mirror-gitee']);
+/** A stage runs (also with --only) only after these passed for the same commit; nothing is published unverified. */
+const REQUIRES={build:['preflight'],sign:['preflight'],package:['preflight'],verify:['preflight'],'publish-github':['preflight','verify'],'mirror-gitee':['preflight','verify']};
 const argv=process.argv.slice(2),command=argv[0]||'help',flag=name=>argv.includes(name),option=name=>{const i=argv.indexOf(name);return i>0?argv[i+1]:undefined;};
 const DRY=flag('--dry-run'),positional=argv.slice(1).filter((arg,i,all)=>!arg.startsWith('--')&&!['--from','--only'].includes(all[i-1]));
 
@@ -271,6 +273,7 @@ async function run(){
   const selected=only?[only]:STAGES.filter(name=>ctx.dryRun||state.stages[name]?.status!=='done');
   say(`文舟 ${version} 发布${ctx.dryRun?'（演练：只检查和列出，不构建、不签名、不上传）':''} · HEAD ${commit.slice(0,10)} · 阶段：${selected.join(' → ')||'全部已完成'}`);
   let confirmed=ctx.dryRun;
+  if(!ctx.dryRun)for(const name of selected){const missing=(REQUIRES[name]||[]).filter(need=>state.stages[need]?.status!=='done'&&!selected.slice(0,selected.indexOf(name)).includes(need));if(missing.length){say(`✗ ${name} 需要先通过：${missing.join('、')}（node scripts/release.mjs run 会按顺序执行）。`);process.exitCode=1;return;}}
   for(const name of selected){
     if(EXTERNAL.has(name)&&!confirmed){
       const items=externalPlan(ctx,selected.filter(stage=>EXTERNAL.has(stage)));
