@@ -37,6 +37,27 @@ GitHub Actions 的 `Verify` 工作流在 master 推送、拉取请求或手动�
 | 冷启动到 `velaReady`，不限速 | 331 ms | 172 ms |
 | 冷启动到 `velaReady`，4 倍 CPU 降速 | 1,968 ms | 988 ms |
 
+## 样式表结构
+
+`index.html` 仍依次加载 `style.css`、`file-manager.css`、`katex.min.css`、`ui.css`、`design.css`，层次由 `style.css` 开头的 `@layer reset, tokens, app, state;` 决定：
+
+- `reset`：`box-sizing`、`[hidden]`（带 `!important`，在任何层里都优先）、细滚动条。
+- `tokens`：全部设计令牌（颜色、圆角、阴影、动效曲线，按平台和深浅色覆盖），四个文件里的令牌按原顺序集中在 `style.css` 开头。
+- `app`：应用本身的规则，按原文件顺序分布在四个文件中，保持原来的层叠关系。
+- `state`：必须压过任何应用规则的模式（专注模式、开始页、非写作页、隐藏的插件位置、阅读页顶栏、`.vela` 页的内边距、减少动态效果），不再需要 `!important`。
+- 第三方元素（CodeMirror 的 `.cm-*`、KaTeX）的规则不分层，放在各文件末尾：CodeMirror 的主题在这些样式表之后以不分层的 `<style>` 注入，选择器更具体，分层规则会全部输给它。
+
+`!important` 由 95 处减到 75 处，留下的都注明了原因：压过 CodeMirror 主题和它的行内定位（第三方部分与 `app` 中针对 CodeMirror 元素的几条）、`[hidden]`、主题渐变和测试用的关闭动画开关、格式面板的行内定位、PDF 面板不受分页阅读规则影响。整理时删除了 21 个已不存在的类名或 ID 的选择器、被同一选择器在同一层和媒体条件下后续规则覆盖的 338 条声明（后者若使用 Chromium 105 不支持的写法，如 `dvh`、`color-mix()`，则保留前者作回退）、重复的 `.vela-config-grid`（合并为一条；`style.css` 中的网格列定义对这个 flex 容器不生效）和多余的 `.document-tools[hidden]`，并把分散在两个文件的选区菜单样式合到 `design.css`。
+
+### 外观不变的检查
+
+- `node tests/style-snapshot.mjs capture <文件>` 按 `tests/app-tour.mjs` 走一遍主要页面和弹层（开始页、编辑器与侧栏、更多菜单、设置、选区菜单、查找、Markdown 预览与公式、`.vela` 表单、术语库、命令面板、GitHub、订阅、书库、阅读页），覆盖 windows 1440、harmonyos 1280 和 390、android 390，浅色和深色，共 128 个状态，记录每个元素及伪元素的盒子位置和 150 项计算样式；`compare <前> <后> [--summary] [--unwrap 外层元素]` 列出差异。整理前后除下面的滚动容器调整外没有差异，所有元素位置不变。
+- 同一组状态的截图在整理前后逐像素比较：115 张完全相同，其余 13 张的差异来自 `.vela` 表单中每次随机生成的工作区 ID，以及术语库和窄屏 `.vela` 页中个别像素颜色通道相差 1。
+
+### 滚动容器不得自带背景
+
+鸿蒙 ArkWeb 在颜色过渡时不重绘自带背景的滚动容器，切换主题时会留下旧颜色。`tests/scroll-backgrounds-browser.mjs`（已加入 `npm run verify`）在上述 128 个状态中检查：可见且 `overflow` 为 `auto` / `scroll` 的元素不得有不透明背景色或背景图。例外只有切换主题时不会打开的弹层：对话框、补全提示、选区菜单及其“更多”列表、工具栏“更多”菜单（点其中的主题按钮会先关闭菜单）。这次修正的位置：Markdown 代码块改为长词换行、不再滚动；查找面板容器透明，由面板本身着色；术语库页由内层 `.glossary-surface` 着色；`.vela` 排版示例由外框着色、内层 `.vela-layout-scroll` 滚动；窄屏 `.vela` 分节栏和卡片中的文本框与背后颜色相同，改为透明。
+
 ## 完整版与轻量版
 
 默认 `npm run build`、`npm run build:android` 和 `npm run build:windows` 继续生成完整版，内置离线 TeX 引擎及中文包。
