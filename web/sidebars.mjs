@@ -1,3 +1,4 @@
+import {reducedMotion} from './motion.mjs';
 const DURATION=240;
 const fields=['left','right','leftWidth','rightWidth','bottom'];
 
@@ -68,7 +69,7 @@ export class SidebarLayout {
     cancelAnimationFrame(this.frame);this.frame=0;
     this.target=target;
     const from={...this.current};
-    if(!animate||this.motion.matches||fields.every(key=>Math.abs(from[key]-target[key])<.001)){
+    if(!animate||reducedMotion()||fields.every(key=>Math.abs(from[key]-target[key])<.001)){
       this.apply(target,target);this.root.dataset.sidebarsAnimating='false';return;
     }
     this.root.dataset.sidebarsAnimating='true';

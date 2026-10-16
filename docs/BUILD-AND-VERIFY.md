@@ -1,6 +1,11 @@
 # 构建与发布检查
 
-`npm run verify` 是统一检查入口：构建共享前端、核对三端版本和资源摘要、运行所有逻辑测试，启动独立端口的预览服务，依次检查文件管理、侧栏、编辑、阅读、三端界面、术语库、GitHub / Gitee、同步和本次改进。服务退出时自动关闭，不占用已有的 4173 预览端口。任一检查失败立即返回失败，记录在 `test-results/verify/`，摘要为 `results.json`。
+`npm run verify` 是统一检查入口：构建共享前端、核对三端版本和资源摘要，然后把逻辑测试和各组浏览器检查放进进程池并行运行（文件管理、侧栏、编辑、阅读、三端界面、术语库、GitHub / Gitee、同步等）。预览服务监听空闲端口，不占用已有的 4173 端口，结束时自动关闭。
+
+- 并行度默认等于 CPU 核数，可用 `--jobs N` 或环境变量 `VELA_VERIFY_JOBS` 调整；`--only a,b` 只跑指定的组（组名即 `tests/` 下去掉 `.mjs` 的文件名，逻辑测试为 `unit`）。每组使用独立的 Chromium，写入各自的 `test-results` 路径。按上次各组的耗时，慢的组先启动。
+- 某组失败不会中断其他组，最后统一返回失败。失败组的完整输出在 `test-results/verify/<组名>/output.log`；`tests/verify-capture.mjs` 会在浏览器关闭时截下仍打开的页面，并在失败时保存到同一目录：`page-N.png` 是截图，`state.json` 记录地址、对话框和提示文字、localStorage 大小、页面错误和控制台错误。通过的组只保留 `test-results/verify/<组名>.log`，摘要在 `results.json`，其中包括总耗时和并行度。
+- 浏览器检查用 `tests/wait-helpers.mjs` 里的条件等待代替固定等待：`settled`（动画结束并绘制两帧）、`readerReady` / `readerIdle`（阅读页就绪，阅读位置防抖保存完成，对应 `data-position-pending`）、`until`（轮询 Node 侧条件）、`themeShiftDone`。`noMotion(context)` 是测试专用的关闭动画开关（localStorage `vela.test.motion=off`，见 `web/motion.mjs`），只用于不检查动画本身的组。仍保留的固定等待有两类：长按手势本身的按住时长，以及断言“这段时间内不应出现某变化”的观察窗口，都已注明。
+- 14 核机器上实测：原串行一轮 500 秒，并行后 62–65 秒。
 
 `npm run verify:release` 额外执行真实中文 TeX / PDF 编译及 Windows 原生检查。Windows 原生检查需要先安装 `windows/` 的开发依赖；设置 `VELA_TEST_EXECUTABLE` 可以检查最终打包的程序。共享界面检查通过不代表鸿蒙、安卓真机验收。
 

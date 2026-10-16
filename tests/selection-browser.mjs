@@ -5,6 +5,7 @@ import {openRecentFile} from './start-page-helper.mjs';
 import {startSourceAppServer} from './source-app-server.mjs';
 import {createVelaV2,velaText} from '../web/vela.mjs';
 import {glossaryText} from '../web/glossary.mjs';
+import {settled} from './wait-helpers.mjs';
 
 // Multi-line selections in a long glossary-highlighted manuscript: the selection bar sits above the selected text (or,
 // when the selection starts above the visible editor, pinned below the editor toolbar), term definitions never cover
@@ -24,7 +25,7 @@ const box=r=>r&&{left:r.left,top:r.top,right:r.right,bottom:r.bottom};
 
 async function open(options){
   const context=await browser.newContext(options);await context.addInitScript(seed=>{if(!localStorage.getItem('wenzhou.workspace'))localStorage.setItem('wenzhou.workspace',JSON.stringify(seed));},seed);
-  const p=await context.newPage();p.on('pageerror',e=>errors.push(e.message));await p.goto(url+'/?ui=harmonyos');await openRecentFile(p,p.locator('[data-recent=book]'));await p.waitForSelector('.vela-term');await p.waitForTimeout(400);return p;
+  const p=await context.newPage();p.on('pageerror',e=>errors.push(e.message));await p.goto(url+'/?ui=harmonyos');await openRecentFile(p,p.locator('[data-recent=book]'));await p.waitForSelector('.vela-term');await settled(p);return p;
 }
 // Geometry of the selection bar, every painted selection rectangle, the cursor line and any term definition.
 const geometry=p=>p.evaluate(()=>{const v=velaEditorView,m=document.querySelector('#selection-menu'),tip=document.querySelector('.cm-tooltip-hover'),r=v.state.selection.main,line=v.coordsAtPos(r.head,r.head===r.to&&!r.empty?-1:1),rect=e=>{const b=e.getBoundingClientRect();return {left:b.left,top:b.top,right:b.right,bottom:b.bottom};};
@@ -58,8 +59,8 @@ try{
   });
   await check('the bar follows a scrolled selection and stays closed after Escape until the next gesture',async()=>{
     await p.evaluate(()=>{const v=velaEditorView,l=v.state.doc.line(14);v.dispatch({selection:{anchor:l.from+2,head:l.from+12},scrollIntoView:true});v.focus();});await p.waitForSelector('#selection-menu:not([hidden])');const before=(await geometry(p)).menu;
-    await p.evaluate(()=>velaEditorView.scrollDOM.scrollTop+=60);await p.waitForTimeout(450);let g=await geometry(p);assertClear(g,'after scroll');assert.ok(Math.abs(before.top-60-g.menu.top)<2,'bar did not follow the scroll');
-    await p.keyboard.press('Escape');await p.waitForTimeout(450);assert.equal(await p.locator('#selection-menu').isHidden(),true,'bar came back after Escape');
+    await p.evaluate(()=>velaEditorView.scrollDOM.scrollTop+=60);await settled(p);await p.waitForSelector('#selection-menu:not([hidden])').catch(()=>{});let g=await geometry(p);assertClear(g,'after scroll');assert.ok(Math.abs(before.top-60-g.menu.top)<2,'bar did not follow the scroll');
+    await p.keyboard.press('Escape');await p.locator('#selection-menu').waitFor({state:'hidden'}).catch(()=>{});assert.equal(await p.locator('#selection-menu').isHidden(),true,'bar came back after Escape');
     await p.keyboard.press('Shift+ArrowRight');await p.waitForSelector('#selection-menu:not([hidden])');
   });
   await check('Copy keeps the selection and does not reopen the bar',async()=>{
@@ -85,7 +86,7 @@ try{
     const all=await p.evaluate(async()=>{const v=velaEditorView,t=performance.now();v.dispatch({selection:{anchor:0,head:v.state.doc.length}});await new Promise(r=>requestAnimationFrame(()=>requestAnimationFrame(r)));return performance.now()-t;});
     const perUpdate=(await metric()-before)*1000/steps;console.log('  script ms per selection update',perUpdate.toFixed(2),'select-all frame ms',all.toFixed(1));
     assert.ok(perUpdate<6,'selection update scripting '+perUpdate.toFixed(2)+' ms');assert.ok(all<120,'select all took '+all.toFixed(1)+' ms');
-    await p.evaluate(()=>document.querySelector('#large-tree-fixture').remove());await p.waitForTimeout(400);assert.match(await p.locator('#selection-count').textContent(),/选中 [\d,]+ 字/);
+    await p.evaluate(()=>document.querySelector('#large-tree-fixture').remove());await p.waitForFunction(()=>/选中 [\d,]+ 字/.test(document.querySelector('#selection-count')?.textContent)).catch(()=>{});assert.match(await p.locator('#selection-count').textContent(),/选中 [\d,]+ 字/);
   });
   await p.context().close();
 
@@ -101,7 +102,7 @@ try{
     await m.evaluate(()=>velaEditorView.dispatch({selection:{anchor:5}}));await m.waitForFunction(()=>document.querySelector('#selection-menu').hidden);
   });
   await check('phone preview: whole-text selections show the bar without flicker, scrolled or not',async()=>{
-    await m.locator('[data-display=preview]').click();await m.waitForFunction(()=>document.querySelector('#preview')?.textContent.length>200);await m.waitForTimeout(400);
+    await m.locator('[data-display=preview]').click();await m.waitForFunction(()=>document.querySelector('#preview')?.textContent.length>200);await settled(m);
     for(const scrolled of [false,true]){
       const g=await m.evaluate(async scrolled=>{const preview=document.querySelector('#preview'),menu=document.querySelector('#selection-menu'),scroller=[preview,...preview.querySelectorAll('*')].find(e=>e.scrollHeight>e.clientHeight+50&&/(auto|scroll)/.test(getComputedStyle(e).overflowY))||document.scrollingElement;if(scrolled)scroller.scrollTop=600;
         await new Promise(r=>setTimeout(r,300));let toggles=0;new MutationObserver(r=>toggles+=r.length).observe(menu,{attributes:true,attributeFilter:['hidden']});const range=document.createRange();range.selectNodeContents(preview);getSelection().removeAllRanges();getSelection().addRange(range);

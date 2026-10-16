@@ -1,3 +1,4 @@
+import {reducedMotion} from './motion.mjs';
 import {odfReadingHtml} from './document-components.mjs';
 import {documentKind} from './model.mjs';
 import {documentPath} from './workspace.mjs';
@@ -96,7 +97,7 @@ export class Reader {
     const viewport=this.root.querySelector('.reader-viewport'),content=this.root.querySelector('.reader-content');if(!viewport)return;
     if(this.paged){
       let next=spreadStart(this.page+delta*this.geometry.columns,this.pages,this.geometry.columns),changeChunk=0;if(this.windowModel&&next===this.page){if(delta>0&&this.chunk<this.windowModel.chunks.length-1)changeChunk=1;else if(delta<0&&this.chunk>0)changeChunk=-1;}if(next===this.page&&!changeChunk)return;
-      this.cancelAnimation();const animate=!matchMedia('(prefers-reduced-motion: reduce)').matches;
+      this.cancelAnimation();const animate=!reducedMotion();
       const layer=className=>{const element=document.createElement('div');element.className=className;element.inert=true;element.setAttribute('aria-hidden','true');const clone=content.cloneNode(true);clone.querySelectorAll('[id]').forEach(node=>node.removeAttribute('id'));element.append(clone);viewport.append(element);return element;};
       if(animate)this.overlay=layer('reader-page-overlay');
       if(changeChunk){this.renderChunk(this.chunk+changeChunk,content);content.style.transform='';this.pages=paginatedPages(content,this.geometry);this.chunkCounts[this.chunk]=this.pages;next=changeChunk>0?0:spreadStart(this.pages-1,this.pages,this.geometry.columns);}this.page=next;const base=-this.page*this.geometry.stride;content.style.transform=`translateX(${base}px)`;this.capture();
@@ -113,9 +114,10 @@ export class Reader {
     this.root.querySelector('#reader-position').textContent=`${info.page}${info.end&&info.end!==info.page?'–'+info.end:''} / ${info.pages}`;this.root.querySelector('#reader-percent').textContent=`${Math.round(Math.max(0,Math.min(1,info.ratio))*100)}%`;
     const section=[...(this.chapters||[])].reverse().find(section=>section.offset<=offset),title=displayChapterTitle(section?.title||t('全文'));
     this.root.querySelector('#reader-chapter').textContent=title;this.root.querySelector('#reader-footer-chapter').textContent=title;
-    this.renderMarks();clearTimeout(this.positionTimer);this.positionTimer=setTimeout(()=>this.persist(),350);
+    this.renderMarks();clearTimeout(this.positionTimer);this.root.dataset.positionPending='';this.positionTimer=setTimeout(()=>this.persist(),350);
   }
-  persist(){if(this.id&&this.position){const workspace=this.workspace();workspace.readerPositions={...workspace.readerPositions,[this.id]:this.position};this.save();}}
+  // data-position-pending marks a debounced save in flight; browser tests wait for it instead of sleeping.
+  persist(){delete this.root.dataset.positionPending;if(this.id&&this.position){const workspace=this.workspace();workspace.readerPositions={...workspace.readerPositions,[this.id]:this.position};this.save();}}
   toggleOutline(){if(this.pdfPane?.pdf){this.togglePdfOutline().catch(this.fail);return;}const existing=this.root.querySelector('.reader-outline');if(existing){existing.remove();return;}this.chrome(true);const panel=document.createElement('aside');panel.className='reader-outline';panel.innerHTML=`<header><strong>${t('章节目录')}</strong><button data-reader-close aria-label="${t('关闭')}">${icon('close')}</button></header><input type="search" placeholder="${t('筛选章节标题')}"><div></div>`;const render=()=>{const query=panel.querySelector('input').value.toLowerCase();panel.querySelector('div').innerHTML=(this.chapters||[]).filter(s=>s.title.toLowerCase().includes(query)).map(s=>`<button data-reader-offset="${s.offset}" data-user-content>${this.escape(s.title)}</button>`).join('');};panel.querySelector('input').oninput=render;panel.onclick=e=>{if(e.target.closest('[data-reader-close]'))panel.remove();const button=e.target.closest('[data-reader-offset]');if(button){this.position={offset:Number(button.dataset.readerOffset)};this.layout();this.persist();}};render();this.root.querySelector('.reader-document').append(panel);}
   async togglePdfOutline(){const existing=this.root.querySelector('.reader-outline');if(existing){existing.remove();return;}this.chrome(true);const pane=this.pdfPane,epoch=this.epoch,items=await pane.outline();if(epoch!==this.epoch)return;const panel=document.createElement('aside');panel.className='reader-outline';panel.innerHTML=`<header><strong>${t('章节目录')}</strong><button data-reader-close aria-label="${t('关闭')}">${icon('close')}</button></header><div>${items.map((item,i)=>`<button data-pdf-chapter="${i}">${this.escape(item.title)}</button>`).join('')||t('此 PDF 未提供目录')}</div>`;panel.onclick=e=>{if(e.target.closest('[data-reader-close]'))panel.remove();const b=e.target.closest('[data-pdf-chapter]');if(b){pane.page=items[Number(b.dataset.pdfChapter)].pdfPage;pane.render().catch(this.fail);}};this.root.querySelector('.reader-document').append(panel);}
 
