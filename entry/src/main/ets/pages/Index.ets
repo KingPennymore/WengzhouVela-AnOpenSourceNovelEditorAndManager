@@ -1,6 +1,7 @@
 import { webview } from '@kit.ArkWeb';
 import { url, util } from '@kit.ArkTS';
 import { common } from '@kit.AbilityKit';
+import { fileIo as fs } from '@kit.CoreFileKit';
 import { NativeBridge } from '../services/NativeBridge';
 import { Runtime } from '../services/Runtime';
 
@@ -10,12 +11,95 @@ struct Index {
   private controller: webview.WebviewController = new webview.WebviewController();
   private bridge: NativeBridge = new NativeBridge();
   private pinchDistance: number = 0;
+  /** Bump when the policy text changes materially so consent is requested again. */
+  private static readonly POLICY_VERSION: string = '2026-10-16';
+  private static readonly POLICY_URL: string = 'https://gitee.com/kingpennymore/wenzhou-vela-mirror-repository/blob/master/PRIVACY.md';
+  @State consented: boolean = false;
+  @State showFullPolicy: boolean = false;
+  @State policyText: string = '';
 
   aboutToAppear(): void {
     this.bridge.context = this.getUIContext().getHostContext() as common.UIAbilityContext;
-    Runtime.controller = this.controller;
     this.bridge.downloads.context = this.bridge.context;
     this.bridge.downloads.clear();
+    this.consented = this.readConsent();
+    if (!this.consented) this.policyText = this.loadPolicy();
+  }
+
+  private consentFile(): string { return this.bridge.context!.filesDir + '/privacy-consent.txt'; }
+
+  private readConsent(): boolean {
+    try {
+      const file = this.consentFile();
+      if (!fs.accessSync(file)) return false;
+      return fs.readTextSync(file).trim() === Index.POLICY_VERSION;
+    } catch (error) { return false; }
+  }
+
+  private loadPolicy(): string {
+    try {
+      const bytes = this.bridge.context!.resourceManager.getRawFileContentSync('privacy-policy.txt');
+      return new util.TextDecoder('utf-8').decodeToString(bytes);
+    } catch (error) { return '隐私政策加载失败，请访问：' + Index.POLICY_URL; }
+  }
+
+  private agree(): void {
+    try {
+      const file = fs.openSync(this.consentFile(), fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC);
+      fs.writeSync(file.fd, Index.POLICY_VERSION); fs.closeSync(file);
+    } catch (error) { /* consent then applies to this run only */ }
+    this.policyText = '';
+    this.consented = true;
+  }
+
+  private decline(): void {
+    this.bridge.context?.terminateSelf().catch(() => {});
+  }
+
+  @Builder
+  privacyDialog() {
+    Column() {
+      Column() {
+        if (this.showFullPolicy) {
+          Row() {
+            Text('隐私政策').fontSize(20).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary')).layoutWeight(1)
+            Button('返回', { type: ButtonType.Normal }).height(36).borderRadius(18).fontSize(15)
+              .fontColor($r('sys.color.font_emphasize')).backgroundColor($r('sys.color.comp_background_tertiary'))
+              .onClick(() => { this.showFullPolicy = false; })
+          }.width('100%').margin({ bottom: 12 })
+          Scroll() {
+            Text(this.policyText).fontSize(14).lineHeight(22).fontColor($r('sys.color.font_secondary')).width('100%')
+          }.layoutWeight(1).scrollBar(BarState.Auto)
+        } else {
+          Text('文舟 隐私政策').fontSize(20).fontWeight(FontWeight.Bold).fontColor($r('sys.color.font_primary')).margin({ bottom: 12 })
+          Scroll() {
+            Column() {
+              Text('欢迎使用文舟 Vela。我们非常重视你的个人信息保护，请你在使用前阅读并确认下列要点：')
+                .fontSize(15).lineHeight(23).fontColor($r('sys.color.font_primary'))
+              Text('1. 文稿、附件和设置仅保存在本机，不会上传到开发者服务器；本应用无账号体系，不含广告、统计或第三方 SDK。\n2. 仅在你主动使用 GitHub / Gitee 仓库同步、组件下载或更新检查时联网；令牌保存在系统安全存储。\n3. 仅在你执行粘贴操作时读取剪贴板；不收集设备标识、位置、通讯录等信息。\n4. 你可随时删除数据、退出登录或卸载应用。')
+                .fontSize(14).lineHeight(22).fontColor($r('sys.color.font_secondary')).margin({ top: 10 })
+              Text() {
+                Span('完整内容请阅读')
+                Span('《隐私政策》').fontColor($r('sys.color.font_emphasize')).onClick(() => { this.showFullPolicy = true; })
+                Span('。点击“同意”表示你已阅读并同意；点击“拒绝”将退出应用，我们不会收集任何信息。')
+              }.fontSize(14).lineHeight(22).fontColor($r('sys.color.font_secondary')).margin({ top: 10 })
+            }.alignItems(HorizontalAlign.Start).width('100%')
+          }.layoutWeight(1).scrollBar(BarState.Auto)
+          Row({ space: 12 }) {
+            Button('拒绝', { type: ButtonType.Normal }).layoutWeight(1).height(44).borderRadius(22).fontSize(16)
+              .fontColor($r('sys.color.font_emphasize')).backgroundColor($r('sys.color.comp_background_tertiary'))
+              .onClick(() => this.decline())
+            Button('同意', { type: ButtonType.Normal }).layoutWeight(1).height(44).borderRadius(22).fontSize(16)
+              .fontColor(Color.White).backgroundColor($r('sys.color.brand'))
+              .onClick(() => this.agree())
+          }.width('100%').margin({ top: 16 })
+        }
+      }
+      .width('100%').constraintSize({ maxWidth: 480, maxHeight: '80%' }).padding(24).borderRadius(24)
+      .backgroundColor($r('sys.color.comp_background_primary'))
+    }
+    .width('100%').height('100%').justifyContent(FlexAlign.Center).padding({ left: 24, right: 24 })
+    .backgroundColor('#99000000')
   }
 
   private resource(request: WebResourceRequest): WebResourceResponse | null {
@@ -76,10 +160,12 @@ struct Index {
   }
 
   build() {
-    Column() {
+    Stack() {
+      if (this.consented) {
       Web({ src: 'https://wenzhou-editor.local/web/index.html', controller: this.controller })
         .width('100%')
         .height('100%')
+        .onControllerAttached(() => { Runtime.controller = this.controller; })
         .javaScriptAccess(true)
         .domStorageAccess(true)
         .editMenuOptions({ onCreateMenu: (_items: Array<TextMenuItem>): Array<TextMenuItem> => {
@@ -111,6 +197,9 @@ struct Index {
           // The privileged view must never navigate to GitHub or user-provided content.
           return request.getRequestUrl() !== 'https://wenzhou-editor.local/web/index.html';
         })
+      } else {
+        this.privacyDialog()
+      }
     }
     .width('100%')
     .height('100%')

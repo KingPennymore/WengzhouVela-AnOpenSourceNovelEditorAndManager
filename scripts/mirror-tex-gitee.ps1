@@ -3,16 +3,24 @@
 # The Gitee private token is typed at the prompt and used only inside this process; it is never printed or saved.
 # Usage: pwsh scripts/mirror-tex-gitee.ps1 -Owner <gitee user> -Repository <repo> [-Version 0.1.1] [-CreateRepository]
 #        pwsh scripts/mirror-tex-gitee.ps1 -Owner <gitee user> -Repository <repo> -AppVersion 0.9.8
+#        pwsh scripts/mirror-tex-gitee.ps1 -Owner <gitee user> -Repository <repo> -Catalog   (component catalog, tag catalog)
 param(
   [Parameter(Mandatory)][string]$Owner,
   [Parameter(Mandatory)][string]$Repository,
   [string]$Version = '0.1.1',
   [string]$AppVersion = '',
+  [switch]$Catalog,
   [switch]$CreateRepository
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-if ($AppVersion) {
+if ($Catalog) {
+  # The catalog changes in place: same tag, same file names, new content each time, so files are always replaced.
+  $tag = 'catalog'
+  $folder = Join-Path $root 'dist\releases\catalog'
+  $names = @('catalog.json', 'SHA256SUMS-catalog.txt')
+  $notes = $null
+} elseif ($AppVersion) {
   # Installers, optional components and the checksum list. Gitee rejects attachments over 100 MB, so larger files
   # (currently the Windows installer and ZIP) stay GitHub-only and the app falls back to GitHub for them.
   $tag = "v$AppVersion"
@@ -50,14 +58,14 @@ try {
       $branch = 'master'
       Write-Host '空仓库：已添加 README.md 作为初始提交'
     }
-    $release = Invoke-RestMethod -Uri "$repoUrl/releases" -Method Post -Body @{ access_token = $token; tag_name = $tag; name = $(if ($AppVersion) { "Vela $AppVersion" } else { "Vela TeX 组件 $Version" }); body = (Get-Content -LiteralPath $notes -Raw -Encoding utf8); prerelease = 'false'; target_commitish = $branch }
+    $release = Invoke-RestMethod -Uri "$repoUrl/releases" -Method Post -Body @{ access_token = $token; tag_name = $tag; name = $(if ($Catalog) { '文舟组件目录' } elseif ($AppVersion) { "Vela $AppVersion" } else { "Vela TeX 组件 $Version" }); body = $(if ($notes) { Get-Content -LiteralPath $notes -Raw -Encoding utf8 } else { '文舟组件目录：应用从此发布的 catalog.json 读取可下载的组件及其版本、大小和 SHA-256。' }); prerelease = 'false'; target_commitish = $branch }
     Write-Host "已创建 Gitee 发布 $tag"
   }
   $attached = @(Invoke-RestMethod -Uri "$repoUrl/releases/$($release.id)/attach_files?access_token=$token&per_page=100" -Method Get)
   foreach ($name in $names) {
     $file = Get-Item -LiteralPath (Join-Path $folder $name)
     $existing = $attached | Where-Object name -eq $name
-    if ($existing -and [int64]$existing.size -eq $file.Length) { Write-Host "已存在，跳过：$name"; continue }
+    if ($existing -and !$Catalog -and [int64]$existing.size -eq $file.Length) { Write-Host "已存在，跳过：$name"; continue }
     if ($existing) { Invoke-RestMethod -Uri "$repoUrl/releases/$($release.id)/attach_files/$($existing.id)?access_token=$token" -Method Delete | Out-Null }
     # Gitee ignores access_token as a multipart field (40001); it has to be in the query string here.
     Invoke-RestMethod -Uri "$repoUrl/releases/$($release.id)/attach_files?access_token=$token" -Method Post -Form @{ file = $file } | Out-Null
@@ -67,7 +75,7 @@ try {
   $token = $null
 }
 # Public check without the token: the fixed download address must return the same bytes.
-$expected = @{}; foreach ($line in Get-Content -LiteralPath (Join-Path $folder $(if ($AppVersion) { "SHA256SUMS-$AppVersion.txt" } else { "SHA256SUMS-$tag.txt" }))) { $parts = $line -split '  ', 2; $expected[$parts[1]] = $parts[0] }
+$expected = @{}; foreach ($line in Get-Content -LiteralPath (Join-Path $folder $(if ($Catalog) { 'SHA256SUMS-catalog.txt' } elseif ($AppVersion) { "SHA256SUMS-$AppVersion.txt" } else { "SHA256SUMS-$tag.txt" }))) { $parts = $line -split '  ', 2; $expected[$parts[1]] = $parts[0] }
 $temporary = Join-Path ([IO.Path]::GetTempPath()) "vela-gitee-check-$tag"; New-Item -ItemType Directory -Force -Path $temporary | Out-Null
 $failed = 0
 foreach ($name in $names) {

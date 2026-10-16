@@ -14,12 +14,21 @@ ODF/VODT 组件已移除。已有的 Flat ODF / VODT 文稿保留原文，以纯
 
 ## 在线下载与应用内更新
 
-**在线组件。** 插件页的“在线组件”列出：
+**在线组件。** 插件页的“在线组件”先读取**组件目录**：固定发布标签 `catalog` 中的 `catalog.json`，Gitee 优先、GitHub 其次，结果缓存 10 分钟，“检查更新”按钮重新读取。目录列出每个组件的最新版本，所以以后发布的组件或新版 TeX 不用发新版应用就能出现在已安装的应用里。
 
-- 轻量版缺少的 LaTeX 排版组件（单个包）。信息来自构建时写入 `tex/components.json` 的 `downloads.package` 字段：固定标签、文件名、ZIP 大小与 SHA-256。
-- 最新稳定应用发布（`v*` 标签）附带的可选组件，例如 `Vela-Ebook-Reader-<版本>.zip`。
+```json
+{"format":1,"updated":"2026-10-16T09:00:00Z","components":[
+  {"id":"vela.component.tex","kind":"tex","title":"LaTeX 排版组件","version":"0.1.1","tag":"tex-0.1.1","name":"Vela-TeX-0.1.1.zip","bytes":80740000,"sha256":"…","minApp":"0.9.8"},
+  {"id":"vela.component.ebook-reader","kind":"plugin","title":"电子书阅读组件","version":"1.1.0","tag":"v0.9.8","name":"Vela-Ebook-Reader-1.1.0.zip","bytes":2145791,"sha256":"…","minApp":"0.9.7"}]}
+```
 
-每项显示版本、大小和状态（未安装 / 已安装 / 可更新）。下载时显示进度条和取消按钮；失败时显示各镜像的原因并提供“重试”。手机上提示建议使用 Wi‑Fi。浏览器预览版没有原生下载，会隐藏按钮并说明原因；“从 ZIP 安装”始终保留。下载在后台继续，关闭插件页再打开会接上进度。
+- 每项必须有 ID（`vela.component.` 开头）、类型（`tex` / `plugin`）、版本、发布标签、文件名、大小和 SHA-256；可选 `note`、`minApp`（最低文舟版本）和 `platforms`（`android` / `harmonyos` / `windows`）。格式不对的条目跳过并计数，不影响其他条目；整个文件不是目录时改用下面的备用来源。目录本身不超过 256 KB。
+- 状态按已安装版本比较：未安装、已安装最新版、可更新（标题旁显示可更新数量）、已安装的比在线版本新。`minApp` 高于当前版本或平台不符时显示原因，不提供下载。
+- 完整版内置 TeX，不列出 TeX；轻量版取目录中的 TeX，目录版本比构建时写入 `tex/components.json` 的 `downloads.package` 旧或缺失时，用构建时的信息。
+- 读不到目录时（例如 `catalog` 尚未发布），改为列出最新稳定应用发布（`v*` 标签）附带的 `Vela-<名称>-<版本>.zip`，并在页面上注明。
+- 目录由 `scripts/build-catalog.mjs` 生成，发布步骤见 [BUILD-AND-VERIFY.md](BUILD-AND-VERIFY.md)。代码：`web/component-catalog.mjs`、`web/component-download-view.mjs`。
+
+每项显示版本、大小和状态。下载时显示进度条和取消按钮；失败时显示各镜像的原因并提供“重试”。手机上提示建议使用 Wi‑Fi。浏览器预览版没有原生下载，会隐藏按钮并说明原因；“从 ZIP 安装”始终保留。下载在后台继续，关闭插件页再打开会接上进度。
 
 **下载流程。**
 

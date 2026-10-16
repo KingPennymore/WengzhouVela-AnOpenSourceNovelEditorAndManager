@@ -144,16 +144,140 @@ export function buildSidecar(target,text,entries,review=[],previous={}){
   return sidecar;
 }
 
+// ---- Records in .vela (richText.documents, since 0.9.8) ----
+// A work's .vela keeps the formats of its TXT files under richText.documents["卷一/正文.txt"]. Each entry is
+// anchored to a line: `at` is [line, from, to] (1-based line, UTF-16 columns), [line, from, endLine, to] when it
+// spans lines, or [line] for paragraph formats and illustrations (after that line). `hash` identifies the line, so
+// unchanged lines are found again wherever they moved; `quote` (marks) and `head` (the line's first characters)
+// verify the place. `prefix`/`suffix` are written only where the quote occurs more than once in its line.
+
+const LINE_CONTEXT=8,HEAD=12;
+export const MAX_VELA_CHARS=8*1024*1024;
+const lineTable=text=>{const lines=text.split('\n'),starts=new Array(lines.length);let at=0;for(let i=0;i<lines.length;i++){starts[i]=at;at+=lines[i].length+1;}return {lines,starts};};
+const occurrences=(line,quote)=>{let n=0;for(let at=line.indexOf(quote);at>=0&&n<2;at=line.indexOf(quote,at+1))n++;return n;};
+const recordFailure=(path,message)=>Error('格式记录 '+path+' 无效：'+message);
+
+function recordEntry(entry,text,{lines,starts}){
+  const {id:_id,type,value,group='marks',from,to,at:_at,hash:_h,quote:_q,prefix:_p,suffix:_s,head:_hd,reason:_r,...rest}=entry;
+  const out={type};if(value!==undefined)out.value=value;
+  const line=lineOf(starts,Math.min(from,text.length)),content=lines[line];
+  if(group==='marks'){
+    const end=lineOf(starts,Math.min(to,text.length)),col=from-starts[line],endCol=to-starts[end];
+    out.at=end===line?[line+1,col,endCol]:[line+1,col,end+1,endCol];out.hash=lineHash(content);out.quote=text.slice(from,to);
+    if(end===line&&occurrences(content,out.quote)>1){out.prefix=content.slice(Math.max(0,col-LINE_CONTEXT),col);out.suffix=content.slice(endCol,endCol+LINE_CONTEXT);}
+  }else{out.at=[line+1];out.hash=lineHash(content);if(content)out.head=content.slice(0,HEAD);}
+  return Object.assign(out,rest);
+}
+/** The record for `text` from placed entries, keeping fields of `previous` that Vela does not manage. */
+export function buildRecord(text,entries,review=[],previous={}){
+  const table=lineTable(text),groups=Object.fromEntries(GROUPS.map(group=>[group,[]]));
+  for(const entry of [...entries].sort((a,b)=>a.from-b.from||a.to-b.to))groups[entry.group||'marks'].push(recordEntry(entry,text,table));
+  const {marks:_m,blocks:_b,inserts:_i,review:_r,text:_x,...rest}=previous||{};
+  const record={text:{length:text.length,hash:textFingerprint(text),lines:table.lines.length},...rest};
+  for(const group of GROUPS)if(groups[group].length)record[group]=groups[group];
+  if(review.length)record.review=review.map(({from:_f,to:_t,id:_id,...entry})=>entry);
+  return record;
+}
+export const recordEmpty=record=>!record||GROUPS.every(group=>!record[group]?.length)&&!record.review?.length;
+
+function validRecordEntry(entry,group,path,review=false){
+  if(!entry||typeof entry!=='object'||Array.isArray(entry))throw recordFailure(path,group+' 中有无效条目。');
+  if(typeof entry.type!=='string'||!/^[a-z][\w-]{0,31}$/.test(entry.type))throw recordFailure(path,'条目类型无效。');
+  for(const key of ['quote','prefix','suffix','head','hash','reason'])if(entry[key]!==undefined&&typeof entry[key]!=='string')throw recordFailure(path,key+' 必须是文字。');
+  if(review)return;
+  const at=entry.at,sizes=group==='marks'?[3,4]:[1];
+  if(!Array.isArray(at)||!sizes.includes(at.length)||!at.every(value=>Number.isInteger(value)&&value>=0)||at[0]<1||at.length===4&&at[2]<at[0]||at.length===3&&at[2]<at[1])throw recordFailure(path,'条目位置无效。');
+}
+/** Validates richText.documents[path]; unknown fields and entry types are kept. */
+export function validateRecord(record,path){
+  if(!record||typeof record!=='object'||Array.isArray(record))throw recordFailure(path,'必须是对象。');
+  const text=record.text;if(!text||typeof text!=='object'||!Number.isInteger(text.length)||text.length<0||typeof text.hash!=='string'||text.lines!==undefined&&(!Number.isInteger(text.lines)||text.lines<1))throw recordFailure(path,'text 摘要无效。');
+  let count=0;
+  for(const group of GROUPS){if(record[group]===undefined)continue;if(!Array.isArray(record[group]))throw recordFailure(path,group+' 必须是数组。');for(const entry of record[group])validRecordEntry(entry,group,path);count+=record[group].length;}
+  if(record.review!==undefined){if(!Array.isArray(record.review))throw recordFailure(path,'review 必须是数组。');for(const entry of record.review){if(!GROUPS.includes(entry?.group))throw recordFailure(path,'待确认条目缺少 group。');validRecordEntry(entry,entry.group,path,true);}count+=record.review.length;}
+  if(count>MAX_ENTRIES)throw recordFailure(path,'最多 '+MAX_ENTRIES+' 条。');
+  return record;
+}
+
+/**
+ * Places the entries of a record in `text`. Lines are found by their hash; an edited line is located between the
+ * nearest found lines and its formats by their quote. Entries that cannot be placed safely go to `review` with a
+ * reason, never to a guessed place. `moved` counts entries placed by searching inside edited lines.
+ */
+export function resolveRecord(text,record){
+  const {lines,starts}=lineTable(text),entries=[],review=(record.review||[]).map(entry=>({...entry,id:newEntryId()}));let moved=0;
+  const all=GROUPS.flatMap(group=>(record[group]||[]).map(entry=>({...entry,group,id:newEntryId()})));
+  const exact=record.text.length===text.length&&record.text.hash===textFingerprint(text);
+  const lineEnd=line=>starts[line]+lines[line].length;
+  const finish=()=>{entries.sort((a,b)=>a.from-b.from||a.to-b.to);return {entries,review,exact,moved};};
+  // Offsets of an entry on new line `line` with the stored columns; null when the stored text is not there.
+  const place=(entry,line)=>{
+    if(line<0||line>=lines.length)return null;
+    if(entry.group==='blocks')return {from:starts[line],to:lineEnd(line)};
+    if(entry.group==='inserts')return {from:lineEnd(line),to:lineEnd(line)};
+    const at=entry.at,endLine=at.length===3?line:line+at[2]-at[0];if(endLine>=lines.length)return null;
+    const from=starts[line]+at[1],to=(at.length===3?starts[line]:starts[endLine])+at.at(-1);
+    if(at[1]>lines[line].length||to<from||to>text.length||entry.quote!==undefined&&text.slice(from,to)!==entry.quote)return null;
+    return {from,to};
+  };
+  const done=(entry,placed)=>entries.push({...entry,...placed});
+  const fail=entry=>review.push({...entry,reason:entry.group==='marks'&&entry.quote?'找不到原文“'+entry.quote.slice(0,24)+'”':'找不到所在段落“'+(entry.head||'').slice(0,12)+'”'});
+  if(exact){for(const entry of all){const placed=place(entry,entry.at[0]-1);if(placed)done(entry,placed);else fail(entry);}return finish();}
+
+  const byHash=new Map();lines.forEach((line,i)=>{const hash=lineHash(line),list=byHash.get(hash);if(list)list.push(i);else byHash.set(hash,[i]);});
+  // Lines whose text is unique on both sides anchor everything else.
+  const anchors=new Map(),pending=[];
+  for(const entry of all){
+    const old=entry.at[0]-1,found=entry.hash?byHash.get(entry.hash):null;
+    if(anchors.has(old)){const placed=place(entry,anchors.get(old));if(placed){done(entry,placed);continue;}}
+    if(found?.length===1){const placed=place(entry,found[0]);if(placed){done(entry,placed);anchors.set(old,found[0]);continue;}}
+    pending.push(entry);
+  }
+  const oldCount=record.text.lines||Math.max(1,...all.map(entry=>entry.at.length===4?entry.at[2]:entry.at[0]));
+  const sorted=[[-1,-1],...[...anchors].sort((a,b)=>a[0]-b[0]),[oldCount,lines.length]];
+  const around=old=>{let before=sorted[0],after=sorted.at(-1);for(const pair of sorted){if(pair[0]<old&&pair[0]>=before[0])before=pair;if(pair[0]>old&&pair[0]<after[0])after=pair;}return {before,after};};
+  const score=(line,col,entry)=>common(line.slice(Math.max(0,col-LINE_CONTEXT),col),entry.prefix||'',true)+common(line.slice(col+entry.quote.length,col+entry.quote.length+LINE_CONTEXT),entry.suffix||'',false);
+  // The quote inside one line: unique there, or the one whose context matches clearly better.
+  const inLine=(entry,line)=>{
+    const content=lines[line],hits=[];for(let at=content.indexOf(entry.quote);at>=0&&hits.length<200;at=content.indexOf(entry.quote,at+1))hits.push(at);
+    if(hits.length===1)return hits[0];if(!hits.length||!entry.prefix&&!entry.suffix)return null;
+    const scored=hits.map(col=>({col,score:score(content,col,entry)})).sort((a,b)=>b.score-a.score);
+    return scored[0].score>0&&scored[0].score>scored[1].score?scored[0].col:null;
+  };
+  const similar=(entry,line)=>!entry.head||common(lines[line],entry.head,false)>=Math.min(entry.head.length,4);
+  for(const entry of pending){
+    const old=entry.at[0]-1,{before,after}=around(old),ordered=after[1]>before[1],sameGap=ordered&&after[1]-before[1]===after[0]-before[0];
+    const candidates=(entry.hash&&byHash.get(entry.hash)||[]).filter(line=>!ordered||line>before[1]&&line<after[1]);
+    let placed=null;
+    // Repeated lines (such as “——完——” after every chapter): the copy between the neighbouring anchors.
+    if(candidates.length){const expected=before[1]+old-before[0],line=sameGap&&candidates.includes(expected)?expected:candidates.length===1?candidates[0]:null;if(line!==null)placed=place(entry,line);}
+    // An edited line keeps its position between unchanged neighbours when no lines were added or removed there.
+    if(!placed&&sameGap){
+      const line=before[1]+old-before[0];
+      if(entry.group!=='marks'){if(similar(entry,line)){placed=place(entry,line);if(placed)moved++;}}
+      else if(entry.at.length===3&&entry.quote){const col=inLine(entry,line);if(col!==null){placed={from:starts[line]+col,to:starts[line]+col+entry.quote.length};moved++;}}
+    }
+    // Otherwise search the stretch between the neighbours, accepting only an unambiguous hit.
+    if(!placed&&entry.group==='marks'&&entry.quote){
+      const from=ordered&&before[1]>=0?starts[before[1]+1]??text.length:0,to=ordered&&after[1]<lines.length?starts[after[1]]:text.length;
+      const hint=starts[Math.min(lines.length-1,Math.max(0,before[1]+old-before[0]))]+entry.at[1];
+      const at=from<=to?findQuote(text,{quote:entry.quote,prefix:entry.prefix||'',suffix:entry.suffix||''},hint,{from,to}):null;
+      if(at!==null){placed={from:at,to:at+entry.quote.length};moved++;}
+    }
+    if(!placed&&entry.group!=='marks'&&entry.head&&entry.head.length>=4){
+      const first=ordered?before[1]+1:0,last=ordered?after[1]-1:lines.length-1,hits=[];for(let line=first;line<=last&&hits.length<2;line++)if(lines[line].startsWith(entry.head))hits.push(line);
+      if(hits.length===1){placed=place(entry,hits[0]);if(placed)moved++;}
+    }
+    if(placed)done(entry,placed);else fail(entry);
+  }
+  return finish();
+}
+
+/** A legacy sidecar (0.9.7, `正文.txt.vela`) as a record, so its formats open and are saved into .vela. */
+export function sidecarRecord(text,sidecar){const {entries,review}=resolveSidecar(text,sidecar);return {record:buildRecord(text,entries,review),entries,review};}
+
 // ---- Reading and export ----
 
-const formatCache=new WeakMap();
-/** Placed entries of `doc` from its sidecar among `documents`, for read-only use; [] without a valid sidecar. */
-export function documentFormats(documents,doc){
-  const path=doc&&(doc.path||doc.name),sidecar=path&&documents.find(item=>(item.path||item.name)===sidecarPath(path));if(!sidecar)return [];
-  const cached=formatCache.get(doc);if(cached&&cached.sidecar===sidecar.text&&cached.text===doc.text)return cached.entries;
-  let entries=[];try{entries=resolveSidecar(doc.text,readSidecar(sidecar.text)).entries;}catch{/* An invalid sidecar is reported when the TXT is edited. */}
-  formatCache.set(doc,{sidecar:sidecar.text,text:doc.text,entries});return entries;
-}
 /**
  * Splits text[from, to) into runs, each with the inline formats active on all of it: `strong`, `emphasis` and
  * `style:<id>`. Ruby is handled by inlineSegments. Joined runs equal the text.

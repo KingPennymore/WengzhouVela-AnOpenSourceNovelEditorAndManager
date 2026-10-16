@@ -1,6 +1,6 @@
 // In-app component download and app update, with the native `downloadComponent` / `downloadUpdate` bridge mocked.
 // Covers success, ZIP SHA-256 failure, over-size, cancel, Gitee failure falling back to GitHub, the browser-preview
-// fallback, the mobile Wi-Fi hint and the update dialog (HarmonyOS getting only the release page is a unit test). Real downloads on the three devices still need manual checks.
+// fallback, the component catalog (newer TeX, updates, components needing a newer app), the mobile Wi-Fi hint and the update dialog (HarmonyOS getting only the release page is a unit test). Real downloads on the three devices still need manual checks.
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
@@ -15,6 +15,13 @@ const files=Object.fromEntries(Object.entries(contents).map(([name,data])=>[name
 const archive=group=>Buffer.from(zipSync(Object.fromEntries(names[group].map(name=>[name,[contents[name],{mtime:new Date('1980-01-01T00:00:00Z')}]]))));
 const all=Buffer.from(zipSync(Object.fromEntries(Object.entries(contents).map(([name,data])=>[name,[data,{mtime:new Date('1980-01-01T00:00:00Z')}]]))));
 const payloads={full:all,engine:archive('engine'),corrupt:Buffer.concat([all.subarray(0,-4),Buffer.from('xxxx')])};
+// The component catalog (release tag `catalog`); only pages opened with {catalog:true} can read it, others get 404 as
+// before the catalog was published.
+payloads.catalog=Buffer.from(JSON.stringify({format:1,updated:'2026-10-20T08:00:00Z',components:[
+  {id:'vela.component.tex',kind:'tex',title:'LaTeX 排版组件',version:'0.1.2',tag:'tex-0.1.2',name:'Vela-TeX-0.1.2.zip',bytes:payloads.full.length,sha256:sha(payloads.full),minApp:'0.9.7'},
+  {id:'vela.component.ebook-reader',kind:'plugin',title:'电子书阅读组件',version:'1.3.0',tag:'v0.9.9',name:'Vela-Ebook-Reader-1.3.0.zip',bytes:2*1024*1024,sha256:'d'.repeat(64),minApp:'0.9.7'},
+  {id:'vela.component.future',kind:'plugin',title:'未来组件',version:'1.0.0',tag:'v9.0.0',name:'Vela-Future-1.0.0.zip',bytes:1024,sha256:'e'.repeat(64),minApp:'9.0.0'},
+  {id:'bad id',kind:'plugin',title:'坏条目',version:'1',tag:'x',name:'x.zip',bytes:1,sha256:'f'}]}));
 const descriptor={format:1,version:'0.1.1',id:'test-tex-'+sha(JSON.stringify(files)).slice(0,12),builtin:false,files,groups:names,
   downloads:{tag:'tex-0.1.1',package:{name:'Vela-TeX-0.1.1.zip',bytes:payloads.full.length,sha256:sha(payloads.full)}}};
 const hex=c=>c.repeat(64);
@@ -30,15 +37,15 @@ let failed=0;
 const check=async(name,run)=>{try{await run();console.log('PASS',name);}catch(error){failed++;console.error('FAIL',name,'\n',error);}};
 
 /** One page with a mocked native bridge. `scenario` maps "<host>:<file>" to ok | fail | corrupt | hang. */
-async function nativePage({platform='windows',scenario={},installed=[]}={}){
+async function nativePage({platform='windows',scenario={},installed=[],catalog=false}={}){
   const context=await browser.newContext({viewport:{width:1200,height:860}}),page=await context.newPage(),errors=[];
   page.on('pageerror',error=>errors.push(error.message));
   await context.route(/^https?:\/\/(?!127\.0\.0\.1)/,route=>route.abort());
   await page.route('**/tex/components.json',route=>route.fulfill({contentType:'application/json',body:JSON.stringify(descriptor)}));
   await page.route('**/imports/*',route=>{const token=new URL(route.request().url()).pathname.split('/').pop(),body=payloads[token.split('-')[0]];return body?route.fulfill({status:200,contentType:'application/zip',body}):route.fulfill({status:404,body:''});});
-  await context.addInitScript(({workspace,platform,scenario,installed,sizes,githubReleases})=>{
+  await context.addInitScript(({workspace,platform,scenario,installed,sizes,githubReleases,catalog})=>{
     let stored=JSON.stringify(workspace),plugins=installed.length?JSON.stringify(installed):'';
-    const mock=window.__mock={calls:[],cancelled:[],installed:[]};
+    const mock=window.__mock={calls:[],cancelled:[],installed:[],catalog:[]};
     const ok=value=>JSON.stringify({ok:true,value}),fail=error=>JSON.stringify({ok:false,error});
     const progress=(id,received,total)=>window.dispatchEvent(new CustomEvent('wenzhouDownload',{detail:{id,received,total}}));
     window.WenzhouNative={platform,readWorkspace:()=>stored,writeWorkspace:value=>{stored=value;return 'ok';},readPlugins:()=>plugins,writePlugins:value=>{plugins=value;return 'ok';},
@@ -49,6 +56,7 @@ async function nativePage({platform='windows',scenario={},installed=[]}={}){
         if(operation==='publicApi')return ok(data.provider==='gitee'?{status:200,body:[{tag_name:'tex-0.1.1',assets:[]}]}:{status:200,body:githubReleases});
         if(operation==='downloadComponent'||operation==='downloadUpdate'){
           const url=new URL(data.url),host=url.hostname,file=url.pathname.split('/').pop(),mode=scenario[host+':'+file]||scenario[file]||'ok';
+          if(file==='catalog.json'){mock.catalog.push(host);if(!catalog)return fail('HTTP 404');const token='catalog-'+Math.random().toString(16).slice(2);return ok({name:file,size:sizes.catalog,importToken:token,url:location.origin+'/imports/'+token});}
           mock.calls.push({operation,host,file});
           if(mode==='fail')return fail('无法连接下载服务器，请检查网络后重试。');
           if(mode==='hang'){for(let i=1;i<=50;i++){if(mock.cancelled.includes(data.id))return fail('下载已取消。');progress(data.id,i*1024,data.size);await new Promise(resolve=>setTimeout(resolve,100));}return fail('超时');}
@@ -62,7 +70,7 @@ async function nativePage({platform='windows',scenario={},installed=[]}={}){
         if(operation==='api')return ok({status:401,body:{}});
         return ok(true);
       }};
-  },{workspace,platform,scenario,installed,sizes:Object.fromEntries(Object.entries(payloads).map(([key,value])=>[key,value.length])),githubReleases});
+  },{workspace,platform,scenario,installed,sizes:Object.fromEntries(Object.entries(payloads).map(([key,value])=>[key,value.length])),githubReleases,catalog});
   await page.goto(server.url);await page.waitForSelector('#start-page:not([hidden]), #more-tools');await page.waitForTimeout(300);
   if(await page.locator('#start-page').isVisible())await openRecentFile(page,page.locator('[data-recent=doc]'));
   return {page,context,errors};
@@ -111,6 +119,24 @@ try{
     await card.locator('[data-download-start]').click();
     await card.locator('.error').waitFor();assert.match(await card.locator('.error').innerText(),/超过 96\.0 MB 上限/);
     assert.equal(await page.evaluate(()=>window.__mock.calls.filter(call=>call.file.endsWith('.zip')).length),0);await context.close();
+  });
+  await check('the catalog lists a newer TeX, marks updates and names components that need a newer app',async()=>{
+    const {page,context,errors}=await nativePage({catalog:true,installed:[{manifest:{id:'vela.component.ebook-reader',name:'电子书',version:'1.1.0',main:'main.js',vela:{type:'reader-component',api:'>=4 <5'}},enabled:true,files:{'main.js':'Ly8='}}]});
+    await openPlugins(page);const section=page.locator('#component-downloads');
+    await page.locator('[data-download-card="plugin.future"]').waitFor({timeout:10000});
+    assert.match(await downloadCard(page).innerText(),/vela\.component\.tex · 0\.1\.2/,'the catalog TeX is newer than the one this build knows');
+    const ebook=page.locator('[data-download-card="plugin.ebook-reader"]');assert.match(await ebook.innerText(),/已安装 1\.1\.0，可更新到 1\.3\.0/);assert.equal(await ebook.locator('[data-download-start]').innerText(),'更新');
+    const future=page.locator('[data-download-card="plugin.future"]');assert.match(await future.innerText(),/需要文舟 9\.0\.0 或更新版本/);assert.equal(await future.locator('[data-download-start]').count(),0);
+    assert.match(await section.innerText(),/1 个可更新/);assert.match(await section.innerText(),/组件目录 · Gitee · 更新于 2026\/10\/20 · 1 项格式无效已跳过/);
+    assert.deepEqual(await page.evaluate(()=>window.__mock.catalog),['gitee.com']);
+    await section.locator('[data-download-refresh]').click();await page.waitForFunction(()=>window.__mock.catalog.length===2);await future.waitFor();
+    assert.deepEqual(errors,[]);await context.close();
+  });
+  await check('without a catalog the components of the newest app release are listed, and the page says so',async()=>{
+    const {page,context}=await nativePage();await openPlugins(page);
+    await page.locator('[data-download-card="plugin.ebook-reader"]').waitFor({timeout:10000});
+    assert.match(await page.locator('#component-downloads').innerText(),/暂时读不到组件目录，显示 v0\.9\.8 附带的组件 · GitHub/);
+    assert.deepEqual(await page.evaluate(()=>window.__mock.catalog),['gitee.com','github.com']);await context.close();
   });
   await check('cancelling stops the native download and keeps the component uninstalled',async()=>{
     const {page,context}=await nativePage({scenario:{'Vela-TeX-0.1.1.zip':'hang'}});await openPlugins(page);

@@ -2,6 +2,7 @@ import {startPageMarkup,setStartPanel} from './start-page.mjs';
 import {templatesFor,templateText} from './file-templates.mjs';
 import {renderOdfDocument,importOdfBytes,validateFlatOdf,odfText,ODF_PACKED,ODF_FLAT,onDocumentFormatsChange} from './document-components.mjs';
 import {bindSelectionMenu} from './selection-menu.mjs';
+import {bindStylePanel} from './format-style-panel.mjs';
 import {readImportedArchive} from './imported-archive.mjs';
 import {isTexComponentArchive} from './tex-component.mjs';
 import {icon} from './icons.mjs';
@@ -29,7 +30,7 @@ import {SidebarLayout} from './sidebars.mjs';
 import {UIShell,organizeSettings} from './ui-shell.mjs';
 import {Reader} from './reader.mjs';
 import {Subscriptions} from './subscriptions.mjs';
-import {createVelaV2,velaText,projectConfig,projectWriter,includeNewReadingFile,rewriteVelaFiles,configFolder,readable,GLOBAL_VELA_PATH,globalConfig} from './vela.mjs';
+import {createVelaV2,velaText,projectConfig,projectWriter,includeNewReadingFile,rewriteVelaFiles,configFolder,readable,GLOBAL_VELA_PATH,globalConfig,formatHome,legacySidecar,addFormatRecord,configStyles} from './vela.mjs';
 import {renderVelaEditor} from './vela-view.mjs';
 import {completionExtensions} from './completion.mjs';
 import {initI18n,setLanguage,t} from './i18n.mjs';
@@ -72,9 +73,9 @@ import {bindViewport} from './viewport.mjs';
 import {editorSearch} from './search-panel.mjs';
 import {diffMarkup,bindDiffPreviews} from './sync-preview.mjs';
 import {textFingerprint} from './document-service.mjs';
-import {readSidecar,resolveSidecar,buildSidecar,sidecarText,sidecarPath,sidecarTarget,imagePath} from './rich-text.mjs';
-import {richTextExtensions,formatsOf,setFormats,toggleInline,toggleAlign,toggleBlock,clearStyles,setRuby,rubyAt,insertImage,updateImage,blockStyleAt,settleReview,isFormatActive,formatStyles,imageLoader} from './rich-text-editor.mjs';
-import {resolveStyles,validateStyles,STYLE_FIELDS,STYLE_LABELS,BUILTIN_STYLES} from './rich-text-styles.mjs';
+import {readSidecar,sidecarRecord,buildRecord,resolveRecord,recordEmpty,sidecarPath,sidecarTarget,imagePath} from './rich-text.mjs';
+import {richTextExtensions,formatsOf,setFormats,toggleInline,toggleAlign,toggleBlock,clearStyles,clearFormats,applyStyle,styleAt,setRuby,rubyAt,insertImage,updateImage,blockStyleAt,settleReview,isFormatActive,formatStyles,imageLoader} from './rich-text-editor.mjs';
+import {resolveStyles,validateStyles,STYLE_FIELDS,STYLE_LABELS,BUILTIN_STYLES,paragraphStyle} from './rich-text-styles.mjs';
 import {mountComponentDownloads} from './component-download-view.mjs';
 import {setCompileDiagnostics} from './latex-editor.mjs';
 import {checkAppUpdates} from './update-view.mjs';
@@ -99,7 +100,8 @@ let isPreview=false,dirty=false,bootFailed=false,dialogHandler=null,dialogCancel
 let texCompiler,texPreview;
 let plugins,projects,projectLocked=false,home=false,csvRows=[],csvPage=0,csvColumnPage=0,environment=readEnvironment();
 let textFontSize=16;
-const selectionMenu=bindSelectionMenu({getView:()=>view,getDoc:()=>pageName==='reader'?reader?.doc:current(),addGlossary:text=>addSelectionToGlossary(text,pageName==='reader'?reader?.doc:current()),extraItems:selection=>selection.view?[...formatSelectionItems(selection),...(pluginUi?.selectionItems(selection)||[])]:[],fail});
+const selectionMenu=bindSelectionMenu({getView:()=>view,getDoc:()=>pageName==='reader'?reader?.doc:current(),addGlossary:text=>addSelectionToGlossary(text,pageName==='reader'?reader?.doc:current()),extraItems:selection=>selection.view?pluginUi?.selectionItems(selection)||[]:[],fail});
+const stylePanel=bindStylePanel({button:$('#format-style'),escape:esc,getState:()=>{const doc=current();if(!view||!doc||!formatsOf(view.state)||!richTextEnabled(doc))return null;return {styles:stylesFor(doc),hasSelection:!view.state.selection.main.empty,active:styleAt(view.state)};},apply:(id,scope)=>formatCommand(v=>applyStyle(v,id,scope))(),clear:()=>formatCommand(v=>clearStyles(v))(),manage:()=>showStyleManager()});
 let remoteSelection=new Map(),remoteSelectionRepo='',remoteSelecting=false;
 let selectedFolder='',pageName='write',reader,subscriptions,readerFullscreen=false,fullscreenTask=Promise.resolve();
 const ui=new UIShell(environment);
@@ -119,6 +121,8 @@ const gutters=new Compartment(),formatEnv=new Compartment(),pluginExtras=new Com
 const editorStates=new Map();
 const current=()=>workspace.documents.find(d=>d.id===workspace.activeId);
 function toast(message){$('#toast').textContent=message;$('#toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').hidden=true,4200);}
+/** A notice that waits for the current toast instead of replacing it. */
+function toastLater(message){if($('#toast').hidden)toast(message);else setTimeout(()=>toastLater(message),600);}
 function fail(error){toast(error.message||String(error));}
 const syncActivity=new SyncActivity(()=>renderSyncStatus());
 function renderSyncStatus(){const doc=workspace?.documents.find(d=>d.id===workspace.activeId),root=$('#sync-state');if(!root)return;root.hidden=!doc?.remote&&!syncActivity.items.has(doc?.id);if(!root.hidden){root.textContent=syncActivity.label(doc.id,doc.remote?.lastSyncedText!==doc.text);root.title=root.textContent;root.dataset.state=syncActivity.items.get(doc.id)?.state||'idle';}}
@@ -160,32 +164,67 @@ function languageFor(doc){return languageSupport(doc);}
 function activateLanguage(doc){const name=doc.name,kind=doc.kind;loadLanguage(doc).then(extension=>{if(current()?.id===doc.id&&current()?.name===name&&current()?.kind===kind&&view)view.dispatch({effects:languages.reconfigure(extension)});}).catch(fail);}
 function refreshFileType(doc){const effects=[languages.reconfigure(languageFor(doc)),completer.reconfigure(projectConfig(workspace,doc)?.config?.editor?.completion===false?[]:completionExtensions(doc,()=>({documents:workspace.documents,autoNouns:workspace.settings.autoNouns,highlightTerms:workspace.settings.highlightTerms,terms:glossaryTerms(workspace,doc),glossary:workspace.writingTools?.glossary||[],snippets:workspace.writingTools?.snippets||[],packages:(plugins?.records||[]).filter(record=>record.enabled).flatMap(record=>(record.texFiles||[]).map(file=>file.path)),entries:(workspace.entries||[]).filter(item=>!item.directory).map(item=>item.path)})))];if(workspace.activeId===doc.id&&view)view.dispatch({effects});else if(editorStates.has(doc.id))editorStates.set(doc.id,editorStates.get(doc.id).update({effects}).state);activateLanguage(doc);updateEditorVisibility();if(isPreview&&current())renderPreview();renderDocuments();}
 function editorIndent(v,remove=false){if(v.composing)return false;const config=projectConfig(workspace,current())?.config?.editor;if(documentKind(current())==='TXT'&&config?.mode!=='code'&&config?.novelIndent!=='spaces')return fullWidthIndent(v,remove);const n=config?.indentSize||2;if(!remove){v.dispatch(v.state.replaceSelection(' '.repeat(n)));return true;}const line=v.state.doc.lineAt(v.state.selection.main.head),count=line.text.match(/^ +/)?.[0].length||0;v.dispatch({changes:{from:line.from,to:line.from+Math.min(n,count),insert:''}});return true;}
-// TXT formatting: .vela v3 sidecars beside the TXT (正文.txt → 正文.txt.vela), see docs/VELA-V3-DESIGN.md.
-const brokenSidecars=new Set(),sidecarSeen=new Map();
-const sidecarOf=doc=>doc&&workspace.documents.find(item=>documentPath(item)===sidecarPath(documentPath(doc)));
-function richTextEnabled(doc){return documentKind(doc)==='TXT'&&(!!sidecarOf(doc)||projectConfig(workspace,doc)?.config?.richText?.enabled===true||workspace.settings.richText===true);}
+// TXT formatting lives in the work's .vela (richText.documents), see docs/VELA-V3-DESIGN.md. 0.9.7 sidecars beside
+// the TXT (正文.txt.vela) are read and, on the next save, moved into the .vela.
+const brokenFormats=new Set(),formatSeen=new Map();
+const sidecarOf=doc=>legacySidecar(workspace,doc);
+/** What the formats of `doc` were when loaded: its record in .vela, a legacy sidecar, or nothing. */
+const formatStamp=doc=>{const record=formatHome(workspace,doc)?.record;if(record)return 'record:'+JSON.stringify(record);const legacy=sidecarOf(doc);return legacy?'sidecar:'+legacy.text:null;};
+function richTextEnabled(doc){if(documentKind(doc)!=='TXT')return false;const project=projectConfig(workspace,doc);return !!formatHome(workspace,doc)?.record||!!sidecarOf(doc)||project?.config?.richText?.enabled===true||project?.config?.richText?.enabled!==false&&workspace.settings.richText===true;}
 /** Formats of `doc` placed in its current text; text edited outside Vela is re-anchored and leftovers go to review. */
 function loadFormats(doc){
-  const sidecar=sidecarOf(doc);brokenSidecars.delete(doc.id);sidecarSeen.set(doc.id,sidecar?.text??null);if(!sidecar)return {};
-  try{const parsed=readSidecar(sidecar.text),result=resolveSidecar(doc.text,parsed),fresh=result.review.length-(parsed.review?.length||0);
+  brokenFormats.delete(doc.id);formatSeen.set(doc.id,formatStamp(doc));
+  // While the work's .vela has errors its formats are not written; format commands say so.
+  const project=projectConfig(workspace,doc);if(project&&!project.global&&(project.warning||project.error))brokenFormats.add(doc.id);
+  const home=formatHome(workspace,doc),legacy=home?.record?null:sidecarOf(doc);if(!home?.record&&!legacy)return {};
+  try{let result,previous=0;
+    if(home?.record){result=resolveRecord(doc.text,home.record);previous=home.record.review?.length||0;}
+    else{const sidecar=readSidecar(legacy.text);previous=sidecar.review?.length||0;const converted=sidecarRecord(doc.text,sidecar);result={...resolveRecord(doc.text,converted.record),moved:0};}
+    const fresh=result.review.length-previous;
     if(result.moved||fresh>0)setTimeout(()=>toast(doc.name+'：正文在文舟外有改动'+(result.moved?'，已按原文重新定位 '+result.moved+' 处格式':'')+(fresh>0?'，'+fresh+' 处格式待确认':'')+'。'),0);
-    return {entries:result.entries,review:result.review,source:parsed};}
-  catch(error){brokenSidecars.add(doc.id);setTimeout(()=>toast(doc.name+' 的格式未加载：'+error.message+' 旁注文件保持原样。'),0);return {};}
+    return {entries:result.entries,review:result.review,source:home?.record||{}};}
+  catch(error){brokenFormats.add(doc.id);setTimeout(()=>toast(doc.name+' 的格式未加载：'+error.message+' 格式记录保持原样。'),0);return {};}
 }
-/** Writes the sidecar of each open TXT whose formats or text changed. A sidecar changed elsewhere is reloaded, not overwritten. */
+/** Replaces the open editor state of a configuration document after it was rewritten. */
+function refreshConfigState(configDoc){editorStates.delete(configDoc.id);if(current()?.id===configDoc.id&&view){view.setState(makeState(configDoc));if(isPreview)renderPreview();}}
+/**
+ * Writes the format record of each open TXT whose formats or text changed into its work's .vela (creating one in
+ * the TXT's folder when no .vela covers it). Formats changed elsewhere meanwhile are reloaded, not overwritten.
+ */
 function flushFormats(){
   const states=new Map(editorStates);if(view&&current())states.set(current().id,view.state);
   for(const [id,state] of states){
-    const doc=workspace.documents.find(item=>item.id===id),value=formatsOf(state);if(!doc||!value||brokenSidecars.has(id)||documentKind(doc)!=='TXT'||state.doc.toString()!==doc.text)continue;
-    const sidecar=sidecarOf(doc);
-    if(sidecarSeen.has(id)&&(sidecar?.text??null)!==sidecarSeen.get(id)){if(current()?.id===id&&view)view.dispatch({effects:setFormats.of({entries:[],review:[],...loadFormats(doc)}),annotations:Transaction.addToHistory.of(false)});else editorStates.delete(id);continue;}
-    if(!sidecar&&!value.entries.length&&!value.review.length)continue;
-    let source;try{source=sidecarText(buildSidecar(doc.name,doc.text,value.entries,value.review,value.source||{}));}catch(error){fail(error);continue;}
-    if(sidecar){if(sidecar.text===source)continue;documents.change(sidecar,source);editorStates.delete(sidecar.id);if(current()?.id===sidecar.id&&view){view.setState(makeState(sidecar));if(isPreview)renderPreview();}}
-    else{const created=newDocument(sidecarPath(doc.name),source);created.path=sidecarPath(documentPath(doc));workspace.documents.push(created);renderDocuments();}
-    sidecarSeen.set(id,source);
+    const doc=workspace.documents.find(item=>item.id===id),value=formatsOf(state);if(!doc||!value||brokenFormats.has(id)||documentKind(doc)!=='TXT'||state.doc.toString()!==doc.text)continue;
+    const stamp=formatStamp(doc),legacy=sidecarOf(doc);
+    if(formatSeen.has(id)&&stamp!==formatSeen.get(id)){if(current()?.id===id&&view)view.dispatch({effects:setFormats.of({entries:[],review:[],...loadFormats(doc)}),annotations:Transaction.addToHistory.of(false)});else editorStates.delete(id);continue;}
+    const home=formatHome(workspace,doc);
+    if(!home?.record&&!legacy&&!value.entries.length&&!value.review.length)continue;
+    let record;try{record=buildRecord(doc.text,value.entries,value.review,value.source||{});}catch(error){fail(error);continue;}
+    const empty=recordEmpty(record),next='record:'+JSON.stringify(record);
+    if(home){
+      if(!legacy&&(empty?!home.record:stamp===next))continue;
+      const config=structuredClone(home.config),records={...config.richText?.documents};if(empty)delete records[home.key];else records[home.key]=record;
+      config.version=3;config.richText={...config.richText,documents:records};if(!Object.keys(records).length)delete config.richText.documents;
+      let text;try{text=velaText(config);}catch(error){fail(error);continue;}
+      if(text!==home.doc.text)documents.change(home.doc,text);
+      refreshConfigState(home.doc);
+    }else if(!empty){
+      // A .vela that became invalid after the TXT was opened is left for the user to fix; formats are not written.
+      const project=projectConfig(workspace,doc);if(project&&!project.global&&(project.warning||project.error)){brokenFormats.add(id);continue;}
+      const before=workspace.documents.length;if(!addFormatRecord(workspace,documentPath(doc),record)){toast(doc.name+' 的格式未保存：作品配置 .vela 无法写入。');continue;}
+      if(workspace.documents.length>before){workspace.treeRevision=(workspace.treeRevision||0)+1;renderDocuments();toast('已在“'+(parentPath(documentPath(doc))||'内部文件夹')+'”创建作品配置 .vela，用于保存 TXT 格式。');}
+      else{const created=formatHome(workspace,doc);if(created)refreshConfigState(created.doc);}
+    }
+    formatSeen.set(id,empty?null:formatStamp(doc));
+    // The 0.9.7 sidecar is now in .vela; it goes to the trash (restorable) instead of staying beside the TXT.
+    if(legacy&&(home||!empty))retireSidecar(legacy);
   }
 }
+// Moving the sidecar to the trash is a file operation that rebuilds the editor, so it waits for a quiet moment:
+// the editor page, no dialog, no typing for a while.
+let lastKeyAt=0;document.addEventListener('keydown',()=>{lastKeyAt=Date.now();},true);
+const retiring=new Set();
+function retireSidecar(legacy){if(retiring.has(legacy.id))return;retiring.add(legacy.id);const path=documentPath(legacy),attempt=()=>{if(!workspace.documents.some(doc=>doc.id===legacy.id)){retiring.delete(legacy.id);return;}if(pageName!=='write'||$('#dialog').open||view?.composing||Date.now()-lastKeyAt<1500){setTimeout(attempt,1500);return;}manageFile('delete',path,'',{quiet:true}).then(()=>toastLater('旧版格式旁注 '+basename(path)+' 已并入作品配置 .vela，原文件移入回收站。')).catch(error=>toast('旧版格式旁注未能移走：'+error.message)).finally(()=>retiring.delete(legacy.id));};setTimeout(attempt,1500);}
 // Illustrations are workspace image files; only the native apps can read them (as data URLs).
 const imageCache=new Map(),imageLoaders=new Map();
 const canReadImages=()=>native&&!!workspace.storage?.id;
@@ -193,7 +232,7 @@ function workspaceImagePath(doc,src){const folder=parentPath(documentPath(doc));
 function loadWorkspaceAsset(path){if(!canReadImages())return null;if(!imageCache.has(path))imageCache.set(path,transport('readWorkspaceAsset',{path}).catch(error=>{imageCache.delete(path);throw error;}));return imageCache.get(path);}
 const loadWorkspaceImage=(doc,src)=>loadWorkspaceAsset(workspaceImagePath(doc,src));
 function imageLoaderFor(doc){if(!canReadImages())return null;if(!imageLoaders.has(doc.id))imageLoaders.set(doc.id,src=>loadWorkspaceImage(workspace.documents.find(item=>item.id===doc.id)||doc,src));return imageLoaders.get(doc.id);}
-const stylesFor=doc=>resolveStyles(projectConfig(workspace,doc)?.config?.styles);
+const stylesFor=doc=>resolveStyles(configStyles(projectConfig(workspace,doc)?.config));
 const formatEnvironment=doc=>[formatStyles.of(stylesFor(doc)),imageLoader.of(imageLoaderFor(doc))];
 /** Re-reads style definitions and the image loader for the open TXT (after configuration changes or switching). */
 function refreshFormatEnvironment(){const doc=current();if(!view||!doc||!formatsOf(view.state))return;const styles=stylesFor(doc);if(JSON.stringify(styles)!==JSON.stringify(view.state.facet(formatStyles))||view.state.facet(imageLoader)!==imageLoaderFor(doc))view.dispatch({effects:formatEnv.reconfigure(formatEnvironment(doc))});}
@@ -204,21 +243,20 @@ async function exportImages(doc,entries,bytes=false){
   return map;
 }
 const missingNote=missing=>missing?.length?`；${new Set(missing).size} 张插图无法读取，已省略`:'';
-let styleOptionsKey='';
 function renderFormatTools(){
-  const tools=$('#format-tools');if(!tools)return;const doc=current(),value=view&&formatsOf(view.state),show=!home&&!isPreview&&!!doc&&!!value&&richTextEnabled(doc);tools.hidden=!show;if(!show)return;
-  const state=view.state,line=state.doc.lineAt(state.selection.main.head);
+  const tools=$('#format-tools');if(!tools)return;const doc=current(),value=view&&formatsOf(view.state),show=!home&&!isPreview&&!!doc&&!!value&&richTextEnabled(doc);tools.hidden=!show;if(!show){stylePanel.close();return;}
+  const state=view.state,line=state.doc.lineAt(state.selection.main.head),aligned=value.entries.find(entry=>entry.group==='blocks'&&entry.type==='align'&&entry.from===line.from)?.value;
   $('#format-strong').setAttribute('aria-pressed',String(isFormatActive(state,'strong')));$('#format-emphasis').setAttribute('aria-pressed',String(isFormatActive(state,'emphasis')));
-  $('#format-center').setAttribute('aria-pressed',String(value.entries.some(entry=>entry.group==='blocks'&&entry.type==='align'&&entry.value==='center'&&entry.from===line.from)));
+  $('#format-center').setAttribute('aria-pressed',String(aligned==='center'));$('#format-right').setAttribute('aria-pressed',String(aligned==='right'));
   $('#format-ruby').setAttribute('aria-pressed',String(!!rubyAt(state)));
-  const styles=stylesFor(doc),select=$('#format-style'),key=JSON.stringify(styles);
-  if(key!==styleOptionsKey){styleOptionsKey=key;select.innerHTML=`<option value="">样式</option>${Object.entries(styles).map(([id,style])=>`<option value="${esc(id)}">${esc(style.label)}${style.block?'（段落）':'（行内）'}</option>`).join('')}<option value="__clear">清除样式</option><option value="__manage">管理样式…</option>`;}
-  const active=blockStyleAt(state);select.title=active&&styles[active]?'命名样式：'+styles[active].label:'命名样式';
+  // The style button names the style under the cursor: the characters' first, else the paragraph's.
+  const styles=stylesFor(doc),active=styleAt(state),name=styles[active.chars]?.label||styles[active.paragraph]?.label||'';
+  $('#format-style-label').textContent=name||'样式';$('#format-style').classList.toggle('active',!!name);$('#format-style').title=name?'命名样式：'+name+(active.chars?'（文字）':'（整段）'):'命名样式：作用于选中文字或整段';
   const review=$('#format-review');review.hidden=!value.review.length;review.textContent='待确认 '+value.review.length;
+  stylePanel.refresh();
 }
-const guardFormat=()=>{if(!view||!richTextEnabled(current()))return false;if(view.state.readOnly){toast('项目正在提交，请稍后再改格式。');return false;}return true;};
-/** Formatting in the selection menu: the main entry for formats, the toolbar is the second one. */
-function formatSelectionItems(selection){if(pageName==='reader'||selection.input||!view||!richTextEnabled(current())||!formatsOf(view.state))return [];return [{label:isFormatActive(view.state,'strong')?'取消粗体':'粗体',run:()=>$('#format-strong').click()},{label:isFormatActive(view.state,'emphasis')?'取消着重号':'着重号',run:()=>$('#format-emphasis').click()},{label:'注音…',run:showRubyDialog}];}
+const formatBlocked=()=>{if(view.state.readOnly){toast('项目正在提交，请稍后再改格式。');return true;}if(brokenFormats.has(current().id)){toast('格式无法保存：作品配置 .vela 或其中的格式记录有错误，请先修复。');return true;}return false;};
+const guardFormat=()=>{if(!view||!richTextEnabled(current()))return false;return !formatBlocked();};
 function showRubyDialog(){
   if(!guardFormat())return;const range=view.state.selection.main;if(range.empty){toast('请先选中要注音的文字。');return;}
   const base=view.state.sliceDoc(range.from,range.to),existing=rubyAt(view.state);if(base.includes('\n')){toast('注音不能跨段落。');return;}
@@ -242,23 +280,27 @@ function showImageDialog(id){
 }
 /** Where named styles are saved: the workspace .vela of this TXT, or the global configuration. */
 function styleConfigDoc(doc){const project=projectConfig(workspace,doc);if(project?.error)throw Error('作品配置有错误，请先修复：'+project.error.message);if(project&&!project.global&&project.rawConfig?.kind==='workspace')return project.doc;return ensureGlobalVela();}
-function showStyleManager(selected=''){
-  const doc=current();if(!doc||documentKind(doc)!=='TXT'){toast('请先打开 TXT 文稿。');return;}
-  let configDoc;try{configDoc=styleConfigDoc(doc);}catch(error){fail(error);return;}
-  const config=JSON.parse(configDoc.text),configured=config.styles||{},styles=resolveStyles(configured),id=selected&&styles[selected]?selected:'',style=id?styles[id]:{label:'',block:true},global=documentPath(configDoc)===GLOBAL_VELA_PATH;
+/** Edits the named styles of the open TXT's work, or of the .vela `target` (from the .vela editor's format page). */
+function showStyleManager(selected='',target=null){
+  const doc=current();if(!target&&(!doc||documentKind(doc)!=='TXT')){toast('请先打开 TXT 文稿。');return;}
+  let configDoc=target;if(!configDoc)try{configDoc=styleConfigDoc(doc);}catch(error){fail(error);return;}
+  const config=JSON.parse(configDoc.text),configured=configStyles(config),styles=resolveStyles(configured),id=selected&&styles[selected]?selected:'',style=id?styles[id]:{label:'',block:true},global=documentPath(configDoc)===GLOBAL_VELA_PATH;
   const choice=(name,values,current,empty)=>`<select name="${name}"><option value="">${empty}</option>${values.map(value=>`<option value="${value}"${current===value?' selected':''}>${STYLE_LABELS[name][value]}</option>`).join('')}</select>`;
-  openModal('管理样式',`<label>样式<select name="pick"><option value="">新建样式…</option>${Object.entries(styles).map(([key,value])=>`<option value="${esc(key)}"${key===id?' selected':''}>${esc(value.label)}${configured[key]?'':BUILTIN_STYLES[key]?'（内置）':''}</option>`).join('')}</select></label>${id?'':'<label>样式 ID<input name="id" required maxlength="32" pattern="[a-z][a-z0-9-]{0,31}" placeholder="例如 whisper"><small>小写字母开头，可含数字和连字符，保存后不能修改。</small></label>'}<label>名称<input name="label" required maxlength="32" value="${esc(style.label||'')}"></label><label>作用范围<select name="block"><option value="block"${style.block?' selected':''}>段落</option><option value="inline"${style.block?'':' selected'}>行内文字</option></select></label><label>对齐（段落）${choice('align',STYLE_FIELDS.align,style.align,'默认')}</label><label>缩进（段落）<select name="indent"><option value="">默认</option><option value="0"${style.indent===0?' selected':''}>无缩进</option><option value="2"${style.indent===2?' selected':''}>整段缩进两字</option></select></label><label>字体${choice('font',STYLE_FIELDS.font,style.font,'默认')}</label><label>字号${choice('size',STYLE_FIELDS.size,style.size,'默认')}</label><label>颜色${choice('color',STYLE_FIELDS.color,style.color,'默认')}</label><label class="checkbox"><input type="checkbox" name="bold"${style.bold?' checked':''}>加粗</label><label class="checkbox"><input type="checkbox" name="frame"${style.frame?' checked':''}>边框（段落）</label>${id&&(configured[id]||!BUILTIN_STYLES[id])?`<p><button type="button" class="danger" id="delete-style">${BUILTIN_STYLES[id]?'恢复内置设置':'删除样式'}</button></p>`:''}<small>保存到${global?'全局配置（.global.vela）':'作品配置（.vela）'}，配置升为第三版。已用此样式的文字会立即更新；删除样式后，这些文字保留标记但不再显示样式。</small>`,form=>{
+  openModal('管理样式',`<label>样式<select name="pick"><option value="">新建样式…</option>${Object.entries(styles).map(([key,value])=>`<option value="${esc(key)}"${key===id?' selected':''}>${esc(value.label)}${configured[key]?'':BUILTIN_STYLES[key]?'（内置）':''}</option>`).join('')}</select></label>${id?'':'<label>样式 ID<input name="id" required maxlength="32" pattern="[a-z][a-z0-9-]{0,31}" placeholder="例如 whisper"><small>小写字母开头，可含数字和连字符，保存后不能修改。</small></label>'}<label>名称<input name="label" required maxlength="32" value="${esc(style.label||'')}"></label><label>常用于<select name="block"><option value="block"${paragraphStyle(style)?' selected':''}>整段</option><option value="inline"${paragraphStyle(style)?'':' selected'}>选中文字</option></select><small>样式都可用于整段或选中的字，这里只决定样式面板默认的作用范围。</small></label><label>对齐（仅整段）${choice('align',STYLE_FIELDS.align,style.align,'默认')}</label><label>缩进（仅整段）<select name="indent"><option value="">默认</option><option value="0"${style.indent===0?' selected':''}>无缩进</option><option value="2"${style.indent===2?' selected':''}>整段缩进两字</option></select></label><label>字体${choice('font',STYLE_FIELDS.font,style.font,'默认')}</label><label>字号${choice('size',STYLE_FIELDS.size,style.size,'默认')}</label><label>颜色${choice('color',STYLE_FIELDS.color,style.color,'默认')}</label><label class="checkbox"><input type="checkbox" name="bold"${style.bold?' checked':''}>加粗</label><label class="checkbox"><input type="checkbox" name="frame"${style.frame?' checked':''}>边框</label>${id&&(configured[id]||!BUILTIN_STYLES[id])?`<p><button type="button" class="danger" id="delete-style">${BUILTIN_STYLES[id]?'恢复内置设置':'删除样式'}</button></p>`:''}<small>保存到${global?'全局配置（.global.vela）':'作品配置（.vela）'}，配置升为第三版。已用此样式的文字会立即更新；删除样式后，这些文字保留标记但不再显示样式。</small>`,form=>{
     const key=id||form.get('id').trim(),block=form.get('block')==='block',next={label:form.get('label').trim(),block};
     for(const name of ['font','size','color'])if(form.get(name))next[name]=form.get(name);if(form.has('bold'))next.bold=true;
-    if(block){if(form.get('align'))next.align=form.get('align');if(form.get('indent')!=='')next.indent=Number(form.get('indent'));if(form.has('frame'))next.frame=true;}
+    if(form.get('align'))next.align=form.get('align');if(form.get('indent')!=='')next.indent=Number(form.get('indent'));if(form.has('frame'))next.frame=true;
+    // 0.9.7 accepts alignment, indent and frames only on paragraph styles.
+    if(next.align||next.indent!==undefined||next.frame)next.block=true;
     if(!id&&styles[key])throw Error('已有此 ID 的样式。');
     writeStyles(configDoc,{...configured,[key]:next});toast('样式“'+next.label+'”已保存');
   },{label:'保存样式'});
-  $('#dialog-body [name=pick]').onchange=event=>{closeModal();showStyleManager(event.target.value);};
+  $('#dialog-body [name=pick]').onchange=event=>{closeModal();showStyleManager(event.target.value,target);};
   const remove=$('#delete-style');if(remove)remove.onclick=()=>{const next={...configured};delete next[id];writeStyles(configDoc,next);closeModal();toast(BUILTIN_STYLES[id]?'已恢复内置样式':'样式已删除');};
 }
 function writeStyles(configDoc,styles){
-  validateStyles(styles);const config=JSON.parse(configDoc.text);config.version=3;if(Object.keys(styles).length)config.styles=styles;else delete config.styles;
+  // Styles belong to the formatting part of .vela (richText.styles); 0.9.7 top-level styles move there.
+  validateStyles(styles);const config=JSON.parse(configDoc.text);config.version=3;delete config.styles;config.richText={...config.richText};if(Object.keys(styles).length)config.richText.styles=styles;else delete config.richText.styles;if(!Object.keys(config.richText).length)delete config.richText;
   const text=velaText(config);if(text!==configDoc.text){documents.change(configDoc,text,[],{important:true});editorStates.delete(configDoc.id);}
   save();refreshFormatEnvironment();renderFormatTools();
 }
@@ -299,7 +341,8 @@ function switchDocument(id){
   if(!workspace.openIds.includes(id))workspace.openIds.push(id);
   workspace.activeId=id;const doc=current();if(!doc)return;
   home=false;csvPage=0;csvColumnPage=0;$('#start-page').hidden=true;isPreview=['CSV','VELA','GLY','VODT'].includes(documentKind(doc));
-  if(view)view.setState(editorStates.get(id)||makeState(doc));else view=new EditorView({state:makeState(doc),parent:$('#editor')});
+  // A file operation recreates the view; the kept state (undo history, formats) is reused while the text is unchanged.
+  const kept=editorStates.get(id);if(view)view.setState(kept||makeState(doc));else view=new EditorView({state:kept&&kept.doc.toString()===doc.text?kept:makeState(doc),parent:$('#editor')});
   activateLanguage(doc);index=null;setFontSize(projectConfig(workspace,doc)?.config?.editor?.fontSize??workspace.settings.fontSize,false);$('#current-name').textContent=doc.name;
   updateEditorVisibility();renderDocuments();updateStats();if(isPreview)renderPreview();save();showView('write');plugins?.emit('switch-file',plugins.activeFile);
 }
@@ -376,7 +419,7 @@ function renderPreview(){
   if(documentKind(current())!=='TEX')texPreview?.dispose();
   $('#preview').className='markdown';
   if(documentKind(current())==='VELA'){renderVela();return;}
-  if(documentKind(current())==='GLY'){renderGlossary({root:$('#preview'),doc:current(),escape:esc,onSave:text=>{view.dispatch({changes:{from:0,to:view.state.doc.length,insert:text},userEvent:'input.glossary'});if(!save())throw Error('保存失败');renderPreview();toast('术语库已保存');}});return;}
+  if(documentKind(current())==='GLY'){renderGlossary({root:$('#preview'),doc:current(),escape:esc,onCopy:copyText,notify:toast,onSave:text=>{if(text===view.state.doc.toString())return;view.dispatch({changes:{from:0,to:view.state.doc.length,insert:text},userEvent:'input.glossary'});if(!save())throw Error('保存失败');}});return;}
   const kind=documentKind(current()),text=view.state.doc.toString();$('#preview').classList.toggle('plain-preview',kind==='TXT');$('#preview').classList.toggle('csv-preview',kind==='CSV');$('#preview').classList.toggle('html-preview',kind==='HTML');
   if(kind==='CSV'){
     try{
@@ -415,7 +458,7 @@ for(const [id,prefix] of [['md-heading','# '],['md-list','- '],['md-task','- [ ]
 $('#markdown-tools').addEventListener('mousedown',e=>e.preventDefault());
 $('#format-tools').addEventListener('mousedown',e=>{if(!e.target.closest('select'))e.preventDefault();});
 // Toolbar faces: letter glyphs for type styles, line icons for the rest; names and shortcuts are in aria-label/title.
-for(const [id,name] of [['md-bold','bold'],['md-italic','italic'],['md-strike','strike'],['md-code','code'],['md-heading','heading'],['md-list','listBullet'],['md-task','listTask'],['md-quote','blockQuote'],['format-strong','bold'],['format-emphasis','emphasis'],['format-center','alignCenter'],['format-ruby','ruby'],['format-image','image']])$('#'+id).innerHTML=icon(name);
+for(const [id,name] of [['md-bold','bold'],['md-italic','italic'],['md-strike','strike'],['md-code','code'],['md-heading','heading'],['md-list','listBullet'],['md-task','listTask'],['md-quote','blockQuote'],['format-strong','bold'],['format-emphasis','emphasis'],['format-center','alignCenter'],['format-right','alignRight'],['format-clear','clearFormat'],['format-ruby','ruby'],['format-image','image']])$('#'+id).innerHTML=icon(name);
 for(const button of document.querySelectorAll('#markdown-tools button,#format-tools button'))if(!button.title&&button.getAttribute('aria-label'))button.title=button.getAttribute('aria-label');
 // Editor chrome (docs/FRONTEND-PROPOSAL.md, level B). Wide windows: document tools join the tab row and the quick
 // actions move into the status bar. Narrow windows: a tools row above the text and the bottom quick bar, within thumb reach.
@@ -439,14 +482,16 @@ function layoutShell(){
   const displayHome=wide||toolbars?tools:rowbar;if(display&&display.parentElement!==displayHome)displayHome.append(display);
   tools.hidden=!!home||!toolbars&&!tools.contains(display)||!toolbars&&!display?.childElementCount;
 }
-const formatCommand=run=>()=>{if(!view||!richTextEnabled(current()))return;if(view.state.readOnly){toast('项目正在提交，请稍后再改格式。');return;}if(run(view)===false)toast('请先选中要设置格式的文字。');renderFormatTools();view.focus();};
+const formatCommand=run=>()=>{if(!view||!richTextEnabled(current())||formatBlocked())return;if(run(view)===false)toast('请先选中要设置格式的文字。');renderFormatTools();view.focus();};
 $('#format-strong').onclick=formatCommand(v=>toggleInline(v,'strong'));
 $('#format-emphasis').onclick=formatCommand(v=>toggleInline(v,'emphasis'));
 $('#format-center').onclick=formatCommand(v=>toggleAlign(v,'center'));
+$('#format-right').onclick=formatCommand(v=>toggleAlign(v,'right'));
+$('#format-clear').onclick=formatCommand(v=>clearFormats(v));
 $('#format-review').onclick=()=>showFormatReview();
+$('#format-style .format-style-icon').innerHTML=icon('style');$('#format-style .format-style-caret').innerHTML=icon('chevronDown');
 $('#format-ruby').onclick=()=>showRubyDialog();
 $('#format-image').onclick=()=>showImageDialog();
-$('#format-style').onchange=()=>{const select=$('#format-style'),value=select.value;select.value='';if(!value)return;if(value==='__manage'){showStyleManager();return;}const style=stylesFor(current())[value];formatCommand(v=>value==='__clear'?clearStyles(v):style?.block?toggleBlock(v,'style',value):toggleInline(v,'style',value))();};
 $('#editor').addEventListener('click',e=>{const figure=e.target.closest('.vela-format-image');if(figure&&view)showImageDialog(figure.dataset.formatImage);});
 $('#preview').addEventListener('click',e=>{if(e.target.closest('a')){e.preventDefault();toast('阅读预览中的外部链接不在应用内打开。');}});
 function openModal(title,html,submit,options={}){
@@ -497,16 +542,16 @@ function applyFileState(result){
   if(!wasHome&&workspace.documents.some(doc=>doc.id===active)){switchDocument(active);refreshFileType(current());}else showHome();
   renderDocuments();if(!save())throw new Error('操作已完成，但工作区状态未保存，请保留应用数据并重试保存。');
 }
-async function manageFile(action,path,destination=''){
+async function manageFile(action,path,destination='',{quiet=false}={}){
   if(!save())throw new Error('请先保存或导出当前文稿。');
   const before=structuredClone(workspace);
   const apply=async(path,destination)=>{if(native)applyFileState(await transport('manageFiles',{action,path,destination}));
   else{const candidate=structuredClone(workspace);applyFileOperation(candidate,action,path,destination);const change=action==='delete'?{kind:'delete',path,trashId:candidate.trash.at(-1).id}:{kind:action,from:path,to:destination};if(action==='delete')candidate.trash.at(-1).projectPayload=true;await projects.backend.call('apply','host',{root:'',changes:[change],workspace:JSON.stringify(candidate),expected:[]});workspace=candidate;applyFileState({...candidate});}};
   await apply(path,destination);
-  // A TXT's format sidecar moves, copies and goes to the trash with it.
+  // A 0.9.7 format sidecar moves, copies and goes to the trash with its TXT; formats in .vela follow via rewriteVelaFiles.
   const companion=sidecarPath(path);if(sidecarTarget(companion)&&before.documents.some(doc=>documentPath(doc)===companion)&&workspace.documents.some(doc=>documentPath(doc)===companion)){try{await apply(companion,action==='delete'?'':sidecarPath(destination));}catch(error){toast('格式旁注未能一并处理：'+error.message);}}
   workspace.treeRevision=(workspace.treeRevision||0)+1;rewriteVelaFiles(before,workspace,action,path,destination);for(const doc of workspace.documents.filter(doc=>documentKind(doc)==='VELA'))editorStates.delete(doc.id);if(current()&&documentKind(current())==='VELA'&&view){view.setState(makeState(current()));if(isPreview)renderPreview();}index=null;updateStats();save();
-  projects.changed('external');toast(action==='delete'?'已移入回收站':action==='copy'?'已保存副本':'项目已移动或重命名');
+  projects.changed('external');if(!quiet)toast(action==='delete'?'已移入回收站':action==='copy'?'已保存副本':'项目已移动或重命名');
 }
 async function showProperties(path,directory){
   if(!save())throw new Error('请先保存当前文稿。');const state=native?await transport('refreshFolder'):workspace;
@@ -817,7 +862,7 @@ function previewBackupRestore(bytes){
 async function showPlugins(){
   if(!plugins)return;await plugins.ready;
   openModal('插件与组件',`<p><button type="button" class="primary" id="install-plugin">从 ZIP 安装</button></p><section class="component-downloads" id="component-downloads"></section><h3>已安装</h3><small>可安装 LaTeX 引擎、中文支持、电子书阅读与 JavaScript / CodeMirror 插件。内置组件可停用，轻量版导入的组件可卸载。依赖 Android、Cordova、Ace 或未实现的 Acode 模块的插件会显示加载原因。</small><div class="plugin-list">${plugins.records.map((record,i)=>`<article class="plugin-card"><strong>${esc(record.manifest.name)}</strong><small>${esc(record.manifest.id)} · ${esc(record.manifest.version)} · ${record.builtin?'内置组件':record.manifest.vela?.type==='tex-component'||['reader-component','document-component'].includes(record.manifest.vela?.type)?'可选组件':'插件'} · ${record.enabled?'已启用':'已停用'}</small>${record.error?`<p class="error">${esc(record.error)}</p>`:''}<div class="button-row"><button type="button" class="secondary" data-plugin-enable="${i}">${record.enabled?'停用':'启用'}</button>${record.manifest.vela?.type==='reader-component'?`<button type="button" class="secondary" data-plugin-open="${i}" ${record.enabled?'':'disabled'}>打开阅读器</button>`:''}${plugins.settingsPages.has(record.manifest.id)?`<button type="button" class="secondary" data-plugin-settings="${i}">插件设置</button>`:''}${record.builtin?'':`<button type="button" class="danger" data-plugin-remove="${i}">卸载</button>`}</div></article>`).join('')||'<p class="blank">尚未安装插件。</p>'}</div>`,null,{noSubmit:true});
-  mountComponentDownloads($('#component-downloads'),{transport,native,platform:environment?.platform||'',descriptor:()=>texCompiler.assets.descriptor(),installed:async()=>new Map(plugins.records.map(record=>[record.manifest.id,{version:record.manifest.version,enabled:record.enabled}])),install:bytes=>installPluginBytes(bytes)});
+  mountComponentDownloads($('#component-downloads'),{transport,native,platform:environment?.platform||'',appVersion:environment?.version||__VELA_HARMONY_VERSION__,descriptor:()=>texCompiler.assets.descriptor(),installed:async()=>new Map(plugins.records.map(record=>[record.manifest.id,{version:record.manifest.version,enabled:record.enabled}])),install:bytes=>installPluginBytes(bytes)});
   $('#install-plugin').onclick=async e=>{if(native){const button=e.currentTarget;button.disabled=true;try{const result=await transport('importPlugin');if(result)await installPluginBytes(await readImportedArchive(result,token=>transport('releaseImport',{token})));}catch(e){$('#dialog-error').textContent=e.message;}finally{button.disabled=false;}}else $('#plugin-input').click();};
   $('.plugin-list').onclick=async e=>{try{
     const action=e.target.closest('button');if(action)action.disabled=true;
@@ -879,7 +924,14 @@ function addSelectionToGlossary(selectionText,sourceDoc=current()){
   },{label:'添加词条'});
 }
 function renderVela(){
-  renderVelaEditor({root:$('#preview'),doc:current(),workspace,escape:esc,onSave:text=>{const old=current();if(old.text!==text){workspace.configBackups={...workspace.configBackups,[old.id]:[...(workspace.configBackups?.[old.id]||[]),{text:old.text,createdAt:Date.now()}].slice(-5)};}view.dispatch({changes:{from:0,to:view.state.doc.length,insert:text}});if(!save())throw new Error('保存失败');index=null;renderVela();toast('工作区配置已保存');}});
+  renderVelaEditor({root:$('#preview'),doc:current(),workspace,escape:esc,onOpenPath:path=>{const doc=workspace.documents.find(item=>documentPath(item)===path);if(doc)switchDocument(doc.id);else toast('找不到 '+path);},onManageStyles:()=>showStyleManager('',current()),onSave:(text,{restore=false,records=false}={})=>{const old=current();
+    // The form edits the configuration; format records are taken from the file as it is now (they may have changed
+    // since the page was drawn), except when the format page itself removes one (`records`).
+    if(!records)try{const next=JSON.parse(text),now=JSON.parse(old.text).richText?.documents;if(now||next.richText?.documents){next.richText={...next.richText,documents:now};if(!now)delete next.richText.documents;if(!Object.keys(next.richText).length)delete next.richText;text=velaText(next);}}catch{}
+    // Backups keep the configuration without format records (they can be large); restoring one keeps today's formats.
+    const strip=source=>{try{const config=JSON.parse(source);if(config.richText?.documents){delete config.richText.documents;return JSON.stringify(config,null,2)+'\n';}}catch{}return source;};
+    if(restore){try{const restored=JSON.parse(text),records=JSON.parse(old.text).richText?.documents;if(records&&!restored.richText?.documents){restored.version=3;restored.richText={...restored.richText,documents:records};text=velaText(restored);}}catch{}}
+    if(old.text!==text){workspace.configBackups={...workspace.configBackups,[old.id]:[...(workspace.configBackups?.[old.id]||[]),{text:strip(old.text),createdAt:Date.now()}].slice(-5)};}view.dispatch({changes:{from:0,to:view.state.doc.length,insert:text}});if(!save())throw new Error('保存失败');index=null;renderVela();toast('工作区配置已保存');}});
 }
 function restorePulledEditor(page){const preview=isPreview;if(workspace.activeId&&!home){switchDocument(workspace.activeId);isPreview=preview;updateEditorVisibility();if(isPreview)renderPreview();}else{showHome();}renderDocuments();showView(page);}
 function previewDownload(result,folder,onApply){showDownloadPreview({workspace,result,folder,onApply,openModal,escape:esc,checkpoint:doc=>documents.checkpoint(doc),save});}

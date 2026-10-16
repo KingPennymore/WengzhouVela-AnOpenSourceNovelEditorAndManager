@@ -288,10 +288,8 @@ body:not(.wide-shell) .document-tools .display-options{border-left:1px solid var
 .book-cover.has-cover::after{display:none}
 .status-actions button small{display:none}
 .status-actions button>span{display:inline-flex;align-items:center}
-.format-tools select{height:30px;max-width:112px;font-size:12px;text-overflow:ellipsis}
 body:not(.wide-shell) .document-tools .markdown-tools{padding:0 2px}
 body:not(.wide-shell) .markdown-tools button{width:28px;min-width:28px;height:28px}
-body:not(.wide-shell) .format-tools select{max-width:72px;padding-right:18px}
 body:not(.wide-shell) .tool-separator{margin:0 2px}
 body:not(.wide-shell) .document-tools .display-options button{padding:0 7px}
 .document-tools-scroll{display:flex;align-items:center;gap:2px;min-width:0;flex:0 1 auto;overflow-x:auto;scrollbar-width:none;align-self:stretch}
@@ -299,7 +297,131 @@ body:not(.wide-shell) .document-tools .display-options button{padding:0 7px}
 .document-tools{overflow:visible}
 body:not(.wide-shell) .document-tools-scroll{flex:1 1 auto}
 .document-tools .display-options svg{width:18px;height:18px}
-body:not(.wide-shell) .format-tools select{height:28px}
 /* The TXT preview uses the editor's centred measure, so switching views keeps the text in place. */
 #preview.plain-preview{padding-left:max(5%,calc(50% - 480px));padding-right:max(5%,calc(50% - 480px))}
 #preview.plain-preview .reader-section-title{margin-top:1.2em}
+
+/* TXT format toolbar: every command is a button; the style button names the style under the cursor. */
+.markdown-tools .format-style-button{width:auto;gap:4px;padding:0 6px 0 7px;font-size:12px;color:var(--muted)}
+.format-style-button .format-style-icon,.format-style-button .format-style-caret{display:inline-flex}
+.format-style-button .format-style-caret svg{width:14px;height:14px}
+.format-style-button #format-style-label{max-width:6em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.format-style-button.active,.format-style-button[aria-expanded=true]{color:var(--accent);background:var(--accent-tint)}
+body:not(.wide-shell) .markdown-tools .format-style-button{width:auto;padding:0 4px}
+body:not(.wide-shell) .format-style-button #format-style-label{max-width:4em}
+/* Touch screens get 36px targets; the row scrolls sideways instead of shrinking them. */
+@media (pointer:coarse){
+  .document-tools .markdown-tools button{width:36px;min-width:36px;height:36px}
+  .document-tools .markdown-tools .format-style-button,.document-tools .markdown-tools .format-review{width:auto}
+  body:not(.wide-shell) .document-tools{height:44px}
+}
+
+.format-style-panel{position:fixed;z-index:60;display:flex;flex-direction:column;gap:10px;padding:12px;background:var(--paper);border:1px solid var(--hairline);border-radius:12px;box-shadow:var(--elev-3);color:var(--text)}
+.format-style-panel[hidden]{display:none}
+.format-style-panel header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.format-style-scope{display:inline-flex;padding:2px;border-radius:8px;background:var(--soft)}
+.format-style-scope button{min-height:28px;padding:0 12px;border:0;border-radius:6px;background:none;color:var(--muted);font-size:13px}
+.format-style-scope button[aria-checked=true]{background:var(--paper);color:var(--accent);box-shadow:var(--elev-1)}
+.format-style-scope button:disabled{opacity:.45}
+.format-style-hint{margin:0;font-size:12px;color:var(--muted)}
+.format-style-chips{display:flex;flex-wrap:wrap;gap:6px;max-height:40vh;overflow:auto}
+.format-style-chips button{min-height:34px;padding:4px 12px;border:1px solid var(--hairline);border-radius:8px;background:var(--panel);color:var(--text);font-size:15px}
+.format-style-chips button[aria-pressed=true]{border-color:var(--accent);background:var(--accent-tint)}
+.format-style-panel footer{display:flex;justify-content:flex-end;gap:8px}
+/* Narrow windows and phones: a bottom sheet with full-width rows of larger targets. */
+.format-style-panel.format-style-sheet{left:0!important;right:0;bottom:0;top:auto!important;width:auto!important;border-radius:16px 16px 0 0;padding:14px 16px max(14px,var(--safe-bottom,0px))}
+.format-style-sheet .format-style-scope button{min-height:36px;padding:0 16px}
+.format-style-sheet .format-style-chips button{min-height:44px;flex:1 1 calc(50% - 6px)}
+.format-style-sheet footer button{min-height:44px;flex:1}
+
+/* .vela editor: the configuration and the TXT formats are two pages of the same file. */
+.vela-config-header .vela-pages{display:flex;gap:2px;padding:3px;border-radius:10px;background:var(--soft);margin-left:auto;flex:none}
+.vela-pages button{min-height:32px;padding:0 16px;border:0;border-radius:8px;background:none;color:var(--muted);font-weight:500}
+.vela-pages button[aria-selected=true]{background:var(--paper);color:var(--accent);box-shadow:var(--elev-1)}
+.vela-page{display:contents}
+.vela-page[hidden]{display:none}
+.vela-config .vela-format-grid{grid-column:1/-1;display:flex;flex-direction:column;gap:16px;min-width:0;min-height:0;overflow:auto;overscroll-behavior:contain;padding:0 4px 16px}
+.vela-style-list,.vela-record-list{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px}
+.vela-style-list li{display:grid;grid-template-columns:minmax(5em,auto) 1fr auto;align-items:baseline;gap:10px;padding:8px 4px;border-bottom:1px solid var(--hairline)}
+.vela-style-list small,.vela-record-list small{color:var(--muted)}
+.vela-style-sample{font-size:15px}
+.vela-record-list li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 4px;border-bottom:1px solid var(--hairline)}
+.vela-record-list li>div{display:flex;flex-direction:column;gap:2px;min-width:0;overflow-wrap:anywhere}
+.vela-record-actions{display:flex;gap:6px;flex:none}
+.vela-record-list .warning{color:var(--warning)}
+.vela-format-documents{grid-column:1/-1}
+.vela-file-list-auto{opacity:.6}
+@media(max-width:700px){
+  .vela-config-header{flex-wrap:wrap}.vela-config-header .vela-pages{flex-basis:100%;margin-left:0}.vela-pages button{flex:1;min-height:40px}
+  .vela-style-list li{grid-template-columns:1fr auto}.vela-style-list li>small:not(.vela-style-source){grid-column:1/-1}
+  .vela-record-list li{flex-direction:column;align-items:stretch}.vela-record-actions button{flex:1;min-height:40px}
+}
+
+/* Online components: catalog source, update count and "check for updates". */
+.download-head{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.download-head h3{margin:0;display:flex;align-items:center;gap:8px}
+.download-badge{font-size:12px;font-weight:500;padding:1px 8px;border-radius:999px;color:var(--accent);background:var(--accent-tint)}
+.download-origin{color:var(--muted)}
+.download-card.download-update{border-color:var(--accent)}
+
+/* Selection menu: one horizontal row above the selected text; cut, copy, paste, then “更多” at the right. */
+.selection-menu{flex-direction:row;align-items:center;gap:2px;overflow:visible;padding:3px;border-radius:10px;max-height:none}
+.selection-menu>button{width:auto;min-height:36px;padding:0 12px;justify-content:center;font-size:14px;border-radius:7px}
+.selection-menu>button+button{position:relative}
+.selection-menu>button+button::before{content:"";position:absolute;left:-1px;top:9px;bottom:9px;width:1px;background:var(--hairline)}
+.selection-menu .selection-more-toggle[aria-expanded=true]{color:var(--accent);background:var(--accent-tint)}
+.selection-more{position:absolute;right:0;top:calc(100% + 6px);min-width:132px;max-height:min(320px,50vh);overflow:auto;display:flex;flex-direction:column;padding:4px;background:var(--paper);border:1px solid var(--hairline);border-radius:10px;box-shadow:var(--elev-3)}
+.selection-more[hidden]{display:none}
+.selection-more.selection-more-up{top:auto;bottom:calc(100% + 6px)}
+.selection-more button{min-height:40px;width:100%;justify-content:flex-start;padding:0 12px;white-space:nowrap;border-radius:6px}
+/* Pinned below the editor toolbar when the selection starts above the visible text. */
+.selection-menu.selection-pinned{box-shadow:var(--elev-3)}
+@media (pointer:coarse){.selection-menu>button{min-height:44px;padding:0 14px}.selection-more button{min-height:44px}}
+
+/* .gly glossary: a dense list that opens each entry; changes save themselves. */
+.glossary-page{max-width:960px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.glossary-head{display:flex;align-items:center;gap:10px;min-width:0}
+.glossary-head .glossary-kind{padding:4px 8px;font-size:12px;font-weight:600;border-radius:6px}
+.glossary-name{flex:1;min-width:0;font-size:18px;font-weight:600;border-color:transparent;background:none;padding:4px 6px}
+.glossary-name:hover,.glossary-name:focus{border-color:var(--hairline);background:var(--paper)}
+.glossary-status{color:var(--muted);font-size:12px;white-space:nowrap}
+.glossary-status.error{color:var(--danger);white-space:normal}
+.glossary-page .glossary-tools{gap:8px}
+.glossary-filters{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.glossary-filters::-webkit-scrollbar{display:none}
+.glossary-filters button{flex:none;min-height:30px;padding:0 12px;border:1px solid var(--hairline);border-radius:999px;background:var(--paper);color:var(--muted);font-size:13px}
+.glossary-filters button[aria-checked=true]{border-color:var(--accent);color:var(--accent);background:var(--accent-tint)}
+.glossary-count{margin:0;font-size:12px;color:var(--muted)}
+.glossary-count span{opacity:.8}
+.glossary-list{list-style:none;margin:0;padding:0;border:1px solid var(--hairline);border-radius:10px;background:var(--paper);overflow:hidden}
+.glossary-list li+li{border-top:1px solid var(--hairline)}
+.glossary-row{display:grid;grid-template-columns:minmax(4em,max-content) auto minmax(0,1fr) auto;align-items:baseline;gap:4px 10px;width:100%;min-height:44px;padding:9px 14px;border:0;border-radius:0;background:none;color:var(--text);text-align:left;font-size:14px;-webkit-touch-callout:none;user-select:none;transition:background-color var(--dur-fast) ease}
+.glossary-row:hover{background:var(--soft)}
+.glossary-row.copied{background:var(--accent-tint)}
+.glossary-row strong{font-weight:600;overflow-wrap:anywhere}
+.glossary-tag{font-size:11px;padding:1px 7px;border-radius:999px;background:var(--soft);color:var(--muted);white-space:nowrap}
+.glossary-gist{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--muted)}
+.glossary-gist em{font-style:normal;opacity:.6}
+.glossary-row small{color:var(--muted);font-size:11px;white-space:nowrap}
+.glossary-detail .glossary-head{justify-content:space-between}
+.glossary-nav{display:flex;gap:4px}
+.glossary-nav button{min-width:36px;padding:0}
+.glossary-fields{display:flex;flex-direction:column;gap:14px;padding:18px;border:1px solid var(--hairline);border-radius:12px;background:var(--paper)}
+.glossary-fields label{display:flex;flex-direction:column;gap:6px;font-size:12px;color:var(--muted);min-width:0}
+.glossary-fields input,.glossary-fields textarea{font-size:15px;color:var(--text)}
+.glossary-term input{font-size:20px;font-weight:600}
+.glossary-pair{display:grid;grid-template-columns:1fr 2fr;gap:14px}
+.glossary-definition textarea{min-height:12em;line-height:1.7}
+.glossary-actions{display:flex;justify-content:space-between;gap:8px}
+@media(max-width:600px){
+  .glossary-row{grid-template-columns:minmax(0,1fr) auto;padding:10px 12px}
+  .glossary-gist{grid-column:1/-1;grid-row:2}
+  .glossary-row small{grid-column:2;grid-row:1}
+  .glossary-row .glossary-tag{grid-column:2;grid-row:1;justify-self:end}
+  .glossary-row:has(.glossary-tag) small{display:none}
+  .glossary-pair{grid-template-columns:1fr}
+  .glossary-fields{padding:14px}
+  .glossary-page .glossary-tools{flex-wrap:nowrap}.glossary-page .glossary-tools input{flex-basis:auto}
+  .glossary-head .glossary-status{display:none}
+  .glossary-actions button{flex:1;min-height:44px}
+}

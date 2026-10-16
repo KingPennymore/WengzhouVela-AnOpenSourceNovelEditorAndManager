@@ -33,7 +33,10 @@ test('styles: built-ins, configured overrides, closed property set and CSS',()=>
   const styles=resolveStyles({system:{label:'系统',block:true,align:'right'},whisper:{label:'耳语',size:'small'}});
   assert.equal(styles.system.align,'right');assert.equal(styles.letter.label,BUILTIN_STYLES.letter.label);assert.equal(styles.whisper.label,'耳语');
   assert.throws(()=>validateStyles({Bad:{label:'x'}}),/样式 ID/);assert.throws(()=>validateStyles({x:{label:'x',color:'pink'}}),/不支持/);
-  assert.throws(()=>validateStyles({x:{label:'x',align:'center'}}),/行内样式/);
+  // Any style may be used on characters (0.9.8); there alignment and indent do not apply and a frame is drawn inline.
+  validateStyles({x:{label:'x',align:'center',frame:true}});
+  assert.doesNotMatch(styleCss({label:'x',align:'center',indent:2,frame:true},{inline:true}),/text-align|padding-left|margin/);assert.match(styleCss({label:'x',frame:true},{inline:true}),/border:1px solid currentColor;border-radius:3px/);
+  assert.match(styleSheet({x:{label:'x',align:'center'}}),/^\.style-x\{text-align:center\}\nspan\.style-x\{\}$/);
   assert.match(styleCss(BUILTIN_STYLES.system),/text-align:center;.*border:1px solid var\(--accent\)/);assert.doesNotMatch(styleSheet(BUILTIN_STYLES),/var\(/);
   assert.equal(parseVela(JSON.stringify({version:3,kind:'workspace',id:'w',project:{name:'航程'},styles:{whisper:{label:'耳语',size:'small'}}})).styles.whisper.size,'small');
   assert.throws(()=>parseVela(JSON.stringify({version:2,kind:'workspace',id:'w',project:{name:'航程'},styles:{}})),/version: 3/);

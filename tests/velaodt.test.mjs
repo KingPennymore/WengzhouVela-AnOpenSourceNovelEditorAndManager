@@ -19,8 +19,9 @@ test('templates follow actual extension and use valid structured defaults',()=>{
  assert.ok(templateText('book.velaodt','empty').includes('office:mimetype="application/vnd.oasis.opendocument.text"'));
  assert.ok(createVelaOdt(['<&']).includes('&lt;&amp;'));
 });
-test('selection menu placements avoid the selected rectangle or request a separate rail',()=>{
- const bounds={left:0,top:0,right:390,bottom:844};
- for(const r of [{left:30,right:280,top:330,bottom:370},{left:20,right:350,top:20,bottom:55},{left:30,right:200,top:790,bottom:820}]){const p=menuPlacement(r,160,220,bounds);assert.ok(p);assert.ok(p.top+220<=r.top||p.top>=r.bottom||p.left+160<=r.left||p.left>=r.right);}
- assert.equal(menuPlacement({left:0,right:390,top:10,bottom:834},160,220,bounds),null);
+test('the selection bar sits centred above the selection, or pinned below the editor toolbar when there is no room',()=>{
+ const bounds={left:0,top:96,right:390,bottom:844};
+ assert.deepEqual(menuPlacement({left:100,right:200,top:330,bottom:360},180,44,bounds),{left:60,top:278,pinned:false});
+ assert.deepEqual(menuPlacement({left:0,right:390,top:96,bottom:400},180,44,bounds),{left:105,top:104,pinned:true},'selection starting above the visible editor');
+ assert.equal(menuPlacement({left:360,right:385,top:500,bottom:520},180,44,bounds).left,202,'kept inside the window');
 });

@@ -46,7 +46,7 @@ TeX 引擎和中文组件不随应用版本变化时，单独以标签 `tex-<组
 
 ### 发布时上传组件与镜像（应用内下载依赖）
 
-应用内“在线组件”和“检查更新”只从固定标签读取。每次发布按顺序完成：
+应用内“在线组件”先读组件目录（固定标签 `catalog` 的 `catalog.json`），读不到时改读最新应用发布的附件；“检查更新”读最新应用发布。每次发布按顺序完成：
 
 1. 构建。`npm run build:lite`（或任一构建）会把 TeX 单包的文件名、大小和 SHA-256 写入 `tex/components.json` 的 `downloads.package` 字段，标签为 `tex-<组件版本>`。ZIP 由固定时间戳确定性打包，重复构建结果逐字节相同。核对 `dist/tex-components/*.zip` 与已发布组件的 SHA-256 一致；不一致说明 `vendor/wasmtex` 有变化，需要发布新的组件标签。
 2. 发布 TeX 组件标签（仅在组件变化时）。在 GitHub 创建 `tex-<版本>`，附 `Vela-TeX-<版本>.zip` 和 `SHA256SUMS-tex-<版本>.txt`，设为非 Latest。然后运行 `pwsh scripts/mirror-tex-gitee.ps1 -Owner kingpennymore -Repository wenzhou-vela-mirror-repository -Version <版本>` 镜像到 Gitee，脚本会从公开地址下载回来核对。
@@ -55,6 +55,11 @@ TeX 引擎和中文组件不随应用版本变化时，单独以标签 `tex-<组
    - `Vela-<版本>-android.N[-lite]-release-signed.apk`
    - `Vela-<组件名>-<x.y.z>.zip`
 4. 镜像应用发布：`pwsh scripts/mirror-tex-gitee.ps1 -Owner kingpennymore -Repository wenzhou-vela-mirror-repository -AppVersion <版本>`。超过 Gitee 100 MB 附件上限的文件（目前是 Windows 安装包和 ZIP）只留在 GitHub，应用会自动回退到 GitHub。
+4a. 更新组件目录（应用发布和组件标签都上传完之后）：
+   - `node scripts/build-catalog.mjs --version <版本> --previous <上一份 catalog.json>`：从 `dist/releases/<版本>/` 中的 `Vela-<名称>-<x.y.z>.zip` 生成 `dist/releases/catalog/catalog.json` 和 `SHA256SUMS-catalog.txt`。TeX 指向 `tex-<版本>` 标签，其他组件指向 `v<版本>`。上一份目录中本次没有的组件会保留，先用 `gh release download catalog -p catalog.json -D <目录>` 取回上一份。
+   - GitHub：第一次运行 `gh release create catalog dist/releases/catalog/* --title 文舟组件目录 --notes 应用读取的组件目录 --latest=false`，以后运行 `gh release upload catalog dist/releases/catalog/* --clobber`。`catalog` 不是版本号，不会被当作应用更新。
+   - Gitee：`pwsh scripts/mirror-tex-gitee.ps1 -Owner kingpennymore -Repository wenzhou-vela-mirror-repository -Catalog`。目录每次都会整份替换；脚本最后从公开地址下载回来核对 SHA-256，刚替换时 CDN 可能仍返回旧文件，稍后重试即可。
+   - 目录中的 `minApp` 是能安装该组件的最低文舟版本：TeX 单包为 0.9.8，插件接口 4 的组件为 0.9.7。旧版应用会看到“需要文舟 x.y.z 或更新版本”，不会下载。
 5. 验证。在三端真机各执行一次：在线安装 TeX 组件、取消再重试、断网失败提示；Windows / 安卓“检查更新 → 下载并安装”；鸿蒙打开发布页。自动部分运行 `npm run test:downloads`。
 
 ## dist 目录与精简版发布

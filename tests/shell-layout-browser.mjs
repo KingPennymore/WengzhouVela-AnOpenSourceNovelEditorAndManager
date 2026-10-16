@@ -6,7 +6,7 @@ import {startSourceAppServer} from './source-app-server.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
 
 // Editor chrome after docs/FRONTEND-PROPOSAL.md levels A and B: one document bar and status-bar actions on wide
-// windows, a tools row and the bottom quick bar on narrow ones; novel line numbers, selection-menu formats,
+// windows, a tools row and the bottom quick bar on narrow ones; novel line numbers, no formats repeated in the selection menu,
 // grouped commands, palette-tinted shadows and the aligned library.
 const server=await startSourceAppServer();
 const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||(existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe')?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined)});
@@ -43,9 +43,10 @@ try{
     await toggle(false);assert.equal(await page.locator('#format-tools').isVisible(),false);assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')).settings.richText),false);
     await toggle(true);assert.equal(await page.locator('#format-tools').isVisible(),true);
   });
-  await check('the selection menu offers formats for a TXT selection',async()=>{
+  await check('the selection menu leaves formatting to the toolbar',async()=>{
     await page.evaluate(()=>{const view=velaEditorView,at=view.state.doc.toString().indexOf('林舟');view.dispatch({selection:{anchor:at,head:at+2},userEvent:'select.pointer'});view.focus();});
-    await page.locator('.selection-menu button',{hasText:/^粗体$/}).waitFor();await page.locator('.selection-menu button',{hasText:/^粗体$/}).click();
+    await page.locator('.selection-menu button',{hasText:/^复制$/}).waitFor();assert.equal(await page.locator('.selection-menu button',{hasText:/^粗体$/}).count(),0);
+    await page.locator('#format-strong').click();
     assert.deepEqual(await page.evaluate(()=>[...document.querySelectorAll('.cm-content .vela-format-strong')].map(node=>node.textContent)),['林舟']);
   });
   await check('the command palette is grouped and shows the group when searching',async()=>{

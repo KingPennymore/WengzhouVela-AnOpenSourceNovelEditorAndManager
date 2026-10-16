@@ -4,7 +4,7 @@ import {existsSync} from 'node:fs';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {startSourceAppServer} from './source-app-server.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
-import {buildSidecar,sidecarText} from '../web/rich-text.mjs';
+import {buildRecord} from '../web/rich-text.mjs';
 
 // Reader feedback: jumping to a chapter from the preview switched back to the source view. In the TXT and Markdown
 // previews, chapter and position jumps now scroll the preview; the source view still jumps as before.
@@ -16,7 +16,7 @@ const novel=lines.join('\n\n'),bold=novel.indexOf('林舟');
 const markdown=Array.from({length:12},(_,i)=>'# 第'+(i+1)+'章\n\n'+Array.from({length:6},(_,p)=>'段落 '+(i+1)+'-'+p+'，'.repeat(1)+'夜色渐深。'.repeat(8)).join('\n\n')).join('\n\n');
 try{
   const context=await browser.newContext({viewport:{width:1366,height:820}});
-  await context.addInitScript(seed=>{if(!sessionStorage.getItem('seeded')){localStorage.setItem('wenzhou.workspace',JSON.stringify(seed));sessionStorage.setItem('seeded','1');}},{version:1,activeId:'book',openIds:['book','md'],settings:{theme:'light'},documents:[{id:'book',name:'正文.txt',text:novel,updatedAt:1},{id:'side',name:'正文.txt.vela',text:sidecarText(buildSidecar('正文.txt',novel,[{group:'marks',type:'strong',from:bold,to:bold+2}])),updatedAt:1},{id:'md',name:'大纲.md',text:markdown,updatedAt:2}]});
+  await context.addInitScript(seed=>{if(!sessionStorage.getItem('seeded')){localStorage.setItem('wenzhou.workspace',JSON.stringify(seed));sessionStorage.setItem('seeded','1');}},{version:1,activeId:'book',openIds:['book','md'],settings:{theme:'light'},documents:[{id:'book',name:'正文.txt',text:novel,updatedAt:1},{id:'config',name:'.vela',text:JSON.stringify({version:3,kind:'workspace',id:'jump',project:{name:'跳转'},richText:{documents:{'正文.txt':buildRecord(novel,[{group:'marks',type:'strong',from:bold,to:bold+2}])}}}),updatedAt:1},{id:'md',name:'大纲.md',text:markdown,updatedAt:2}]});
   const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));
   await page.goto(server.url);await page.waitForFunction(()=>window.velaReady===true);await openRecentFile(page,page.locator('[data-recent="book"]'));await page.waitForFunction(()=>!!window.velaEditorView);
   const preview=async()=>{await page.keyboard.press('Control+Shift+P');await page.locator('#preview').waitFor();};

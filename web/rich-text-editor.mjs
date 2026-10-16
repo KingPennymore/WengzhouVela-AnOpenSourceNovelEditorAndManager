@@ -70,7 +70,7 @@ const decorations=EditorView.decorations.compute([formatField,formatStyles,image
     if(entry.group==='marks'&&entry.to>entry.from){
       if(inline[entry.type])items.push(inline[entry.type].range(entry.from,entry.to));
       else if(entry.type==='ruby'&&entry.value)items.push(Decoration.mark({class:'vela-format-ruby',attributes:{'data-ruby':entry.value}}).range(entry.from,entry.to));
-      else if(entry.type==='style'&&styles[entry.value])items.push(Decoration.mark({class:'vela-style',inclusiveEnd:true,attributes:{'data-style':entry.value,style:styleCss(styles[entry.value])}}).range(entry.from,entry.to));
+      else if(entry.type==='style'&&styles[entry.value])items.push(Decoration.mark({class:'vela-style',inclusiveEnd:true,attributes:{'data-style':entry.value,style:styleCss(styles[entry.value],{inline:true})}}).range(entry.from,entry.to));
     }
     else if(entry.group==='blocks'&&entry.type==='align'&&lines[entry.value])items.push(lines[entry.value].range(entry.from));
     else if(entry.group==='blocks'&&entry.type==='style'&&styles[entry.value])items.push(Decoration.line({attributes:{class:'vela-style-block','data-style':entry.value,style:styleCss(styles[entry.value])}}).range(entry.from));
@@ -171,3 +171,28 @@ export function settleReview(view,id,{apply=false}={}){
 export const isFormatActive=(state,type,value)=>{const formats=formatsOf(state);if(!formats)return false;const range=state.selection.main;return !range.empty&&covered(formats.entries,{group:'marks',type,value},range.from,range.to);};
 /** The paragraph style ID on the cursor line, or ''. */
 export const blockStyleAt=state=>{const formats=formatsOf(state);if(!formats)return '';const line=state.doc.lineAt(state.selection.main.head);return formats.entries.find(entry=>entry.group==='blocks'&&entry.type==='style'&&entry.from===line.from)?.value||'';};
+/**
+ * Applies a named style to the selected characters (`scope: 'chars'`) or to the selected paragraphs, toggling it off
+ * where it is already set. Characters need a selection.
+ */
+export const applyStyle=(view,id,scope)=>scope==='chars'?toggleInline(view,'style',id):toggleBlock(view,'style',id);
+/** The named style on the selection (or at the cursor) and on the cursor's paragraph. */
+export function styleAt(state){
+  const formats=formatsOf(state);if(!formats)return {chars:'',paragraph:''};const range=state.selection.main;
+  const chars=formats.entries.find(entry=>entry.group==='marks'&&entry.type==='style'&&(range.empty?entry.from<range.head&&entry.to>=range.head:entry.from<=range.from&&entry.to>=range.to))?.value||'';
+  return {chars,paragraph:blockStyleAt(state)};
+}
+/**
+ * Removes every format from the selection: inline formats (bold, emphasis, ruby, styles) are cut at its edges and
+ * paragraph formats of the touched lines are removed. Without a selection only the cursor's paragraph is cleared.
+ * Illustrations stay; they are edited from their own dialog.
+ */
+export function clearFormats(view){
+  const state=formatsOf(view.state);if(!state)return false;const starts=selectedLines(view.state),ranges=view.state.selection.ranges.filter(range=>!range.empty),entries=[];
+  for(const entry of state.entries){
+    if(entry.group==='blocks'&&starts.has(entry.from))continue;
+    if(entry.group==='marks'){const hits=ranges.filter(range=>entry.from<range.to&&entry.to>range.from);if(hits.length){let at=entry.from;for(const hit of hits.sort((a,b)=>a.from-b.from)){if(hit.from>at)entries.push({...entry,id:at===entry.from?entry.id:newEntryId(),from:at,to:hit.from});at=Math.max(at,hit.to);}if(at<entry.to)entries.push({...entry,id:newEntryId(),from:at,to:entry.to});continue;}}
+    entries.push(entry);
+  }
+  return dispatch(view,entries);
+}

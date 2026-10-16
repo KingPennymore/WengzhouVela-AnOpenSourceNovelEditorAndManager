@@ -1,9 +1,8 @@
 import {odfReadingHtml} from './document-components.mjs';
 import {documentKind} from './model.mjs';
 import {documentPath} from './workspace.mjs';
-import {readingDocuments,projectConfig,projectWriter,readingLayout} from './vela.mjs';
+import {readingDocuments,projectConfig,projectWriter,readingLayout,documentFormats,configStyles} from './vela.mjs';
 import {displayChapterTitle,chapterOffset,lineOffsets,renderPlainChapters,fitReadingLayout,swipeDirection,readingPageInfo,readingGeometry,spreadStart,paginatedPages} from './reader-layout.mjs';
-import {documentFormats} from './rich-text.mjs';
 import {resolveStyles} from './rich-text-styles.mjs';
 import {parseCsv,csvDelimiter} from './csv.mjs';
 import {bindTextZoom} from './gestures.mjs';
@@ -35,7 +34,7 @@ export class Reader {
   chrome(show=!this.chromeVisible){this.chromeVisible=show;this.root.classList.toggle('reader-chrome-visible',show);this.onChrome?.(true,show);if(!show){this.root.querySelector('.reader-outline')?.remove();this.closeTools?.();}}
   async open(id){
     this.stop();const workspace=this.workspace(),doc=readingDocuments(workspace).find(doc=>doc.id===id);if(!doc)return;getSelection()?.removeAllRanges();
-    const epoch=++this.epoch;await this.load?.(doc);if(epoch!==this.epoch||this.root.hidden)return;this.id=id;this.page=0;this.searchHit=null;this.doc=doc;this.kind=documentKind(doc);this.formats=this.kind==='TXT'?documentFormats(workspace.documents,doc):[];this.formatStyles=resolveStyles(projectConfig(workspace,doc)?.config?.styles);const project=projectConfig(workspace,doc);this.config=project?.config;this.readingLayout=readingLayout(project?.config?.reading.layout);this.size=project?.config?.reading?.layout?.fontSize??workspace.readerSizes?.[id]??workspace.settings.fontSize;
+    const epoch=++this.epoch;await this.load?.(doc);if(epoch!==this.epoch||this.root.hidden)return;this.id=id;this.page=0;this.searchHit=null;this.doc=doc;this.kind=documentKind(doc);this.formats=this.kind==='TXT'?documentFormats(workspace,doc):[];this.formatStyles=resolveStyles(configStyles(projectConfig(workspace,doc)?.config));const project=projectConfig(workspace,doc);this.config=project?.config;this.readingLayout=readingLayout(project?.config?.reading.layout);this.size=project?.config?.reading?.layout?.fontSize??workspace.readerSizes?.[id]??workspace.settings.fontSize;
     this.position=workspace.readerPositions?.[id]||null;workspace.readingRecent=id;const root=this.root.querySelector('.reader-document');root.inert=false;
     const relative=documentPath(doc).slice(project?.folder?project.folder.length+1:0),bookTitle=project?.config?.reading?.items?.find(item=>item.path===relative)?.title||doc.name.replace(/\.[^.]+$/,'');
     const action=(id,label,name)=>`<button id="${id}" title="${t(label)}" aria-label="${t(label)}">${icon(name)}</button>`;

@@ -81,15 +81,16 @@ export async function completeAssets(transport,release,{sources=releaseSources}=
   if(release.assets.every(asset=>asset.sha256&&asset.bytes))return release.assets;
   const sums=release.assets.find(asset=>asset.name===`SHA256SUMS-${release.tag}.txt`||asset.name==='SHA256SUMS.txt');
   if(!sums)return release.assets;
-  const text=await downloadText(transport,release.tag,sums.name,sources);const table=parseSums(text);
+  const {text}=await downloadReleaseText(transport,release.tag,sums.name,{sources});const table=parseSums(text);
   return release.assets.map(asset=>({...asset,sha256:asset.sha256||table.get(asset.name)||null}));
 }
-async function downloadText(transport,tag,name,sources){
+/** A small text asset of a release (checksum list, component catalog), from the first mirror that has it. */
+export async function downloadReleaseText(transport,tag,name,{sources=releaseSources,limit=64*1024}={}){
   const failures=[];
   for(const source of sources){const id='dl'+Date.now().toString(36)+(++sequence);
-    try{const result=await transport('downloadComponent',{id,url:releaseUrl(source,tag,name),name,size:0,sha256:'',limit:64*1024});const data=await readImportedArchive(result,token=>transport('releaseImport',{token}));return new TextDecoder().decode(data);}
+    try{const result=await transport('downloadComponent',{id,url:releaseUrl(source,tag,name),name,size:0,sha256:'',limit});const data=await readImportedArchive(result,token=>transport('releaseImport',{token}));return {text:new TextDecoder().decode(data),source:source.label};}
     catch(error){failures.push(source.label+'：'+error.message);}}
-  throw Error('无法读取校验清单。'+failures.join('；'));
+  throw Error('无法读取 '+name+'。'+failures.join('；'));
 }
 const COMPONENT_ASSET=/^Vela-((?:[A-Z][A-Za-z]*-)*[A-Z][A-Za-z]*)-(\d+\.\d+\.\d+)\.zip$/;
 /** Optional executable components (e.g. the e-book reader) published with an app release. */

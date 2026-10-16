@@ -1,5 +1,7 @@
-// Named styles for TXT formatting (.vela v3 `styles`). Properties come from a closed set, so the editor, the reader
-// and exports can all render them and no arbitrary CSS reaches a page.
+// Named styles for TXT formatting (.vela `richText.styles`). Properties come from a closed set, so the editor, the
+// reader and exports can all render them and no arbitrary CSS reaches a page. Every style applies to a whole paragraph
+// or to selected characters; on characters, alignment and indent do not apply and a frame is drawn around the text.
+// `block` only records which of the two the style is meant for first (and keeps 0.9.7 able to read the style).
 
 export const STYLE_FIELDS=Object.freeze({
   align:['left','center','right'],
@@ -26,7 +28,6 @@ export function validateStyle(id,value){
   for(const key of ['block','frame','bold'])if(value[key]!==undefined&&typeof value[key]!=='boolean')throw Error('样式 '+id+' 的 '+key+' 须为布尔值。');
   for(const [key,values] of Object.entries(STYLE_FIELDS))if(value[key]!==undefined&&!values.includes(value[key]))throw Error('样式 '+id+' 的 '+key+' 不支持此值。');
   if(value.indent!==undefined&&![0,2].includes(value.indent))throw Error('样式 '+id+' 的 indent 须为 0 或 2。');
-  if(!value.block&&(value.align||value.frame||value.indent!==undefined))throw Error('行内样式 '+id+' 不能设置对齐、缩进或边框。');
 }
 export function validateStyles(styles){
   if(!styles||typeof styles!=='object'||Array.isArray(styles))throw Error('styles 必须是对象。');
@@ -45,20 +46,21 @@ const THEME_COLORS={muted:'var(--muted)',accent:'var(--accent)',warning:'var(--w
 const FIXED_COLORS={muted:'#6b6b6b',accent:'#2f6f5e',warning:'#a86b00',danger:'#b3261e'};
 /**
  * CSS declarations for a style. `theme` uses the app's colour tokens (editor and reader); exports use fixed colours
- * that read well on white paper and in e-readers.
+ * that read well on white paper and in e-readers. `inline` gives the declarations for characters inside a paragraph.
  */
-export function styleCss(value,{theme=true}={}){
-  if(!value)return '';const colors=theme?THEME_COLORS:FIXED_COLORS,parts=[];
+export function styleCss(value,{theme=true,inline=false}={}){
+  if(!value)return '';const colors=theme?THEME_COLORS:FIXED_COLORS,parts=[],border='1px solid '+(value.color?colors[value.color]:'currentColor');
   if(value.font)parts.push('font-family:'+FONTS[value.font]);
   if(value.size)parts.push('font-size:'+(value.size==='small'?'.85em':'1.2em'));
   if(value.color)parts.push('color:'+colors[value.color]);
   if(value.bold)parts.push('font-weight:bold');
-  if(value.block){
-    if(value.align)parts.push('text-align:'+value.align);
-    if(value.indent===0)parts.push('text-indent:0');if(value.indent===2)parts.push('padding-left:2em');
-    if(value.frame)parts.push('border:1px solid '+(value.color?colors[value.color]:'currentColor'),'border-radius:4px','padding:.35em .8em','margin:.4em 0');
-  }
+  if(inline){if(value.frame)parts.push('border:'+border,'border-radius:3px','padding:0 .2em');return parts.join(';');}
+  if(value.align)parts.push('text-align:'+value.align);
+  if(value.indent===0)parts.push('text-indent:0');if(value.indent===2)parts.push('padding-left:2em');
+  if(value.frame)parts.push('border:'+border,'border-radius:4px','padding:.35em .8em','margin:.4em 0');
   return parts.join(';');
 }
-/** A stylesheet with one `.style-<id>` rule per style, for HTML and EPUB exports. */
-export const styleSheet=styles=>Object.entries(styles).map(([id,value])=>`.style-${id}{${styleCss(value,{theme:false})}}`).join('\n');
+/** Whether a style is meant for paragraphs first (it sets alignment, indent or a frame, or says so). */
+export const paragraphStyle=value=>!!(value?.block||value?.align||value?.indent!==undefined||value?.frame);
+/** A stylesheet with `.style-<id>` for paragraphs and `span.style-<id>` for characters, for HTML and EPUB exports. */
+export const styleSheet=styles=>Object.entries(styles).flatMap(([id,value])=>[`.style-${id}{${styleCss(value,{theme:false})}}`,`span.style-${id}{${styleCss(value,{theme:false,inline:true})}}`]).join('\n');

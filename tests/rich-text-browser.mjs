@@ -6,14 +6,16 @@ import {startSourceAppServer} from './source-app-server.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
 import {buildSidecar,sidecarText} from '../web/rich-text.mjs';
 
-// TXT formatting (.vela v3): toolbar, shortcuts, undo, sidecar saving and reload, re-anchoring after an
-// outside edit with review, and the sidecar following rename, trash and restore. The TXT never gains markup.
+// TXT formatting: toolbar, shortcuts, undo, formats saved in the work's .vela (richText.documents) and reloaded,
+// re-anchoring after an outside edit with review, a 0.9.7 sidecar moving into .vela, and formats following rename,
+// trash and restore. The TXT never gains markup.
 const server=await startSourceAppServer();
 const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||(existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe')?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined)});
 const checks=[],errors=[];const check=async(name,run)=>{await run();checks.push(name);console.log('PASS '+name);};
 const novel='第一章 风起\n\n　　林舟冷笑一声，转身离去。\n\n　　苏晚心中暗道不好。\n\n——完——';
 const stored=page=>page.evaluate(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')));
 const byPath=(workspace,path)=>workspace.documents.find(doc=>(doc.path||doc.name)===path);
+const records=workspace=>JSON.parse(byPath(workspace,'.vela')?.text||'{}').richText?.documents||{};
 async function open(documents,settings={},extra={}){
   const context=await browser.newContext({viewport:{width:1280,height:800},acceptDownloads:true});await context.grantPermissions(['clipboard-read','clipboard-write'],{origin:server.url});
   // Seed once; later reloads keep what the app saved.
@@ -57,13 +59,13 @@ try{
     await page.keyboard.press('Control+Z');assert.deepEqual(await rendered(page,'.vela-format-strong'),['林舟冷笑','转身']);
     await page.keyboard.press('Control+Shift+Z');assert.deepEqual(await rendered(page,'.vela-format-strong'),['林舟冷笑']);assert.equal(await page.locator('.cm-line.vela-format-center').count(),1);
   });
-  await check('saving writes a v3 sidecar beside the TXT; the TXT stays plain and the sidecar is not listed',async()=>{
-    await save(page);const workspace=await stored(page),sidecar=byPath(workspace,'正文.txt.vela');
-    assert.equal(byPath(workspace,'正文.txt').text,novel);assert.ok(sidecar);
-    const value=JSON.parse(sidecar.text);assert.equal(value.version,3);assert.equal(value.kind,'document');assert.equal(value.target,'正文.txt');
-    assert.deepEqual(value.marks.map(mark=>[mark.type,mark.quote]),[['strong','林舟冷笑'],['emphasis','不好']]);assert.deepEqual(value.blocks.map(block=>[block.value,block.quote]),[['center','——完——']]);
+  await check('saving creates the work .vela with the formats; the TXT stays plain and no sidecar is written',async()=>{
+    await save(page);const workspace=await stored(page),config=JSON.parse(byPath(workspace,'.vela').text),value=records(workspace)['正文.txt'];
+    assert.equal(byPath(workspace,'正文.txt').text,novel);assert.equal(byPath(workspace,'正文.txt.vela'),undefined);
+    assert.equal(config.version,3);assert.equal(config.kind,'workspace');assert.equal(config.reading.items,undefined,'a work created for formats reads every file');
+    assert.deepEqual(value.marks.map(mark=>[mark.type,mark.quote,mark.at]),[['strong','林舟冷笑',[3,2,6]],['emphasis','不好',[5,8,10]]]);assert.deepEqual(value.blocks.map(block=>[block.value,block.at,block.head]),[['center',[7],'——完——']]);
     await page.locator('#mobile-library').click().catch(()=>{});
-    assert.equal(await page.locator('#doc-list').getByText('正文.txt.vela').count(),0);assert.ok(await page.locator('#doc-list').getByText('正文.txt',{exact:true}).count()>=1);
+    assert.ok(await page.locator('#doc-list').getByText('正文.txt',{exact:true}).count()>=1);
   });
   await check('formats come back after a reload',async()=>{
     await page.reload();await enter(page,'book');
@@ -90,17 +92,18 @@ try{
     const copied=await page.evaluate(async()=>{const [item]=await navigator.clipboard.read();return {types:item.types,html:await (await item.getType('text/html')).text(),plain:await (await item.getType('text/plain')).text()};});
     assert.ok(copied.types.includes('text/html'));assert.match(copied.html,/<strong>林舟冷笑<\/strong>/);assert.doesNotMatch(copied.plain,/<|\*\*/);
   });
-  await check('renaming the TXT moves its sidecar and updates the target',async()=>{
+  await check('renaming the TXT renames its format record in .vela',async()=>{
     await page.locator('#current-name').dblclick();await page.locator('#dialog-body [name=name]').fill('航程.txt');await page.locator('#dialog-submit').click();
-    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')).documents.some(doc=>(doc.path||doc.name)==='航程.txt.vela'));
-    const workspace=await stored(page);assert.equal(byPath(workspace,'正文.txt.vela'),undefined);assert.equal(JSON.parse(byPath(workspace,'航程.txt.vela').text).target,'航程.txt');
+    await page.waitForFunction(()=>JSON.parse(JSON.parse(localStorage.getItem('wenzhou.workspace')).documents.find(doc=>(doc.path||doc.name)==='.vela').text).richText?.documents?.['航程.txt']);
+    assert.deepEqual(Object.keys(records(await stored(page))),['航程.txt']);
     assert.deepEqual(await rendered(page,'.vela-format-strong'),['林舟冷笑']);
   });
-  await check('moving the TXT to the trash takes the sidecar; restoring brings both back',async()=>{
+  await check('the record stays while the TXT is in the trash; restoring brings the formats back',async()=>{
     if(!await page.locator('[data-menu="book"]').isVisible())await page.locator('#mobile-library').click();await page.locator('[data-menu="book"]').click();await page.locator('#delete-doc').click();await page.locator('#dialog-submit').click();
-    await page.waitForFunction(()=>!JSON.parse(localStorage.getItem('wenzhou.workspace')).documents.some(doc=>/^航程\.txt/.test(doc.path||doc.name)));
-    await page.locator('#open-trash').click();await page.locator('.trash-row',{hasText:/^航程\.txt(?!\.vela)/}).locator('[data-restore]').first().click();
-    await page.waitForFunction(()=>{const docs=JSON.parse(localStorage.getItem('wenzhou.workspace')).documents.map(doc=>doc.path||doc.name);return docs.includes('航程.txt')&&docs.includes('航程.txt.vela');});
+    await page.waitForFunction(()=>!JSON.parse(localStorage.getItem('wenzhou.workspace')).documents.some(doc=>(doc.path||doc.name)==='航程.txt'));
+    assert.ok(records(await stored(page))['航程.txt'],'kept for restore');
+    await page.locator('#open-trash').click();await page.locator('.trash-row',{hasText:/^航程\.txt/}).locator('[data-restore]').first().click();
+    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')).documents.some(doc=>(doc.path||doc.name)==='航程.txt'));
     await page.keyboard.press('Escape');
   });
   await page.context().close();
@@ -116,17 +119,19 @@ try{
     assert.equal(await outside.locator('#format-review').textContent(),'待确认 1');
     await outside.waitForFunction(()=>document.querySelector('#toast').textContent.includes('1 处格式待确认'));
   });
-  await check('a review entry is applied to the selected text and saved',async()=>{
+  await check('a review entry is applied and saved; the 0.9.7 sidecar moves into .vela and goes to the trash',async()=>{
     await selectText(outside,'糟糕');await outside.locator('#format-review').click();await outside.locator('[data-apply]').click();
     assert.deepEqual(await rendered(outside,'.vela-format-emphasis'),['糟糕']);assert.equal(await outside.locator('#format-review').isVisible(),false);
-    await save(outside);const value=JSON.parse(byPath(await stored(outside),'正文.txt.vela').text);
-    assert.equal(value.review,undefined);assert.deepEqual(value.marks.map(mark=>mark.quote),['林舟冷笑','糟糕']);assert.equal(byPath(await stored(outside),'正文.txt').text,edited);
+    await save(outside);await outside.waitForFunction(()=>!JSON.parse(localStorage.getItem('wenzhou.workspace')).documents.some(doc=>(doc.path||doc.name)==='正文.txt.vela'));
+    const workspace=await stored(outside),value=records(workspace)['正文.txt'];
+    assert.equal(value.review,undefined);assert.deepEqual(value.marks.map(mark=>mark.quote),['林舟冷笑','糟糕']);assert.equal(byPath(workspace,'正文.txt').text,edited);
+    assert.ok(workspace.trash.some(item=>item.path==='正文.txt.vela'));
   });
   await outside.context().close();
   const summary=await open([{id:'side',name:'正文.txt.vela',text:sidecarText(buildSidecar('正文.txt',original,marks)),updatedAt:1},{id:'book',name:'正文.txt',text:original,updatedAt:1}]);
   await check('opening the sidecar shows a summary instead of the workspace settings form',async()=>{
     await summary.locator('#preview .vela-sidecar').waitFor();const text=await summary.locator('#preview .vela-sidecar').textContent();
-    assert.match(text,/格式旁注/);assert.match(text,/行内格式2/);assert.match(text,/段落格式1/);assert.equal(await summary.locator('#vela-form').count(),0);
+    assert.match(text,/旧版格式旁注/);assert.match(text,/行内格式2/);assert.match(text,/段落格式1/);assert.equal(await summary.locator('#vela-form').count(),0);
   });
   await summary.context().close();
   // Long books are rendered in chunks; formats must use offsets relative to each chunk.

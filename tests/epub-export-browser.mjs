@@ -5,7 +5,7 @@ import {mkdir,writeFile,readFile} from 'node:fs/promises';
 import {unzipSync,strFromU8} from 'fflate';
 import {startSourceAppServer} from './source-app-server.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
-import {buildSidecar,sidecarText} from '../web/rich-text.mjs';
+import {buildRecord} from '../web/rich-text.mjs';
 
 // 导出 EPUB: book information from the workspace, chapter range, formats, cover, well-formed XML and a stable identifier.
 const server=await startSourceAppServer();
@@ -14,11 +14,12 @@ const checks=[],errors=[];const check=async(name,run)=>{await run();checks.push(
 const novel='第一章 风起\n\n　　林舟冷笑一声，转身离去。\n\n　　苏晚心中暗道不好 & <好>。\n\n——完——\n\n第二章 云涌\n\n　　风满楼。';
 const at=quote=>[novel.indexOf(quote),novel.indexOf(quote)+quote.length];
 const marks=[{group:'marks',type:'strong',from:at('林舟冷笑')[0],to:at('林舟冷笑')[1]},{group:'marks',type:'emphasis',from:at('不好')[0],to:at('不好')[1]},{group:'blocks',type:'align',value:'center',from:at('——完——')[0],to:at('——完——')[1]}];
-const vela=JSON.stringify({version:2,kind:'workspace',id:'voyage',project:{name:'航程',author:'某作者',description:'雪夜的故事。'},reading:{items:[{path:'正文.txt'}]}});
+// The formats live in the work's .vela, as written since 0.9.8.
+const vela=JSON.stringify({version:3,kind:'workspace',id:'voyage',project:{name:'航程',author:'某作者',description:'雪夜的故事。'},reading:{items:[{path:'正文.txt'}]},richText:{documents:{'正文.txt':buildRecord(novel,marks)}}});
 const png=Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360f8cfc0000003010100c9fe92ef0000000049454e44ae426082','hex');
 try{
   const context=await browser.newContext({viewport:{width:1280,height:800},acceptDownloads:true});
-  await context.addInitScript(seed=>{if(!sessionStorage.getItem('seeded')){localStorage.setItem('wenzhou.workspace',JSON.stringify(seed));sessionStorage.setItem('seeded','1');}},{version:1,activeId:'book',openIds:['book'],settings:{theme:'light'},documents:[{id:'book',name:'正文.txt',path:'航程/正文.txt',text:novel,updatedAt:1},{id:'side',name:'正文.txt.vela',path:'航程/正文.txt.vela',text:sidecarText(buildSidecar('正文.txt',novel,marks)),updatedAt:1},{id:'config',name:'.vela',path:'航程/.vela',text:vela,updatedAt:1}]});
+  await context.addInitScript(seed=>{if(!sessionStorage.getItem('seeded')){localStorage.setItem('wenzhou.workspace',JSON.stringify(seed));sessionStorage.setItem('seeded','1');}},{version:1,activeId:'book',openIds:['book'],settings:{theme:'light'},documents:[{id:'book',name:'正文.txt',path:'航程/正文.txt',text:novel,updatedAt:1},{id:'config',name:'.vela',path:'航程/.vela',text:vela,updatedAt:1}]});
   const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));
   await page.goto(server.url);await page.waitForFunction(()=>window.velaReady===true);await openRecentFile(page,page.locator('[data-recent="book"]'));await page.waitForFunction(()=>!!window.velaEditorView);
   const openEpub=async()=>{await page.locator('#more-tools').click();await page.locator('#commands').click();await page.locator('#command-search').fill('导出 EPUB');await page.locator('.command-item').first().click();await page.waitForFunction(()=>document.querySelector('#dialog-title')?.textContent==='导出 EPUB');};
@@ -57,7 +58,7 @@ try{
     const only=await exportEpub();assert.deepEqual(Object.keys(only.files).filter(path=>path.startsWith('OEBPS/text/')),['OEBPS/text/chapter-001.xhtml']);
     assert.match(strFromU8(only.files['OEBPS/text/chapter-001.xhtml']),/风满楼/);
   });
-  await check('the TXT and its sidecar are unchanged by exporting',async()=>{
+  await check('the TXT is unchanged by exporting',async()=>{
     assert.equal(await page.evaluate(()=>velaEditorView.state.doc.toString()),novel);
   });
   assert.deepEqual(errors,[]);await mkdir('test-results',{recursive:true});await writeFile('test-results/epub-export.json',JSON.stringify({checks,errors},null,2));
