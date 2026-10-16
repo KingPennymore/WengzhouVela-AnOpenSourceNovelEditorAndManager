@@ -73,6 +73,34 @@ GitHub Actions 的 `Verify` 工作流在 master 推送、拉取请求或手动�
 
 `npm run verify:lite` 自动构建轻量版并运行共享回归及组件导入、离线中文编译检查。也可先构建轻量版，再运行 `node tests/tex-lite-browser.mjs` 可检查缺少组件提示、分别导入、重启保留、离线中文 PDF 编译与渲染。返回完整版时重新执行 `npm run build`；不要在不同构建版本之间并行执行打包，以免共享资源互相覆盖。
 
+## 发布流程（`scripts/release.mjs`）
+
+一次发布按阶段执行，每个阶段都可以单独重跑，失败后从断点继续：
+
+```
+node scripts/release.mjs bump 0.9.9                 同步全部版本号
+node scripts/release.mjs run --dry-run              演练：只做检查、列出命令和外部操作
+node scripts/release.mjs run                        从第一个未完成的阶段开始
+node scripts/release.mjs run --only verify          只跑某一阶段；--from build 从某阶段起重跑
+node scripts/release.mjs status                     查看各阶段状态
+node scripts/release.mjs fingerprints [--record]    显示或记录签名证书指纹
+```
+
+`bump <版本>` 一次改好 `package.json`（`version` 与 `harmonyVersion`）、`package-lock.json`、`AppScope/app.json5`、`android/app/build.gradle`（`versionName` 为 `<版本>-android.1`）、`windows/package.json`（`version` 与 `velaVersion`）和 `windows/package-lock.json`。四段版本号的 npm 写法为 `x.y.z-w`；`versionCode` 按 `((主版本+1)×10000+次版本×100+修订号)×100+第四段` 计算（`scripts/versions.mjs`，`check-build.mjs` 用同一套规则核对）。
+
+阶段：
+
+1. **preflight**（只读）：工作区没有未提交的源码改动（`.idea/`、本机 `build-profile.json5` 和 rawfile 构建产物除外）；三端版本号一致且等于本次版本；标签不存在或指向 HEAD；`RELEASE_NOTES.md` 有本版说明；node、python、pwsh、gh 可用且 gh 已登录；DevEco、ANDROID_HOME 可用；发布清单签名私钥对应的公钥在应用内置列表中；安卓与鸿蒙发布证书（公钥证书）的 SHA-256 与 `scripts/release-config.json` 记录一致。首次使用先运行 `fingerprints`，与已发布应用核对后用 `fingerprints --record` 记录。
+2. **build**：先轻量版、后完整版，依次构建安卓 release、Windows 和鸿蒙 `assembleApp`（DevEco 用本机 `build-profile.json5` 中的签名配置）。DevEco 生成的 `.app` 文件名可能仍是旧版本（如 `me.wenzhou.write-0.9.6.app`），脚本取最新的 `.app`，按包内 `pack.info` 核对版本后改名为 `Vela-<版本>[-lite]-release-signed.app`，已签名 HAP 同样改名。
+3. **sign**：`scripts/sign-android.ps1`（轻量版加 `-Lite`）。安卓口令只由该脚本自己读取。
+4. **package**：`package.py --source-only` 生成源码包，其中的 `build-profile.json5` 一律取自仓库 HEAD（不带本机签名配置）；`finalize-release.py` 收集附件、写 `SHA256SUMS-<版本>.txt` 并签名；从 GitHub 取回当前 `catalog.json` 作为上一份目录，`build-catalog.mjs` 生成并签名新目录。
+5. **verify**：`verify.mjs --tex --windows`；附件齐全且与 `SHA256SUMS` 一致；两份清单签名有效；`.app.zip` 中鸿蒙包的版本；APK 签名证书指纹；列出超过 Gitee 100 MB 附件上限、只发布到 GitHub 的文件。
+6. **publish-github**（外部）：用 gh 创建草稿发布（目标为 HEAD），只上传缺少或摘要不同的文件，核对 GitHub 计算的大小和 SHA-256 后设为正式发布并标为 Latest；更新 `catalog` 发布中的目录三件。gh 在 Windows 上输出 CRLF，脚本解析时统一去掉。
+7. **mirror-gitee**（外部）：把应用附件（不超过 100 MB 的，含 `.sig`，不含源码包）和组件目录同步到 Gitee。核对方式：先比对 API 返回的大小，再从公开地址下载 1 MB 以下的文件核对 SHA-256；从 Gitee 下载大文件很慢，只在加 `--gitee-full-verify` 时全部下载核对。`--gitee-replace` 重传同名同大小的文件。刚替换的目录可能被 CDN 缓存，核对失败时稍后用 `--only mirror-gitee` 重试。
+8. **restore**：重新构建完整版前端并运行 `check-build.mjs`，清理临时文件，确认工作区与 HEAD 一致（除构建产物和本机配置）。
+
+外部操作前，脚本列出本次运行将要做的全部外部操作（每个上传的文件及大小、发布与 Latest 的变化），输入 `yes` 确认一次后才执行。Gitee 私人令牌在一次运行中只输入一次（终端中不回显），只保存在进程内存里：不写入磁盘、状态文件或日志，不出现在命令行参数中，错误信息中出现时替换为 `***`。状态与日志在 `dist/release-state/<版本>.json` / `.log`；提交变化后状态自动清空，从头开始。
+
 ## 发布前
 
 1. 检查根版本、鸿蒙版本及移动版本代码、安卓版本和 Windows 版本一致；更新发布说明与验证记录。
