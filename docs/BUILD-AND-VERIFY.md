@@ -33,6 +33,17 @@ GitHub Actions 的 `Verify` 工作流在 master 推送、拉取请求或手动�
 
 工作流配置依据 [checkout](https://github.com/actions/checkout) 与 [setup-node](https://github.com/actions/setup-node) 的官方用法。
 
+## TeX 组件的固定发布
+
+TeX 引擎和中文组件不随应用版本变化时，单独以标签 `tex-<组件版本>` 发布（当前为 `tex-0.1.1`，打在 `master` 的 `72fea00`），附 `Vela-TeX-<版本>-engine.zip`、`Vela-TeX-<版本>-chinese.zip` 和 `SHA256SUMS-tex-<版本>.txt`。这样下载地址固定为：
+
+`https://github.com/KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager/releases/download/tex-0.1.1/<文件名>`
+
+- 发布时设为非 Latest（`gh release create … --latest=false`），以免顶替应用版本。
+- 组件内容取自 `vendor/wasmtex`，精简版构建时生成到 `dist/plugins`。只有 `vendor/wasmtex` 更新时才发布新的组件标签；0.9.5–0.9.7 随附的组件逐字节相同。
+- 应用的每个版本仍可随附组件 ZIP，便于离线下载，内容须与组件标签一致（核对 SHA-256）。
+- Gitee 镜像：`https://gitee.com/kingpennymore/wenzhou-vela-mirror-repository/releases/download/tex-0.1.1/<文件名>`，标签和文件名与 GitHub 相同，内容逐字节一致。用 `pwsh scripts/mirror-tex-gitee.ps1 -Owner kingpennymore -Repository wenzhou-vela-mirror-repository [-Version 0.1.1]` 镜像：先在 GitHub 发布并在 `dist/releases/tex-<版本>` 准备好文件，运行时在提示处输入 Gitee 私人令牌（`projects` 权限，不显示、不保存），脚本创建发布、上传附件，并从公开地址下载核对 SHA-256。应用内下载计划先试 Gitee、再试 GitHub。
+
 ## dist 目录与精简版发布
 
 `python scripts/package.py --source-only` 仅打包源码，不复制完整版安装包。`python scripts/finalize-release.py --lite-only` 将三端精简版、源码、四份可选组件和 SHA-256 收集到 `dist/releases/<版本>/`，发布说明及附件清单写入 `dist/metadata/<版本>/`。替换当前发布文件时保留旧修订。
