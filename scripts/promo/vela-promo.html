@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>文舟 Vela 宣传动画</title>
+<style>
+  html,body{margin:0;height:100%;background:#0b110e;display:grid;place-items:center;overflow:hidden;font-family:"Microsoft YaHei",sans-serif}
+  canvas{max-width:100vw;max-height:100vh;display:block}
+  #play{position:fixed;inset:0;display:grid;place-items:center;background:#0b110ecc;color:#e3f0e7;font-size:28px;letter-spacing:4px;cursor:pointer;border:0}
+</style>
+</head>
+<body>
+<canvas id="stage"></canvas>
+<button id="play" hidden>▶ 点击播放（含音乐）</button>
+<script>
+// Vela 0.9.8.1 promo. Everything — devices, app UI, camera moves and the music — is drawn or synthesised by this
+// code; renderAt(t) draws the frame at t seconds and scheduleMusic() plays the soundtrack on the same clock.
+// ?w=1920&h=1080 (landscape) or ?w=1080&h=1920 (portrait); ?record=1 is used by render-promo.mjs.
+const params=new URLSearchParams(location.search);
+const W=Number(params.get('w'))||1920,H=Number(params.get('h'))||1080,PORTRAIT=H>W;
+const canvas=document.getElementById('stage');canvas.width=W;canvas.height=H;
+const ctx=canvas.getContext('2d');
+const BPM=120,BEAT=60/BPM,BAR=BEAT*4,DURATION=42;window.DURATION=DURATION;
+const FONT='"HarmonyOS Sans SC","Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Noto Sans SC",sans-serif';
+// Scenes, each a whole number of bars so cuts land on the downbeat.
+const S={intro:[0,4],platforms:[4,12],writing:[12,18],glossary:[18,24],ui:[24,28],sync:[28,36],outro:[36,42]};
+
+// ---------------------------------------------------------------- colour
+const colors=(bg,panel,paper,text,muted,line,accent,tint)=>({bg,panel,paper,text,muted,line,accent,tint});
+const PALETTES=[
+  {name:'青松',light:colors('#eef3ef','#f4f8f5','#fcfefc','#28372f','#66776c','#d9e5dc','#23744e','#e3f0e7'),dark:colors('#161e1a','#1c2821','#202e25','#d5e5db','#96ac9e','#35483c','#8ad0a8','#2e4838')},
+  {name:'玉石',light:colors('#edf4f1','#f3f9f6','#fdfffe','#273a35','#637971','#d7e7e0','#176e5e','#e0f0e9'),dark:colors('#15201c','#1b2c25','#20332a','#d3e8df','#92ada1','#344d40','#81d3b6','#2b4a3d')},
+  {name:'墨竹',light:colors('#f0f3e9','#f7f9f1','#fefff9','#333d2c','#6d7861','#e0e6d5','#4e6c36','#eaf0df'),dark:colors('#1c2117','#252e1e','#2b3524','#e0e8d6','#a0ae92','#47543a','#b3cf8e','#3d4d2e')},
+  {name:'麦田',light:colors('#f4f0e8','#faf7ef','#fffdf8','#3c362c','#7b7160','#e8e0d1','#886218','#f2e9d3'),dark:colors('#231e17','#2e271d','#352d21','#eae2d2','#b9a98c','#554936','#e5c27d','#4d3e25')},
+  {name:'石墨',light:colors('#eef1f2','#f5f7f8','#ffffff','#2d373e','#697780','#dce3e7','#52636d','#e6ecef'),dark:colors('#1b2023','#232b30','#29333a','#dce3e7','#a0afb9','#46535d','#b0c4d1','#3b4a55')},
+];
+const LIGHT=PALETTES[0].light;
+const hex=c=>c.startsWith('rgb')?c.match(/\d+/g).map(Number):[1,3,5].map(i=>parseInt(c.slice(i,i+2),16));
+const alpha=(c,a)=>'rgba('+hex(c).slice(0,3).join(',')+','+a+')';
+
+// ---------------------------------------------------------------- timing
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+const seg=(t,a,b)=>clamp((t-a)/(b-a));
+const lerp=(a,b,k)=>a+(b-a)*k;
+const easeOut=p=>1-Math.pow(1-p,3);
+const easeIn=p=>p*p*p;
+const easeInOut=p=>p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2;
+const expoInOut=p=>p<=0?0:p>=1?1:p<.5?Math.pow(2,20*p-10)/2:(2-Math.pow(2,-20*p+10))/2;
+const back=p=>{const c=1.9,d=c+1;return 1+d*Math.pow(p-1,3)+c*Math.pow(p-1,2);};
+// A decaying kick pulse on every beat while the groove plays (small bumps in size and glow).
+const pulse=t=>t<4||t>40?0:Math.exp(-((t%BEAT)/BEAT)*6);
+
+// ---------------------------------------------------------------- drawing helpers
+function rr(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,Math.max(0,Math.min(r,w/2,h/2)));}
+function fillRR(x,y,w,h,r,color){rr(x,y,w,h,r);ctx.fillStyle=color;ctx.fill();}
+function strokeRR(x,y,w,h,r,color,lw=1){rr(x,y,w,h,r);ctx.strokeStyle=color;ctx.lineWidth=lw;ctx.stroke();}
+function text(str,x,y,{size=24,weight=400,color='#000',align='left',baseline='alphabetic',a=1,family=FONT,spacing=0}={}){
+  if(a<=0)return;ctx.save();ctx.globalAlpha*=a;ctx.font=`${weight} ${size}px ${family}`;ctx.fillStyle=color;ctx.textAlign=align;ctx.textBaseline=baseline;
+  if(spacing)ctx.letterSpacing=spacing+'px';ctx.fillText(str,x,y);ctx.restore();
+}
+function measure(str,size,weight=400){ctx.save();ctx.font=`${weight} ${size}px ${FONT}`;const w=ctx.measureText(str).width;ctx.restore();return w;}
+function shadow(blur,y,color){ctx.shadowColor=color;ctx.shadowBlur=blur;ctx.shadowOffsetY=y;}
+function noShadow(){ctx.shadowColor='transparent';ctx.shadowBlur=0;ctx.shadowOffsetY=0;}
+const LOGO=new Path2D('M37 129h120l-34 34H70zM95 28v86H43zM111 46l47 68h-47z');
+function logo(x,y,size,p=1,{glow=0}={}){
+  if(p<=0)return;ctx.save();ctx.translate(x,y);const s=size/192*back(clamp(p));ctx.scale(s,s);ctx.translate(-96,-96);ctx.globalAlpha*=clamp(p*2);
+  shadow(50+glow*60,20,glow?'rgba(138,208,168,'+(.4+glow*.4)+')':'rgba(20,70,50,.35)');fillRR(0,0,192,192,44,'#257c67');noShadow();
+  ctx.fillStyle='#f7faf5';ctx.fill(LOGO);ctx.restore();
+}
+function arrowHead(x,y,angle,size,color){ctx.save();ctx.translate(x,y);ctx.rotate(angle);ctx.beginPath();ctx.moveTo(size,0);ctx.lineTo(-size*.7,size*.75);ctx.lineTo(-size*.35,0);ctx.lineTo(-size*.7,-size*.75);ctx.closePath();ctx.fillStyle=color;ctx.fill();ctx.restore();}
+
+// ---------------------------------------------------------------- story content (original sample text)
+const STORY=[
+  {title:'第一章 雾港',lines:['雾从海上漫进港口的时候，林舟正坐在灯塔下的石阶上，','把昨夜的航海日志一页页摊开晾干。','日志最后一页写着一行陌生的字迹：','潮水退去之前，去北岬找那艘没有名字的船。']},
+  {title:'第二章 无名船',lines:['北岬的礁石在退潮后露出黑色的脊背。','那艘船就搁浅在礁石之间，船首的名牌被磨平了。']},
+  {title:'第三章 旧信',lines:['“阿舟：见字如面。不要害怕，跟着潮水走。”','海面上亮起一条细细的光路，像撒了一把碎银。']},
+];
+const CHAPTERS=[['第一章 雾港','1,204'],['第二章 无名船','2,318'],['第三章 旧信','1,876'],['第四章 光路','2,045'],['第五章 归航','1,532'],['第六章 灯塔','2,210']];
+const TERMS=[['林舟','人物','雾港的年轻航海记录员，记性极好。'],['老周','人物','守塔人，在灯塔住了三十年。'],['岚','人物','旧信的落款人，身份未明。'],['雾港','地点','临海的小港口，常年起雾。'],['北岬','地点','港口北侧的礁石岬角。'],['无名船','物品','船首名牌被磨平的帆船。'],['光路','设定','灯塔熄灭后出现的发光航道。']];
+const KIND_COLOR={人物:'#23744e',地点:'#3d7fb8',物品:'#a8752a',设定:'#8a4fa8'};
+const FILES=['正文.txt','设定.gly','大纲.md','第四章 光路.txt'];
+
+// ---------------------------------------------------------------- app UI, drawn at any size
+// A phone (narrow) or wide layout in w×h at the origin. o: {typed, time, outline, words, tab, files, received, marks, terms, highlight}
+function appUI(w,h,c,o={}){
+  const narrow=w<h*.8,LW=narrow?400:1080,s=w/LW,LH=h/s;
+  ctx.save();ctx.beginPath();ctx.rect(0,0,w,h);ctx.clip();ctx.scale(s,s);
+  ctx.fillStyle=c.paper;ctx.fillRect(0,0,LW,LH);
+  // Top bar: four pages and more.
+  const tb=narrow?54:50;ctx.fillStyle=c.panel;ctx.fillRect(0,0,LW,tb);ctx.fillStyle=c.line;ctx.fillRect(0,tb,LW,1);
+  for(let i=0;i<4;i++){const x=(narrow?20:24)+i*(narrow?52:46);fillRR(x,narrow?11:10,narrow?40:36,narrow?32:30,9,i===(o.page??0)?c.tint:'transparent');strokeRR(x+(narrow?12:11),narrow?20:18,14,14,3,i===(o.page??0)?c.accent:c.muted,2);}
+  if(!narrow){ctx.save();ctx.translate(222,17);ctx.scale(.085,.085);ctx.fillStyle=c.accent;ctx.fill(LOGO);ctx.restore();text('文舟',244,32,{size:15,weight:700,color:c.text});text('/   '+(o.title||'正文.txt'),282,32,{size:15,color:c.muted});
+    ctx.beginPath();ctx.arc(LW-160,26,4.5,0,7);ctx.fillStyle=c.accent;ctx.fill();text('已保存',LW-150,31,{size:14,color:c.muted});}
+  for(let i=0;i<3;i++){ctx.beginPath();ctx.arc(LW-(narrow?40:42)+i*8,tb/2,2.6,0,7);ctx.fillStyle=c.muted;ctx.fill();}
+  let y=tb;
+  if(o.files){ // The workspace files (sync shots).
+    text(narrow?'雾港灯塔':'工作区 · 雾港灯塔',narrow?22:30,y+48,{size:narrow?22:24,weight:700,color:c.text});
+    FILES.forEach((name,i)=>{const fy=y+74+i*(narrow?66:58),shown=o.received===undefined?1:clamp(o.received-i);if(shown<=0)return;ctx.save();ctx.globalAlpha*=shown;ctx.translate((1-easeOut(shown))*40,0);
+      fillRR(narrow?16:30,fy,LW-(narrow?32:60),narrow?56:48,12,c.panel);fillRR(narrow?30:44,fy+(narrow?14:12),26,narrow?28:24,5,c.tint);text(name.endsWith('.gly')?'G':name.endsWith('.md')?'M':'T',narrow?43:57,fy+(narrow?34:30),{size:13,weight:800,color:c.accent,align:'center'});
+      text(name,narrow?70:86,fy+(narrow?35:31),{size:narrow?18:17,color:c.text});
+      const mark=o.marks?.[i];if(mark)text(mark,LW-(narrow?30:48),fy+(narrow?35:31),{size:16,weight:800,color:mark==='✓'?c.accent:c.muted,align:'right'});ctx.restore();});
+    ctx.restore();return;
+  }
+  if(!narrow){ // Tabs and format tools.
+    ctx.fillStyle=c.panel;ctx.fillRect(0,y,LW,42);[['TXT','正文.txt'],['GLY','设定.gly'],['MD','大纲.md']].forEach(([k,name],i)=>{const x=14+i*160;if(i===(o.tab||0)){ctx.fillStyle=c.paper;ctx.fillRect(x,y+1,150,41);ctx.fillStyle=c.accent;ctx.fillRect(x+12,y+38,126,3);}
+      fillRR(x+12,y+11,k.length*9+14,20,5,c.tint);text(k,x+19,y+26,{size:11,weight:800,color:c.accent});text(name,x+k.length*9+34,y+27,{size:15,color:i===(o.tab||0)?c.text:c.muted});});
+    ['B','A·','Ā','≡','T 样式'].forEach((b,i)=>text(b,LW-300+i*46,y+28,{size:15,weight:i===0?800:500,color:c.muted}));
+    y+=42;ctx.fillStyle=c.line;ctx.fillRect(0,y,LW,1);
+  }else{
+    ctx.fillStyle=c.panel;ctx.fillRect(0,y,LW,46);['B','A·','Ā','≡','T 样式'].forEach((b,i)=>text(b,26+i*62,y+30,{size:17,weight:i===0?800:500,color:c.muted}));y+=46;ctx.fillStyle=c.line;ctx.fillRect(0,y,LW,1);
+  }
+  const bottom=narrow?64:34,body=LH-y-bottom,x0=narrow?22:262;
+  if(!narrow){ctx.fillStyle=c.panel;ctx.fillRect(0,y,236,body);ctx.fillStyle=c.line;ctx.fillRect(236,y,1,body);text('目录',22,y+32,{size:13,weight:700,color:c.muted,spacing:2});
+    const count=o.outline??6;CHAPTERS.slice(0,Math.ceil(count)).forEach(([name,words],i)=>{const k=clamp(count-i),cy=y+48+i*50;ctx.save();ctx.globalAlpha*=k;ctx.translate(-(1-easeOut(k))*30,0);if(i===0)fillRR(10,cy,216,44,9,c.tint);text(String(i+1).padStart(2,'0'),24,cy+27,{size:13,weight:700,color:c.accent});text(name,52,cy+20,{size:15,weight:i===0?600:400,color:c.text});text(words+' 字',52,cy+37,{size:11,color:c.muted});ctx.restore();});}
+  // Story text, typed up to o.typed characters.
+  ctx.save();ctx.beginPath();ctx.rect(x0-10,y,LW-x0+10,body);ctx.clip();
+  const size=19,gap=33,maxW=LW-x0-(narrow?18:40),pos=[];let left=o.typed??Infinity,caret=null;
+  const lines=[];for(const ch of STORY){lines.push({t:ch.title,title:true});for(const l of ch.lines){if(narrow){let cur='';for(const char of l){if(measure(cur+char,size)>maxW){lines.push({t:cur});cur='';}cur+=char;}if(cur)lines.push({t:cur});}else lines.push({t:l});}lines.push({gap:true});}
+  let ly=y+46;
+  for(const line of lines){if(line.gap){ly+=gap*.5;continue;}if(left<=0)break;const shown=line.t.slice(0,Math.max(0,left));left-=line.t.length;
+    const ts=line.title?size+6:size,tx=x0+(line.title||narrow?0:28);
+    if(o.highlight&&shown.includes(o.highlight.word)){const i=shown.indexOf(o.highlight.word),hx=tx+measure(shown.slice(0,i),ts),hw=measure(o.highlight.word,ts);fillRR(hx-3,ly-ts,hw+6,ts+8,5,alpha(c.accent,.22*o.highlight.k));pos.push({x:hx,y:ly,w:hw});}
+    text(shown,tx,ly,{size:ts,weight:line.title?700:400,color:c.text});
+    if(o.terms&&!line.title)for(const term of ['林舟','北岬','光路']){const at=shown.indexOf(term);if(at>=0){const ux=tx+measure(shown.slice(0,at),ts);ctx.save();ctx.setLineDash([3,3]);ctx.strokeStyle=c.accent;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(ux,ly+4);ctx.lineTo(ux+measure(term,ts),ly+4);ctx.stroke();ctx.restore();}}
+    caret={x:tx+measure(shown,ts,line.title?700:400),y:ly,size:ts};ly+=line.title?gap*1.25:gap;}
+  if(o.typed!==undefined&&caret&&Math.floor((o.time||0)*3)%2===0){ctx.fillStyle=c.accent;ctx.fillRect(caret.x+2,caret.y-caret.size+1,2.5,caret.size+4);}
+  ctx.restore();
+  ctx.fillStyle=c.panel;ctx.fillRect(0,LH-bottom,LW,bottom);ctx.fillStyle=c.line;ctx.fillRect(0,LH-bottom,LW,1);
+  if(narrow){for(let i=0;i<6;i++)strokeRR(28+i*62,LH-bottom+20,22,22,6,i===0?c.accent:c.muted,2);}
+  else{text(`本章 ${Math.round(o.words??1204).toLocaleString()} 字   ·   全文 11,185 字`,20,LH-12,{size:13,color:c.muted});text('行 5，列 21',LW-20,LH-12,{size:13,color:c.muted,align:'right'});}
+  ctx.restore();o.out=pos;
+}
+
+// ---------------------------------------------------------------- devices
+const DEV={android:{w:380,h:800},windows:{w:1120,h:700},harmony:{w:1000,h:700},laptop:{w:1000,h:625},phone:{w:360,h:760}};
+const isPhone=kind=>kind==='android'||kind==='phone',isLaptop=kind=>kind==='windows'||kind==='laptop';
+// A device centred at (0,0) with a w×h screen; the kind decides bezel, base and the system chrome around the app.
+function device(kind,w,h,c,content,{shadowK=1}={}){
+  const b=isPhone(kind)?16:kind==='harmony'?26:18,r=isPhone(kind)?52:kind==='harmony'?36:16;
+  ctx.save();if(shadowK)shadow(70*shadowK,36*shadowK,'rgba(15,40,28,.32)');
+  fillRR(-w/2-b,-h/2-b,w+b*2,h+b*2,r,'#1b2621');noShadow();strokeRR(-w/2-b+1.5,-h/2-b+1.5,w+b*2-3,h+b*2-3,r-1,'rgba(255,255,255,.12)',3);
+  if(isLaptop(kind)){const bw=w*1.18;ctx.beginPath();ctx.moveTo(-bw/2+30,h/2+b);ctx.lineTo(bw/2-30,h/2+b);ctx.lineTo(bw/2,h/2+b+30);ctx.lineTo(-bw/2,h/2+b+30);ctx.closePath();ctx.fillStyle='#2b3a32';ctx.fill();fillRR(-90,h/2+b+2,180,10,5,'#3a4c42');}
+  ctx.save();rr(-w/2,-h/2,w,h,Math.max(6,r-b));ctx.clip();ctx.translate(-w/2,-h/2);
+  if(isPhone(kind))frameAndroid(w,h,c,content);else if(isLaptop(kind))frameWindows(w,h,c,content);else frameHarmony(w,h,c,content);
+  ctx.restore();
+  if(isPhone(kind)){ctx.beginPath();ctx.arc(0,-h/2+22,8,0,7);ctx.fillStyle='#0d1310';ctx.fill();}
+  ctx.restore();
+}
+function statusBar(w,c,h){const col=c.text;text('9:41',22,h*.68,{size:h*.42,weight:600,color:col});for(let i=0;i<4;i++)fillRR(w-92+i*7,h*.68-4-i*3,5,4+i*3,1,col);strokeRR(w-56,h*.3,30,h*.4,4,col,1.6);fillRR(w-53,h*.3+3,20,h*.4-6,2,col);}
+function frameAndroid(w,h,c,content){ctx.fillStyle=c.panel;ctx.fillRect(0,0,w,h);statusBar(w,c,40);ctx.save();ctx.translate(0,40);content(w,h-66);ctx.restore();ctx.fillStyle=c.panel;ctx.fillRect(0,h-26,w,26);fillRR(w/2-60,h-15,120,5,3,alpha(c.text,.55));}
+function frameWindows(w,h,c,content){
+  const g=ctx.createLinearGradient(0,0,w,h);g.addColorStop(0,'#2f6f5a');g.addColorStop(1,'#163a30');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+  const ww=w*.9,wh=h*.82,wx=(w-ww)/2,wy=h*.045;shadow(30,12,'rgba(0,0,0,.35)');fillRR(wx,wy,ww,wh,10,c.panel);noShadow();
+  ctx.save();rr(wx,wy,ww,wh,10);ctx.clip();ctx.fillStyle=c.panel;ctx.fillRect(wx,wy,ww,32);text('文舟 Vela',wx+16,wy+21,{size:13,color:c.text});
+  ['—','□','✕'].forEach((s,i)=>text(s,wx+ww-110+i*40,wy+21,{size:13,color:c.muted,align:'center'}));ctx.translate(wx,wy+32);content(ww,wh-32);ctx.restore();
+  ctx.fillStyle='rgba(20,30,26,.82)';ctx.fillRect(0,h-36,w,36);for(let i=0;i<5;i++)fillRR(w/2-90+i*38,h-29,24,22,5,i===2?'#257c67':'rgba(255,255,255,.28)');
+  ctx.save();ctx.translate(w/2-90+2*38+12,h-18);ctx.scale(.08,.08);ctx.translate(-96,-96);ctx.fillStyle='#f7faf5';ctx.fill(LOGO);ctx.restore();
+  text('9:41',w-20,h-13,{size:12,color:'#e8f0ea',align:'right'});
+}
+function frameHarmony(w,h,c,content){ctx.fillStyle=c.panel;ctx.fillRect(0,0,w,h);statusBar(w,c,34);ctx.save();ctx.translate(0,34);content(w,h-56);ctx.restore();ctx.fillStyle=c.panel;ctx.fillRect(0,h-22,w,22);fillRR(w/2-70,h-13,140,5,3,alpha(c.text,.5));}
+function deviceBack(w,h,kind){
+  const b=24,r=isPhone(kind)?52:30,g=ctx.createLinearGradient(-w/2,0,w/2,0);g.addColorStop(0,'#24382e');g.addColorStop(.5,'#3d5f4e');g.addColorStop(1,'#1d2c25');
+  fillRR(-w/2-b,-h/2-b,w+b*2,h+b*2,r,g);ctx.save();const s=Math.min(w,h)*.3/192;ctx.scale(s,s);ctx.translate(-96,-96);ctx.fillStyle='rgba(247,250,245,.75)';ctx.fill(LOGO);ctx.restore();
+  fillRR(-w/2+20,-h/2+20,70,110,18,'rgba(0,0,0,.35)');
+}
+// A device turning about its vertical axis; angle in turns (1 = 360°). The front shows when facing the viewer.
+function spinning(angle,dims,drawFront,drawBackFace){
+  const th=angle*Math.PI*2,cs=Math.cos(th),sn=Math.sin(th);
+  ctx.save();ctx.transform(cs,sn*.16,0,1,0,0);
+  if(cs>=0)drawFront();else drawBackFace();
+  const shade=Math.abs(sn)*.45;if(shade>.01){ctx.fillStyle=`rgba(0,0,0,${shade})`;rr(-dims.w/2-26,-dims.h/2-26,dims.w+52,dims.h+52,40);ctx.fill();}
+  ctx.restore();
+  // The device's edge, visible while it is turned.
+  if(Math.abs(sn)>.02){const x=(dims.w/2+24)*cs,edge=42*Math.abs(sn),dir=sn>0?1:-1;ctx.save();ctx.transform(1,sn*.16*Math.sign(cs||1),0,1,0,0);ctx.fillStyle='#0f1813';ctx.fillRect(dir>0?x:x-edge,-dims.h/2-22,edge,dims.h+44);ctx.restore();}
+}
+
+// ---------------------------------------------------------------- stage: background, camera, captions
+const BASE=PORTRAIT?W/1250:W/1920;
+function background(t,c,cam){
+  ctx.fillStyle=c.bg;ctx.fillRect(0,0,W,H);
+  for(let i=0;i<4;i++){const x=W*(.15+.28*i)+Math.sin(t*.4+i*1.7)*W*.08-(cam?cam.x*.05:0),y=H*(.25+.2*(i%2))+Math.cos(t*.3+i)*H*.06-(cam?cam.y*.05:0),r=Math.max(W,H)*(.38+.05*i);
+    const g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,i%2?alpha(c.accent,.10):alpha(c.tint,.9));g.addColorStop(1,alpha(c.bg,0));ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
+  // A dot grid moving with the camera at a slower rate (parallax), so camera moves read as motion.
+  if(cam){const z=cam.z*BASE*.6,step=90*z,ox=((-cam.x*z*.6)%step+step)%step,oy=((-cam.y*z*.6)%step+step)%step;ctx.fillStyle=alpha(c.accent,.10+.08*pulse(t));
+    for(let x=ox-step;x<W+step;x+=step)for(let y=oy-step;y<H+step;y+=step){ctx.beginPath();ctx.arc(x,y,2.2,0,7);ctx.fill();}}
+}
+function withCamera(cam,draw){ctx.save();ctx.translate(W/2+(cam.sx||0),H/2+(cam.sy||0));ctx.scale(BASE*cam.z,BASE*cam.z);ctx.rotate(cam.r||0);ctx.translate(-cam.x,-cam.y);draw();ctx.restore();}
+// Camera shake decaying after an impact at `at`.
+const shake=(t,at,amount=14)=>{const k=t<at?0:Math.exp(-(t-at)*7);return {sx:Math.sin(t*90)*amount*k,sy:Math.cos(t*77)*amount*k};};
+// Kinetic caption in screen space: a kicker chip, a title whose characters drop in one by one, a subtitle.
+function caption(t,tIn,tOut,kicker,title,sub,c,{y}={}){
+  const vin=seg(t,tIn,tIn+.6),vout=seg(t,tOut-.35,tOut);if(vin<=0||vout>=1)return;const out=easeIn(vout);
+  const big=PORTRAIT?96:84,small=PORTRAIT?34:30,cx=W/2,cy=y??(PORTRAIT?H*.15:H-150);
+  ctx.save();ctx.globalAlpha=1-out;
+  // A soft band of the background colour behind the caption keeps it readable over the picture.
+  {const top=cy<H/2,y0=top?0:cy-big-small*4.4,y1=top?cy+small*4.4:H,g=ctx.createLinearGradient(0,top?y1:y0,0,top?y0:y1);g.addColorStop(0,alpha(c.bg,0));g.addColorStop(.4,alpha(c.bg,.86));g.addColorStop(1,alpha(c.bg,.94));ctx.globalAlpha=(1-out)*easeOut(vin);ctx.fillStyle=g;ctx.fillRect(0,y0,W,y1-y0);ctx.globalAlpha=1-out;}
+  ctx.translate(0,-out*40);
+  const kw=measure(kicker,small*.8,700)+48,kk=easeOut(seg(t,tIn,tIn+.3));fillRR(cx-kw/2,cy-big-small*1.9+(1-kk)*20,kw,small*1.4,small*.7,alpha(c.accent,.14));text(kicker,cx,cy-big-small*.9+(1-kk)*20,{size:small*.8,weight:700,color:c.accent,align:'center',a:kk,spacing:3});
+  const total=measure(title,big,800);let x=cx-total/2;
+  [...title].forEach((ch,i)=>{const p=seg(t,tIn+.05+i*.045,tIn+.45+i*.045),w=measure(ch,big,800);ctx.save();ctx.translate(x+w/2,cy);const s=back(p)*(1+.04*pulse(t));ctx.scale(s,s);ctx.rotate((1-easeOut(p))*-.4);text(ch,0,0,{size:big,weight:800,color:c.text,align:'center',a:clamp(p*2)});ctx.restore();x+=w;});
+  text(sub,cx,cy+small*1.7,{size:small,color:c.muted,align:'center',a:easeOut(seg(t,tIn+.4,tIn+.9)),spacing:2});
+  ctx.restore();
+}
+// Whip pans between scenes: offset in screen widths, sliding out before the cut and in after it.
+function whip(t,cut){const d=t-cut;if(Math.abs(d)>.22)return 0;return d<0?-easeIn(seg(d,-.22,0)):(1-easeOut(seg(d,0,.22)));}
+function streaks(k,c){if(!k)return;ctx.save();ctx.globalAlpha=Math.min(1,Math.abs(k)*2)*.5;ctx.fillStyle=alpha(c.accent,.5);for(let i=0;i<24;i++){const y=(i*97)%H,len=W*(.2+(i*37%50)/100);ctx.fillRect(((i*211)%W)-len/2,y,len,2+(i%3));}ctx.restore();}
+
+// ---------------------------------------------------------------- scenes
+function intro(t){
+  // Particles gather while the music builds; the logo lands on the beat at 2 s; flash into the first scene at 4 s.
+  ctx.fillStyle='#0d1712';ctx.fillRect(0,0,W,H);
+  const cx=W/2,cy=H*.42,gather=easeInOut(seg(t,0,2));
+  for(let i=0;i<140;i++){const a=i*2.399,r0=Math.max(W,H)*(.35+(i%7)*.08),r=lerp(r0,30+(i%5)*6,gather),x=cx+Math.cos(a+t*.6)*r,y=cy+Math.sin(a+t*.6)*r*.8;ctx.globalAlpha=(.25+.6*((i%4)/4))*(1-seg(t,2,2.3));ctx.fillStyle=i%3?'#8ad0a8':'#e3f0e7';ctx.beginPath();ctx.arc(x,y,2+(i%3),0,7);ctx.fill();}ctx.globalAlpha=1;
+  if(t>=2){const ring=easeOut(seg(t,2,2.9));ctx.beginPath();ctx.arc(cx,cy,ring*Math.max(W,H)*.6,0,7);ctx.strokeStyle=`rgba(138,208,168,${.6*(1-ring)})`;ctx.lineWidth=10;ctx.stroke();}
+  logo(cx,cy-30,PORTRAIT?280:220,seg(t,2,2.5),{glow:1-seg(t,2,3)});
+  const title='文舟 Vela',big=PORTRAIT?120:104;let x=cx-measure(title,big,800)/2;[...title].forEach((ch,i)=>{const p=seg(t,2.5+i*.06,2.9+i*.06),w=measure(ch,big,800);text(ch,x+w/2,cy+(PORTRAIT?250:210)+(1-easeOut(p))*50,{size:big,weight:800,color:'#e3f0e7',align:'center',a:p});x+=w;});
+  text('写作  ·  阅读  ·  同步',cx,cy+(PORTRAIT?345:300),{size:PORTRAIT?44:38,color:'#8ad0a8',align:'center',a:easeOut(seg(t,3,3.4)),spacing:10});
+  const flash=seg(t,3.75,4);if(flash>0){ctx.fillStyle=`rgba(252,254,252,${easeIn(flash)})`;ctx.fillRect(0,0,W,H);}
+}
+function platforms(t){
+  const c=LIGHT,[a,b]=S.platforms;
+  // Android 4–5.5 s; a full turn into Windows 5.5–7; hold; a quicker turn into HarmonyOS 8.5–9.5; hold.
+  const spin1=seg(t,5.5,7),spin2=seg(t,8.5,9.5),angle=expoInOut(spin1)+expoInOut(spin2);
+  const stage=spin2>0?2:spin1>0?1:0,A=DEV.android,Wn=DEV.windows,Hm=DEV.harmony;
+  const dims=stage===0?A:stage===1?{w:lerp(A.w,Wn.w,easeInOut(spin1)),h:lerp(A.h,Wn.h,easeInOut(spin1))}:{w:lerp(Wn.w,Hm.w,easeInOut(spin2)),h:lerp(Wn.h,Hm.h,easeInOut(spin2))};
+  const front=stage===0?'android':stage===1?(spin1<.6?'android':'windows'):(spin2<.6?'windows':'harmony'),fd=DEV[front];
+  // A small bounce on landing after each turn.
+  const land=(t>=7?Math.exp(-(t-7)*6)*Math.sin((t-7)*22)*.03:0)+(t>=9.5?Math.exp(-(t-9.5)*6)*Math.sin((t-9.5)*22)*.035:0);
+  // Zoom so each device fits the frame (the laptop is much wider than the phone, which matters in portrait).
+  const fit=Math.min(PORTRAIT?1.12:.95,(PORTRAIT?1120:1720)/(dims.w+120),(PORTRAIT?1700:860)/(dims.h+120));
+  const enter=back(seg(t,a,a+.6)),out=seg(t,b-.3,b),zoom=fit*(1+.08*seg(t,9.6,11.6))*enter;
+  const room=easeInOut(seg(t,9.6,10.3));
+  const cam={x:0,y:lerp(PORTRAIT?60:40,PORTRAIT?-160:-110,room),z:zoom*lerp(1,PORTRAIT?.92:.78,room)*(1+land)+out*1.2,r:out*.15,...shake(t,9.5,10)};
+  background(t,c,cam);
+  withCamera(cam,()=>spinning(angle%1,dims,()=>device(front,fd.w,fd.h,c,(w,h)=>appUI(w,h,c,{typed:Math.floor(seg(t,a,b)*200),time:t,outline:6})),()=>deviceBack(dims.w,dims.h,front)));
+  // Platform name pops when each face arrives.
+  const name=front==='android'?'Android':front==='windows'?'Windows':'HarmonyOS NEXT',since=front==='android'?t-4.3:front==='windows'?t-6.6:t-9.2;
+  const p=back(clamp(since/.45)),fade=clamp((Math.cos(angle*Math.PI*2)-.85)/.15);
+  if(fade>0&&since>0){ctx.save();ctx.globalAlpha=fade*(1-out);ctx.translate(W/2,PORTRAIT?H*.86:H*.88);ctx.scale(p,p);const size=PORTRAIT?60:52,nw=measure(name,size,800)+80;fillRR(-nw/2,-size*1.12,nw,size*1.62,size*.81,'#1b2621');text(name,0,0,{size,weight:800,color:'#e3f0e7',align:'center'});ctx.restore();}
+  caption(t,9.7,b,'三端原生','一份作品 三端同写','安卓 · Windows · 鸿蒙',c,{y:PORTRAIT?H*.14:170});
+  streaks(seg(t,b-.25,b),c);
+}
+function writing(t){
+  const c=LIGHT,[a,b]=S.writing,typed=Math.floor(easeInOut(seg(t,a+.3,b-.8))*230);
+  const ww=1300,wh=860,dolly=easeInOut(seg(t,a,a+2.2)),follow=seg(t,a+1.6,b-.6),slide=whip(t,a)+whip(t,b);
+  const cam={x:lerp(0,-40,dolly)+lerp(0,160,follow),y:lerp(0,-60,dolly)+lerp(0,60,follow),z:lerp(PORTRAIT?.9:.95,PORTRAIT?1.75:1.5,dolly),sx:-slide*W,r:-.04*dolly+.04*follow};
+  background(t,c,cam);
+  withCamera(cam,()=>{ctx.translate(-ww/2,-wh/2);shadow(70,36,'rgba(15,40,28,.25)');fillRR(0,0,ww,wh,22,c.paper);noShadow();ctx.save();rr(0,0,ww,wh,22);ctx.clip();
+    appUI(ww,wh,c,{typed,time:t,outline:clamp(seg(t,a+.5,a+4))*6,words:seg(t,a+.3,b-.8)*1204});ctx.restore();});
+  caption(t,a+.4,b,'专注写作','一个文件 写完整部小说','自动分章 · 章节目录 · 字数统计',c);
+  streaks(Math.abs(slide),c);
+}
+function glossary(t){
+  const c=LIGHT,[a,b]=S.glossary,slide=whip(t,a)+whip(t,b);
+  const pan=easeInOut(seg(t,a+.9,a+2.4)),focus=easeInOut(seg(t,a+3.2,a+3.8)),cardsAt={x:PORTRAIT?0:700,y:PORTRAIT?620:-70};
+  const cam={x:lerp(-200,cardsAt.x,pan)+(PORTRAIT?0:-140)*focus,y:lerp(-80,cardsAt.y,pan)-40*focus,z:lerp(PORTRAIT?1.2:1.15,PORTRAIT?1.15:1.05,pan)*(1+.5*focus),sx:-slide*W,...shake(t,a+4.6,8)};
+  background(t,c,cam);
+  withCamera(cam,()=>{
+    // The editor with the term highlighted; the term lifts off as the first card.
+    const ww=1100,wh=760,ex=PORTRAIT?-550:-900,ey=PORTRAIT?-760:-380;ctx.save();ctx.translate(ex,ey);shadow(60,30,'rgba(15,40,28,.22)');fillRR(0,0,ww,wh,20,c.paper);noShadow();ctx.save();rr(0,0,ww,wh,20);ctx.clip();
+    const o={terms:true,highlight:{word:'林舟',k:easeOut(seg(t,a+.3,a+.7))}};appUI(ww,wh,c,o);ctx.restore();ctx.restore();
+    const hit=o.out?.[0],from=hit?{x:ex+hit.x*(ww/1080)+30,y:ey+hit.y*(ww/1080)}:{x:ex+400,y:ey+150};
+    TERMS.forEach(([term,kind,def],i)=>{
+      const p=easeOut(seg(t,a+.8+i*BEAT*.5,a+1.4+i*BEAT*.5));if(p<=0)return;
+      const fan=PORTRAIT?{x:cardsAt.x+(i-3)*150,y:cardsAt.y+Math.abs(i-3)*40,r:(i-3)*.12}:{x:cardsAt.x+(i-3)*175,y:cardsAt.y+Math.abs(i-3)*36,r:(i-3)*.09};
+      const start=i===0?from:{x:cardsAt.x,y:cardsAt.y+500},x=lerp(start.x,fan.x,p),y=lerp(start.y,fan.y,p)-Math.sin(p*Math.PI)*(i===0?260:120);
+      const lift=i===0?focus:0,cw=290,ch=380,sc=lerp(.4,1,p)*(1+lift*.25);
+      ctx.save();ctx.translate(x,y-lift*60);ctx.rotate(lerp(i===0?-.3:.4,fan.r,p)*(1-lift));ctx.scale(sc,sc);
+      shadow(40,20,'rgba(15,40,28,.25)');fillRR(-cw/2,-ch/2,cw,ch,24,c.paper);noShadow();fillRR(-cw/2,-ch/2,cw,12,6,KIND_COLOR[kind]);
+      fillRR(-cw/2+24,-ch/2+40,70,32,16,alpha(KIND_COLOR[kind],.14));text(kind,-cw/2+59,-ch/2+62,{size:17,weight:700,color:KIND_COLOR[kind],align:'center'});
+      text(term,-cw/2+24,-ch/2+140,{size:58,weight:800,color:c.text});
+      let line='',ly=-ch/2+200;for(const chh of def){if(measure(line+chh,20)>cw-48){text(line,-cw/2+24,ly,{size:20,color:c.muted});line='';ly+=32;}line+=chh;}text(line,-cw/2+24,ly,{size:20,color:c.muted});
+      if(i===0){const press=seg(t,a+3.9,a+4.6);if(press>0&&t<a+5.2){ctx.beginPath();ctx.arc(0,40,30+press*90,0,7);ctx.strokeStyle=alpha(c.accent,.7*(1-seg(t,a+4.6,a+5.2)));ctx.lineWidth=5;ctx.stroke();ctx.beginPath();ctx.arc(0,40,26,0,7);ctx.fillStyle=alpha(c.accent,.25);ctx.fill();}}
+      ctx.restore();});
+  });
+  const toast=easeOut(seg(t,a+4.6,a+4.9))*(1-seg(t,b-.6,b-.3));if(toast>0){const w=PORTRAIT?420:360,x=W/2-w/2,y=(PORTRAIT?H*.62:H*.18)+(1-toast)*20;ctx.save();ctx.globalAlpha=toast;fillRR(x,y,w,70,35,'#1b2621');text('已复制“林舟”',W/2,y+46,{size:PORTRAIT?32:28,weight:600,color:'#e3f0e7',align:'center'});ctx.restore();}
+  caption(t,a+.4,b,'术语库','人物地点 一点就有','点按查看 · 长按复制 · 自动保存',c);
+  streaks(Math.abs(slide),c);
+}
+function uiScene(t){
+  const [a,b]=S.ui,slide=whip(t,a)+whip(t,b);
+  // The palette changes on every beat; dark mode spreads from the top-right corner in the last bar.
+  const idx=Math.floor(clamp((t-a-.5)/BEAT,0,4.99)),light=PALETTES[idx].light,dark=PALETTES[idx].dark,reveal=easeInOut(seg(t,a+2.4,a+3.4));
+  const glide=easeInOut(seg(t,a,b)),cam={x:lerp(-300,300,glide),y:lerp(-120,120,glide),z:PORTRAIT?.62:.74,r:-.06,sx:-slide*W};
+  const panels=[{x:-1150,y:-460,w:1100,h:720,kind:'wide'},{x:80,y:-560,w:700,h:470,kind:'reader'},{x:860,y:-560,w:380,h:800,kind:'phone'},{x:80,y:-40,w:700,h:470,kind:'glossary'},{x:-1150,y:320,w:520,h:360,kind:'swatches'},{x:-560,y:320,w:560,h:360,kind:'reader'}];
+  const draw=c=>{background(t,c,cam);withCamera(cam,()=>panels.forEach((p,i)=>{const k=easeOut(seg(t,a+i*.08,a+.5+i*.08));ctx.save();ctx.translate(p.x+p.w/2,p.y+p.h/2+(1-k)*120);ctx.globalAlpha*=k;ctx.scale(1+.015*pulse(t),1+.015*pulse(t));ctx.translate(-p.w/2,-p.h/2);
+    shadow(50,26,'rgba(10,30,20,.25)');fillRR(0,0,p.w,p.h,20,c.paper);noShadow();ctx.save();rr(0,0,p.w,p.h,20);ctx.clip();
+    if(p.kind==='wide'||p.kind==='phone')appUI(p.w,p.h,c,{outline:6});
+    else if(p.kind==='reader'){ctx.fillStyle=c.paper;ctx.fillRect(0,0,p.w,p.h);text('第三章 旧信',40,70,{size:30,weight:800,color:c.text});for(let j=0;j<7;j++)fillRR(40,100+j*44,(p.w/2-80)*(.7+.3*Math.abs(Math.sin(j*2.1))),12,6,c.line);for(let j=0;j<7;j++)fillRR(p.w/2+40,60+j*44,(p.w/2-80)*(.7+.3*Math.abs(Math.cos(j*1.3))),12,6,c.line);ctx.fillStyle=c.line;ctx.fillRect(p.w/2,30,1,p.h-60);}
+    else if(p.kind==='glossary'){TERMS.slice(0,6).forEach(([term,kind],j)=>{const y=40+j*70;fillRR(30,y,p.w-60,58,12,c.panel);text(term,56,y+38,{size:24,weight:700,color:c.text});fillRR(160,y+16,60,28,14,alpha(KIND_COLOR[kind],.15));text(kind,190,y+37,{size:15,color:KIND_COLOR[kind],align:'center'});});}
+    else{text('配色',36,64,{size:28,weight:800,color:c.text});PALETTES.forEach((pal,j)=>{const x=36+j*92,on=j===idx;ctx.beginPath();ctx.arc(x+34,170,on?40:32,0,7);ctx.fillStyle=pal.light.accent;ctx.fill();if(on){ctx.lineWidth=5;ctx.strokeStyle=c.text;ctx.stroke();}text(pal.name,x+34,250,{size:20,color:on?c.text:c.muted,align:'center'});});}
+    ctx.restore();ctx.restore();}));};
+  draw(light);
+  if(reveal>0){ctx.save();ctx.beginPath();ctx.arc(W,0,reveal*Math.hypot(W,H)*1.05,0,7);ctx.clip();draw(dark);ctx.restore();}
+  caption(t,a+.3,b,'精致界面','深浅随心 五套配色','跟随系统 · 柔和渐变 · 自选配色',reveal>.5?dark:light);
+  streaks(Math.abs(slide),light);
+}
+function sync(t){
+  const c=LIGHT,[a,b]=S.sync,slide=whip(t,a);
+  // World: laptop at the origin, GitHub / Gitee cloud far above, the phone below and to the side of the cloud.
+  const C={x:0,y:-1700},P={x:PORTRAIT?760:1250,y:PORTRAIT?-520:-150};
+  const up=easeInOut(seg(t,a+1,a+3)),down=easeInOut(seg(t,a+3.8,a+6)),upTip={x:0,y:lerp(-420,C.y+260,up)};
+  const p0={x:C.x+(PORTRAIT?120:200),y:C.y+220},p3={x:P.x,y:P.y-470},p1={x:p0.x+(PORTRAIT?260:500),y:p0.y+200},p2={x:p3.x,y:p3.y-500};
+  const bez=k=>{const m=1-k;return {x:m*m*m*p0.x+3*m*m*k*p1.x+3*m*k*k*p2.x+k*k*k*p3.x,y:m*m*m*p0.y+3*m*m*k*p1.y+3*m*k*k*p2.y+k*k*k*p3.y};};
+  const downTip=bez(down);
+  // The camera rides up with the first arrow, holds on the cloud, then follows the second arrow down to the phone.
+  let cam;
+  if(t<a+3){cam={x:0,y:lerp(PORTRAIT?-40:150,upTip.y+(PORTRAIT?260:180),easeOut(seg(t,a+1,a+3))),z:PORTRAIT?.95:.9};}
+  else if(t<a+3.7){cam={x:0,y:lerp(upTip.y+(PORTRAIT?260:180),C.y+180,easeInOut(seg(t,a+3,a+3.4))),z:PORTRAIT?.95:.9};}
+  else{const k=seg(t,a+3.7,a+6.2),tip=bez(easeInOut(seg(t,a+3.8,a+6)));const settle=easeInOut(seg(t,a+5.8,a+6.6));cam={x:lerp(lerp(0,tip.x,easeOut(k)),P.x,settle),y:lerp(lerp(C.y+180,tip.y+120,easeOut(k)),P.y+(PORTRAIT?-60:120),settle),z:lerp(PORTRAIT?.95:.9,PORTRAIT?1.3:1.15,settle)};}
+  Object.assign(cam,shake(t,a+3,12));cam.sx=-slide*W;cam.z*=(1+.02*pulse(t))*(1-seg(t,b-.3,b)*.4);
+  background(t,c,cam);
+  withCamera(cam,()=>{
+    const L=DEV.laptop,commit=seg(t,a+1,a+3);
+    device('laptop',L.w,L.h,c,(w,h)=>appUI(w,h,c,{files:true,marks:FILES.map((f,i)=>commit>.2+i*.18?'✓':'M')}));
+    // Up: the workspace goes to GitHub / Gitee.
+    if(up>0){ctx.save();ctx.strokeStyle=c.accent;ctx.lineWidth=26;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(0,-400);ctx.lineTo(0,upTip.y+30);ctx.stroke();arrowHead(0,upTip.y,-Math.PI/2,56,c.accent);
+      for(let i=0;i<4;i++){const k=clamp(up*1.25-i*.12);if(k<=0||k>=1)continue;const y=lerp(-420,upTip.y+60,k),x=-110-(i%2)*30;fillRR(x,y-30,70,56,10,c.paper);strokeRR(x,y-30,70,56,10,c.accent,3);text(FILES[i].slice(0,2),x+35,y+6,{size:20,weight:700,color:c.accent,align:'center'});}ctx.restore();}
+    // The cloud with GitHub and Gitee; a check pops when the upload lands.
+    const cs=back(clamp((t-a-1.6)/.6)),arrive=seg(t,a+2.8,a+3.3);if(cs>0){ctx.save();ctx.translate(C.x,C.y);const bump=t>a+3?.07*Math.exp(-(t-a-3)*5):0;ctx.scale(cs*(1+bump),cs*(1+bump));
+      shadow(60,30,'rgba(15,40,28,.25)');ctx.fillStyle=c.paper;[[-210,40,170],[0,-40,220],[220,40,170],[0,80,190]].forEach(([x,y,r])=>{ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fill();});noShadow();
+      fillRR(-300,-30,280,110,30,'#24292f');text('GitHub',-160,40,{size:50,weight:800,color:'#ffffff',align:'center'});fillRR(20,-30,280,110,30,'#c71d23');text('Gitee',160,40,{size:50,weight:800,color:'#ffffff',align:'center'});
+      if(arrive>0){ctx.beginPath();ctx.arc(0,-170,58*back(arrive),0,7);ctx.fillStyle=c.accent;ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=12;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(-24,-170);ctx.lineTo(-6,-150);ctx.lineTo(28,-190);ctx.stroke();}
+      ctx.restore();}
+    // Down: pulled to the phone along a curve.
+    if(down>0){ctx.save();ctx.strokeStyle='#3d7fb8';ctx.lineWidth=26;ctx.lineCap='round';ctx.beginPath();ctx.moveTo(p0.x,p0.y);for(let k=0;k<=down;k+=.02){const q=bez(k);ctx.lineTo(q.x,q.y);}ctx.lineTo(downTip.x,downTip.y);ctx.stroke();
+      const q=bez(Math.max(0,down-.03));arrowHead(downTip.x,downTip.y,Math.atan2(downTip.y-q.y,downTip.x-q.x),56,'#3d7fb8');
+      for(let i=0;i<4;i++){const k=clamp(down*1.25-i*.12);if(k<=0||k>=1)continue;const f=bez(k);fillRR(f.x+40,f.y-28,70,56,10,c.paper);strokeRR(f.x+40,f.y-28,70,56,10,'#3d7fb8',3);text(FILES[i].slice(0,2),f.x+75,f.y+8,{size:20,weight:700,color:'#3d7fb8',align:'center'});}ctx.restore();}
+    // The phone receives the files one by one.
+    const ph=DEV.phone,pin=back(clamp((t-a-4.4)/.6));if(pin>0){ctx.save();ctx.translate(P.x,P.y);ctx.scale(pin,pin);
+      device('phone',ph.w,ph.h,c,(w,h)=>appUI(w,h,c,{files:true,received:Math.max(0,(t-a-6)/.25),marks:FILES.map(()=>'✓')}));ctx.restore();}
+  });
+  caption(t,a+.3,a+3.4,'同步','提交工作区','一键上传到 GitHub / Gitee',c);
+  caption(t,a+3.8,b,'同步','拉取 随处续写','手机、平板、电脑 接着写',c);
+  streaks(Math.abs(slide),c);
+}
+function outro(t){
+  const c=LIGHT,[a,b]=S.outro;
+  const cam={x:0,y:PORTRAIT?-80:-40,z:(PORTRAIT?.85:.78)*(1+.04*seg(t,a,b)),...shake(t,a,16)};
+  background(t,c,cam);
+  const flash=1-seg(t,a,a+.35);if(flash>0){ctx.fillStyle=`rgba(252,254,252,${flash})`;ctx.fillRect(0,0,W,H);}
+  withCamera(cam,()=>{
+    const arr=PORTRAIT?[['harmony',0,-560,.62],['android',-300,120,.72],['windows',270,170,.48]]:[['windows',-640,-60,.72],['harmony',360,-80,.66],['android',1040,-40,.78]];
+    arr.forEach(([kind,x,y,s],i)=>{const p=back(seg(t,a+.1+i*.15,a+.7+i*.15));if(p<=0)return;const d=DEV[kind];ctx.save();ctx.translate(x,y+Math.sin(t*1.5+i)*10);ctx.scale(s*p,s*p);ctx.rotate((i-1)*.04);device(kind,d.w,d.h,c,(w,h)=>appUI(w,h,c,{outline:6}));ctx.restore();});
+  });
+  const q=seg(t,a+1.2,a+1.8),ty=PORTRAIT?H*.8:H*.82,ts=PORTRAIT?92:84,tw=measure('文舟 Vela',ts,800),ls=PORTRAIT?150:130,left=W/2-(tw+ls+34)/2;
+  logo(left+ls/2,ty-ts*.35,ls,q);text('文舟 Vela',left+ls+34,ty,{size:ts,weight:800,color:c.text,a:clamp(q*1.5)});
+  text('三端原生  ·  GitHub / Gitee 同步  ·  开源免费',W/2,ty+(PORTRAIT?100:90),{size:PORTRAIT?34:34,color:c.muted,align:'center',a:easeOut(seg(t,a+1.8,a+2.4)),spacing:2});
+  const v=easeOut(seg(t,a+2.4,a+2.9));if(v>0){const vw=PORTRAIT?360:320;fillRR(W/2-vw/2,ty+(PORTRAIT?140:126),vw,PORTRAIT?66:58,33,c.accent);text('0.9.8.1 现已发布',W/2,ty+(PORTRAIT?184:166),{size:PORTRAIT?32:28,weight:700,color:'#fcfefc',align:'center',a:v});}
+}
+
+function renderAt(t){
+  ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;
+  if(t<S.platforms[0])intro(t);else if(t<S.writing[0])platforms(t);else if(t<S.glossary[0])writing(t);else if(t<S.ui[0])glossary(t);else if(t<S.sync[0])uiScene(t);else if(t<S.outro[0])sync(t);else outro(t);
+  const edge=Math.max(1-seg(t,0,.3),seg(t,DURATION-.8,DURATION));if(edge>0){ctx.fillStyle=`rgba(8,12,10,${edge})`;ctx.fillRect(0,0,W,H);}
+  ctx.restore();
+}
+window.renderAt=renderAt;
+
+// ---------------------------------------------------------------- music (Web Audio synthesis)
+// 120 BPM in A minor (Am–F–C–G, one chord per bar). The intro builds with a riser and a snare roll, the groove drops
+// at 4 s, a second build leads into the hit at 36 s, and the last chord rings out to the end.
+function scheduleMusic(ac,out,t0){
+  const mtof=m=>440*Math.pow(2,(m-69)/12),at=s=>t0+s;
+  const master=ac.createGain();master.gain.setValueAtTime(.0001,t0);master.gain.exponentialRampToValueAtTime(.72,t0+.4);master.gain.setValueAtTime(.72,at(40));master.gain.linearRampToValueAtTime(0,at(DURATION));
+  const comp=ac.createDynamicsCompressor();comp.threshold.value=-14;comp.ratio.value=4;comp.attack.value=.004;comp.release.value=.2;master.connect(comp);
+  // The compressor adds make-up gain, so the level is trimmed after it to keep peaks below full scale.
+  const trim=ac.createGain();trim.gain.value=.9;comp.connect(trim);trim.connect(out);
+  const noise=ac.createBuffer(1,ac.sampleRate*2,ac.sampleRate);{const d=noise.getChannelData(0);let seed=7;for(let i=0;i<d.length;i++){seed=(seed*16807)%2147483647;d[i]=seed/1073741823-1;}}
+  const delay=ac.createDelay(1);delay.delayTime.value=BEAT*.75;const fb=ac.createGain();fb.gain.value=.32;const wet=ac.createGain();wet.gain.value=.35;delay.connect(fb);fb.connect(delay);delay.connect(wet);wet.connect(master);
+  const env=(g,time,peak,attack,decay)=>{g.gain.setValueAtTime(.0001,time);g.gain.exponentialRampToValueAtTime(peak,time+attack);g.gain.exponentialRampToValueAtTime(.0001,time+attack+decay);};
+  let offset=0;
+  function kick(time,v=1){const o=ac.createOscillator(),g=ac.createGain();o.frequency.setValueAtTime(155,time);o.frequency.exponentialRampToValueAtTime(42,time+.13);env(g,time,1.1*v,.002,.32);o.connect(g);g.connect(master);o.start(time);o.stop(time+.4);}
+  function noiseHit(time,{freq=8000,type='highpass',q=.8,v=.2,decay=.05}={}){const s=ac.createBufferSource();s.buffer=noise;const f=ac.createBiquadFilter();f.type=type;f.frequency.value=freq;f.Q.value=q;const g=ac.createGain();env(g,time,v,.001,decay);s.connect(f);f.connect(g);g.connect(master);offset=(offset+.37)%1.5;s.start(time,offset,decay+.1);}
+  const hat=(time,v=.12)=>noiseHit(time,{freq:9000,v,decay:.045});
+  const clap=(time,v=.55)=>{for(const d of [0,.012,.024])noiseHit(time+d,{freq:1700,type:'bandpass',q:1.2,v,decay:.16});};
+  function synth(time,midi,len,{type='sawtooth',v=.1,cutoff=1800,attack=.01,dest=master,detune=0}={}){const o=ac.createOscillator(),f=ac.createBiquadFilter(),g=ac.createGain();o.type=type;o.frequency.value=mtof(midi);o.detune.value=detune;f.type='lowpass';f.frequency.setValueAtTime(cutoff,time);f.frequency.exponentialRampToValueAtTime(Math.max(200,cutoff*.35),time+len);
+    g.gain.setValueAtTime(.0001,time);g.gain.exponentialRampToValueAtTime(v,time+attack);g.gain.setValueAtTime(v,time+Math.max(attack,len*.6));g.gain.exponentialRampToValueAtTime(.0001,time+len);o.connect(f);f.connect(g);g.connect(dest);o.start(time);o.stop(time+len+.05);}
+  function riser(from,to){const s=ac.createBufferSource();s.buffer=noise;s.loop=true;const f=ac.createBiquadFilter();f.type='bandpass';f.Q.value=2;f.frequency.setValueAtTime(300,at(from));f.frequency.exponentialRampToValueAtTime(7500,at(to-.05));const g=ac.createGain();g.gain.setValueAtTime(.0001,at(from));g.gain.exponentialRampToValueAtTime(.32,at(to-.05));g.gain.exponentialRampToValueAtTime(.0001,at(to+.05));s.connect(f);f.connect(g);g.connect(master);s.start(at(from));s.stop(at(to+.1));}
+  const chords=[[57,60,64],[53,57,60],[48,52,55],[55,59,62]],roots=[45,41,48,43];
+  for(let bar=0;bar<Math.ceil(DURATION/BAR);bar++){
+    const t=bar*BAR,chord=chords[bar%4],root=roots[bar%4],groove=t>=4&&t<36,lift=t>=24&&t<36,ending=t>=36;
+    for(const n of chord)for(const d of [-9,0,9])synth(at(t),n,BAR,{v:ending?.024:.018,cutoff:t<4?600+t*300:1500,attack:.25,detune:d});
+    if(groove){
+      for(let k=0;k<4;k++){kick(at(t+k*BEAT));hat(at(t+k*BEAT+BEAT/2),.14);if(lift)hat(at(t+k*BEAT+BEAT/4),.06);if(k%2)clap(at(t+k*BEAT));}
+      for(let e=0;e<8;e++)synth(at(t+e*BEAT/2),root+(e%2?12:0),BEAT/2*.9,{type:'square',v:.07,cutoff:700});
+      if(t>=12)for(let s=0;s<16;s++){const n=[...chord,chord[0]+12][[0,1,2,3,2,1,2,3][s%8]]+12;synth(at(t+s*BEAT/4),n,BEAT/4*.9,{type:'triangle',v:lift?.065:.05,cutoff:4000,dest:delay});synth(at(t+s*BEAT/4),n,BEAT/4*.9,{type:'triangle',v:lift?.06:.045,cutoff:4000});}
+    }
+    if(ending&&t<40){kick(at(t));kick(at(t+BEAT*2),.8);for(let k=0;k<4;k++)hat(at(t+k*BEAT+BEAT/2),.1);for(let s=0;s<8;s++)synth(at(t+s*BEAT/2),[...chord,chord[0]+12][s%4]+12,BEAT*.9,{type:'triangle',v:.05,cutoff:3500,dest:delay});}
+  }
+  // Intro build: riser, hats speeding up, snare roll, then the drop; the same build leads into the outro.
+  riser(0,4);kick(at(2),.9);for(let i=0;i<8;i++)hat(at(2+i*BEAT/4),.05+i*.01);for(let i=0;i<8;i++)noiseHit(at(3+i*BEAT/4),{freq:2000,type:'bandpass',v:.12+i*.04,decay:.08});
+  riser(34,36);for(let i=0;i<16;i++)noiseHit(at(34+i*BEAT/4),{freq:2200,type:'bandpass',v:.08+i*.02,decay:.07});
+  // Accents: whooshes on the whip pans, a soft hit when the upload lands.
+  for(const w of [12,18,24,28])noiseHit(at(w-.2),{freq:3000,type:'bandpass',q:.6,v:.25,decay:.3});
+  noiseHit(at(31),{freq:6000,type:'highpass',v:.22,decay:.8});
+  // The bar already has a kick on the downbeat; the drops add only the cymbal-like wash.
+  for(const hit of [4,36]){noiseHit(at(hit),{freq:5000,type:'highpass',v:.2,decay:1.6});}
+  for(const n of [57,64,69,72,76])synth(at(40),n,2,{type:'triangle',v:.05,cutoff:3000,attack:.02});
+}
+window.scheduleMusic=scheduleMusic;
+
+document.fonts.ready.then(()=>{renderAt(0);window.promoReady=true;
+  if(params.get('record')==='1')return;
+  // Preview: the music clock drives the picture so both stay in sync.
+  const button=document.getElementById('play');button.hidden=false;
+  button.onclick=()=>{button.hidden=true;const ac=new AudioContext(),start=ac.currentTime+.15;scheduleMusic(ac,ac.destination,start);
+    const tick=()=>{const t=ac.currentTime-start;renderAt(clamp(t,0,DURATION));if(t<DURATION)requestAnimationFrame(tick);else{button.hidden=false;ac.close();}};requestAnimationFrame(tick);};
+});
+</script>
+</body>
+</html>
