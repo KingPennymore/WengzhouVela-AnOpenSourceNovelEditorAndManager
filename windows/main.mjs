@@ -8,12 +8,13 @@ import {GitHubBridge} from './github.mjs';
 import {windowBounds} from './window-state.mjs';
 import {ProjectStore} from './project-store.mjs';
 import {attachProjectUI} from './project-ui.mjs';
+import {Downloads} from './downloads.mjs';
 
 const directory=path.dirname(fileURLToPath(import.meta.url)),PAGE='vela://editor/web/index.html',qa=process.env.VELA_QA==='1';
 // QA accepts an isolated explicitly supplied data directory; normal runs use Electron userData.
 if(qa){if(!process.env.VELA_QA_DATA||!path.isAbsolute(process.env.VELA_QA_DATA))throw new Error('QA requires an absolute isolated data directory.');app.setPath('userData',process.env.VELA_QA_DATA);}
 protocol.registerSchemesAsPrivileged([{scheme:'vela',privileges:{standard:true,secure:true,supportFetchAPI:true,stream:true,corsEnabled:true}}]);
-let main,files,github,projectFiles,closePluginPreviews,closing=false,readerSession;const readerOptions=new Map();const previews=new Set();
+let main,files,github,projectFiles,downloads,closePluginPreviews,closing=false,readerSession;const readerOptions=new Map();const previews=new Set();
 const assets=app.isPackaged?path.join(process.resourcesPath,'web'):path.resolve(directory,'../dist/web');
 const icon=app.isPackaged?path.join(process.resourcesPath,'icon.png'):path.resolve(directory,'../AppScope/resources/base/media/app_icon_1024.png');
 const failure=error=>JSON.stringify({ok:false,error:error.message||'操作失败。',...(typeof error.code==='string'&&/^E_[A-Z_]+$/.test(error.code)?{code:error.code,details:error.details||{},retryable:!!error.retryable}:{})}),success=value=>JSON.stringify({ok:true,value:value??null});
@@ -70,7 +71,7 @@ async function picker(operation,data){
     const result=await dialog.showSaveDialog(main,{defaultPath:data.name,filters:[{name:operation==='exportPdf'?'PDF':'Document',extensions:[path.extname(data.name).slice(1)||'txt']}]});if(result.canceled)return false;atomic(result.filePath,bytes);return true;
   }
   const result=await dialog.showOpenDialog(main,{properties:operation==='import'?['openFile','multiSelections']:['openFile'],filters:operation==='importPlugin'?[{name:data.purpose==='tex-component'?'Offline typesetting component':'Plugin ZIP',extensions:['zip']}]:undefined});if(result.canceled)return operation==='import'?[]:false;
-  const values=result.filePaths.slice(0,10).map(file=>{const limit=operation==='importPlugin'?64*1024*1024:8*1024*1024;if(fs.statSync(file).size>limit)throw new Error('选择的文件超过大小限制。');const bytes=fs.readFileSync(file),name=path.basename(file);if(operation==='importPlugin')return {name,data:bytes.toString('base64')};try{return {name,text:decodeText(bytes)};}catch{return {name,data:bytes.toString('base64')};}});return operation==='import'?values:values[0];
+  const values=result.filePaths.slice(0,10).map(file=>{const limit=operation==='importPlugin'?96*1024*1024:8*1024*1024;if(fs.statSync(file).size>limit)throw new Error('选择的文件超过大小限制。');const name=path.basename(file);if(operation==='importPlugin')return downloads.stage(file,name);const bytes=fs.readFileSync(file);try{return {name,text:decodeText(bytes)};}catch{return {name,data:bytes.toString('base64')};}});return operation==='import'?values:values[0];
 }
 async function dispatch(operation,data){
   if(projectFiles.busy&&['manageFiles','restoreTrash','writeWorkspaceFiles'].includes(operation))throw Object.assign(new Error('项目正在提交，请稍后重试。'),{code:'E_CONFLICT'});
@@ -87,10 +88,15 @@ async function dispatch(operation,data){
     case 'appearance':if(/^#[\da-f]{6}$/i.test(data.background))main.setBackgroundColor(data.background);return true;
     case 'fullscreen':main.setFullScreen(data.enabled===true);return true;
     case 'openAuth':await shell.openExternal('https://github.com/login/device');return true;
-    case 'openRelease':if(typeof data.url!=='string'||!/^https:\/\/github\.com\/KingPennymore\/WengzhouVela-AnOpenSourceNovelEditorAndManager\/releases\/tag\/v?\d+\.\d+\.\d+(?:\.\d+)?$/.test(data.url))throw Error('发布地址无效。');await shell.openExternal(data.url);return true;
+    case 'openRelease':if(typeof data.url!=='string'||!/^https:\/\/(github\.com\/KingPennymore\/WengzhouVela-AnOpenSourceNovelEditorAndManager|gitee\.com\/kingpennymore\/wenzhou-vela-mirror-repository)\/releases\/tag\/[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(data.url))throw Error('发布地址无效。');await shell.openExternal(data.url);return true;
     case 'clipboardWrite':if(typeof data.text!=='string'||data.text.length>8*1024*1024)throw Error('剪贴板内容无效。');clipboard.writeText(data.text);return true;
     case 'clipboardRead':return clipboard.readText();
     case 'import':case 'export':case 'exportPdf':case 'exportOdt':case 'importPlugin':return picker(operation,data);
+    case 'downloadComponent':return downloads.component(data);
+    case 'downloadUpdate':return downloads.update(data);
+    case 'cancelDownload':return downloads.cancel(data.id);
+    case 'releaseImport':return downloads.release(data.token);
+    case 'installUpdate':downloads.install(data.token);setTimeout(()=>main?.close(),300);return true;
     default:return github.call(operation,data);
   }
 }
@@ -98,7 +104,8 @@ if(!qa&&!app.requestSingleInstanceLock())app.quit();else{
   app.on('second-instance',()=>{if(main){if(main.isMinimized())main.restore();main.focus();}});
   app.whenReady().then(async()=>{files=new WorkspaceStorage(app.getPath('userData'));projectFiles=new ProjectStore(files);github=new GitHubBridge({request,credentials:credentials()});
   readerSession=session.fromPartition('persist:vela-reader');readerSession.protocol.handle('https',request=>{const url=new URL(request.url);return previewResponse(url,readerOptions.get(decodeURIComponent(url.pathname.slice(1)))||{reading:true});});
-  const editorSession=session.fromPartition('persist:vela-editor');editorSession.protocol.handle('vela',request=>new URL(request.url).hostname==='asset'?projectFiles.resource(request):assetResponse(new URL(request.url)));editorSession.protocol.handle('https',request=>previewResponse(new URL(request.url),{},true));
+  const editorSession=session.fromPartition('persist:vela-editor');downloads=new Downloads({fetch:net.fetch.bind(net),directory:path.join(app.getPath('temp'),'vela-downloads-'+process.pid),version:app.getVersion(),notify:detail=>{if(main&&!main.isDestroyed())main.webContents.executeJavaScript('window.dispatchEvent(new CustomEvent("wenzhouDownload",{detail:'+JSON.stringify(detail)+'}))').catch(()=>{});}});
+  editorSession.protocol.handle('vela',request=>{const url=new URL(request.url);return url.hostname==='asset'?projectFiles.resource(request):url.hostname==='editor'&&url.pathname.startsWith('/imports/')&&request.method==='GET'?downloads.response(url):assetResponse(url);});editorSession.protocol.handle('https',request=>previewResponse(new URL(request.url),{},true));
   Menu.setApplicationMenu(null);
   const stateFile=path.join(files.base,'window.json');let previous={};try{previous=JSON.parse(fs.readFileSync(stateFile,'utf8'))||{};}catch{}const displays=[screen.getPrimaryDisplay(),...screen.getAllDisplays()],bounds=windowBounds(previous,displays),area=screen.getDisplayMatching(bounds).workArea;
   main=new BrowserWindow({title:'Vela 文舟',...bounds,minWidth:Math.min(720,area.width),minHeight:Math.min(480,area.height),show:!qa,icon,backgroundColor:'#eef3ef',webPreferences:{partition:'persist:vela-editor',preload:path.join(directory,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});secureWindow(main);main.setMenu(null);if(previous.maximized)main.maximize();const remember=()=>{try{if(!main.isDestroyed()&&!main.isFullScreen())atomic(stateFile,Buffer.from(JSON.stringify({...main.getNormalBounds(),maximized:main.isMaximized()})));}catch{/* Window geometry must not prevent document saving. */}};let boundsTimer;for(const event of ['resize','move','maximize','unmaximize'])main.on(event,()=>{clearTimeout(boundsTimer);boundsTimer=setTimeout(remember,250);});
@@ -108,7 +115,7 @@ if(!qa&&!app.requestSingleInstanceLock())app.quit();else{
   ipcMain.on('vela:sync',(event,operation,data)=>{if(!trusted(event)){event.returnValue={error:'不允许的调用来源。',value:'不允许的调用来源。'};return;}try{let value;if(operation==='readWorkspace')value=files.readWorkspace();else if(operation==='readPlugins')value=files.readPlugins();else if(operation==='readEnvironment')value=environment();else if(operation==='writeWorkspace'){if(projectFiles.busy)throw Error('项目正在提交，请稍后保存。');files.saveWorkspace(data);value='ok';}else if(operation==='writePlugins'){files.writePlugins(data);value='ok';}else throw new Error('不支持此操作。');event.returnValue={value};}catch(error){event.returnValue={error:error.message,value:error.message};}});
   ipcMain.handle('vela:call',async(event,operation,json)=>{if(!trusted(event))return failure(new Error('不允许的调用来源。'));try{if(typeof json!=='string'||json.length>100*1024*1024)throw new Error('请求数据无效或过大。');const data=JSON.parse(json);if(!data||typeof data!=='object'||Array.isArray(data))throw new Error('请求数据无效。');return success(await dispatch(operation,data));}catch(error){return failure(error);}});
   nativeTheme.on('updated',()=>{if(main&&!main.isDestroyed())main.webContents.executeJavaScript('window.dispatchEvent(new CustomEvent("wenzhouEnvironment",{detail:'+environment()+'}))').catch(()=>{});});
-  main.on('close',event=>{if(closing)return;event.preventDefault();main.webContents.executeJavaScript('window.wenzhouSave ? window.wenzhouSave() : true').then(saved=>{if(saved===false){dialog.showMessageBox(main,{type:'error',message:'保存失败，请先导出文稿备份。'});return;}closing=true;closePluginPreviews?.();for(const preview of previews)preview.close();main.close();}).catch(()=>{closing=true;closePluginPreviews?.();main.close();});});
+  main.on('close',event=>{if(closing)return;event.preventDefault();main.webContents.executeJavaScript('window.wenzhouSave ? window.wenzhouSave() : true').then(saved=>{if(saved===false){dialog.showMessageBox(main,{type:'error',message:'保存失败，请先导出文稿备份。'});return;}closing=true;closePluginPreviews?.();downloads?.close();for(const preview of previews)preview.close();main.close();}).catch(()=>{closing=true;closePluginPreviews?.();main.close();});});
   await main.loadURL(PAGE);
   app.on('window-all-closed',()=>app.quit());
   }).catch(error=>{console.error(error);app.exit(1);});

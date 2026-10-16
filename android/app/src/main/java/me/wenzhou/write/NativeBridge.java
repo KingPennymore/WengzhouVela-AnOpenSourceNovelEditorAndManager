@@ -23,15 +23,16 @@ final class NativeBridge {
     final WorkspaceFiles files;
     final ProjectFiles projects;
     final ImportedArchives imports;
+    final ReleaseDownloads downloads;
     private final CredentialStore credentials;
     private final CredentialStore giteeCredentials;
-    private final ExecutorService workers = Executors.newFixedThreadPool(3);
+    private final ExecutorService workers = Executors.newFixedThreadPool(4);
     private final AtomicLong authGeneration = new AtomicLong();
     private final Object authLock = new Object();
 
     NativeBridge(MainActivity activity, String capability) throws Exception {
         this.activity = activity; this.capability = capability.getBytes(StandardCharsets.UTF_8);
-        files = new WorkspaceFiles(activity); projects = new ProjectFiles(activity, files); imports = new ImportedArchives(activity); credentials = new CredentialStore(activity); giteeCredentials = new CredentialStore(activity, "gitee");
+        files = new WorkspaceFiles(activity); projects = new ProjectFiles(activity, files); imports = new ImportedArchives(activity); downloads = new ReleaseDownloads(activity, imports); credentials = new CredentialStore(activity); giteeCredentials = new CredentialStore(activity, "gitee");
     }
     private void authorize(String value) {
         if (value == null || value.length() > 80 || !MessageDigest.isEqual(capability, value.getBytes(StandardCharsets.UTF_8))) throw new SecurityException("不允许的页面调用。");
@@ -98,6 +99,15 @@ final class NativeBridge {
                 }); activity.runOnUiThread(task); return task.get();
             }
             case "releaseImport": return imports.release(data.optString("token"));
+            case "downloadComponent": return downloads.component(data);
+            case "downloadUpdate": return downloads.update(data);
+            case "cancelDownload": return downloads.cancel(data.optString("id"));
+            case "installUpdate": return downloads.install(data.optString("token"));
+            case "openRelease": {
+                String url = data.optString("url");
+                if (!url.matches("https://(github\\.com/KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager|gitee\\.com/kingpennymore/wenzhou-vela-mirror-repository)/releases/tag/[A-Za-z0-9][A-Za-z0-9._-]{0,63}")) throw new IOException("发布地址无效。");
+                activity.openExternal(url); return true;
+            }
             case "initializeStorage": case "refreshFolder": return files.scan();
             case "manageFiles": return files.manage(data.optString("action"), data.optString("path"), data.optString("destination"));
             case "listTrash": return files.listTrash();

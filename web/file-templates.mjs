@@ -2,29 +2,50 @@ import {fileKind} from './model.mjs';
 import {createGlossary,glossaryText} from './glossary.mjs';
 import {createVelaV2,velaText} from './vela.mjs';
 import {createVelaOdt} from './odf-base.mjs';
+// Starter content follows the file format itself: the skeleton a new file of that type needs, not story placeholders.
+const code={
+ json:'{\n  "name": "",\n  "items": []\n}\n',json5:'{\n  // 注释\n  name: \'\',\n  items: [],\n}\n',jsonl:'{"id": 1, "text": ""}\n',
+ js:'// @ts-check\n\'use strict\';\n\nfunction main() {\n}\n\nmain();\n',mjs:'export function main() {\n}\n',cjs:'\'use strict\';\n\nmodule.exports = {};\n',jsx:'export default function App() {\n  return <div></div>;\n}\n',
+ ts:'export function main(): void {\n}\n',tsx:'export default function App(): JSX.Element {\n  return <div></div>;\n}\n',
+ py:'def main() -> None:\n    pass\n\n\nif __name__ == "__main__":\n    main()\n',css:':root {\n}\n\nbody {\n  margin: 0;\n}\n',scss:'$color: #333;\n\nbody {\n  color: $color;\n}\n',sass:'$color: #333\n\nbody\n  color: $color\n',less:'@color: #333;\n\nbody {\n  color: @color;\n}\n',
+ xml:'<?xml version="1.0" encoding="UTF-8"?>\n<root>\n</root>\n',svg:'<svg xmlns="http://www.w3.org/2000/svg" width="100" height="100" viewBox="0 0 100 100">\n</svg>\n',
+ yaml:'# YAML\nname: \nitems: []\n',toml:'# TOML\n[section]\nkey = ""\n',ini:'; INI\n[section]\nkey=\n',conf:'# 配置\nkey = value\n',cfg:'[section]\nkey = value\n',
+ sh:'#!/bin/sh\nset -eu\n\n',bash:'#!/usr/bin/env bash\nset -euo pipefail\n\n',zsh:'#!/usr/bin/env zsh\n\n',
+ java:name=>`public class ${name.replace(/\.java$/i,'').replace(/\W/g,'_')||'Main'} {\n    public static void main(String[] args) {\n    }\n}\n`,
+ c:'#include <stdio.h>\n\nint main(void) {\n    return 0;\n}\n',cpp:'#include <iostream>\n\nint main() {\n    return 0;\n}\n',h:name=>{const guard=name.toUpperCase().replace(/\W/g,'_');return `#ifndef ${guard}\n#define ${guard}\n\n#endif\n`;},
+ cs:'class Program\n{\n    static void Main(string[] args)\n    {\n    }\n}\n',rs:'fn main() {\n}\n',go:'package main\n\nfunc main() {\n}\n',kt:'fun main() {\n}\n',kts:'// Kotlin script\n',
+ sql:'-- SQL\nSELECT 1;\n',php:'<?php\ndeclare(strict_types=1);\n\n',rb:'# frozen_string_literal: true\n\n',lua:'local M = {}\n\nreturn M\n',r:'# R\n',swift:'import Foundation\n\n',
+ diff:'--- a/file\n+++ b/file\n',bib:'@book{key,\n  author    = {},\n  title     = {},\n  publisher = {},\n  year      = {}\n}\n',
+ vue:'<template>\n  <div></div>\n</template>\n\n<script setup>\n</script>\n\n<style scoped>\n</style>\n',svelte:'<script>\n</script>\n\n<div></div>\n\n<style>\n</style>\n',
+ dockerfile:'FROM alpine\nWORKDIR /app\nCOPY . .\nCMD ["sh"]\n',makefile:'.PHONY: all\n\nall:\n\t@echo done\n',cmakelists:'cmake_minimum_required(VERSION 3.16)\nproject(app)\n\nadd_executable(app main.cpp)\n'
+};
+Object.assign(code,{cc:code.cpp,hpp:code.h,patch:code.diff,pyw:code.py,yml:code.yaml});
+const codeKey=name=>/^(Dockerfile|Makefile|CMakeLists\.txt)$/i.test(name)?name.replace(/\.txt$/i,'').toLowerCase():name.split('.').pop().toLowerCase();
+const formats={
+ TXT:{label:'纯文本',description:'纯文本：首行为标题，段落之间空一行；“第一章”等行可被识别为章节。',text:()=>'标题\n\n第一段。\n\n第二段。\n'},
+ MD:{label:'Markdown 格式',description:'Markdown：标题、强调、列表、引用、链接、表格与代码块的基本写法。',text:()=>'# 一级标题\n\n段落文字，支持**加粗**、*斜体*和`行内代码`。\n\n## 二级标题\n\n- 无序列表\n- 第二项\n\n1. 有序列表\n2. 第二项\n\n> 引用\n\n[链接文字](https://example.com)\n\n| 列一 | 列二 |\n| --- | --- |\n| 内容 | 内容 |\n\n```\n代码块\n```\n'},
+ CSV:{label:'表格格式',description:'带表头的表格：第一行为列名，CSV 用逗号、TSV 用制表符分隔。',text:name=>{const sep=/\.tsv$/i.test(name)?'\t':',';return ['列一','列二','列三'].join(sep)+'\n'+['','',''].join(sep)+'\n';}},
+ HTML:{label:'HTML 文档',description:'完整 HTML5 文档结构：字符集、视口、标题、样式与正文。',text:()=>'<!doctype html>\n<html lang="zh-CN">\n<head>\n  <meta charset="utf-8">\n  <meta name="viewport" content="width=device-width,initial-scale=1">\n  <title>标题</title>\n  <style>\n    body{max-width:42em;margin:auto;padding:24px;font-family:system-ui;line-height:1.8}\n  </style>\n</head>\n<body>\n  <h1>标题</h1>\n  <p>正文。</p>\n</body>\n</html>\n'},
+ TEX:{label:'LaTeX 文档',description:'ctexart 中文文档结构：导言区、标题信息与正文；编译需要离线 TeX 组件。',text:()=>'\\documentclass[UTF8]{ctexart}\n\\usepackage[a4paper,margin=2.5cm]{geometry}\n\n\\title{标题}\n\\author{作者}\n\\date{\\today}\n\n\\begin{document}\n\\maketitle\n\n\\section{第一节}\n正文。\n\n\\end{document}\n'},
+ GLY:{label:'术语库结构',description:'使用项目现有术语库结构。',text:name=>glossaryText(createGlossary(name))},
+ VELA:{label:'工作区配置结构',description:'使用现有 VELA 配置结构。',text:name=>velaText(createVelaV2(name.replace(/\.vela$/i,'')))},
+ CODE:{label:'代码格式',description:'按扩展名生成该语言的最小可用结构。',text:name=>{const value=code[codeKey(name)];return typeof value==='function'?value(name):value||'';}}
+};
+const kindOf=name=>/\.(fods|fodp|fodg)$/i.test(name)?null:fileKind(name);
 export const templates=[
  {id:'empty',label:'空白文件',kinds:['*'],description:'保留所选文件格式，创建空白内容。'},
- {id:'chapters',label:'小说正文',kinds:['TXT','MD'],description:'第一章、第二章及正文占位。'},
- {id:'outline',label:'故事大纲',kinds:['TXT','MD'],description:'梗概、人物目标、冲突、转折与结局。'},
- {id:'character',label:'人物设定',kinds:['TXT','MD'],description:'身份、外貌、性格、动机、关系与人物弧光。'},
- {id:'world',label:'世界观设定',kinds:['TXT','MD'],description:'地理、历史、社会规则与专有名词。'},
- {id:'plan',label:'章节规划表',kinds:['CSV'],description:'章节、视角、地点、事件、目标字数、进度。'},
- {id:'html',label:'阅读页',kinds:['HTML'],description:'离线可用、适合移动阅读的 HTML 文稿。'},
- {id:'tex',label:'中文文稿排版',kinds:['TEX'],description:'ctexart 中文文稿；编译仍需现有离线 TeX 组件。'},
- {id:'glossary',label:'术语库',kinds:['GLY'],description:'使用项目现有术语库结构。'},
- {id:'workspace',label:'工作区配置',kinds:['VELA'],description:'使用现有 VELA 配置结构。'}
+ {id:'format',label:'格式结构',kinds:Object.keys(formats),description:'按文件格式生成基本结构。'}
 ];
-export const templatesFor=name=>templates.filter(t=>t.kinds.includes('*')||!/^.*\.(fods|fodp|fodg)$/i.test(name)&&t.kinds.includes(fileKind(name)));
+export function templatesFor(name){
+ const kind=kindOf(name),format=formats[kind];
+ if(!format||kind==='CODE'&&!code[codeKey(name)])return [templates[0]];
+ return [templates[0],{...templates[1],label:format.label,description:format.description}];
+}
 export function templateText(name,id){
  if(/\.(odt|ott|ods|ots|odp|otp|odg|otg)$/i.test(name))throw Error('二进制 ODF 请先创建 .vodt 或 Flat ODF 文稿，再从组件导出对应格式。');
- const kind=fileKind(name),template=templatesFor(name).find(t=>t.id===id);if(!template)throw Error('此模板不适用于当前文件格式。');
- if(kind==='GLY')return glossaryText(createGlossary(name));if(kind==='VELA')return velaText(createVelaV2(name.replace(/\.vela$/i,'')));
- const sections={chapters:['第一章','第二章'],outline:['故事梗概','人物目标','核心冲突','关键转折','结局'],character:['姓名与身份','外貌与习惯','性格与缺点','动机与目标','人物关系','成长与转变'],world:['地理与地点','历史与时间线','社会与文化','规则与限制','专有名词']};
- const lines=id==='empty'?[]:sections[id];
- if(kind==='VODT'){const match=/\.(fods|fodp|fodg)$/i.exec(name);if(match){const type={fods:'spreadsheet',fodp:'presentation',fodg:'graphics'}[match[1].toLowerCase()],body=type==='graphics'?'drawing':type;return createVelaOdt().replace('application/vnd.oasis.opendocument.text','application/vnd.oasis.opendocument.'+type).replace('<office:text><text:p/></office:text>','<office:'+body+'/>').replace(' vela:profile="1"','');}return createVelaOdt(lines||[]);}
- if(lines)return lines.map(s=>(kind==='MD'?'# ':'')+s+'\n\n').join('\n');
- if(id==='plan')return (name.toLowerCase().endsWith('.tsv')?'章节\t视角\t地点\t核心事件\t目标字数\t状态\n第一章\t\t\t\t3000\t待写\n':'章节,视角,地点,核心事件,目标字数,状态\n第一章,,,,3000,待写\n');
- if(id==='html')return '<!doctype html>\n<html lang="zh-CN">\n<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>文稿</title><style>body{max-width:42em;margin:auto;padding:24px;font-family:system-ui;line-height:1.9}p{text-indent:2em}</style></head>\n<body><h1>第一章</h1><p>在这里开始写作。</p></body>\n</html>\n';
- if(id==='tex')return '\\documentclass[UTF8]{ctexart}\n\\usepackage[a4paper,margin=2.5cm]{geometry}\n\\title{文稿标题}\n\\author{作者}\n\\date{}\n\\begin{document}\n\\maketitle\n\\section{第一章}\n在这里开始写作。\n\\end{document}\n';
- return '';
+ const kind=fileKind(name);if(!templatesFor(name).some(t=>t.id===id))throw Error('此模板不适用于当前文件格式。');
+ // Structured formats must stay parseable even when blank.
+ if(kind==='GLY'||kind==='VELA')return formats[kind].text(name);
+ if(kind==='VODT'){const match=/\.(fods|fodp|fodg)$/i.exec(name);if(match){const type={fods:'spreadsheet',fodp:'presentation',fodg:'graphics'}[match[1].toLowerCase()],body=type==='graphics'?'drawing':type;return createVelaOdt().replace('application/vnd.oasis.opendocument.text','application/vnd.oasis.opendocument.'+type).replace('<office:text><text:p/></office:text>','<office:'+body+'/>').replace(' vela:profile="1"','');}return createVelaOdt([]);}
+ return id==='empty'?'':formats[kind].text(name);
 }

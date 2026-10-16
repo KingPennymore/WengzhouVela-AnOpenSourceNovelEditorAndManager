@@ -33,7 +33,7 @@ for flavor in (['-lite'] if '--lite-only' in sys.argv else ['', '-lite']):
                appzip.name, f'Vela-{version}{flavor}-release-signed.hap',
                f'Vela-{version}-windows{flavor}-setup-x64.exe',
                f'Vela-{version}-windows{flavor}-x64.zip']
-assets += [f'Vela-{version}-source.zip', 'Vela-TeX-0.1.1-engine.zip', 'Vela-TeX-0.1.1-chinese.zip',
+assets += [f'Vela-{version}-source.zip', 'Vela-TeX-0.1.1.zip',
            'Vela-Ebook-Reader-1.1.0.zip']
 lines = []
 for name in assets:

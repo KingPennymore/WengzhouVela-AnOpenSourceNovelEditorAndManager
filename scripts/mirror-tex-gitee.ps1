@@ -1,18 +1,31 @@
-# Mirrors a TeX component release (tag tex-<version>) to Gitee, for users who cannot reach GitHub quickly.
+# Mirrors a TeX component release (tag tex-<version>) or an app release (tag v<version>, with -AppVersion) to Gitee,
+# for users who cannot reach GitHub quickly. The in-app downloader and updater try Gitee first, then GitHub.
 # The Gitee private token is typed at the prompt and used only inside this process; it is never printed or saved.
 # Usage: pwsh scripts/mirror-tex-gitee.ps1 -Owner <gitee user> -Repository <repo> [-Version 0.1.1] [-CreateRepository]
+#        pwsh scripts/mirror-tex-gitee.ps1 -Owner <gitee user> -Repository <repo> -AppVersion 0.9.8
 param(
   [Parameter(Mandatory)][string]$Owner,
   [Parameter(Mandatory)][string]$Repository,
   [string]$Version = '0.1.1',
+  [string]$AppVersion = '',
   [switch]$CreateRepository
 )
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
-$tag = "tex-$Version"
-$folder = Join-Path $root "dist\releases\$tag"
-$names = @("Vela-TeX-$Version-engine.zip", "Vela-TeX-$Version-chinese.zip", "SHA256SUMS-$tag.txt")
-$notes = Join-Path $root "dist\metadata\release-notes-$tag.md"
+if ($AppVersion) {
+  # Installers, optional components and the checksum list. Gitee rejects attachments over 100 MB, so larger files
+  # (currently the Windows installer and ZIP) stay GitHub-only and the app falls back to GitHub for them.
+  $tag = "v$AppVersion"
+  $folder = Join-Path $root "dist\releases\$AppVersion"
+  $names = @(Get-ChildItem -LiteralPath $folder -File | Where-Object { $_.Name -match '\.(apk|hap|exe|zip|txt)$' -and $_.Name -notmatch '-source\.zip$' -and $_.Length -le 100MB } | ForEach-Object Name)
+  foreach ($skipped in (Get-ChildItem -LiteralPath $folder -File | Where-Object { $_.Length -gt 100MB })) { Write-Host "超过 Gitee 附件上限，仅保留在 GitHub：$($skipped.Name)" }
+  $notes = Join-Path $root "dist\metadata\$AppVersion\release-notes-$AppVersion.md"
+} else {
+  $tag = "tex-$Version"
+  $folder = Join-Path $root "dist\releases\$tag"
+  $names = @("Vela-TeX-$Version.zip", "SHA256SUMS-$tag.txt")
+  $notes = Join-Path $root "dist\metadata\release-notes-$tag.md"
+}
 foreach ($name in $names) { if (!(Test-Path -LiteralPath (Join-Path $folder $name))) { throw "缺少文件：$folder\$name（先准备 GitHub 上的同名组件发布）" } }
 $api = 'https://gitee.com/api/v5'
 $secure = Read-Host '请输入 Gitee 私人令牌（需 projects 权限；输入时不显示）' -AsSecureString
@@ -37,7 +50,7 @@ try {
       $branch = 'master'
       Write-Host '空仓库：已添加 README.md 作为初始提交'
     }
-    $release = Invoke-RestMethod -Uri "$repoUrl/releases" -Method Post -Body @{ access_token = $token; tag_name = $tag; name = "Vela TeX 组件 $Version"; body = (Get-Content -LiteralPath $notes -Raw -Encoding utf8); prerelease = 'false'; target_commitish = $branch }
+    $release = Invoke-RestMethod -Uri "$repoUrl/releases" -Method Post -Body @{ access_token = $token; tag_name = $tag; name = $(if ($AppVersion) { "Vela $AppVersion" } else { "Vela TeX 组件 $Version" }); body = (Get-Content -LiteralPath $notes -Raw -Encoding utf8); prerelease = 'false'; target_commitish = $branch }
     Write-Host "已创建 Gitee 发布 $tag"
   }
   $attached = @(Invoke-RestMethod -Uri "$repoUrl/releases/$($release.id)/attach_files?access_token=$token&per_page=100" -Method Get)
@@ -54,7 +67,7 @@ try {
   $token = $null
 }
 # Public check without the token: the fixed download address must return the same bytes.
-$expected = @{}; foreach ($line in Get-Content -LiteralPath (Join-Path $folder "SHA256SUMS-$tag.txt")) { $parts = $line -split '  ', 2; $expected[$parts[1]] = $parts[0] }
+$expected = @{}; foreach ($line in Get-Content -LiteralPath (Join-Path $folder $(if ($AppVersion) { "SHA256SUMS-$AppVersion.txt" } else { "SHA256SUMS-$tag.txt" }))) { $parts = $line -split '  ', 2; $expected[$parts[1]] = $parts[0] }
 $temporary = Join-Path ([IO.Path]::GetTempPath()) "vela-gitee-check-$tag"; New-Item -ItemType Directory -Force -Path $temporary | Out-Null
 $failed = 0
 foreach ($name in $names) {

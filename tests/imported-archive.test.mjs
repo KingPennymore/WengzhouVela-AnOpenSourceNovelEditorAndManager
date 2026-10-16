@@ -13,7 +13,7 @@ test('native archive URLs transfer bytes and release on success, failure and rej
   globalThis.fetch=async()=>{reads++;return new Response(new Uint8Array([1,2,3]));};
   assert.deepEqual(await readImportedArchive(result,release),new Uint8Array([1,2,3]));
   await assert.rejects(readImportedArchive({...result,url:'https://other.example/imports/qa'},release),/地址或大小/);
-  await assert.rejects(readImportedArchive({...result,size:64*1024*1024+1},release),/地址或大小/);
+  await assert.rejects(readImportedArchive({...result,size:96*1024*1024+1},release),/地址或大小/);
   assert.equal(reads,1);
   await assert.rejects(readImportedArchive({...result,size:4},release),/不完整/);
   globalThis.fetch=async()=>new Response(null,{status:404});

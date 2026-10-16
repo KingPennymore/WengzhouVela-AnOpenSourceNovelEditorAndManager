@@ -14,6 +14,8 @@ struct Index {
   aboutToAppear(): void {
     this.bridge.context = this.getUIContext().getHostContext() as common.UIAbilityContext;
     Runtime.controller = this.controller;
+    this.bridge.downloads.context = this.bridge.context;
+    this.bridge.downloads.clear();
   }
 
   private resource(request: WebResourceRequest): WebResourceResponse | null {
@@ -22,6 +24,7 @@ struct Index {
       if (parsed.protocol === 'https:' && parsed.hostname === 'wenzhou-preview.local' && !request.isMainFrame()) return this.embeddedHtml(parsed);
       if (parsed.protocol !== 'https:' || parsed.hostname !== 'wenzhou-editor.local') return null;
       const path = decodeURIComponent(parsed.pathname.substring(1));
+      if (path.startsWith('imports/') && request.getRequestMethod() === 'GET') return this.imported(path.substring(8));
       if (!path.startsWith('web/') || path.includes('\\') || path.split('/').some(part => part === '..' || part === '.')) return null;
       const context = this.getUIContext().getHostContext() as common.UIAbilityContext;
       const bytes = context.resourceManager.getRawFileContentSync(path);
@@ -30,6 +33,18 @@ struct Index {
       const mime = path.endsWith('.html') ? 'text/html' : /\.m?js$/.test(path) ? 'text/javascript' : path.endsWith('.wasm') ? 'application/wasm' : path.endsWith('.css') ? 'text/css' : path.endsWith('.json') ? 'application/json' : path.endsWith('.woff2') ? 'font/woff2' : path.endsWith('.woff') ? 'font/woff' : 'application/octet-stream';
       response.setResponseMimeType(mime); response.setResponseEncoding('UTF-8'); response.setResponseCode(200); response.setReasonMessage('OK'); response.setResponseIsReady(true); return response;
     } catch (error) { return null; }
+  }
+
+  /** Downloaded component ZIPs, streamed from the private cache to the same-origin editor page. */
+  private imported(token: string): WebResourceResponse {
+    const response = new WebResourceResponse();
+    const bytes = /^[0-9a-f-]{36}$/.test(token) ? this.bridge.downloads.read(token) : null;
+    if (bytes) {
+      response.setResponseData(bytes); response.setResponseMimeType(this.bridge.downloads.isText(token) ? 'text/plain' : 'application/zip'); response.setResponseEncoding('UTF-8');
+      response.setResponseHeader([{ headerKey: 'Cache-Control', headerValue: 'no-store' }, { headerKey: 'X-Content-Type-Options', headerValue: 'nosniff' }]);
+      response.setResponseCode(200); response.setReasonMessage('OK');
+    } else { response.setResponseData(''); response.setResponseMimeType('text/plain'); response.setResponseCode(404); response.setReasonMessage('Not Found'); }
+    response.setResponseIsReady(true); return response;
   }
 
   private embeddedHtml(parsed: url.URL): WebResourceResponse {

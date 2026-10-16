@@ -12,6 +12,7 @@ import { HtmlPreviewSession, ReaderLayout } from './HtmlPreviewSession';
 import { PreviewResource } from './PreviewResource';
 import { WorkspaceFiles, BinaryWorkspaceFile } from './WorkspaceFiles';
 import { decodeFileText, decodedFileName, encodeFileText } from './FileText';
+import { ReleaseDownloads } from './ReleaseDownloads';
 interface ProjectSystemError { code?: number; message?: string; }
 
 interface BridgeRequest {
@@ -43,6 +44,10 @@ interface BridgeRequest {
   permanent?: boolean;
   enabled?: boolean;
   layout?: ReaderLayout;
+  url?: string;
+  size?: number;
+  sha256?: string;
+  limit?: number;
 }
 interface BridgeResult { ok: boolean; value?: Object; error?: string; code?: number | string; retryable?: boolean; stage?: string; }
 interface ApiResult { status: number; body: Object; }
@@ -55,7 +60,6 @@ interface OAuthResult {
 }
 interface AuthorizedResult { authorized: boolean; }
 interface ImportedFile { name: string; text?: string; data?: string; }
-interface ImportedPlugin { name: string; data: string; }
 interface WorkspaceHeader { version: number; documents: Object[]; }
 interface EmptyBody { message: string; }
 
@@ -67,6 +71,7 @@ export class NativeBridge {
   private credentialAlias(provider: string): Uint8Array { return new util.TextEncoder().encodeInto('wenzhou.' + provider + '.token'); }
   private workspaceFiles: WorkspaceFiles = new WorkspaceFiles();
   private projects: ProjectFiles = new ProjectFiles();
+  downloads: ReleaseDownloads = new ReleaseDownloads();
 
   previewResource(path: string, html: boolean): PreviewResource {
     this.workspaceFiles.context = this.context;
@@ -402,26 +407,20 @@ export class NativeBridge {
         await Runtime.fullscreen(data.enabled === true);
         return this.success(true);
       }
+      if (operation === 'downloadComponent') {
+        this.downloads.context = this.context;
+        return this.success(await this.downloads.component({ id: data.id, url: data.url, name: data.name, size: data.size, sha256: data.sha256, limit: data.limit }));
+      }
+      if (operation === 'cancelDownload') return this.success(this.downloads.cancel(data.id || ''));
+      if (operation === 'releaseImport') return this.success(this.downloads.release(data.token || ''));
+      if (operation === 'openRelease') { this.downloads.context = this.context; return this.success(await this.downloads.openRelease(data.url || '')); }
+      if (operation === 'downloadUpdate' || operation === 'installUpdate') throw new Error('鸿蒙版请在发布页或应用市场获取新版本。');
       if (operation === 'importPlugin') {
         const documentPicker = new picker.DocumentViewPicker(this.getContext());
-        const uris = await documentPicker.select({ fileSuffixFilters: [data.purpose === 'tex-component' ? '离线排版组件|.zip' : 'Acode 插件|.zip'], maxSelectNumber: 1 });
+        const uris = await documentPicker.select({ fileSuffixFilters: [data.purpose === 'tex-component' ? '离线排版组件|.zip' : '插件或组件|.zip'], maxSelectNumber: 1 });
         if (uris.length === 0) return this.success(false);
-        const file = fs.openSync(uris[0], fs.OpenMode.READ_ONLY);
-        try {
-          const size = fs.statSync(file.fd).size;
-          if (size > 64 * 1024 * 1024) throw new Error('宏包 ZIP 不能超过 64 MB。');
-          const buffer = new Uint8Array(size);
-          let offset = 0;
-          while (offset < size) {
-            const piece = new ArrayBuffer(size - offset);
-            const count = fs.readSync(file.fd, piece);
-            if (count <= 0) throw new Error('插件读取不完整。');
-            buffer.set(new Uint8Array(piece, 0, count), offset);
-            offset += count;
-          }
-          const result: ImportedPlugin = { name: new fileUri.FileUri(uris[0]).name, data: new util.Base64Helper().encodeToStringSync(buffer) };
-          return this.success(result);
-        } finally { fs.closeSync(file); }
+        this.downloads.context = this.context;
+        return this.success(this.downloads.stage(uris[0], new fileUri.FileUri(uris[0]).name));
       }
       throw new Error('不支持此操作。');
     } catch (error) {

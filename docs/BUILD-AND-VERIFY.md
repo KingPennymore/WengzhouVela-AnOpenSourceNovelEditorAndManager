@@ -17,7 +17,7 @@ GitHub Actions 的 `Verify` 工作流在 master 推送、拉取请求或手动�
 - `npm run build:windows:lite`：生成 Windows 轻量安装程序及 ZIP，放在 `dist/windows-lite/`，名称包含 `-lite-`。
 - 鸿蒙轻量版：先执行 `npm run build:lite`，再按现有鸿蒙构建流程打包。构建前端时可设置 `VELA_BUILD_FLAVOR=lite`；环境变量会传递给安卓的资源准备任务。
 
-轻量构建同时生成 `dist/tex-components/Vela-TeX-0.1.1-engine.zip` 和 `Vela-TeX-0.1.1-chinese.zip`。在“更多 → 插件与组件 → 从 ZIP 安装”分别导入两个 ZIP；LaTeX 预览的“管理排版组件”也打开同一列表，之后可完全离线编译。每个包小于 64 MB；不自动下载，不将原始组件包写入当前文稿。组件在后台解压，逐文件检查内置清单的大小和 SHA-256，校验通过后按包原子保存；错误包不会替换现有组件。
+轻量构建同时生成 `dist/tex-components/Vela-TeX-0.1.1.zip`，一个包含引擎和中文支持的组件包（约 77 MiB，上限 96 MiB）。可在“更多 → 插件与组件”中在线下载，或用“从 ZIP 安装”导入；LaTeX 预览的“管理排版组件”打开同一列表，装好后可完全离线编译。旧版分开的两个 ZIP 仍可导入。不会在后台自动下载，不将原始组件包写入当前文稿。组件在后台解压，逐文件检查内置清单的大小和 SHA-256，校验通过后按包原子保存；错误包不会替换现有组件。
 
 安装组件后数据保存在应用自己的浏览器存储中，卸载应用或清除应用数据会移除它们。完整版与轻量版功能差别仅在 TeX 是否预装；轻量版并不减少编译时 TeX 引擎自身所需内存。
 
@@ -35,7 +35,7 @@ GitHub Actions 的 `Verify` 工作流在 master 推送、拉取请求或手动�
 
 ## TeX 组件的固定发布
 
-TeX 引擎和中文组件不随应用版本变化时，单独以标签 `tex-<组件版本>` 发布（当前为 `tex-0.1.1`，打在 `master` 的 `72fea00`），附 `Vela-TeX-<版本>-engine.zip`、`Vela-TeX-<版本>-chinese.zip` 和 `SHA256SUMS-tex-<版本>.txt`。这样下载地址固定为：
+TeX 引擎和中文组件不随应用版本变化时，单独以标签 `tex-<组件版本>` 发布（当前为 `tex-0.1.1`，打在 `master` 的 `72fea00`），附 `Vela-TeX-<版本>.zip`（单包）和 `SHA256SUMS-tex-<版本>.txt`。已发布的 `tex-0.1.1` 附有旧的两个分包，应用内下载需要的是单包：发布本版本前，把 `Vela-TeX-0.1.1.zip` 补传到 `tex-0.1.1`，同时更新该标签的 SHA256SUMS，并运行 Gitee 镜像脚本。旧分包可以保留，供旧版本下载。这样下载地址固定为：
 
 `https://github.com/KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager/releases/download/tex-0.1.1/<文件名>`
 
@@ -43,6 +43,19 @@ TeX 引擎和中文组件不随应用版本变化时，单独以标签 `tex-<组
 - 组件内容取自 `vendor/wasmtex`，精简版构建时生成到 `dist/plugins`。只有 `vendor/wasmtex` 更新时才发布新的组件标签；0.9.5–0.9.7 随附的组件逐字节相同。
 - 应用的每个版本仍可随附组件 ZIP，便于离线下载，内容须与组件标签一致（核对 SHA-256）。
 - Gitee 镜像：`https://gitee.com/kingpennymore/wenzhou-vela-mirror-repository/releases/download/tex-0.1.1/<文件名>`，标签和文件名与 GitHub 相同，内容逐字节一致。用 `pwsh scripts/mirror-tex-gitee.ps1 -Owner kingpennymore -Repository wenzhou-vela-mirror-repository [-Version 0.1.1]` 镜像：先在 GitHub 发布并在 `dist/releases/tex-<版本>` 准备好文件，运行时在提示处输入 Gitee 私人令牌（`projects` 权限，不显示、不保存），脚本创建发布、上传附件，并从公开地址下载核对 SHA-256。应用内下载计划先试 Gitee、再试 GitHub。
+
+### 发布时上传组件与镜像（应用内下载依赖）
+
+应用内“在线组件”和“检查更新”只从固定标签读取。每次发布按顺序完成：
+
+1. 构建。`npm run build:lite`（或任一构建）会把 TeX 单包的文件名、大小和 SHA-256 写入 `tex/components.json` 的 `downloads.package` 字段，标签为 `tex-<组件版本>`。ZIP 由固定时间戳确定性打包，重复构建结果逐字节相同。核对 `dist/tex-components/*.zip` 与已发布组件的 SHA-256 一致；不一致说明 `vendor/wasmtex` 有变化，需要发布新的组件标签。
+2. 发布 TeX 组件标签（仅在组件变化时）。在 GitHub 创建 `tex-<版本>`，附 `Vela-TeX-<版本>.zip` 和 `SHA256SUMS-tex-<版本>.txt`，设为非 Latest。然后运行 `pwsh scripts/mirror-tex-gitee.ps1 -Owner kingpennymore -Repository wenzhou-vela-mirror-repository -Version <版本>` 镜像到 Gitee，脚本会从公开地址下载回来核对。
+3. 发布应用标签 `v<版本>`。附件需包含三端安装包、可选组件 ZIP（如 `Vela-Ebook-Reader-<版本>.zip`）和 `SHA256SUMS-<版本>.txt`。文件名须保持现有格式，更新器按名称识别：
+   - `Vela-<版本>-windows[-lite]-setup-x64.exe`
+   - `Vela-<版本>-android.N[-lite]-release-signed.apk`
+   - `Vela-<组件名>-<x.y.z>.zip`
+4. 镜像应用发布：`pwsh scripts/mirror-tex-gitee.ps1 -Owner kingpennymore -Repository wenzhou-vela-mirror-repository -AppVersion <版本>`。超过 Gitee 100 MB 附件上限的文件（目前是 Windows 安装包和 ZIP）只留在 GitHub，应用会自动回退到 GitHub。
+5. 验证。在三端真机各执行一次：在线安装 TeX 组件、取消再重试、断网失败提示；Windows / 安卓“检查更新 → 下载并安装”；鸿蒙打开发布页。自动部分运行 `npm run test:downloads`。
 
 ## dist 目录与精简版发布
 

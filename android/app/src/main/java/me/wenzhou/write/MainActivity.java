@@ -169,7 +169,7 @@ public final class MainActivity extends Activity {
             + "window.wenzhouAndroidResolve=(id,raw)=>{const task=pending.get(id);if(task){clearTimeout(task.timer);pending.delete(id);task.resolve(raw);}};"
             + "window.WenzhouNative={platform:'android',readEnvironment:()=>WenzhouAndroid.readEnvironment(secret),readWorkspace:()=>WenzhouAndroid.readWorkspace(secret),"
             + "writeWorkspace:data=>WenzhouAndroid.writeWorkspace(secret,data),readPlugins:()=>WenzhouAndroid.readPlugins(secret),writePlugins:data=>WenzhouAndroid.writePlugins(secret,data),"
-            + "call:(op,json)=>new Promise((resolve,reject)=>{const id=crypto.randomUUID();const timer=setTimeout(()=>{pending.delete(id);reject(new Error('设备操作超时，请重试。'));},(['import','export','exportPdf','importPlugin'].includes(op)||(op==='project'&&['pick','deliver','exportFile'].includes(JSON.parse(json).action)))?600000:120000);"
+            + "call:(op,json)=>new Promise((resolve,reject)=>{const id=crypto.randomUUID();const timer=setTimeout(()=>{pending.delete(id);reject(new Error('设备操作超时，请重试。'));},(['import','export','exportPdf','importPlugin'].includes(op)||(op==='project'&&['pick','deliver','exportFile'].includes(JSON.parse(json).action)))?600000:['downloadComponent','downloadUpdate'].includes(op)?1800000:120000);"
             + "pending.set(id,{resolve,reject,timer});try{WenzhouAndroid.post(secret,id,op,json);}catch(error){clearTimeout(timer);pending.delete(id);reject(error);}})};})();";
         html = html.replace("script-src 'self' blob:", "script-src 'self' blob: 'nonce-" + capability + "'");
         html = html.replace("<script src=\"./licenses.js\">", "<script nonce=\"" + capability + "\">" + script + "</script><script src=\"./licenses.js\">");
@@ -185,7 +185,7 @@ public final class MainActivity extends Activity {
                 .put("left", rect.left / density).put("top", rect.top / density)
                 .put("right", rect.right / density).put("bottom", rect.bottom / density));
         } catch (org.json.JSONException impossible) { return; }
-        try { environment = new JSONObject().put("platform", "android").put("credentialStore", "Android Keystore")
+        try { environment = new JSONObject().put("platform", "android").put("version", versionName()).put("credentialStore", "Android Keystore")
             .put("cutouts", cutoutRects)
             .put("dark", dark).put("top", systemInsets.top / density).put("bottom", keyboardVisible ? 0 : systemInsets.bottom / density)
             .put("left", systemInsets.left / density).put("right", systemInsets.right / density).toString(); }
@@ -211,6 +211,15 @@ public final class MainActivity extends Activity {
     }
     void deliver(String id, String response) {
         runOnUiThread(() -> { if (!isFinishing() && web != null) web.evaluateJavascript("window.wenzhouAndroidResolve&&window.wenzhouAndroidResolve(" + JSONObject.quote(id) + "," + JSONObject.quote(response) + ")", null); });
+    }
+    private String versionName() { try { return getPackageManager().getPackageInfo(getPackageName(), 0).versionName; } catch (Exception unavailable) { return ""; } }
+    void dispatchDownload(String detail) {
+        runOnUiThread(() -> { if (!isFinishing() && web != null && pageReady) web.evaluateJavascript("window.dispatchEvent(new CustomEvent('wenzhouDownload',{detail:" + detail + "}))", null); });
+    }
+    void openExternal(String url) throws Exception {
+        java.util.concurrent.CompletableFuture<Boolean> result = new java.util.concurrent.CompletableFuture<>();
+        runOnUiThread(() -> { try { startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url))); result.complete(true); } catch (Exception error) { result.completeExceptionally(new IOException("未找到可用浏览器。")); } });
+        result.get(10, java.util.concurrent.TimeUnit.SECONDS);
     }
     void openAuthorization() throws Exception {
         java.util.concurrent.CompletableFuture<Boolean> result = new java.util.concurrent.CompletableFuture<>();
