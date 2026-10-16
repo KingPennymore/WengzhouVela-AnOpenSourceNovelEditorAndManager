@@ -1,12 +1,20 @@
-import {ViewPlugin,Decoration,hoverTooltip} from '@codemirror/view';
+import {ViewPlugin,Decoration,EditorView,hoverTooltip} from '@codemirror/view';
 import {t} from './i18n.mjs';
 import {glossaryKeywords,matchesGlossary} from './glossary-search.mjs';
+let pressed=false;const release=()=>{pressed=false;};
+if(typeof addEventListener==='function'){addEventListener('pointerup',release,true);addEventListener('pointercancel',release,true);}
 export function glossaryDecorations(getProject){
   let cached,byFirst=new Map();
   const entries=()=>{const project=getProject?.()||{},terms=project.highlightTerms?project.terms||[]:[];if(cached!==terms){cached=terms;byFirst=new Map();for(const entry of terms)for(const label of [entry.term,...entry.aliases]){if(!label)continue;const list=byFirst.get(label[0])||[];list.push({label,entry});byFirst.set(label[0],list);}for(const list of byFirst.values())list.sort((a,b)=>b.label.length-a.label.length);}return byFirst;};
   const matches=(view,from,to)=>{const lookup=entries(),text=view.state.doc.sliceString(from,to),found=[];for(let i=0;i<text.length;i++){const match=lookup.get(text[i])?.find(v=>text.startsWith(v.label,i));if(match){found.push({from:from+i,to:from+i+match.label.length,...match});i+=match.label.length-1;}}return found;};
-  const plugin=ViewPlugin.fromClass(class{constructor(view){this.build(view);}update(u){if(u.docChanged||u.viewportChanged||u.transactions.length)this.build(u.view);}build(view){this.decorations=Decoration.set(view.visibleRanges.flatMap(r=>matches(view,r.from,r.to)).map(m=>Decoration.mark({class:'vela-term',attributes:{title:m.entry.term+' · '+(m.entry.definition||'')}}).range(m.from,m.to)),true);}},{decorations:v=>v.decorations});
-  return [plugin,hoverTooltip((view,pos)=>{const from=Math.max(0,pos-120),to=Math.min(view.state.doc.length,pos+120),m=matches(view,from,to).find(m=>m.from<=pos&&pos<m.to);if(!m)return null;return {pos:m.from,end:m.to,create(){const dom=document.createElement('div');dom.className='vela-term-tip';dom.textContent=[m.entry.term,m.entry.category,m.entry.definition,(m.entry.aliases||[]).join('、'),(m.entry.sources||[]).join(' · ')].filter(Boolean).join('\n');return {dom};}};})];
+  // Selection-only transactions (dragging, Shift-extending) reuse the decorations; only text, viewport or a changed
+  // term list rebuild them, and the term list is re-read at most once per second while the selection moves.
+  const plugin=ViewPlugin.fromClass(class{constructor(view){this.checked=0;this.build(view);}update(u){const now=performance.now();if(u.docChanged||u.viewportChanged||u.transactions.some(tr=>tr.effects.length||tr.reconfigured)||now-this.checked>1000&&entries()!==this.lookup)this.build(u.view);}build(view){this.checked=performance.now();this.lookup=entries();this.decorations=Decoration.set(view.visibleRanges.flatMap(r=>matches(view,r.from,r.to)).map(m=>Decoration.mark({class:'vela-term',attributes:{'data-term':m.entry.term}}).range(m.from,m.to)),true);}},{decorations:v=>v.decorations});
+  // Definitions never open over a selection or while a pointer is held (drag-select, long-press handles), and they open
+  // on the side of the term away from the cursor line so the line being edited stays readable.
+  const press=EditorView.domEventHandlers({pointerdown(){pressed=true;}});
+  const tip=hoverTooltip((view,pos)=>{if(pressed||view.state.selection.ranges.some(r=>!r.empty))return null;const from=Math.max(0,pos-120),to=Math.min(view.state.doc.length,pos+120),m=matches(view,from,to).find(m=>m.from<=pos&&pos<m.to);if(!m)return null;const doc=view.state.doc,cursor=doc.lineAt(view.state.selection.main.head).number,line=doc.lineAt(m.from).number;return {pos:m.from,end:m.to,above:cursor>line,create(){const dom=document.createElement('div');dom.className='vela-term-tip';dom.textContent=[m.entry.term,m.entry.category,m.entry.definition,(m.entry.aliases||[]).join('、'),(m.entry.sources||[]).join(' · ')].filter(Boolean).join('\n');return {dom};}};},{hideOnChange:true});
+  return [plugin,press,tip];
 }
 export function renderGlossaryPanel(root,terms,{escape:esc,onOpen,onClose}){
   const previousQuery=root.querySelector('input')?.value||'';
