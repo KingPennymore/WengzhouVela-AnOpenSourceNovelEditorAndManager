@@ -5,7 +5,9 @@ import {glossaryCompletion} from './glossary.mjs';
 import {t} from './i18n.mjs';
 import {nounCompletionExtension} from './noun-completion.mjs';
 import {glossaryDecorations} from './glossary-panel.mjs';
-import {latexCompletion} from './latex-editor.mjs';
+import {loadLatexEditor} from './lazy.mjs';
+// The TeX catalog lives in the latex-editor chunk; the source loads it on first use (CodeMirror awaits it).
+const latexCompletion=(doc,getProject)=>{let source;return async context=>{source??=(await loadLatexEditor()).latexCompletion(doc,getProject);return source(context);};};
 export function completionSpace(view){
   const bounds=view.scrollDOM.getBoundingClientRect(),viewport=view.dom.ownerDocument.defaultView,visual=viewport.visualViewport;
   const left=visual?.offsetLeft||0,top=visual?.offsetTop||0,width=visual?.width||viewport.innerWidth,height=visual?.height||viewport.innerHeight;

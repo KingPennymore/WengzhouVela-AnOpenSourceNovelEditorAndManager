@@ -15,6 +15,28 @@ GitHub Actions 的 `Verify` 工作流在 master 推送、拉取请求或手动�
 
 新写的浏览器测试可以用 `tests/source-app-server.mjs` 的 `startSourceAppServer()` 直接从 `web/` 源码在内存中打包并提供页面，不需要先 `npm run build`，也不会改写 `entry/` 或 `dist/web`。TeX 等复制类资源仍取自最近一次构建。单独运行 `node tests/source-app-server.mjs` 可在 4174 端口预览源码（`VELA_PREVIEW_PORT` 可改）。
 
+## 前端打包结构
+
+`scripts/build.mjs` 把 `web/app.js` 打成 ES 模块（`format:'esm'`、`splitting:true`、`target:'chrome105'`），由 `index.html` 的 `<script type="module" src="./app.js">` 加载。`import()` 引入的模块单独成块，放在 `chunks/<名称>-<内容哈希>.js`：
+
+- 按需加载的功能（`web/lazy.mjs`）：`pdf-preview`（pdf.js 与 LaTeX 预览，打开 PDF / .tex 预览或在阅读页打开这两类文件时加载）、`katex`（第一次渲染公式时加载，之前公式先显示为占位，加载后原地排版）、`epub-export`（导出 EPUB 时）、`latex-editor` / `latex-language`（打开 .tex 时，提供高亮、补全、折叠和检查；目录标题解析留在主包的 `tex-heading.mjs`）、`reader`（第一次进入阅读页时）。
+- CodeMirror 各语言（`@codemirror/language-data`）原本就用 `import()`，现在每种语言一个块，打开对应文件时加载。
+- `chunk-<哈希>.js` 是多个模块共用的部分，按需静态引入。
+- 某个块加载失败时，原位置显示“无法加载 xx 模块”和重试按钮（阅读页、预览区），公式显示为带错误提示的源码；浏览器会记住失败的模块地址，所以重试时带 `?retry=N` 重新请求。
+
+三端都从同源地址提供 `web/` 下任意文件，块文件无需额外配置：Windows 是 `vela://editor/web/…`（`windows/main.mjs` 的 `assetResponse`，标准安全协议），鸿蒙是 `https://wenzhou-editor.local/web/…`（`Index.ets` 拦截后读 rawfile，`.js` 以 `text/javascript` 返回），安卓是 `https://appassets.androidplatform.net/assets/web/…`（`WebViewAssetLoader`）。块名随内容变化，构建前清空 `rawfile/web/chunks`、`dist/web/chunks` 和安卓 `assets/web/chunks`，避免旧块残留。
+
+构建清单 `build-manifest.json` 记录全部块；`scripts/check-build.mjs` 从 `app.js` 出发沿静态 import 和 `import()` 遍历，要求每个模块都在清单中，上述按需模块都存在，且启动所需的模块里没有 pdf.js 和 KaTeX。esbuild 的 metafile 写在 `dist/app-metafile.json`，`node scripts/measure-startup.mjs [次数] [--out 文件]` 在新的浏览器上下文中测量冷启动到 `window.velaReady` 的时间（不限速和 4 倍 CPU 降速）及启动前下载的脚本字节数。`tests/lazy-chunks-browser.mjs` 检查启动不加载这些块、各功能按需加载以及加载失败的提示和重试。
+
+拆分前后（完整版，同一台 14 核机器，各 7 次取中位数）：
+
+| | 拆分前 | 拆分后 |
+|---|---|---|
+| `app.js` | 3,232,870 字节（gzip 1,086,596） | 682,554 字节（gzip 226,610） |
+| 启动前下载的脚本（含 licenses.js 和共享块） | 3,344,925 字节，2 个文件 | 1,570,781 字节，19 个文件 |
+| 冷启动到 `velaReady`，不限速 | 331 ms | 172 ms |
+| 冷启动到 `velaReady`，4 倍 CPU 降速 | 1,968 ms | 988 ms |
+
 ## 完整版与轻量版
 
 默认 `npm run build`、`npm run build:android` 和 `npm run build:windows` 继续生成完整版，内置离线 TeX 引擎及中文包。

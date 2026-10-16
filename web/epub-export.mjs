@@ -2,13 +2,13 @@
 // Format reference: EPUB 3.3 (https://www.w3.org/TR/epub-33/): `mimetype` first and uncompressed, OCF container,
 // package document with dc:identifier/title/language and dcterms:modified, a nav document, XHTML content.
 import {zipSync,strToU8} from 'fflate';
+import {COVER_TYPES,MAX_COVER_BYTES,epubFileName} from './epub-names.mjs';
+export {COVER_TYPES,MAX_COVER_BYTES,epubFileName};
 import {exportLines,htmlLine,lineClass,escapeHtml,FIGURE_CSS} from './rich-text-export.mjs';
 import {alignedLines,styledLines,imagesByLine} from './rich-text.mjs';
 import {styleSheet} from './rich-text-styles.mjs';
 
 const NS={opf:'http://www.idpf.org/2007/opf',dc:'http://purl.org/dc/elements/1.1/',xhtml:'http://www.w3.org/1999/xhtml',epub:'http://www.idpf.org/2007/ops',ncx:'http://www.daisy.org/z3986/2005/ncx/',container:'urn:oasis:names:tc:opendocument:xmlns:container'};
-export const COVER_TYPES=Object.freeze({'image/jpeg':'jpg','image/png':'png','image/gif':'gif','image/webp':'webp'});
-export const MAX_COVER_BYTES=5*1024*1024;
 const failure=message=>Error('无法导出 EPUB：'+message);
 // XML 1.0 forbids most control characters and lone surrogates; they are dropped rather than failing the export.
 const clean=value=>String(value).replace(/[\x00-\x08\x0b\x0c\x0e-\x1f￾￿]|[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/g,'');
@@ -127,4 +127,3 @@ ${cover?'<itemref idref="cover" linear="yes"/>\n':''}${chapters.map(chapter=>`<i
   return {bytes:zipSync(archive,{level:6}),files,chapters:chapters.length,identifier,missing:[...new Set(missing)]};
 }
 /** “书名.epub” with characters file systems reject replaced. */
-export const epubFileName=title=>(String(title||'').replace(/[\\/:*?"<>|\x00-\x1f\x7f]+/g,' ').replace(/\s+/g,' ').trim().slice(0,120).trim()||'电子书')+'.epub';

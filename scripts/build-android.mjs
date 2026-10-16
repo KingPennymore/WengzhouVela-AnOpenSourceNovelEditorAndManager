@@ -12,6 +12,8 @@ if(process.argv.includes('--assets-only')){
   await import('./build.mjs');
   await mkdir('android/app/src/main/assets',{recursive:true});
   if(process.env.VELA_BUILD_FLAVOR==='lite'){const {rm}=await import('node:fs/promises'),descriptor=JSON.parse(await readFile('entry/src/main/resources/rawfile/web/tex/components.json','utf8'));for(const name of Object.keys(descriptor.files))await rm('android/app/src/main/assets/web/tex/'+name,{force:true});}
+  // Chunk names carry content hashes; drop the previous build's chunks so the APK holds only current ones.
+  {const {rm}=await import('node:fs/promises');await rm('android/app/src/main/assets/web/chunks',{recursive:true,force:true});}
   await cp('entry/src/main/resources/rawfile/web','android/app/src/main/assets/web',{recursive:true});
   const license=await readFile('android/APACHE-2.0.txt','utf8');
   const file='android/app/src/main/assets/web/licenses.js';

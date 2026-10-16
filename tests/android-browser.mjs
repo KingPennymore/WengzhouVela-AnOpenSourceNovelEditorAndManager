@@ -42,6 +42,7 @@ try{
     await p.locator('#quick-redo').click();assert.ok((await saved()).documents.find(d=>d.path===prefix+'/正文.txt').text.startsWith('　　第一章'));
     await p.locator('#quick-bottom').click();await p.locator('#quick-chapter-top').click();assert.match(await p.locator('#current-chapter').innerText(),/第二章/);
     assert.match(adb('shell','run-as','me.wenzhou.write','cat','files/workspaces/文舟/'+prefix+'/正文.txt'),/原始正文/);
+    assert.match(adb('shell','run-as','me.wenzhou.write','head','-c','24','files/workspace.json'),/^\{"store":\{"format":2/,'saves after the first one are incremental (docs/WORKSPACE-STORAGE.md)');
   });
   await check('系统深浅模式实时跟随，手动主题保留',async()=>{
     adb('shell','cmd','uimode','night','yes');await p.waitForFunction(()=>document.body.classList.contains('dark'));
