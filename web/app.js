@@ -30,7 +30,7 @@ import {SidebarLayout} from './sidebars.mjs';
 import {UIShell,organizeSettings} from './ui-shell.mjs';
 import {Reader} from './reader.mjs';
 import {Subscriptions} from './subscriptions.mjs';
-import {createVelaV2,velaText,projectConfig,projectWriter,includeNewReadingFile,rewriteVelaFiles,configFolder,readable,GLOBAL_VELA_PATH,globalConfig,formatHome,legacySidecar,addFormatRecord,configStyles} from './vela.mjs';
+import {createVelaV2,velaText,projectConfig,projectWriter,includeNewReadingFile,rewriteVelaFiles,configFolder,readable,GLOBAL_VELA_PATH,globalConfig,formatHome,legacySidecar,addFormatRecord,configStyles,readPosition,positionEntry,positionOffset,positionUpdate} from './vela.mjs';
 import {renderVelaEditor} from './vela-view.mjs';
 import {completionExtensions} from './completion.mjs';
 import {initI18n,setLanguage,t} from './i18n.mjs';
@@ -43,7 +43,7 @@ import {decodeFileText} from './file-text.mjs';
 import {htmlPreview} from './html-preview.mjs';
 import {csvTable} from './csv-view.mjs';
 import {palettes,applyPalette,paletteFor,allPalettes,customPalettes,setCustomPalettes,derivePalette,paletteWarnings,validateCustomPalette,paletteBase,newPaletteId,MAX_CUSTOM_PALETTES} from './palettes.mjs';
-import {initMotion} from './motion.mjs';
+import {initMotion,beginThemeShift} from './motion.mjs';
 import {inlineMarkup,lineMarkup,relativeResource,taskLists} from './markdown-tools.mjs';
 import {bindTextZoom} from './gestures.mjs';
 import {PluginRuntime} from './plugins.mjs';
@@ -135,8 +135,9 @@ function save(show=false){
   catch(e){dirty=true;status('保存失败 · 请导出备份',true);fail(new Error('保存失败：'+e.message));return false;}
 }
 function scheduleSave(){dirty=true;status('未保存',true);renderTabDirty();if(!saveTimer)saveTimer=setTimeout(()=>save(),1200);}
-window.wenzhouSave=()=>save();
-window.addEventListener('pagehide',()=>{if(dirty)save();});
+window.wenzhouSave=()=>{rememberPosition(workspace?.activeId,view?.state);return save();};
+window.addEventListener('pagehide',()=>{rememberPosition(workspace?.activeId,view?.state);if(dirty)save();});
+document.addEventListener('visibilitychange',()=>{if(document.hidden&&rememberPosition(workspace?.activeId,view?.state))save();});
 window.addEventListener('blur',()=>{if(dirty)save();});
 window.addEventListener('beforeunload',e=>{if(dirty&&!save()){e.preventDefault();e.returnValue='';}});
 function ensureIndex(){const doc=view.state.doc,writer=documentKind(current())==='TEX'?{...projectWriter(workspace,current()),tex:true}:projectWriter(workspace,current()),settings=JSON.stringify(writer);if(doc!==indexDoc||settings!==indexSettings||!index){if(!indexService||indexService.doc!==doc||settings!==indexSettings)indexService=new EditorIndex(doc,writer);index=indexService.value;indexDoc=doc;indexSettings=settings;outlineRevision='';}return index;}
@@ -275,16 +276,17 @@ const workspaceImages=doc=>{const folder=parentPath(documentPath(doc)),prefix=fo
 /** Insert an illustration after the current paragraph, or edit/remove the one with `id`. */
 function showImageDialog(id){
   if(!guardFormat())return;const doc=current(),entry=id?formatsOf(view.state).entries.find(item=>item.id===id&&item.group==='inserts'):null,list=workspaceImages(doc),canImport=canReadImages();
-  openModal(entry?'编辑插图':'插入插图',`<label>图片路径<input name="src" required list="workspace-images" value="${esc(entry?.src||'')}" placeholder="插图/雪夜.png"><datalist id="workspace-images">${list.map(path=>`<option value="${esc(path)}">`).join('')}</datalist><small>相对于本文所在文件夹${list.length?'，可从列表选择工作区中的图片':''}。插图放在${entry?'原来的位置':'光标所在段落之后'}。</small></label><label>说明（可选）<input name="alt" maxlength="200" value="${esc(entry?.alt||'')}"></label>${canImport?'<p><button type="button" class="secondary" id="import-image">从本机导入图片…</button><input type="file" id="image-file" accept="image/png,image/jpeg,image/gif,image/webp" hidden></p>':'<small>浏览器预览不能读取或导入工作区图片，插图显示为占位框；在应用中可正常显示和导出。</small>'}${entry?'<p><button type="button" class="danger" id="remove-image">删除插图</button></p>':''}`,form=>{const src=imagePath(form.get('src')),alt=form.get('alt').trim();if(entry)updateImage(view,entry.id,{src,alt});else insertImage(view,{src,alt});renderFormatTools();view.focus();},{label:entry?'保存':'插入'});
+  openModal(entry?'编辑插图':'插入插图',`<label>图片路径<input name="src" required list="workspace-images" value="${esc(entry?.src||'')}" placeholder="插图/雪夜.png"><datalist id="workspace-images">${list.map(path=>`<option value="${esc(path)}">`).join('')}</datalist><small>相对于本文所在文件夹${list.length?'，可从列表选择工作区中的图片':''}。插图放在${entry?'原来的位置':'光标所在段落之后'}。</small></label><label>说明（可选）<input name="alt" maxlength="200" value="${esc(entry?.alt||'')}"></label>${canImport?'<p><button type="button" class="secondary" id="import-image">从本机导入图片…</button></p>':'<small>浏览器预览不能读取或导入工作区图片，插图显示为占位框；在应用中可正常显示和导出。</small>'}${entry?'<p><button type="button" class="danger" id="remove-image">删除插图</button></p>':''}`,form=>{const src=imagePath(form.get('src')),alt=form.get('alt').trim();if(entry)updateImage(view,entry.id,{src,alt});else insertImage(view,{src,alt});renderFormatTools();view.focus();},{label:entry?'保存':'插入'});
   const remove=$('#remove-image');if(remove)remove.onclick=()=>{updateImage(view,entry.id,null);closeModal();renderFormatTools();view.focus();};
-  const button=$('#import-image'),input=$('#image-file');if(button)button.onclick=()=>input.click();
-  if(input)input.onchange=async()=>{const file=input.files[0];if(!file)return;$('#dialog-error').textContent='';try{
-    if(!/^image\/(png|jpeg|gif|webp)$/.test(file.type))throw Error('请选择 PNG、JPEG、GIF 或 WebP 图片。');if(file.size>8*1024*1024)throw Error('插图不能超过 8 MB。');
+  // WebViews do not open a chooser for <input type=file>, so the image comes from the app's own system picker.
+  const button=$('#import-image');if(button)button.onclick=async()=>{$('#dialog-error').textContent='';button.disabled=true;try{
+    const picked=await transport('import',{}),file=Array.isArray(picked)?picked[0]:picked;if(!file)return;
+    const extension=(file.name.match(/\.(png|jpe?g|gif|webp)$/i)||[])[1];if(!extension||typeof file.data!=='string')throw Error('请选择 PNG、JPEG、GIF 或 WebP 图片。');
+    if(file.data.length*3/4>8*1024*1024)throw Error('插图不能超过 8 MB。');
     const name=file.name.replace(/[\\/:*?"<>|\x00-\x1f]+/g,'_').slice(-80)||'插图.png',existing=new Set(workspaceImages(doc));let relative='插图/'+name;for(let i=2;existing.has(relative);i++)relative='插图/'+name.replace(/(\.[^.]+)?$/,` (${i})$1`);
-    if(!save())throw Error('请先保存当前文稿。');const bytes=new Uint8Array(await file.arrayBuffer());let data='';for(let i=0;i<bytes.length;i+=16384)data+=String.fromCharCode(...bytes.subarray(i,i+16384));
-    const target=workspaceImagePath(doc,relative);applyFileState(await transport('writeWorkspaceFiles',{files:[{path:target,data:btoa(data)}],folders:[parentPath(target)]}));
+    if(!save())throw Error('请先保存当前文稿。');const target=workspaceImagePath(doc,relative);applyFileState(await transport('writeWorkspaceFiles',{files:[{path:target,data:file.data}],folders:[parentPath(target)]}));
     $('#dialog-body [name=src]').value=relative;toast('已导入 '+relative);
-  }catch(error){$('#dialog-error').textContent=error.message;}};
+  }catch(error){$('#dialog-error').textContent=error.message;}finally{button.disabled=false;}};
 }
 /** Where named styles are saved: the workspace .vela of this TXT, or the global configuration. */
 function styleConfigDoc(doc){const project=projectConfig(workspace,doc);if(project?.error)throw Error('作品配置有错误，请先修复：'+project.error.message);if(project&&!project.global&&project.rawConfig?.kind==='workspace')return project.doc;return ensureGlobalVela();}
@@ -342,20 +344,28 @@ function renderDocuments(){
   if(workspace.storage?.id||workspace.folders?.length){$('#doc-list').innerHTML=folderTree(workspace,docs,esc,selectedFolder,workspace.settings.filesSort);return;}
   $('#doc-list').innerHTML=docs.map(d=>`<div class="doc-item ${d.id===workspace.activeId?'active':''}"><button class="doc-open" data-doc="${esc(d.id)}"><span class="doc-symbol">${documentKind(d)}</span><span class="doc-info"><strong>${esc(d.name)}<span class="git-file-state">${gitFileState(workspace,d)}</span></strong><small>${new Date(d.updatedAt).toLocaleDateString('zh-CN',{month:'2-digit',day:'2-digit'})} · ${Writer.countText(d.text).toLocaleString()} 字${d.remote?' · Git':''}</small></span></button><button class="doc-menu" data-menu="${esc(d.id)}" title="文稿操作" aria-label="${esc(d.name)} 文稿操作">···</button></div>`).join('')||'<p class="blank">没有找到文稿。</p>';
 }
+/** Stores where document uid=197610(renyu) gid=197610 groups=197610 was left (state: its editor state) in its .vela; true when the .vela changed. */
+function rememberPosition(id,state){
+  const doc=workspace?.documents.find(item=>item.id===id);if(!doc||!state||!documents||state.doc.toString()!==doc.text)return false;
+  const update=positionUpdate(workspace,doc,positionEntry(doc.text,state.selection.main.head));if(!update)return false;
+  documents.change(update.doc,update.text);refreshConfigState(update.doc);return true;
+}
+/** Opens a document at its stored position (only when no editor state of this session is reused). */
+function restorePosition(doc){const value=readPosition(workspace,doc);if(!value||!view)return;const at=Math.min(positionOffset(doc.text,value),view.state.doc.length);view.dispatch({selection:{anchor:at},effects:EditorView.scrollIntoView(at,{y:'center'}),annotations:Transaction.addToHistory.of(false)});}
 function switchDocument(id){
   selectionMenu.hide();$('#preview').odfDispose?.();
   if(!workspace.documents.some(d=>d.id===id))return;
-  if(view){editorStates.delete(workspace.activeId);editorStates.set(workspace.activeId,view.state);if(dirty&&!save())return;while(editorStates.size>8)editorStates.delete(editorStates.keys().next().value);}
+  if(view){editorStates.delete(workspace.activeId);editorStates.set(workspace.activeId,view.state);if(dirty&&!save())return;if(workspace.activeId!==id)rememberPosition(workspace.activeId,view.state);while(editorStates.size>8)editorStates.delete(editorStates.keys().next().value);}
   if(!workspace.openIds.includes(id))workspace.openIds.push(id);
   workspace.activeId=id;const doc=current();if(!doc)return;
   home=false;csvPage=0;csvColumnPage=0;$('#start-page').hidden=true;isPreview=['CSV','VELA','GLY','VODT'].includes(documentKind(doc));
   // A file operation recreates the view; the kept state (undo history, formats) is reused while the text is unchanged.
-  const kept=editorStates.get(id);if(view)view.setState(kept||makeState(doc));else view=new EditorView({state:kept&&kept.doc.toString()===doc.text?kept:makeState(doc),parent:$('#editor')});
+  const kept=editorStates.get(id),reused=!!kept&&(!!view||kept.doc.toString()===doc.text);if(view)view.setState(kept||makeState(doc));else view=new EditorView({state:reused?kept:makeState(doc),parent:$('#editor')});if(!reused)restorePosition(doc);
   activateLanguage(doc);index=null;setFontSize(projectConfig(workspace,doc)?.config?.editor?.fontSize??workspace.settings.fontSize,false);$('#current-name').textContent=doc.name;
   updateEditorVisibility();renderDocuments();updateStats();if(isPreview)renderPreview();save();showView('write');plugins?.emit('switch-file',plugins.activeFile);
 }
 function closeDocument(id){
-  if(dirty&&!save())return;
+  if(dirty&&!save())return;if(workspace.activeId!==id)rememberPosition(id,editorStates.get(id));
   const position=workspace.openIds.indexOf(id);if(position<0)return;
   workspace.openIds=workspace.openIds.filter(open=>open!==id);
   if(workspace.activeId===id){if(workspace.openIds.length)switchDocument(workspace.openIds[Math.min(position,workspace.openIds.length-1)]);else showHome();}else{renderDocuments();save();}
@@ -380,7 +390,7 @@ function renderDisplayOptions(){
 }
 $('#display-options').onclick=e=>{if(e.target.closest('[data-native-html]')){openNativeHtml();return;}const mode=e.target.closest('[data-display]');if(mode){isPreview=mode.dataset.display==='preview';updateEditorVisibility();if(isPreview)renderPreview();else view.focus();}if(e.target.closest('[data-format]')){const doc=current();openModal('文件类型',`<label>编辑格式<select name="kind">${[['','按扩展名识别'],['TXT','纯文本'],['MD','Markdown'],['HTML','HTML'],['CSV','CSV 表格'],['VELA','VELA 工作区配置'],['GLY','术语库'],['TEX','LaTeX'],['CODE','代码']].map(([value,label])=>`<option value="${value}" ${value===(doc.kind||'')?'selected':''}>${label}</option>`).join('')}</select></label>`,f=>{doc.kind=f.get('kind')||undefined;isPreview=['CSV','VELA','GLY','VODT'].includes(documentKind(doc));refreshFileType(doc);save();});}};
 function showHome(){
-  if(view){if(dirty&&!save())return;editorStates.set(workspace.activeId,view.state);view.destroy();view=null;}
+  if(view){if(dirty&&!save())return;editorStates.set(workspace.activeId,view.state);rememberPosition(workspace.activeId,view.state);view.destroy();view=null;}
   ui.close();selectionMenu.hide();$('#preview').odfDispose?.();document.body.classList.remove('focus');
   workspace.activeId=null;home=true;isPreview=false;index=null;$('#current-name').textContent='启动页';$('#start-page').hidden=false;$('#start-page').dataset.panel='actions';updateEditorVisibility();renderHome();renderDocuments();updateStats();showView('write');setSidebar('outline',false);save();plugins?.emit('switch-file',null);
 }
@@ -495,7 +505,7 @@ $('#format-strong').onclick=formatCommand(v=>toggleInline(v,'strong'));
 $('#format-emphasis').onclick=formatCommand(v=>toggleInline(v,'emphasis'));
 $('#format-center').onclick=formatCommand(v=>toggleAlign(v,'center'));
 $('#format-right').onclick=formatCommand(v=>toggleAlign(v,'right'));
-$('#format-clear').onclick=formatCommand(v=>clearFormats(v));
+$('#format-clear').onclick=formatCommand(v=>{if(clearFormats(v)===null)toast(v.state.selection.main.empty?'光标所在段落没有格式可清除。':'选中的文字没有格式可清除。');});
 $('#format-review').onclick=()=>showFormatReview();
 $('#format-style .format-style-icon').innerHTML=icon('style');$('#format-style .format-style-caret').innerHTML=icon('chevronDown');
 $('#format-ruby').onclick=()=>showRubyDialog();
@@ -600,8 +610,9 @@ window.addEventListener('resize',()=>{if(workspace&&pageName==='write'){updateEd
 function applyTheme(mode=workspace.settings.theme){
   workspace.settings.theme=mode;
   const dark=mode==='dark'||mode==='system'&&(environment?.dark??systemTheme.matches);
+  if(dark!==document.body.classList.contains('dark'))beginThemeShift();
   workspace.settings.dark=dark;document.body.classList.toggle('dark',dark);workspace.settings.palette=applyPalette(document.body,workspace.settings.palette,dark);
-  const label=mode==='system'?`跟随系统（${dark?'深色':'浅色'}），切换到浅色模式`:dark?'跟随系统模式':'切换到深色模式';
+  const follows=!dark===(environment?.dark??systemTheme.matches),label=(mode==='system'?`跟随系统（${dark?'深色':'浅色'}），`:'')+`切换到${dark?'浅色':'深色'}模式${follows?'（跟随系统）':''}`;
   const menuLabel=$('#theme .menu-label');$('#theme').innerHTML=icon(dark?'sun':'theme');if(menuLabel)$('#theme').append(menuLabel);$('#theme').title=label+' (Ctrl+Alt+T)';$('#theme').setAttribute('aria-label',label);
   const githubTheme=$('[data-toggle-theme]');if(githubTheme){githubTheme.innerHTML=icon(dark?'sun':'theme');githubTheme.title=label;githubTheme.setAttribute('aria-label',label);}
   if(native)transport('appearance',{dark,background:paletteFor(workspace.settings.palette,dark).colors.bg,foreground:paletteFor(workspace.settings.palette,dark).colors.text}).catch(fail);
@@ -623,7 +634,9 @@ function showPaletteEditor(id='',from=workspace.settings.palette){
   const start=$('#dialog-body [name=from]');if(start)start.onchange=()=>{const next=paletteBase(start.value);for(const mode of ['light','dark'])for(const key of ['paper','text','accent'])$(`#dialog-body [name="${mode}-${key}"]`).value=next[mode][key];preview();};
   const remove=$('#delete-palette');if(remove)remove.onclick=()=>{workspace.settings.customPalettes=(workspace.settings.customPalettes||[]).filter(item=>item.id!==id);setCustomPalettes(workspace.settings.customPalettes);if(workspace.settings.palette===id)workspace.settings.palette='pine';applyTheme();save();closeModal();toast('配色已删除');};
 }
-function cycleTheme(){applyTheme({system:'light',light:'dark',dark:'system'}[workspace.settings.theme]||'system');save();}
+// Every press flips what is on screen; when the new look matches the system it follows the system again, so the
+// first press is never a no-op (the old system → light → dark cycle did nothing on a light system).
+function cycleTheme(){const dark=!workspace.settings.dark,system=environment?.dark??systemTheme.matches;applyTheme(dark===system?'system':dark?'dark':'light');save();}
 $('#theme').onclick=cycleTheme;
 systemTheme.addEventListener('change',()=>{if(workspace?.settings.theme==='system')applyTheme();});
 function applyEnvironment(value){environment=value;document.body.dataset.platform=value?.platform||'browser';ui.environment(value);for(const edge of ['top','bottom','left','right'])document.documentElement.style.setProperty('--safe-'+edge,Math.max(0,Number(value?.[edge]||0))+'px');if(workspace?.settings.theme==='system')applyTheme();sidebars.update(false);}
@@ -936,8 +949,10 @@ function renderVela(){
     // The form edits the configuration; format records are taken from the file as it is now (they may have changed
     // since the page was drawn), except when the format page itself removes one (`records`).
     if(!records)try{const next=JSON.parse(text),now=JSON.parse(old.text).richText?.documents;if(now||next.richText?.documents){next.richText={...next.richText,documents:now};if(!now)delete next.richText.documents;if(!Object.keys(next.richText).length)delete next.richText;text=velaText(next);}}catch{}
-    // Backups keep the configuration without format records (they can be large); restoring one keeps today's formats.
-    const strip=source=>{try{const config=JSON.parse(source);if(config.richText?.documents){delete config.richText.documents;return JSON.stringify(config,null,2)+'\n';}}catch{}return source;};
+    // Editing positions are never edited by the form: always keep the file's current ones.
+    try{const next=JSON.parse(text),now=JSON.parse(old.text).positions;if(now||next.positions){if(now)next.positions=now;else delete next.positions;text=velaText(next);}}catch{}
+    // Backups keep the configuration without format records (they can be large) or positions; restoring one keeps today's.
+    const strip=source=>{try{const config=JSON.parse(source);if(config.richText?.documents||config.positions){if(config.richText)delete config.richText.documents;delete config.positions;return JSON.stringify(config,null,2)+'\n';}}catch{}return source;};
     if(restore){try{const restored=JSON.parse(text),records=JSON.parse(old.text).richText?.documents;if(records&&!restored.richText?.documents){restored.version=3;restored.richText={...restored.richText,documents:records};text=velaText(restored);}}catch{}}
     if(old.text!==text){workspace.configBackups={...workspace.configBackups,[old.id]:[...(workspace.configBackups?.[old.id]||[]),{text:strip(old.text),createdAt:Date.now()}].slice(-5)};}view.dispatch({changes:{from:0,to:view.state.doc.length,insert:text}});if(!save())throw new Error('保存失败');index=null;renderVela();toast('工作区配置已保存');}});
 }

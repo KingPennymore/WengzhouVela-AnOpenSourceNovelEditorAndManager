@@ -31,7 +31,10 @@ export function bindSelectionMenu({getView,getDoc,addGlossary,extraItems=()=>[],
  const restore=s=>{if(s.input){if(!s.input.isConnected)throw Error('输入框已关闭。');s.input.focus();s.input.setSelectionRange(s.from,s.to);}else if(s.view){if(getView()!==s.view||s.doc!==s.view.state.doc)throw Error('文稿已变化，请重新选择。');s.view.dispatch({selection:{anchor:s.from,head:s.to}});s.view.focus();}else{if(!s.surface.isConnected)throw Error('选区已关闭。');const selection=getSelection();selection.removeAllRanges();selection.addRange(s.range);s.surface.focus();}};
  const replace=(s,text)=>{restore(s);if(s.input){s.input.setRangeText(text,s.from,s.to,'end');s.input.dispatchEvent(new Event('input',{bubbles:true}));}else if(s.view)s.view.dispatch({changes:{from:s.from,to:s.to,insert:text},selection:{anchor:s.from+text.length},userEvent:'input.selection'});else{document.execCommand('insertText',false,text);s.surface.odfSync?.();}};
  function show(){
-  clearTimeout(timer);if(pressing||performing||document.querySelector('dialog[open]'))return;const s=capture();if(!s||!s.text.trim()){hide();return;}if(dismissed){if(dismissed===true||same(dismissed))return;dismissed=false;}snapshot=s;menu.replaceChildren();
+  clearTimeout(timer);if(pressing||performing||document.querySelector('dialog[open]'))return;const s=capture();if(!s||!s.text.trim()){hide();return;}if(dismissed){if(dismissed===true||same(dismissed))return;dismissed=false;}
+  // The same selection keeps the open bar (and an open “更多” list) as it is; only its position is refreshed.
+  if(!menu.hidden&&snapshot&&same()){snapshot=s;position(s);return;}
+  snapshot=s;menu.replaceChildren();
   // Cut, copy and paste stay on the bar; everything else (search, glossary, Markdown/TeX/ODF formats, plugin items) is under “更多”.
   const basic=[],more=[];
   const item=(label,action)=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('role','menuitem');b.onpointerdown=e=>e.preventDefault();b.onclick=async()=>{const selected=snapshot;if(!selected)return;performing=true;try{await action(selected);dismiss();}catch(e){fail(e);}finally{performing=false;}};return b;};
@@ -52,13 +55,16 @@ export function bindSelectionMenu({getView,getDoc,addGlossary,extraItems=()=>[],
    toggle.onclick=()=>{list.hidden=!list.hidden;toggle.setAttribute('aria-expanded',String(!list.hidden));if(!list.hidden)placeMore(list);};
    menu.append(toggle,list);
   }
-  menu.hidden=false;menu.classList.remove('selection-pinned');document.documentElement.style.setProperty('--selection-dock-height','0px');
+  menu.hidden=false;position(s);
+ }
+ function position(s){
+  menu.classList.remove('selection-pinned');document.documentElement.style.setProperty('--selection-dock-height','0px');
   const visual=window.visualViewport,root=getComputedStyle(document.documentElement),safeTop=parseFloat(root.getPropertyValue('--safe-top'))||0;
   // The bar sits above the selection; when the selection starts above the visible editor (or there is no room above
   // it), the bar is pinned just below the editor's toolbar instead of covering the toolbar.
   const top=Math.max(safeTop,s.area?.top??safeTop),bounds={left:0,top,right:innerWidth,bottom:Math.min(innerHeight,visual?.height||innerHeight)-(parseFloat(root.getPropertyValue('--safe-bottom'))||0)};
-  menu.style.width='';menu.style.maxHeight='';menu.style.maxWidth=(bounds.right-16)+'px';const size=menu.getBoundingClientRect(),position=menuPlacement(s.rect,size.width,size.height,bounds);
-  menu.style.left=position.left+'px';menu.style.top=position.top+'px';menu.classList.toggle('selection-pinned',position.pinned);
+  menu.style.width='';menu.style.maxHeight='';menu.style.maxWidth=(bounds.right-16)+'px';const size=menu.getBoundingClientRect(),place=menuPlacement(s.rect,size.width,size.height,bounds);
+  menu.style.left=place.left+'px';menu.style.top=place.top+'px';menu.classList.toggle('selection-pinned',place.pinned);
  }
  // “更多” opens below the bar when there is room, otherwise above it; it lines up with the bar's right edge.
  function placeMore(list){
@@ -69,7 +75,8 @@ export function bindSelectionMenu({getView,getDoc,addGlossary,extraItems=()=>[],
  // A changed selection hides the stale bar at once (dragging handles, Shift-extending, typing); it comes back once the
  // selection has been still for a moment.
  const schedule=(delay=180)=>{clearTimeout(timer);if(performing)return;if(!quick()){hide();return;}if(!menu.hidden&&!same())hide();timer=setTimeout(show,delay);};
- document.addEventListener('selectionchange',()=>schedule());document.addEventListener('pointerup',()=>{pressing=false;schedule();});document.addEventListener('pointercancel',()=>{pressing=false;schedule();});
+ document.addEventListener('selectionchange',()=>schedule());// Presses on the bar itself (“更多”, scrolling the list) are not a new selection gesture.
+ document.addEventListener('pointerup',e=>{pressing=false;if(!menu.contains(e.target))schedule();});document.addEventListener('pointercancel',e=>{pressing=false;if(!menu.contains(e.target))schedule();});
  document.addEventListener('pointerdown',e=>{if(menu.contains(e.target))return;pressing=true;dismissed=false;hide();});
  document.addEventListener('contextmenu',e=>{if(e.target.closest('.cm-content,.odf-paper,.reader-content,#preview,input,textarea')){e.preventDefault();pressing=false;dismissed=false;show();}});
  document.addEventListener('keydown',e=>{if(e.key==='Escape'){if(!menu.hidden)dismiss();}else if(!['Shift','Control','Alt','Meta'].includes(e.key))dismissed=false;},true);

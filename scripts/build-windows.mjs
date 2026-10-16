@@ -6,6 +6,8 @@ const lite=process.argv.includes('--lite');if(lite)process.env.VELA_BUILD_FLAVOR
 await import('./build.mjs');
 const program=process.platform==='win32'?'cmd.exe':'npm';
 const args=process.platform==='win32'?['/d','/s','/c','npm run package']:['run','package'];
-if(lite)args.push('--','--config.directories.output=../dist/windows-lite','--config.win.artifactName=Vela-${version}-windows-lite-${arch}.${ext}','--config.nsis.artifactName=Vela-${version}-windows-lite-setup-${arch}.${ext}');
+// Files are named by the release version (0.9.8.1); npm's version field may only have three parts (0.9.8-1).
+const {readFileSync}=await import('node:fs'),release=JSON.parse(readFileSync('package.json','utf8')).harmonyVersion,flavor=lite?'-lite':'';
+args.push('--',...(lite?['--config.directories.output=../dist/windows-lite']:[]),'--config.win.artifactName=Vela-'+release+'-windows'+flavor+'-${arch}.${ext}','--config.nsis.artifactName=Vela-'+release+'-windows'+flavor+'-setup-${arch}.${ext}');
 const child=spawn(program,args,{cwd:path.join(root,'windows'),env:{...process.env,CSC_IDENTITY_AUTO_DISCOVERY:'false'},stdio:'inherit'});
 const code=await new Promise((resolve,reject)=>{child.on('error',reject);child.on('exit',resolve);});if(code!==0)throw new Error('Windows 构建失败。');

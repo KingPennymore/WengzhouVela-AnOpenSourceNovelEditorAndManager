@@ -4,7 +4,7 @@
 
 文舟是独立项目，不是 Acode 官方应用，也不代表 Acode Foundation。项目复用了 Acode 的部分 CodeMirror 编辑组件和 Acode-Writer 1.0.4 的章节识别代码，版权与许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-当前版本：鸿蒙 / Windows **0.9.8**，安卓 **0.9.8-android.1**，移动端版本代码 **10908**，包名 `me.wenzhou.write`。HarmonyOS 使用 API 24 SDK 编译，兼容 API 12；安卓最低 Android 8.0 / API 26，WebView 需 Chromium 105 或更新版本。
+当前版本：鸿蒙 / Windows **0.9.8.1**，安卓 **0.9.8.1-android.1**，移动端版本代码 **1090801**，包名 `me.wenzhou.write`。HarmonyOS 使用 API 24 SDK 编译，兼容 API 12；安卓最低 Android 8.0 / API 26，WebView 需 Chromium 105 或更新版本。
 
 **下载**：[GitHub Releases](https://github.com/KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager/releases)，国内可用 [Gitee 镜像](https://gitee.com/kingpennymore/wenzhou-vela-mirror-repository/releases)。每个版本提供鸿蒙 HAP 与市场提交用 APP、安卓 APK / AAB（正式证书签名，可覆盖升级）、Windows x64 安装包与便携 ZIP、源码和可选组件。各版本变化见 [更新说明](RELEASE_NOTES.md)，验证范围见 [VALIDATION.md](VALIDATION.md)。
 

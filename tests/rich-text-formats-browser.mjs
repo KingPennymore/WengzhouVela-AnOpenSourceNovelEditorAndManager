@@ -52,7 +52,8 @@ try{
   });
   await check('right alignment and clear formatting are on the toolbar; the selection menu does not repeat them',async()=>{
     await cursorAt('她低声');await page.locator('#format-right').click();assert.equal(await page.locator('.cm-line.vela-format-right').count(),1);assert.equal(await page.locator('#format-right').getAttribute('aria-pressed'),'true');
-    await page.locator('#format-clear').click();assert.equal(await page.locator('.cm-line.vela-format-right').count(),0);
+    // Without a selection 清除格式 clears the whole paragraph: the alignment and the 旁注 style on 低声说道 (since 0.9.8.1).
+    await page.locator('#format-clear').click();assert.equal(await page.locator('.cm-line.vela-format-right').count(),0);assert.deepEqual(await nodes('.cm-content .vela-style[data-style="aside"]'),[]);
     await selectText('冷笑');await page.locator('#format-strong').click();await selectText('林舟冷笑一声');await page.locator('#format-clear').click();
     assert.deepEqual(await nodes('.cm-content .vela-format-strong'),[]);assert.deepEqual(await nodes('.cm-content .vela-style[data-style="system"]'),[]);assert.deepEqual(await nodes('.cm-content .vela-format-ruby'),[],'ruby in the selection is cleared too');
     await page.keyboard.press('Control+Z');assert.deepEqual(await nodes('.cm-content .vela-format-ruby'),['林舟'],'undo brings the cleared formats back');
@@ -79,7 +80,7 @@ try{
   await check('everything is saved in the work .vela and comes back after a reload',async()=>{
     await page.evaluate(()=>window.wenzhouSave());const workspace=await stored(page),record=velaOf(workspace).richText.documents['正文.txt'];assert.equal(byPath(workspace,'正文.txt.vela'),undefined);
     // Bold and the character style on 冷笑 are back from the undo above.
-    assert.deepEqual(record.marks.map(mark=>[mark.type,mark.value??null,mark.quote]).sort(),[['ruby','lín zhōu','林舟'],['strong',null,'冷笑'],['style','aside','低声说道'],['style','system','冷笑'],['style','whisper','走']].sort());
+    assert.deepEqual(record.marks.map(mark=>[mark.type,mark.value??null,mark.quote]).sort(),[['ruby','lín zhōu','林舟'],['strong',null,'冷笑'],['style','system','冷笑'],['style','whisper','走']].sort());
     assert.deepEqual(record.blocks.map(block=>[block.type,block.value]),[['style','system']]);assert.deepEqual(record.inserts.map(item=>[item.src,item.alt]),[['插图/雪夜.png','雪夜山门']]);
     assert.equal(byPath(workspace,'正文.txt').text,novel);
     await page.reload();await enter();

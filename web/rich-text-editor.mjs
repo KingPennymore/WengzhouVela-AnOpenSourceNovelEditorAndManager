@@ -138,6 +138,8 @@ export function clearStyles(view){
     if(entry.group==='marks'&&entry.type==='style'){const hit=ranges.find(range=>!range.empty&&entry.from<range.to&&entry.to>range.from);if(hit){if(entry.from<hit.from)entries.push({...entry,to:hit.from});if(entry.to>hit.to)entries.push({...entry,id:newEntryId(),from:hit.to});continue;}}
     entries.push(entry);
   }
+  // Nothing to clear: report it (the caller shows a hint) instead of an empty undo step.
+  if(entries.length===state.entries.length&&entries.every((entry,i)=>entry===state.entries[i]))return null;
   return dispatch(view,entries);
 }
 /** The reading of the ruby touching the selection, or ''. */
@@ -188,11 +190,15 @@ export function styleAt(state){
  * Illustrations stay; they are edited from their own dialog.
  */
 export function clearFormats(view){
-  const state=formatsOf(view.state);if(!state)return false;const starts=selectedLines(view.state),ranges=view.state.selection.ranges.filter(range=>!range.empty),entries=[];
+  const state=formatsOf(view.state);if(!state)return false;const starts=selectedLines(view.state),selected=view.state.selection.ranges.filter(range=>!range.empty),entries=[];
+  // Without a selection the inline formats of the cursor's whole paragraph go too, not only its paragraph formats.
+  const ranges=selected.length?selected:[...starts].map(from=>({from,to:view.state.doc.lineAt(from).to}));
   for(const entry of state.entries){
     if(entry.group==='blocks'&&starts.has(entry.from))continue;
     if(entry.group==='marks'){const hits=ranges.filter(range=>entry.from<range.to&&entry.to>range.from);if(hits.length){let at=entry.from;for(const hit of hits.sort((a,b)=>a.from-b.from)){if(hit.from>at)entries.push({...entry,id:at===entry.from?entry.id:newEntryId(),from:at,to:hit.from});at=Math.max(at,hit.to);}if(at<entry.to)entries.push({...entry,id:newEntryId(),from:at,to:entry.to});continue;}}
     entries.push(entry);
   }
+  // Nothing to clear: null (the caller shows a hint) instead of an empty undo step.
+  if(entries.length===state.entries.length&&entries.every((entry,i)=>entry===state.entries[i]))return null;
   return dispatch(view,entries);
 }

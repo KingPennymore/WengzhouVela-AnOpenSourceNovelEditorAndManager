@@ -79,14 +79,20 @@ function savedPulse(){
   }).observe(state,{attributes:true,attributeFilter:['class']});
 }
 
+// Theme changes cross-fade colors. The class must be on <html> in the same style update as the new theme, so
+// applyTheme() calls beginThemeShift() before toggling; the observer only covers other code that toggles `dark`.
+let themeTimer=0;
+export function beginThemeShift(){
+  if(reduced.matches)return;
+  document.documentElement.classList.add('theme-shift');clearTimeout(themeTimer);
+  themeTimer=setTimeout(()=>document.documentElement.classList.remove('theme-shift'),480);
+}
 function themeCrossfade(){
-  let timer,last=document.body.classList.contains('dark');
+  let last=document.body.classList.contains('dark');
   new MutationObserver(()=>{
     const dark=document.body.classList.contains('dark');
-    if(dark===last||reduced.matches){last=dark;return;}
+    if(dark!==last&&!document.documentElement.classList.contains('theme-shift'))beginThemeShift();
     last=dark;
-    document.documentElement.classList.add('theme-shift');clearTimeout(timer);
-    timer=setTimeout(()=>document.documentElement.classList.remove('theme-shift'),480);
   }).observe(document.body,{attributes:true,attributeFilter:['class']});
 }
 

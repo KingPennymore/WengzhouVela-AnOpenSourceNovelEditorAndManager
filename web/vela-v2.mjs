@@ -44,7 +44,7 @@ export function mergeConfig(base,override){const result={...base};for(const [key
 export function effectiveVela(global,project,path=''){
   const inherited={editor:{...editorDefaults},reader:structuredClone(readerDefaults),chapters:{templates:[]}};
   // Format records are read through formatRecord(), not inherited; leaving them out keeps this cheap for large works.
-  const normalize=value=>value?JSON.parse(JSON.stringify({...value,files:undefined,richText:value.richText&&{...value.richText,documents:undefined}})):{};
+  const normalize=value=>value?JSON.parse(JSON.stringify({...value,files:undefined,positions:undefined,richText:value.richText&&{...value.richText,documents:undefined}})):{};
   const g=normalize(global),p=normalize(project),file=project?.files?.[path]||{};let result=mergeConfig(mergeConfig(inherited,g),p);const recommended=mergeConfig(result.reader.layout,result.reading?.layout);result=mergeConfig(result,file);
   result.reading={...result.reading,layout:mergeConfig(mergeConfig(recommended,file.reader?.layout),file.reading?.layout)};
   if(g.reader?.appearancePolicy==='personal')result.reading.layout=mergeConfig(result.reading.layout,g.reader.layout);

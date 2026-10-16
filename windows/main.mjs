@@ -11,6 +11,8 @@ import {attachProjectUI} from './project-ui.mjs';
 import {Downloads} from './downloads.mjs';
 
 const directory=path.dirname(fileURLToPath(import.meta.url)),PAGE='vela://editor/web/index.html',qa=process.env.VELA_QA==='1';
+// npm needs a three-part version (0.9.8-1); the app reports the release version (0.9.8.1) from velaVersion.
+const VERSION=(()=>{try{return JSON.parse(fs.readFileSync(path.join(directory,'package.json'),'utf8')).velaVersion||app.getVersion();}catch{return app.getVersion();}})();
 // QA accepts an isolated explicitly supplied data directory; normal runs use Electron userData.
 if(qa){if(!process.env.VELA_QA_DATA||!path.isAbsolute(process.env.VELA_QA_DATA))throw new Error('QA requires an absolute isolated data directory.');app.setPath('userData',process.env.VELA_QA_DATA);}
 protocol.registerSchemesAsPrivileged([{scheme:'vela',privileges:{standard:true,secure:true,supportFetchAPI:true,stream:true,corsEnabled:true}}]);
@@ -18,7 +20,7 @@ let main,files,github,projectFiles,downloads,closePluginPreviews,closing=false,r
 const assets=app.isPackaged?path.join(process.resourcesPath,'web'):path.resolve(directory,'../dist/web');
 const icon=app.isPackaged?path.join(process.resourcesPath,'icon.png'):path.resolve(directory,'../AppScope/resources/base/media/app_icon_1024.png');
 const failure=error=>JSON.stringify({ok:false,error:error.message||'操作失败。',...(typeof error.code==='string'&&/^E_[A-Z_]+$/.test(error.code)?{code:error.code,details:error.details||{},retryable:!!error.retryable}:{})}),success=value=>JSON.stringify({ok:true,value:value??null});
-const environment=()=>JSON.stringify({platform:'windows',version:app.getVersion(),dark:nativeTheme.shouldUseDarkColors,credentialStore:'Windows DPAPI',top:0,bottom:0,left:0,right:0});
+const environment=()=>JSON.stringify({platform:'windows',version:VERSION,dark:nativeTheme.shouldUseDarkColors,credentialStore:'Windows DPAPI',top:0,bottom:0,left:0,right:0});
 function trusted(event){return main&&!main.isDestroyed()&&event.sender===main.webContents&&event.senderFrame===main.webContents.mainFrame&&event.senderFrame.url===PAGE;}
 function secureWindow(window){
   window.webContents.on('context-menu',event=>{event.preventDefault();window.webContents.executeJavaScript('window.wenzhouShowSelectionMenu?.()').catch(()=>{});});
@@ -27,7 +29,7 @@ function secureWindow(window){
 }
 async function request(url,method,body,token){
   const parsed=new URL(url);if(!['api.github.com','github.com','gitee.com'].includes(parsed.hostname)||parsed.protocol!=='https:'||parsed.port||parsed.username||parsed.password)throw new Error('不允许的请求地址。');
-  const headers={Accept:'application/json','Content-Type':'application/json','User-Agent':'Vela-Windows/'+app.getVersion()};if(token){headers.Authorization='Bearer '+token;}if(token&&parsed.hostname==='api.github.com'){headers.Accept='application/vnd.github+json';headers['X-GitHub-Api-Version']='2022-11-28';}
+  const headers={Accept:'application/json','Content-Type':'application/json','User-Agent':'Vela-Windows/'+VERSION};if(token){headers.Authorization='Bearer '+token;}if(token&&parsed.hostname==='api.github.com'){headers.Accept='application/vnd.github+json';headers['X-GitHub-Api-Version']='2022-11-28';}
   const response=await net.fetch(url,{method,headers,body:body?JSON.stringify(body):undefined,redirect:'error',signal:AbortSignal.timeout(30000),bypassCustomProtocolHandlers:true});
   const chunks=[];let bytes=0;for await(const chunk of response.body||[]){bytes+=chunk.byteLength;if(bytes>16*1024*1024)throw new Error('GitHub 响应过大。');chunks.push(Buffer.from(chunk));}
   const text=Buffer.concat(chunks).toString('utf8');let value=null;try{if(text)value=JSON.parse(text);}catch{if(response.ok)throw new Error('GitHub 响应格式异常。');value={};}return {status:response.status,body:value};
@@ -104,7 +106,7 @@ if(!qa&&!app.requestSingleInstanceLock())app.quit();else{
   app.on('second-instance',()=>{if(main){if(main.isMinimized())main.restore();main.focus();}});
   app.whenReady().then(async()=>{files=new WorkspaceStorage(app.getPath('userData'));projectFiles=new ProjectStore(files);github=new GitHubBridge({request,credentials:credentials()});
   readerSession=session.fromPartition('persist:vela-reader');readerSession.protocol.handle('https',request=>{const url=new URL(request.url);return previewResponse(url,readerOptions.get(decodeURIComponent(url.pathname.slice(1)))||{reading:true});});
-  const editorSession=session.fromPartition('persist:vela-editor');downloads=new Downloads({fetch:net.fetch.bind(net),directory:path.join(app.getPath('temp'),'vela-downloads-'+process.pid),version:app.getVersion(),notify:detail=>{if(main&&!main.isDestroyed())main.webContents.executeJavaScript('window.dispatchEvent(new CustomEvent("wenzhouDownload",{detail:'+JSON.stringify(detail)+'}))').catch(()=>{});}});
+  const editorSession=session.fromPartition('persist:vela-editor');downloads=new Downloads({fetch:net.fetch.bind(net),directory:path.join(app.getPath('temp'),'vela-downloads-'+process.pid),version:VERSION,notify:detail=>{if(main&&!main.isDestroyed())main.webContents.executeJavaScript('window.dispatchEvent(new CustomEvent("wenzhouDownload",{detail:'+JSON.stringify(detail)+'}))').catch(()=>{});}});
   editorSession.protocol.handle('vela',request=>{const url=new URL(request.url);return url.hostname==='asset'?projectFiles.resource(request):url.hostname==='editor'&&url.pathname.startsWith('/imports/')&&request.method==='GET'?downloads.response(url):assetResponse(url);});editorSession.protocol.handle('https',request=>previewResponse(new URL(request.url),{},true));
   Menu.setApplicationMenu(null);
   const stateFile=path.join(files.base,'window.json');let previous={};try{previous=JSON.parse(fs.readFileSync(stateFile,'utf8'))||{};}catch{}const displays=[screen.getPrimaryDisplay(),...screen.getAllDisplays()],bounds=windowBounds(previous,displays),area=screen.getDisplayMatching(bounds).workArea;

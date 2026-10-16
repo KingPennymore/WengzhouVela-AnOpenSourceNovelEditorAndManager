@@ -425,3 +425,8 @@ body:not(.wide-shell) .format-style-button #format-style-label{max-width:4em}
   .glossary-head .glossary-status{display:none}
   .glossary-actions button{flex:1;min-height:44px}
 }
+
+/* ArkWeb does not repaint the background of a scrolling container while its color transitions, so the GitHub page
+   jumped to the new theme while everything else faded. The page lets the non-scrolling .workspace (same --paper
+   background) show through instead. */
+.workspace>.github-view{background:transparent}
