@@ -11,5 +11,7 @@ $api = "https://gitee.com/api/v5/repos/$Owner/$Repository/contents/PRIVACY.md"
 $sha = $null
 try { $sha = (Invoke-RestMethod -Uri "$api`?access_token=$token&ref=$Branch").sha } catch { if ($_.Exception.Response.StatusCode.value__ -ne 404) { throw } }
 $body = @{ access_token = $token; content = $content; message = '更新隐私政策'; branch = $Branch }
-if ($sha) { $body.sha = $sha; Invoke-RestMethod -Uri $api -Method Put -Body $body | Out-Null } else { Invoke-RestMethod -Uri $api -Method Post -Body $body | Out-Null }
+# Gitee needs an explicit content type for PUT; JSON works for both create and update.
+if ($sha) { $body.sha = $sha }
+Invoke-RestMethod -Uri $api -Method $(if ($sha) { 'Put' } else { 'Post' }) -ContentType 'application/json; charset=utf-8' -Body ([Text.Encoding]::UTF8.GetBytes(($body | ConvertTo-Json))) | Out-Null
 Write-Host "已上传：https://gitee.com/$Owner/$Repository/blob/$Branch/PRIVACY.md"

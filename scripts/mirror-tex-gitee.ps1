@@ -4,12 +4,14 @@
 # Usage: pwsh scripts/mirror-tex-gitee.ps1 -Owner <gitee user> -Repository <repo> [-Version 0.1.1] [-CreateRepository]
 #        pwsh scripts/mirror-tex-gitee.ps1 -Owner <gitee user> -Repository <repo> -AppVersion 0.9.8
 #        pwsh scripts/mirror-tex-gitee.ps1 -Owner <gitee user> -Repository <repo> -Catalog   (component catalog, tag catalog)
+#        Add -SkipVerify when downloads from Gitee are slow: sizes are checked through the API and only files under 1 MB are downloaded back.
 param(
   [Parameter(Mandatory)][string]$Owner,
   [Parameter(Mandatory)][string]$Repository,
   [string]$Version = '0.1.1',
   [string]$AppVersion = '',
   [switch]$Catalog,
+  [switch]$SkipVerify,
   [switch]$CreateRepository
 )
 $ErrorActionPreference = 'Stop'
@@ -61,15 +63,26 @@ try {
     $release = Invoke-RestMethod -Uri "$repoUrl/releases" -Method Post -Body @{ access_token = $token; tag_name = $tag; name = $(if ($Catalog) { '文舟组件目录' } elseif ($AppVersion) { "Vela $AppVersion" } else { "Vela TeX 组件 $Version" }); body = $(if ($notes) { Get-Content -LiteralPath $notes -Raw -Encoding utf8 } else { '文舟组件目录：应用从此发布的 catalog.json 读取可下载的组件及其版本、大小和 SHA-256。' }); prerelease = 'false'; target_commitish = $branch }
     Write-Host "已创建 Gitee 发布 $tag"
   }
-  $attached = @(Invoke-RestMethod -Uri "$repoUrl/releases/$($release.id)/attach_files?access_token=$token&per_page=100" -Method Get)
+  # Invoke-RestMethod emits a JSON array as one object; ForEach-Object unrolls it into the attachments.
+  $attached = @(Invoke-RestMethod -Uri "$repoUrl/releases/$($release.id)/attach_files?access_token=$token&per_page=100" -Method Get | ForEach-Object { $_ })
   foreach ($name in $names) {
     $file = Get-Item -LiteralPath (Join-Path $folder $name)
-    $existing = $attached | Where-Object name -eq $name
-    if ($existing -and !$Catalog -and [int64]$existing.size -eq $file.Length) { Write-Host "已存在，跳过：$name"; continue }
-    if ($existing) { Invoke-RestMethod -Uri "$repoUrl/releases/$($release.id)/attach_files/$($existing.id)?access_token=$token" -Method Delete | Out-Null }
+    # Every copy of a replaced attachment is deleted, so the fixed download address serves only the new file.
+    $existing = @($attached | Where-Object name -eq $name)
+    if ($existing.Count -eq 1 -and !$Catalog -and [int64]$existing[0].size -eq $file.Length) { Write-Host "已存在，跳过：$name"; continue }
+    foreach ($old in $existing) { Invoke-RestMethod -Uri "$repoUrl/releases/$($release.id)/attach_files/$($old.id)?access_token=$token" -Method Delete | Out-Null }
     # Gitee ignores access_token as a multipart field (40001); it has to be in the query string here.
     Invoke-RestMethod -Uri "$repoUrl/releases/$($release.id)/attach_files?access_token=$token" -Method Post -Form @{ file = $file } | Out-Null
     Write-Host "已上传：$name（$($file.Length) 字节）"
+  }
+  if ($SkipVerify) {
+    # Slow download paths: compare the sizes Gitee reports instead of downloading large files back.
+    $listed = @(Invoke-RestMethod -Uri "$repoUrl/releases/$($release.id)/attach_files?access_token=$token&per_page=100" -Method Get | ForEach-Object { $_ })
+    foreach ($name in $names) {
+      $size = (Get-Item -LiteralPath (Join-Path $folder $name)).Length; $entry = @($listed | Where-Object name -eq $name)
+      if ($entry.Count -ne 1 -or [int64]$entry[0].size -ne $size) { throw "Gitee 上的 $name 大小与本地不一致。" }
+      Write-Host "大小一致：$name"
+    }
   }
 } finally {
   $token = $null
@@ -79,6 +92,7 @@ $expected = @{}; foreach ($line in Get-Content -LiteralPath (Join-Path $folder $
 $temporary = Join-Path ([IO.Path]::GetTempPath()) "vela-gitee-check-$tag"; New-Item -ItemType Directory -Force -Path $temporary | Out-Null
 $failed = 0
 foreach ($name in $names) {
+  if ($SkipVerify -and (Get-Item -LiteralPath (Join-Path $folder $name)).Length -gt 1MB) { continue }
   $target = Join-Path $temporary $name
   Invoke-WebRequest -Uri "https://gitee.com/$Owner/$Repository/releases/download/$tag/$name" -OutFile $target -UseBasicParsing
   $hash = (Get-FileHash -LiteralPath $target -Algorithm SHA256).Hash.ToLower()
