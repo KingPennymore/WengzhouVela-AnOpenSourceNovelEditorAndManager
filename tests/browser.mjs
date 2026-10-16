@@ -31,8 +31,8 @@ const waitText=async(selector,text)=>{await page.waitForFunction(({selector,text
 try{
   await page.goto(url);await page.waitForSelector('.cm-editor');
   await check('默认收起文件与章节侧栏，行号可见，正文占满工作区',async()=>{
-    assert.equal(await page.locator('#library').isVisible(),false);assert.equal(await page.locator('#outline').isVisible(),false);assert.equal(await page.locator('.cm-lineNumbers').isVisible(),true);
-    assert.equal(await page.locator('.quickbar button').count(),8);assert.ok((await page.locator('#editor').boundingBox()).height>650);
+    assert.equal(await page.locator('#library').isVisible(),false);assert.equal(await page.locator('#outline').isVisible(),false);assert.equal(await page.locator('.cm-lineNumbers').count(),0,'TXT in novel mode hides line numbers by default');
+    assert.equal(await page.locator('[id^="quick-"]').count(),8);assert.equal(await page.locator('.statusbar .status-actions [id^="quick-"]').count(),8,'wide windows keep the quick actions in the status bar');assert.ok((await page.locator('#editor').boundingBox()).height>650);
   });
   await check('文件与章节顶部/底部快捷跳转使用正确边界',async()=>{
     await click('quick-bottom');assert.equal(await cursor(),'行 11，列 1');

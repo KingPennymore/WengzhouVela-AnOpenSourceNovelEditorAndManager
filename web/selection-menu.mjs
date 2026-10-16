@@ -7,7 +7,7 @@ export function menuPlacement(rect,width,height,bounds){
  const positions=[{left:x,top:rect.top-height-gap},{left:x,top:rect.bottom+gap},{left:rect.right+gap,top:Math.max(bounds.top+gap,Math.min(rect.top,bounds.bottom-height-gap))},{left:rect.left-width-gap,top:Math.max(bounds.top+gap,Math.min(rect.top,bounds.bottom-height-gap))}];
  return positions.find(p=>p.left>=bounds.left+gap&&p.top>=bounds.top+gap&&p.left+width<=bounds.right-gap&&p.top+height<=bounds.bottom-gap)||null;
 }
-export function bindSelectionMenu({getView,getDoc,addGlossary,fail}){
+export function bindSelectionMenu({getView,getDoc,addGlossary,extraItems=()=>[],fail}){
  const menu=document.createElement('div');menu.id='selection-menu';menu.className='selection-menu';menu.setAttribute('role','menu');menu.setAttribute('aria-label','选中文字操作');menu.hidden=true;document.body.append(menu);let snapshot=null,timer,pressing=false,performing=false;
  const hide=()=>{menu.hidden=true;document.documentElement.style.setProperty('--selection-dock-height','0px');snapshot=null;};
  const write=async text=>{if(native)await transport('clipboardWrite',{text});else await navigator.clipboard.writeText(text);};
@@ -28,7 +28,7 @@ export function bindSelectionMenu({getView,getDoc,addGlossary,fail}){
   const add=(label,action)=>{const b=document.createElement('button');b.type='button';b.textContent=label;b.setAttribute('role','menuitem');b.onpointerdown=e=>e.preventDefault();b.onclick=async()=>{const selected=snapshot;if(!selected)return;performing=true;try{await action(selected);hide();}catch(e){fail(e);}finally{performing=false;}};menu.append(b);};
   add('复制',s=>write(s.text));if(s.editable){add('粘贴',async s=>replace(s,await read()));add('剪切',async s=>{restore(s);await write(s.text);replace(s,'');});}
   if(!s.input)add('搜索',s=>{if(s.view){restore(s);s.view.dispatch({effects:setSearchQuery.of(new SearchQuery({search:s.text}))});openSearchPanel(s.view);}else{addSearch(s);}});
-  if(!s.input)add('加入词库',s=>addGlossary(s.text));
+  if(!s.input)add('加入词库',s=>addGlossary(s.text));for(const item of extraItems(s))add(item.label,()=>item.run());
   if(s.view&&getDoc()?.name.match(/\.(md|markdown)$/i)){add('加粗',s=>{restore(s);inlineMarkup(s.view,'**');});add('斜体',s=>{restore(s);inlineMarkup(s.view,'*');});add('引用',s=>{restore(s);lineMarkup(s.view,'> ');});}
   if(s.view&&getDoc()?.name.match(/\.(tex|latex)$/i)){add('加粗',s=>{restore(s);inlineMarkup(s.view,'\\textbf{','}');});add('行内公式',s=>{restore(s);inlineMarkup(s.view,'$');});}
   if(s.surface?.odfCommand&&s.editable){add('加粗',s=>{restore(s);s.surface.odfCommand('bold');});add('斜体',s=>{restore(s);s.surface.odfCommand('italic');});add('下划线',s=>{restore(s);s.surface.odfCommand('underline');});}

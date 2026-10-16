@@ -1,4 +1,4 @@
-/** Vela project SDK v3. Revisions and IDs are opaque; all paths are relative to a granted project. */
+/** Vela plugin API 4 (in-page plugins) and the project interface v3 it exposes as `vela.project`. Revisions and IDs are opaque; all paths are relative to a granted project. */
 export type Revision = string;
 export type WorkspaceId = string;
 export type Unsubscribe = () => void;
@@ -31,8 +31,8 @@ export interface Capabilities {
   features: { filesystem: boolean; transactions: boolean; assetSessions: boolean; archives: boolean; snapshots: boolean; nativePicker: boolean; independentPreview: boolean; externalWatch: boolean };
 }
 export interface Page {
-  readonly container: HTMLElement; readonly body: HTMLElement; settitle(title: string): void;
-  show(): void; hide(): void; close(): Promise<boolean>; destroy(): void;
+  readonly body: HTMLElement; setTitle(title: string): void;
+  show(): void; hide(): void; close(): Promise<boolean>;
   onVisible(listener: () => void): Unsubscribe; onHide(listener: () => void): Unsubscribe;
   onBeforeClose(listener: () => boolean | Promise<boolean>): Unsubscribe;
 }
@@ -44,9 +44,8 @@ export interface DocumentFormatProvider {
   toHtml(source: string): string;
   render(options: { root: HTMLElement; doc: { id: string; name: string; text: string }; onChange(text: string): void; onCopy(text: string): void; onError(error: Error): void; onGlossary?: (text: string) => void; manage(): void; exportText(name: string, text: string): Promise<unknown>; exportBinary(name: string, bytes: Uint8Array, mime?: string): Promise<unknown> }): void;
 }
-export interface Vela {
-  registerDocumentFormat(provider: DocumentFormatProvider): Unsubscribe;
-  readonly version: 3; readonly platform: string; readonly capabilities: readonly string[];
+/** Project interface (workspaces, file transactions, imports, snapshots): `vela.project` in plugin API 4. */
+export interface VelaProject {
   workspace: {
     current(): Promise<WorkspaceHandle | null>;
     list(): Promise<WorkspaceHandle[]>;
@@ -94,17 +93,40 @@ export interface Vela {
     on(previewId: string, listener: (event: { type: 'ready' | 'closed' | 'error' | 'trace'; payload: Record<string, unknown> }) => void): Unsubscribe;
   };
   getCapabilities(): Promise<Capabilities>;
-  /** Existing v2 facade is retained. Prefer fs.readText/applyBatch for project edits. */
-  getFiles(): { id: string; name: string; path: string }[];
-  readText(documentId: string): Promise<string>;
-  writeText(documentId: string, text: string): Promise<boolean>;
-  getDocumentInfo(documentId: string): unknown; getHistory(documentId: string): unknown[];
-  getConfig(documentId: string): unknown; getChapters(documentId: string): unknown;
-  compileTex(documentId: string, options?: { engine?: string; signal?: AbortSignal; onLog?: (line: string) => void }): Promise<unknown>;
-  getSettings(): Record<string, unknown>; updateSettings(value: Record<string, unknown>): void;
-  on(event: string, listener: (...args: unknown[]) => void): Unsubscribe;
-  addExtension(extension: unknown): Unsubscribe;
-  addCompletion(source: unknown, kinds?: string[]): Unsubscribe;
+}
+
+export type ButtonLocation = 'top-toolbar' | 'document-toolbar' | 'bottom-toolbar' | 'library-sidebar' | 'outline-sidebar' | 'selection-menu';
+export interface ButtonContext { location: ButtonLocation; selection?: { text: string; from: number; to: number; editable: boolean } }
+export interface ButtonSpec { id: string; title: string; location?: ButtonLocation; locations?: ButtonLocation[]; icon?: string; order?: number; toggle?: boolean; checked?: boolean; disabled?: boolean; hidden?: boolean; tooltip?: string; run(context: ButtonContext): unknown }
+export interface FileInfo { readonly id: string; readonly name: string; readonly path: string; readonly text: string }
+/** Plugin API 4, passed to activate(). Every member throws E_PLUGIN_STOPPED after the plugin stops. */
+export interface Vela {
+  readonly version: 4; readonly id: string; readonly platform: string; readonly capabilities: readonly string[];
+  ui: {
+    readonly locations: { buttons: readonly ButtonLocation[]; panels: readonly ('library-sidebar' | 'outline-sidebar')[] };
+    addButton(spec: ButtonSpec): { update(patch: Partial<Omit<ButtonSpec, 'id'>>): void; dispose(): void };
+    addPanel(spec: { id: string; title: string; location: 'library-sidebar' | 'outline-sidebar' }): { readonly body: HTMLElement; update(patch: { title?: string; collapsed?: boolean }): void; dispose(): void };
+    builtins(location?: ButtonLocation): { id: string; title: string; location: ButtonLocation }[];
+    setBuiltin(id: string, options: { hidden?: boolean; order?: number }): () => void;
+    createPage(title?: string): Page;
+    toast(message: string): void; alert(title: string, message: string): Promise<void>; confirm(title: string, message: string): Promise<boolean>; prompt(title: string, value?: string): Promise<string | null>;
+  };
+  commands: { register(command: { id: string; title: string; shortcut?: string; run(...args: unknown[]): unknown }): () => void; execute(id: string, ...args: unknown[]): Promise<unknown> };
+  assets: { url(path: string): string; read(path: string, options?: { encoding?: 'utf-8' | null }): Promise<string | Uint8Array> };
+  settings: { get(): Record<string, unknown>; update(value: Record<string, unknown>): void; page(config: { list: { key: string; text?: string; value?: unknown; checkbox?: boolean }[]; cb?(key: string, value: unknown): unknown }): () => void };
+  editor: { readonly codemirror: Record<'state' | 'view' | 'commands' | 'language' | 'search' | 'autocomplete', unknown>; readonly view: unknown; addExtension(extension: unknown): () => void; addCompletion(source: unknown, kinds?: string[]): () => void };
+  documents: {
+    active(): FileInfo | null; list(): { id: string; name: string; path: string }[];
+    readText(id: string): Promise<string>; writeText(id: string, text: string): Promise<boolean>;
+    info(id: string): unknown; history(id: string): { revision: string; createdAt: number; characters: number }[]; config(id: string): unknown; chapters(id: string): unknown;
+    create(name: string, text?: string): FileInfo;
+  };
+  project: VelaProject | null;
+  tex: { compile(fileId: string, options?: { engine?: string; signal?: AbortSignal; onLog?: (line: string) => void }): Promise<unknown> };
+  formats: { register(provider: DocumentFormatProvider): () => void };
+  on(event: 'switch-file' | 'file-content-changed' | 'new-file', listener: (file: FileInfo | null) => void): () => void;
   dispose(cleanup: () => void): () => void;
 }
-export interface PluginManifest { id: string; name: string; version: string; main: string; vela?: { api?: string; requiredCapabilities?: string[] } }
+export interface PluginDefinition { activate(vela: Vela): unknown; deactivate?(): unknown }
+declare global { const VelaPlugins: { readonly api: 4; register(id: string, definition: PluginDefinition): void } }
+export interface PluginManifest { id: string; name: string; version: string; main: string; vela: { api: string; requiredCapabilities?: string[]; type?: string } }

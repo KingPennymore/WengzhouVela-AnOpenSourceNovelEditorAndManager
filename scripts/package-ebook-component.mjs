@@ -10,7 +10,8 @@ export async function packageEbookComponent(){
   for(const name of ['fflate','dompurify','pdfjs-dist'])entries['licenses/'+name+'.txt']=new Uint8Array(await readFile('node_modules/'+name+'/LICENSE'));
   entries['THIRD_PARTY_NOTICES.txt']=strToU8('fflate: MIT; DOMPurify: Apache-2.0 OR MPL-2.0. See licenses/. PDF.js: Apache-2.0. Worker, CMaps and standard fonts from pdfjs-dist 4.10.38, with directory-specific license notices included. Original reader implementation: repository MIT license. No calibre code is bundled.');
   const fixed=Object.fromEntries(Object.entries(entries).map(([name,bytes])=>[name,[bytes,{mtime:new Date('1980-01-01T00:00:00Z')}]]));
-  await mkdir('dist/plugins',{recursive:true});await writeFile('dist/plugins/Vela-Ebook-Reader-1.0.0.zip',zipSync(fixed,{level:9}));
-  console.log('电子书阅读组件：dist/plugins/Vela-Ebook-Reader-1.0.0.zip');
+  const {version}=JSON.parse(new TextDecoder().decode(entries['plugin.json'])),output='dist/plugins/Vela-Ebook-Reader-'+version+'.zip';
+  await mkdir('dist/plugins',{recursive:true});await writeFile(output,zipSync(fixed,{level:9}));
+  console.log('电子书阅读组件：'+output);
 }
 if(process.argv[1]?.endsWith('package-ebook-component.mjs'))await packageEbookComponent();

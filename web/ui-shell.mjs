@@ -33,7 +33,7 @@ export class UIShell {
       if(this.menu.hidden)return;
       if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();this.close(true);return;}
       if(['ArrowDown','ArrowUp','Home','End'].includes(event.key)){
-        event.preventDefault();const items=[...this.menu.querySelectorAll('button')].filter(button=>!button.disabled),index=items.indexOf(document.activeElement);
+        event.preventDefault();const items=[...this.menu.querySelectorAll('button')].filter(button=>!button.disabled&&!button.hidden),index=items.indexOf(document.activeElement);
         const next=event.key==='Home'?0:event.key==='End'?items.length-1:(index+(event.key==='ArrowDown'?1:-1)+items.length)%items.length;
         items[next]?.focus();
       }
@@ -42,14 +42,17 @@ export class UIShell {
     this.environment(environment);
   }
   environment(value){this.value=value;document.body.dataset.ui=platformProfile(value,location.search);this.layout();}
+  // Plugin top-toolbar buttons: the first two stay visible on wide screens, the rest use the existing overflow menu.
+  setPluginActions(buttons){this.pluginActions=buttons;this.layout();}
   layout(){
-    const focused=this.menu.contains(document.activeElement)?document.activeElement:null;
+    const focused=this.menu.contains(document.activeElement)||(this.pluginActions||[]).includes(document.activeElement)?document.activeElement:null;
     for(const button of this.secondary){this.menu.append(button);button.setAttribute('role','menuitem');}
     for(const button of this.contextual){(innerWidth<=600?this.menu:this.toolbar).append(button);if(innerWidth<=600)button.setAttribute('role','menuitem');else button.removeAttribute('role');}
+    for(const [index,button] of (this.pluginActions||[]).entries()){const overflow=innerWidth<=900||index>=2||document.body.classList.contains('start-open'),target=overflow?this.menu:this.toolbar;target.append(button);if(overflow)button.setAttribute('role','menuitem');else button.removeAttribute('role');}
     const sync=document.querySelector('#sync-state');if(sync)this.toolbar.prepend(sync);
     this.toggle.hidden=false;
     this.readingInsets();
-    if(!this.menu.hidden&&focused&&this.menu.contains(focused))focused.focus();
+    if(focused?.isConnected&&!focused.disabled&&!focused.closest('[hidden]'))focused.focus({preventScroll:true});
     document.querySelector('#app').style.setProperty('--shell-top',document.querySelector('.topbar').offsetHeight+'px');
   }
   readingInsets(){
@@ -71,7 +74,7 @@ export class UIShell {
 // Keep every control in one form, so category navigation never discards unsaved settings.
 export function organizeSettings(root) {
   document.querySelector('#dialog').classList.add('settings-dialog');
-  const groups=[['外观与语言',['language','theme','palette']],['编辑',['fontSize','autoNouns','glossaryPanel','highlightTerms','countMode','includeHeading']],['阅读',['readingMode','globalVelaOverride','edit-global-vela']],['工作区配置',['create-vela']],['GitHub',['clientId']],['备份与应用',['backup-all','show-licenses','check-updates','updateChecks']]];
+  const groups=[['外观与语言',['language','theme','palette']],['编辑',['fontSize','autoNouns','glossaryPanel','highlightTerms','novelLineNumbers','richText','countMode','includeHeading']],['阅读',['readingMode','globalVelaOverride','edit-global-vela']],['工作区配置',['create-vela']],['GitHub',['clientId']],['备份与应用',['backup-all','show-licenses','check-updates','updateChecks']]];
   const original=[...root.children],nav=document.createElement('nav');nav.className='settings-navigation';nav.setAttribute('aria-label',t('设置分类'));
   const content=document.createElement('div');content.className='settings-content';
   groups.forEach(([title,names],index)=>{

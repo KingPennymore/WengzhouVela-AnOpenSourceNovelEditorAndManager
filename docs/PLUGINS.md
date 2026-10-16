@@ -1,83 +1,104 @@
-# Vela 插件开发
+# Vela 插件开发（插件接口 4）
 
-项目接口 v3 已加入，原有 v2 方法继续可用。扩展接口与平台矩阵见 [PLUGIN-PROJECT-API.md](PLUGIN-PROJECT-API.md)。完整类型声明见 [sdk/vela.d.ts](sdk/vela.d.ts)，可安装示例见 [project-workbench](../examples/plugins/project-workbench)。先阅读下文的项目事务与平台限制；不要用旧 `writeText(documentId, text)` 实现跨文件保存。
+插件接口 4 取代了原来的 Acode 兼容运行时：不再提供全局 `acode`、`editorManager`、Acode 模块（`fs`、`fsOperation`、`EditorFile`、`actionStack` 等）及对页面 `fetch`/`setAttribute` 的改写。旧版 Acode 插件和未声明 `vela.api` 的插件会被拒绝加载，插件页会给出原因；请按本文改写后重新打包。
 
-Vela 使用 CodeMirror 6，并兼容一部分 Acode 插件接口。不是所有 Acode 插件都可以直接运行：依赖 Ace、Cordova、Android 插件原生接口或 Acode 私有 DOM 的插件需要适配。插件是有权访问本地文稿的 JavaScript 程序，只安装可信来源。
+插件在应用页面内运行，可以访问本地文稿和编辑器，**只安装可信来源的插件**。项目接口（工作区、文件事务、导入、快照）的详细说明见 [PLUGIN-PROJECT-API.md](PLUGIN-PROJECT-API.md)，现在通过 `vela.project` 使用。类型声明见 [sdk/vela.d.ts](sdk/vela.d.ts)，可安装示例见 [project-workbench](../examples/plugins/project-workbench)。可选组件（LaTeX、电子书阅读）的管理见 [COMPONENTS.md](COMPONENTS.md)。
 
-可选组件统一管理和开发协议见 [COMPONENTS.md](COMPONENTS.md)。排版组件以现有固定资源包导入，不要求 plugin.json；电子书等可执行组件使用下述插件协议。
+## 包结构
 
-## 安装与包结构
-
-通过顶栏插件按钮选择本地 ZIP。ZIP 根目录必须有 `plugin.json`；禁止绝对路径及 `..`。JavaScript ZIP 最大 8 MB，解压最大 16 MB、512 文件。插件页提供启用、停用、删除和设置。加载失败会停用插件并显示原因。
+在“更多 → 插件与组件 → 从 ZIP 安装”选择本地 ZIP。根目录必须有 `plugin.json`；禁止绝对路径及 `..`。JavaScript ZIP 最大 8 MB，解压最大 16 MB、512 个文件。
 
 ```json
-{"id":"sample.vela.commands","name":"小说工具","version":"1.0.0","main":"main.js"}
+{"id":"sample.vela.tools","name":"小说工具","version":"1.0.0","main":"main.js",
+ "vela":{"api":">=4 <5","requiredCapabilities":["ui-slots"]}}
 ```
+
+`vela.api` 必须声明；`requiredCapabilities` 中有当前宿主没有的能力时，插件不会运行，并显示缺少的能力。当前能力：`ui-slots`、`commands`、`pages`、`assets`、`completion`、`editor-extensions`、`documents`、`configuration-v2`、`chapters`、`local-history`、`tex`、`document-formats-v1`，以及项目接口提供的能力（如 `filesystem-v1`）。
+
+`main` 是打包好的单个脚本（例如 esbuild `--format=iife`），以普通脚本方式加载；不能用 `import` 引用包内其他文件，资源请用 `vela.assets`。
 
 ```javascript
-const id = 'sample.vela.commands';
-acode.setPluginInit(id, async (baseUrl, page, options) => {
-  const vela = acode.require('vela');
-  const commands = acode.require('commands');
-  commands.addCommand({
-    name: id + '.insertScene', description: '插入场景分隔', bindKey: 'Ctrl-Alt-s',
-    exec(editor) { editor.dispatch(editor.state.replaceSelection('\n\n* * *\n\n')); }
-  });
-  vela.addCompletion(context => {
-    const word = context.matchBefore(/场景\w*$/);
-    return word ? {from: word.from, options: [{label:'场景分隔', apply:'* * *'}]} : null;
-  }, ['TXT','MD']);
-  vela.on('switch-file', file => { console.log(file?.filename); });
+VelaPlugins.register('sample.vela.tools', {
+  async activate(vela) {
+    vela.commands.register({id: 'insertScene', title: '插入场景分隔', shortcut: 'Ctrl-Alt-s',
+      run: () => { const view = vela.editor.view; view.dispatch(view.state.replaceSelection('\n\n* * *\n\n')); }});
+    vela.ui.addButton({id: 'scene', title: '场景分隔', icon: 'quote', locations: ['document-toolbar', 'selection-menu'],
+      run: () => vela.commands.execute('insertScene')});
+  },
+  deactivate() { /* 可选：停用前释放自建资源 */ }
 });
-acode.setPluginUnmount(id, async () => { /* 释放插件自己建立的定时器等资源 */ });
 ```
 
-`baseUrl` 是包资源的虚拟地址，使用 `fetch(baseUrl + 'data.json')` 或 `acode.toInternalUrl()` 读取。页面的 `page.body` 可放置设置内容，`page.show()/hide()/settitle()` 管理页面。包内 CSS 的相对资源地址会被转换为本地 Blob 地址。插件代码不能通过 `eval()` 加载。
+`activate` 只会在本插件加载期间注册一次；注册 ID 必须与 `plugin.json` 的 `id` 一致。停用时宿主会依次撤销本插件添加的按钮、面板、内置元素调整、命令、补全、扩展、事件、页面和资源地址，然后调用 `deactivate`；停用后再调用接口会得到 `E_PLUGIN_STOPPED`。自建的定时器、DOM 节点、网络请求等请用 `vela.dispose(fn)` 登记。
 
-## Vela API v1
+## 界面：按钮、面板与内置元素
 
-在初始化回调中获取 `acode.require('vela')` 并保存；停用后该对象不能再修改文稿。
+插件只能把按钮和面板放进文舟已有的区域，不能另造导航或工具栏。按钮使用文舟内置图标名称和纯文本标题，由宿主绘制。
 
-| 方法 | 行为 |
+| 位置 | 实际区域 |
 | --- | --- |
-| `getFiles()` | 返回 `{id,name,path}` 数组，路径相对内部文件夹 |
-| `readText(id)` | 异步读取当前文稿内容 |
-| `writeText(id,text)` | 异步写入并保存；活动编辑器可撤销，单文件限 8 MB |
-| `addExtension(extension)` | 给编辑器安装 CodeMirror 扩展，返回移除函数 |
-| `addCompletion(source,kinds=[])` | 注册 CodeMirror CompletionSource；空 kinds 作用于全部格式，返回移除函数 |
-| `on(event,listener)` | 监听编辑器事件，返回移除函数 |
-| `getSettings()` / `updateSettings(object)` | 读取副本 / 合并持久化插件设置 |
-| `dispose(callback)` | 登记卸载清理函数 |
-| `compileTex(id,options)` | 编译工作区中的 TEX 文稿；options 为 `{engine,onLog,signal}`；返回 `{ok,pdf,log,diagnostics,stats}`，pdf 是 Uint8Array |
+| `top-toolbar` | 顶部工具栏；窄屏或超过两个插件按钮时进入现有“更多”菜单 |
+| `document-toolbar` | 正文上方的文稿工具区 |
+| `bottom-toolbar` | 底部快捷栏，超出时横向滚动 |
+| `library-sidebar` | 文件侧栏的工具区 |
+| `outline-sidebar` | 章节侧栏的工具区 |
+| `selection-menu` | 选中正文后弹出的选区菜单；`run` 收到 `{selection:{text,from,to,editable}}` |
 
-格式名为 `TXT / MD / HTML / CSV / TEX / CODE / VELA`。补全来源可返回 Promise，单个来源失败不会影响其他来源。Tab 保持两个全角空格缩进；补全使用 Enter 确认。插件命令、扩展、补全、事件、页面和包资源 URL 在停用时清理；自建定时器、DOM、网络请求等应登记 `dispose()`。
+```javascript
+const button = vela.ui.addButton({
+  id: 'focus', title: '专注计时', icon: 'task', location: 'bottom-toolbar',
+  toggle: true, order: 10, run: () => button.update({checked: true})
+});
+button.update({title: '计时中', disabled: false, hidden: false});
+button.dispose();
+```
 
-事件：`switch-file`、`file-content-changed`、`new-file`。参数是文件对象 `{id,filename,name,uri,text}`；getter 始终返回当前内容。`editorManager.editor` 是 EditorView，不是 Ace session。`compileTex` 在初始化结束后的命令或用户操作中调用，允许 AbortSignal 取消；缺失宏包通过下述插件格式补充。
+- `addButton(spec)`：`id`、`title`、`location` 或 `locations`、`run(context)` 必填；可选 `icon`（文舟图标名，见 `web/icons.mjs` 的 `iconNames`）、`order`（-1000 至 1000）、`toggle`/`checked`、`disabled`、`hidden`、`tooltip`。返回 `{update(patch), dispose()}`。
+- `addPanel({id,title,location})`：在文件侧栏或章节侧栏底部加一个可折叠面板，返回 `{body, update({title,collapsed}), dispose()}`；`body` 是插件自己填充的容器。
+- `builtins(location?)`：列出可调整的内置按钮（`{id,title,location}`），例如 `quick-save`、`quick-git`、`search-editor`、`new-doc`、`append-chapter`。
+- `setBuiltin(id,{hidden,order})`：隐藏或重排一个内置按钮，返回恢复函数；插件停用时自动恢复默认界面。
+- `createPage(title)`：全屏插件页，沿用文舟返回按钮与标题栏；`{body, show(), hide(), close(), setTitle(), onVisible(), onHide(), onBeforeClose()}`。
+- `toast(message)`、`alert(title,message)`、`confirm(title,message)`、`prompt(title,value)`：使用文舟现有提示与对话框。
 
-## Acode 兼容接口
+## 命令、资源与设置
 
-支持 `acode.setPluginInit/setPluginUnmount/require/addCommand/exec/newFile/toInternalUrl/getPlugin`；模块包括 `commands/settings/page/toast/alert/confirm/prompt/fs/fsOperation/helpers/Url/EditorFile/codemirror`，以及 `@codemirror/state/view/commands/language/search/autocomplete`。
+- `commands.register({id,title,shortcut?,run})`：进入命令面板，`shortcut` 支持 `Ctrl-`/`Mod-` 写法；完整命令名为“插件 ID.命令 ID”。`commands.execute(id)` 执行本插件或其他插件的命令。
+- `assets.url(path)`：包内文件的本地地址（可用于 `<link>`、`<img>`、`new Worker(url,{type:'module'})`）；`assets.read(path,{encoding})` 读取内容，`encoding:null` 返回 `Uint8Array`。包内 CSS 的相对 `url()` 会自动改为本地地址。
+- `settings.get()` / `settings.update(object)`：插件私有设置；`settings.page({list,cb})` 在插件页提供设置界面（`list` 项为 `{key,text,value,checkbox}`）。
 
-`commands` 支持 addCommand/removeCommand/exec/execute/getCommand。快捷键支持 `Ctrl-` 或 `Mod-`；命令名称应以插件 id 为前缀。`settings.value/get/update` 是兼容设置，插件自己的设置优先使用 Vela API。
+## 编辑器与文稿
 
-`fs('wenzhou-file://文稿ID').readFile()/writeFile(text)` 操作文稿。`fs(baseUrl+'cache/data.json')` 读取或写入插件缓存；不能修改其他插件或包入口。Acode 的 actionStack 是兼容空操作，Ace session、Cordova、原生 shell、任意外部文件路径和插件商店安装接口不支持。
+- `editor.view`：当前 CodeMirror `EditorView`（没有打开文稿时为 `null`）。`editor.codemirror` 提供宿主使用的 `state/view/commands/language/search/autocomplete` 模块；扩展必须用这些模块创建，自带的另一份 CodeMirror 会被拒绝。
+- `editor.addExtension(extension)`：安装 CodeMirror 扩展；`editor.addCompletion(source,kinds=[])`：注册补全来源，空 `kinds` 作用于全部格式。格式名为 `TXT / MD / HTML / CSV / TEX / CODE / VELA`。补全使用 Enter 确认，Tab 保持缩进。
+- `documents.list()`、`active()`、`readText(id)`、`writeText(id,text)`（保存并可撤销，单文件 8 MB）、`info(id)`、`history(id)`、`config(id)`（第二版 `.vela` 生效配置）、`chapters(id)`、`create(name,text)`。
+- `on(event,fn)`：`switch-file`、`file-content-changed`、`new-file`；参数是 `{id,name,path,text}`，读取时总是当前内容。
+- `tex.compile(fileId,{engine,onLog,signal})`：编译 TEX 文稿，返回 `{ok,pdf,log,diagnostics,stats}`；需在初始化完成后的用户操作中调用。
+- `formats.register(provider)`：注册文档格式提供者。
+- `project`：项目接口（工作区、文件、导入导出、快照、独立试演），见 PLUGIN-PROJECT-API.md。
 
 ## TeX 宏包插件
 
-无需 JavaScript 入口。`plugin.json`：
+无需 JavaScript 入口：
 
 ```json
 {"id":"sample.tex.package","name":"自定义宏包","version":"1.0.0","vela":{"type":"tex-package"}}
 ```
 
-文件放在 `texmf/` 下，例如 `texmf/tex/latex/mybook/mybook.sty`、`texmf/fonts/opentype/myfont.otf`。将依赖宏包、字体、许可一起打包。启用后资源进入编译器的虚拟文件系统；完整相对路径和文件 basename 均可查找，工作区文件优先。不要用相同文件名安装多个不同宏包。宏包 ZIP 最大 64 MB，解压最大 128 MB、10000 文件。
+文件放在 `texmf/` 下，例如 `texmf/tex/latex/mybook/mybook.sty`、`texmf/fonts/opentype/myfont.otf`，并附上依赖与许可。启用后资源进入编译器的虚拟文件系统，工作区文件优先；不要用相同文件名安装多个不同宏包。宏包 ZIP 最大 64 MB，解压最大 128 MB、10000 个文件。资源保存在 IndexedDB，停用不删除，删除插件时移除。更多说明见 [LATEX.md](LATEX.md)。
 
-资源使用 IndexedDB 保存，插件清单保存于内部配置；停用不删除资源，删除后移除资源。内置 `vela.tex.cjk` 在首次编译时安装，包含 ctex、xeCJK、fontspec 和 Fandol 字体。内置包的各组件许可见 `vendor/wasmtex/THIRD_PARTY_NOTICES.md` 与 ZIP 内许可清单。
+## 从旧版（Acode / 接口 3）迁移
 
-更多编译说明见 [LATEX.md](LATEX.md)。
+| 旧写法 | 接口 4 |
+| --- | --- |
+| `acode.setPluginInit(id, fn)` / `setPluginUnmount` | `VelaPlugins.register(id, {activate, deactivate})` |
+| `acode.require('vela')` | `activate(vela)` 的参数；项目接口在 `vela.project` |
+| `acode.require('commands').addCommand({name, description, bindKey, exec})` | `vela.commands.register({id, title, shortcut, run})` |
+| `new (acode.require('page'))(title)` | `vela.ui.createPage(title)` |
+| `baseUrl + 'file'`、`acode.toInternalUrl()`、`fs(baseUrl + …)` | `vela.assets.url('file')` / `vela.assets.read('file')` |
+| `acode.require('@codemirror/view')` | `vela.editor.codemirror.view` |
+| `editorManager.editor` | `vela.editor.view` |
+| `vela.getFiles/readText/writeText/getConfig/getChapters/getHistory/getDocumentInfo` | `vela.documents.list/readText/writeText/config/chapters/history/info` |
+| `vela.getSettings/updateSettings` | `vela.settings.get/update` |
+| `vela.compileTex` | `vela.tex.compile` |
 
-## 0.8.0 配置与文档服务
-
-`acode.require('vela')` 当前的服务版本为 3，继续保留版本 2 的文档与配置方法，`capabilities` 列出可用能力。`getConfig(fileId)` 返回第二版生效配置副本，`getDocumentInfo(fileId)` 返回稳定 ID、当前修订、已保存修订、修改状态与历史数量，`getChapters(fileId)` 返回自动章节索引，`getHistory(fileId)` 返回历史的修订/时间/字符数摘要（不返回整个快照正文）。修改文稿仍通过 `writeText`，不绕开保存和锚点检查。
-
-服务停止后拒绝继续读写。插件设置与扩展字段不自动进入 GitHub 文件；需要作品随行设置时使用 `extensions.<plugin-id>`，保留其他插件字段。不要把令牌、密钥或本地绝对路径写入配置。仅支持第二版 `.vela`，插件应使用 `getConfig` 读取新版字段；不再提供旧格式升级。
+插件缓存目录（`cache/`）写入已移除；需要持久数据时使用 `settings` 或项目接口。

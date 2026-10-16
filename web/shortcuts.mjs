@@ -19,7 +19,7 @@ export const shortcuts=[
   ['new-doc','Mod-n','Ctrl+N','新建文件'],
   ['close-active','Mod-w','Ctrl+W','关闭当前标签'],
   ['home-button','Mod-Alt-h','Ctrl+Alt+H','启动页'],
-  ['plugins','Mod-Alt-p','Ctrl+Alt+P','Acode 插件'],
+  ['plugins','Mod-Alt-p','Ctrl+Alt+P','插件与组件'],
   ['commands','Mod-Shift-k','Ctrl+Shift+K','命令与快捷键'],
   ['append-chapter','Mod-Alt-Enter','Ctrl+Alt+Enter','追加章节'],
   ['locate-chapter','Mod-Alt-l','Ctrl+Alt+L','定位当前章节'],
@@ -32,7 +32,9 @@ export const shortcuts=[
   ['md-heading','Mod-Alt-1','Ctrl+Alt+1','Markdown 一级标题'],
   ['md-list','Mod-Alt-7','Ctrl+Alt+7','Markdown 无序列表'],
   ['md-task','Mod-Alt-8','Ctrl+Alt+8','Markdown 任务列表'],
-  ['md-quote','Mod-Alt-q','Ctrl+Alt+Q','Markdown 引用']
+  ['md-quote','Mod-Alt-q','Ctrl+Alt+Q','Markdown 引用'],
+  ['format-emphasis','Mod-Shift-e','Ctrl+Shift+E','TXT 着重号'],
+  ['format-center','Mod-Alt-e','Ctrl+Alt+E','TXT 居中']
 ];
 export function matchesKey(event,binding) {
   const parts=binding.split('-'),key=parts.pop().toLowerCase();

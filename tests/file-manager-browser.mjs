@@ -29,7 +29,7 @@ try{
     await menu('小说/资料');await p.locator('#folder-new-file').click();await p.locator('[name=name]').fill('人物.csv');await p.locator('[name=template]').selectOption('empty');await submit();assert.equal((await saved()).documents.find(d=>d.name==='人物.csv').path,'小说/资料/人物.csv');assert.equal(await p.locator('#library').isVisible(),true);
   });
   await check('文件夹更名保留子文件和编辑内容，属性、复制粘贴、剪切移动与排序可用',async()=>{
-    await p.locator('[data-display=source]').click();await p.evaluate(()=>{const v=editorManager.editor;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:'姓名,身份\n甲,主角'}});});
+    await p.locator('[data-display=source]').click();await p.evaluate(()=>{const v=velaEditorView;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:'姓名,身份\n甲,主角'}});});
     await menu('小说');await p.locator('#rename-doc').click();await p.locator('[name=name]').fill('长篇');await submit();assert.equal((await saved()).documents.find(d=>d.name==='人物.csv').path,'长篇/资料/人物.csv');
     await menu('长篇');await p.locator('#file-properties').click();assert.match(await p.locator('#dialog-body').innerText(),/长篇/);await p.locator('#dialog-cancel').click();
     await menu('长篇');await p.locator('#copy-file').click();await p.locator('#workspace-root').click();await p.locator('#paste-file').click();await p.waitForSelector('[data-folder="长篇 (2)"]');assert.equal((await saved()).documents.filter(d=>d.name==='人物.csv').length,2);
@@ -38,12 +38,12 @@ try{
   });
   await check('目录删除与回收站跨刷新保留，恢复文稿内容与空目录，永久删除需要确认',async()=>{
     await menu('长篇');await p.locator('#delete-doc').click();await submit();assert.equal((await saved()).documents.some(d=>d.path==='长篇/资料/人物.csv'),false);
-    await p.reload();await p.waitForFunction(()=>window.editorManager);await p.locator('#open-trash').click();await p.locator('[data-restore]').click();await p.waitForFunction(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')).documents.some(d=>d.path==='长篇/资料/人物.csv'));await p.locator('#dialog-cancel').click();
+    await p.reload();await p.waitForFunction(()=>window.velaReady);await p.locator('#open-trash').click();await p.locator('[data-restore]').click();await p.waitForFunction(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')).documents.some(d=>d.path==='长篇/资料/人物.csv'));await p.locator('#dialog-cancel').click();
     assert.equal((await saved()).documents.find(d=>d.path==='长篇/资料/人物.csv').text,'姓名,身份\n甲,主角');assert.ok((await saved()).folders.includes('长篇/资料'));
     await menu('长篇 (2)');await p.locator('#delete-doc').click();await submit();await p.locator('#open-trash').click();await p.locator('[data-permanent]').click();assert.equal((await saved()).trash.length,1);await p.locator('#dialog-submit').click();await p.waitForFunction(()=>document.querySelector('#dialog').open&&document.querySelector('#dialog-title').textContent==='回收站');assert.equal((await saved()).trash.length,0);await p.locator('#dialog-cancel').click();
   });
   await check('章节始终自动识别，可同时添加多种模板并在重启后保留',async()=>{
-    await p.locator('#workspace-root').click();await p.locator('#new-doc').click();await p.locator('[name=name]').fill('正文.txt');await p.locator('[name=template]').selectOption('empty');await submit();await p.evaluate(()=>{const v=editorManager.editor;v.dispatch({changes:{from:0,insert:'第一章 开始\n正文\n【二】海岸\n正文\n幕 Three — 航路\n正文'}});});
+    await p.locator('#workspace-root').click();await p.locator('#new-doc').click();await p.locator('[name=name]').fill('正文.txt');await p.locator('[name=template]').selectOption('empty');await submit();await p.evaluate(()=>{const v=velaEditorView;v.dispatch({changes:{from:0,insert:'第一章 开始\n正文\n【二】海岸\n正文\n幕 Three — 航路\n正文'}});});
     const novel=(await saved()).activeId;await p.locator('#more-tools').click();await p.locator('#settings').click();assert.equal(await p.locator('[name=format]').count(),0);assert.equal(await p.locator('#dialog [name=titleTemplates]').count(),0);await p.locator('#create-vela').click();await p.locator('#vela-form [name=titleTemplates]').fill('【{序号}】{标题}\n幕 {number} — {title}');await p.locator('#vela-form .primary').click();await p.locator(`[data-doc="${novel}"]`).click();await p.waitForFunction(()=>document.querySelector('#chapter-count').textContent.includes('3 章'));
     await p.reload();await p.waitForFunction(()=>document.querySelector('#chapter-count').textContent==='3 章');assert.equal(JSON.parse((await saved()).documents.find(doc=>doc.path==='.vela').text).chapters.templates.length,2);assert.equal(await p.locator('#chapter-count').textContent(),'3 章');
   });

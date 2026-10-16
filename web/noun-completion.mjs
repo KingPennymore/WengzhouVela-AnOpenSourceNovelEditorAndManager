@@ -1,5 +1,6 @@
 import {ViewPlugin} from '@codemirror/view';
 import {t} from './i18n.mjs';
+import {nounCandidates} from './completion-core.mjs';
 const SIZE=4096,HALO=32;
 export function nounCompletionExtension(getProject){
   let plugin;
@@ -17,9 +18,9 @@ export function nounCompletionExtension(getProject){
     }
     destroy(){clearTimeout(this.timer);this.timer=null;this.enabled=false;this.worker?.terminate();this.worker=null;this.options=[];this.blocks=[];for(const resolve of this.waiters)resolve();this.waiters.clear();}
   });
-  const source=async context=>{if(context.view?.composing)return null;const service=context.view?.plugin(plugin);if(!service?.enabled)return null;if(service.busy||service.removed.length||service.blocks.some(b=>b.dirty)){await new Promise(resolve=>{service.waiters.add(resolve);context.addEventListener('abort',()=>{service.waiters.delete(resolve);resolve();});});}if(context.aborted||context.view.state.doc!==context.state.doc||!service.options.length)return null;const project=getProject?.()||{},excluded=new Set([...(project.terms||[]).flatMap(e=>[e.term,...e.aliases]),...(project.glossary||[])]),before=context.state.doc.sliceString(Math.max(0,context.pos-24),context.pos);let from=context.pos,options=[];
-    for(const item of service.options){if(excluded.has(item.label))continue;let n=Math.min(before.length,item.label.length-1);while(n>0&&!before.endsWith(item.label.slice(0,n)))n--;if(!n)continue;const start=context.pos-n;if(options.length&&start>from)continue;if(start<from){options=[];from=start;}options.push({label:item.label,type:'text',velaKind:'noun',boost:-20,detail:t('正文候选'),info:t('从当前正文推测，未加入术语库。')});if(options.length>=80)break;}
-    return options.length?{from,options}:null;
+  const source=async context=>{if(context.view?.composing)return null;const service=context.view?.plugin(plugin);if(!service?.enabled)return null;if(service.busy||service.removed.length||service.blocks.some(b=>b.dirty)){await new Promise(resolve=>{service.waiters.add(resolve);context.addEventListener('abort',()=>{service.waiters.delete(resolve);resolve();});});}if(context.aborted||context.view.state.doc!==context.state.doc||!service.options.length)return null;
+    const offset=Math.max(0,context.pos-24),text=context.state.doc.sliceString(offset,context.pos),values=nounCandidates({text,position:text.length},service.options,getProject?.()||{},t);
+    return values.length?{from:offset+values[0].from,options:values.map(value=>({label:value.label,type:'text',velaKind:value.kind,boost:value.score,detail:value.detail,info:value.info}))}:null;
   };
   return {plugin,source};
 }

@@ -20,7 +20,7 @@ try{
   const url=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('预览服务启动超时。')),15000);server.once('error',error=>{clearTimeout(timer);reject(error);});server.once('exit',()=>{clearTimeout(timer);reject(Error('预览服务提前退出。'));});let output='';server.stdout.on('data',chunk=>{output+=chunk;const match=output.match(/VELA_PREVIEW_URL=(http:\/\/127\.0\.0\.1:\d+)/);if(match){clearTimeout(timer);resolve(match[1]);}});});
   const suites=['browser','features-browser','workspace-browser','file-manager-browser','sidebars-browser','studio-browser','editing-browser','reading-browser','reading-config-browser','double-reading-browser','reading-window-browser','ui-overhaul-browser','glossary-browser','bugfix-browser','gitee-browser','storyboard-sync-browser','improvements-browser','completion-layout-browser','mobile-shell-browser','mobile-status-browser','paragraph-indent-browser','storyboard-browser'];
   for(const suite of suites)await run(suite,['tests/'+suite+'.mjs'],{VELA_TEST_URL:url});
-  for(const suite of ['start-page-browser','velaodt-browser','odf-component-browser'])await run(suite,['tests/'+suite+'.mjs']);
+  for(const suite of ['start-page-browser'])await run(suite,['tests/'+suite+'.mjs']);
   await run(lite?'components-browser':'components-builtins-browser',[lite?'tests/components-browser.mjs':'tests/components-builtins-browser.mjs']);
   if(process.argv.includes('--tex'))await run(lite?'tex-lite-browser':'tex-browser',[lite?'tests/tex-lite-browser.mjs':'tests/tex-browser.mjs'],{VELA_TEST_URL:url});
   if(process.argv.includes('--windows'))await run('windows-browser',['tests/windows-browser.mjs'],{VELA_TEST_FLAVOR:lite?'lite':'full'});

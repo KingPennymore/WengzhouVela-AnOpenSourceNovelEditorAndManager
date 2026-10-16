@@ -8,8 +8,8 @@ try{
   await context.addInitScript(()=>localStorage.setItem('wenzhou.workspace',JSON.stringify({version:1,documents:[{id:'book',name:'正文.txt',path:'正文.txt',text:'　　正文',updatedAt:1}],openIds:['book'],activeId:'book',settings:{theme:'light'}})));
   const page=await context.newPage(),errors=[];page.on('pageerror',error=>errors.push(error.message));
   await page.goto((process.env.VELA_TEST_URL||'http://127.0.0.1:4173')+'/?ui='+profile);await openRecentFile(page,page.locator('[data-recent=book]'));await page.waitForSelector('.cm-editor');
-  const replace=async text=>page.evaluate(text=>{const v=editorManager.editor;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:text},selection:{anchor:text.length}});v.focus();},text);
-  const value=()=>page.evaluate(()=>({text:editorManager.editor.state.doc.toString(),head:editorManager.editor.state.selection.main.head}));
+  const replace=async text=>page.evaluate(text=>{const v=velaEditorView;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:text},selection:{anchor:text.length}});v.focus();},text);
+  const value=()=>page.evaluate(()=>({text:velaEditorView.state.doc.toString(),head:velaEditorView.state.selection.main.head}));
   for(const indent of ['　　','　','    ','\t　 ','']){
    const text=indent+'正文';await replace(text);await page.keyboard.press('Enter');
    assert.deepEqual(await value(),{text:text+'\n'+indent,head:text.length+1+indent.length});

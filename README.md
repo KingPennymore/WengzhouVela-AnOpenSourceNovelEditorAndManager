@@ -4,9 +4,11 @@
 
 文舟是独立项目，不是 Acode 官方应用，也不代表 Acode Foundation。项目复用了 Acode 的部分 CodeMirror 编辑组件和 Acode-Writer 1.0.4 的章节识别代码，具体版权与许可证见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)。
 
-当前版本：鸿蒙 / Windows **0.9.6**，安卓 **0.9.6-android.1**，移动端版本代码 **10906**，包名 `me.wenzhou.write`。HarmonyOS 使用 API 24 SDK 编译，兼容 API 12；安卓最低 Android 8.0 / API 26，WebView 需 Chromium 105 或更新版本。
+当前版本：鸿蒙 / Windows **0.9.7**，安卓 **0.9.7-android.1**，移动端版本代码 **10907**，包名 `me.wenzhou.write`。HarmonyOS 使用 API 24 SDK 编译，兼容 API 12；安卓最低 Android 8.0 / API 26，WebView 需 Chromium 105 或更新版本。
 
-[下载 0.9.6](https://github.com/KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager/releases/tag/v0.9.6)：本次仅提供三端轻量版，包括发布签名 HAP、鸿蒙市场提交用 APP.zip、安卓签名 APK / AAB、Windows x64 安装程序 / ZIP；另附源码、四份可选组件（排版引擎、中文排版、电子书/PDF、ODF）及 SHA-256 清单。Windows 包尚无 Authenticode 签名。鸿蒙发布签名的直接安装受系统来源校验限制，不能替代调试签名安装。
+[下载 0.9.7](https://github.com/KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager/releases/tag/v0.9.7)（预发布）：提供鸿蒙发布签名 HAP、鸿蒙市场提交用 APP.zip、Windows x64 安装程序 / 便携版、源码和可选组件；安卓签名安装包稍后补充。
+
+0.9.7 重写插件平台为插件接口 4（移除 Acode 运行时，插件可在顶栏、文稿栏、底栏、两侧侧栏和选区菜单添加按钮与面板），删除 ODF 组件。新增 TXT 格式：粗体、着重号、居中、注音、插图和命名样式，格式另存为同名 `.vela` 旁注（.vela 第三版），TXT 正文保持纯文字，外部改稿后自动重新定位；阅读页与预览显示格式。新增按章节导出 TXT / Markdown / HTML、复制到剪贴板，以及 EPUB 3 导出（EPUBCheck 无错误）。界面方面合并编辑页的标签、格式与视图切换为一行，桌面快捷操作移入状态栏，正文区占比从 75% 提高到 85%；新增自选配色；预览内可直接跳转章节；修复深色模式分隔线颜色。
 
 0.9.6 合并分享对话中的启动页、固定顶底栏、格式模板、竖向选区菜单与 VODT 图文编辑更新；插件页统一管理排版、电子书/PDF 和 ODF 可选组件。ODF 复杂排版及原生选区菜单兼容边界见组件文档。
 
@@ -47,7 +49,7 @@
 - 文件侧栏、章节侧栏和正文共享 240 毫秒布局动画，每帧同步宽度，正文左右边界始终贴合侧栏。手机文件侧栏上限 180 px、章节侧栏上限 170 px，导航改为横排；两侧同时展开时继续缩窄侧栏，为正文保留至少 160 px 或屏幕宽度的 40%（取较大值）。支持中途反向和快速连续切换；系统启用“减少动态效果”时直接切换。四个页面切换按钮常驻顶栏，文件侧栏仅由其右侧文件夹按钮控制。手机 Git 页面收起底部写作栏并延伸侧栏，账号下方提供退出按钮，未登录时禁用。
 - 顶部由原生布局避让系统状态栏；底部背景覆盖导航提示条区域，并留出操作空间。
 - 选中文字时隐藏当前段落背景，取消选择后恢复；选区左右边界与段落边界一致，首尾部分文字保持精确范围。
-- Acode JavaScript 插件可从本地 ZIP 安装、启用、停用、卸载；完整运行时开源许可可在设置中查看。
+- 插件（插件接口 4）可从本地 ZIP 安装、启用、停用、卸载，可在顶栏、文稿工具区、底栏、两侧侧栏和选区菜单添加按钮与面板；旧版 Acode 插件已不再支持。
 
 ## 阅读、订阅与项目配置
 
@@ -213,15 +215,9 @@ Git 功能使用 GitHub REST API 完成远端版本操作，没有本地完整 G
 
 HTML / HTM 默认打开源码，应用中的预览使用 ArkWeb / Android WebView，保留原始样式而不强制套用编辑器主题。资源路径相对 HTML 所在目录解析，可引用同一工作区的上级目录；文件导入可添加图片和其他附件。单个文件上限 8 MB。脚本与联网默认关闭，可通过预览工具栏开启，远程资源仅允许 HTTPS；返回编辑可继续修改源码。CSV 扩展名不区分大小写，默认显示可编辑表格，自动识别逗号、分号、Tab 及 Excel 的 sep= 标记；支持带引号和换行的单元格及手动分隔符。宽表按行和列分页，每页不超过 2000 个单元格，保留全部数据。TXT 预览保留纯文本；Markdown 提供格式栏及阅读预览。首次安装指南列出全部快捷键。
 
-## Acode 插件
+## 插件
 
-在顶部插件按钮、命令面板或启动页选择“Acode 插件”，从本地 ZIP 安装。ZIP 根目录需要标准 `plugin.json`，`main` 指向包内已打包的 JavaScript 脚本。安装包上限 8 MB，解压资源上限 16 MB / 512 个文件。源文件和启停状态持久保存在 `files/plugins.json`，重新启动自动加载已启用插件；加载失败的插件停用并保留明确原因。
-
-兼容 `acode.setPluginInit`、`setPluginUnmount`、`require` / `define`、CodeMirror 6 的 state / view / commands / language / search、`editorManager` 的活动文件和切换 / 修改事件、命令注册、设置、插件页面、基础提示弹窗、包内 CSS / 图片 / fetch 资源和缓存文件。已安装插件注册的命令可在 Ctrl+Shift+K 中执行。共享宿主设置保存在插件存储，插件也可使用自身本地存储。
-
-未移植 Android / Cordova 原生接口、Ace、终端、Acode 插件市场购买授权和所有 Acode 内置模块，不保证每个 Acode 插件都可直接运行。未实现的模块在加载时显示名称；纯 JavaScript / CodeMirror 插件可运行，真实 Writer 1.0.4 的 ZIP 安装、底栏、命令、启停及重新启动均已验证。插件的卸载回调应清理自身事件、计时器和额外 DOM。
-
-兼容接口依据：[Acode 官方插件模板](https://github.com/Acode-Foundation/acode-plugin)、[Acode 宿主 API 固定源码](https://github.com/Acode-Foundation/Acode/blob/a63983fd2f76d5ae44c73d062acb18c12bdc0e7f/src/lib/acode.js)。
+在“更多 → 插件与组件”从本地 ZIP 安装。插件使用插件接口 4（`VelaPlugins.register` + `activate(vela)`），可注册命令、补全和 CodeMirror 扩展，在顶栏、文稿工具区、底栏、文件/章节侧栏和选区菜单添加按钮，在侧栏添加面板，隐藏或重排内置按钮（停用后恢复）。插件在页面内运行，只安装可信来源。原 Acode 兼容运行时已移除，旧版 Acode 插件会被拒绝并显示原因。开发说明见 [docs/PLUGINS.md](docs/PLUGINS.md)。
 
 ## 验证
 
@@ -297,6 +293,7 @@ Windows x64 安装包与 ZIP、移动安装包可在 GitHub Releases 获取。�
 
 LaTeX 离线引擎和中文支持进入“插件与组件”列表，已有导入自动识别，支持启停及轻量版卸载。构建额外生成约 29 KiB 的可安装电子书组件，支持 EPUB、FB2、TXT/HTML 和无 DRM MOBI7/AZW；KF8/AZW3/KFX 暂不支持。组件开发见 [docs/COMPONENTS.md](docs/COMPONENTS.md)，后续可选化建议见 [docs/OPTIONAL-COMPONENTS-ANALYSIS.md](docs/OPTIONAL-COMPONENTS-ANALYSIS.md)。版本号仍为 0.9.5，此包为源码修订，未生成新的原生安装包。
 
-## 可选 ODF 文档组件修订
+## ODF 组件已移除
 
-ODF 导入、编辑、渲染与导出已从主程序拆出，通过插件列表安装/启停/卸载 `dist/plugins/Vela-ODF-1.0.0.zip`。未安装时，已有 VODT/Flat ODF 可查看纯文本和源码。支持 ODT 普通段落兼容编辑和包附件保留，ODS/ODP/ODG 基础预览及原格式导出；完整支持边界、签名/加密和开发接口见 [ODF 组件文档](docs/ODF-COMPONENT.md)。电子书组件包含此前新增的 PDF 阅读。此源码修订继续使用 0.9.5 版本号，不是已签名的三端发布安装包。
+实验性的 ODF/VODT 组件已删除。已有的 VODT 与 Flat ODF 文稿保留原文，以纯文本和源码查看，可导出原件；新建文件不再提供 VODT 模板。
+
