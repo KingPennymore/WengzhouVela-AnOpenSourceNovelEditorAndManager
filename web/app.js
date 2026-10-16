@@ -144,7 +144,8 @@ function renderOutline(section){
   const idx=ensureIndex(),query=$('#chapter-search').value.trim().toLowerCase();
   const revision=JSON.stringify([current().id,query,idx.chapterCount,idx.total,idx.lineCount]);
   if(revision!==outlineRevision){const matches=idx.sections.map((s,i)=>({s,i})).filter(({s})=>s.title.toLowerCase().includes(query)),visible=matches.slice(0,outlineLimit);if(section&&!visible.some(({s})=>s===section)){const selected=matches.find(({s})=>s===section);if(selected)visible.push(selected);}$('#outline-list').innerHTML=visible.map(({s,i})=>`<button class="chapter" data-row="${s.row}"><span class="chapter-number">${String(i+1).padStart(2,'0')}</span><span>${esc(s.title)}<small>${t(s.count.toLocaleString()+' 字 · 行 '+(s.row+1))}</small></span></button>`).join('')+(matches.length>outlineLimit?`<button id="more-chapters" class="secondary">显示更多 · ${visible.length} / ${matches.length}</button>`:'')||'<p class="blank">没有匹配的章节。</p>';const more=$('#more-chapters');if(more)more.onclick=()=>{outlineLimit+=200;outlineRevision='';updateStats();};outlineRevision=revision;}
-  $('#outline-list').querySelectorAll('[data-row]').forEach(b=>b.classList.toggle('active',Number(b.dataset.row)===section?.row));
+  const active=section?.row??-1,list=$('#outline-list');if(list.dataset.activeRow===String(active)&&list.dataset.activeRevision===outlineRevision)return;list.dataset.activeRow=String(active);list.dataset.activeRevision=outlineRevision;
+  list.querySelectorAll('[data-row]').forEach(b=>b.classList.toggle('active',Number(b.dataset.row)===section?.row));
 }
 function renderTabDirty(){renderSyncStatus();document.querySelectorAll('.document-tab').forEach(tab=>{const id=tab.querySelector('[data-tab]')?.dataset.tab,marker=tab.querySelector('.tab-dirty');if(marker)marker.textContent=documents?.dirty.has(id)||id===workspace.activeId&&dirty?'●':'';});}
 function updateStats(){
@@ -156,9 +157,16 @@ function updateStats(){
   $('#word-count').textContent=`本章 ${section?.count||0} 字 · 全文 ${idx.total} 字`;
   $('#current-chapter').textContent=section?.title||'全文';
   $('#cursor-position').textContent=`行 ${row.number}，列 ${pos-row.from+1}`;
-  const selection=view.state.selection.main;$('#selection-count').textContent=selection.empty?'':`选中 ${Writer.countText(view.state.sliceDoc(selection.from,selection.to),workspace.settings.writer.countMode)} 字`;
+  renderSelectionCount();
   renderOutline(section);
   $('#quick-undo').disabled=undoDepth(view.state)===0;$('#quick-redo').disabled=redoDepth(view.state)===0;
+}
+// Counting is linear in the selection, so long selections (drag or Shift-extend over chapters) are counted once
+// they stop changing instead of on every selection update.
+let selectionCountTimer=0;
+function renderSelectionCount(){
+  clearTimeout(selectionCountTimer);const selection=view.state.selection.main,output=$('#selection-count'),count=()=>`选中 ${Writer.countText(view.state.sliceDoc(selection.from,selection.to),workspace.settings.writer.countMode)} 字`;
+  if(selection.empty)output.textContent='';else if(selection.to-selection.from<=4000)output.textContent=count();else{const state=view.state;selectionCountTimer=setTimeout(()=>{if(view?.state===state)output.textContent=count();},160);}
 }
 function languageFor(doc){return languageSupport(doc);}
 function activateLanguage(doc){const name=doc.name,kind=doc.kind;loadLanguage(doc).then(extension=>{if(current()?.id===doc.id&&current()?.name===name&&current()?.kind===kind&&view)view.dispatch({effects:languages.reconfigure(extension)});}).catch(fail);}
