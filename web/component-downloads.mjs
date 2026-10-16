@@ -1,4 +1,5 @@
 import {readImportedArchive} from './imported-archive.mjs';
+import {verifySignature,unsignedRelease} from './release-signing.mjs';
 // Release mirrors. Downloads try Gitee first (reachable in mainland China), then GitHub; tags and file names are identical.
 export const releaseSources=Object.freeze([
   Object.freeze({id:'gitee',label:'Gitee',provider:'gitee',repository:'kingpennymore/wenzhou-vela-mirror-repository'}),
@@ -76,21 +77,44 @@ export async function findRelease(transport,pick,{sources=releaseSources}={}){
   }
   throw Object.assign(Error('无法读取发布信息。'+failures.join('；')),{failures});
 }
-/** Fill missing sizes / SHA-256 values from the release's SHA256SUMS asset, downloaded like any other file. */
-export async function completeAssets(transport,release,{sources=releaseSources}={}){
-  if(release.assets.every(asset=>asset.sha256&&asset.bytes))return release.assets;
-  const sums=release.assets.find(asset=>asset.name===`SHA256SUMS-${release.tag}.txt`||asset.name==='SHA256SUMS.txt');
-  if(!sums)return release.assets;
-  const {text}=await downloadReleaseText(transport,release.tag,sums.name,{sources});const table=parseSums(text);
-  return release.assets.map(asset=>({...asset,sha256:asset.sha256||table.get(asset.name)||null}));
+/**
+ * The release's assets with only trustworthy SHA-256 values (docs/RELEASE-SIGNING.md): those listed in its signed
+ * SHA256SUMS-<tag>.txt. Releases from before signing (unsignedRelease) may use an unsigned list or the API digests,
+ * but only from GitHub, which computes the digests itself; the Gitee mirror's unsigned data is never trusted.
+ * `signed` on the result says which case applied. A release that should be signed and is not throws E_SIGNATURE.
+ */
+export async function trustedAssets(transport,release,{sources=releaseSources,needed=null}={}){
+  const legacy=unsignedRelease(release.tag),bare=release.tag.replace(/^v/,''),apiTrusted=legacy&&release.source==='GitHub';
+  // An old release listed by GitHub already carries GitHub's own digests for what is needed: nothing to download.
+  if(apiTrusted&&needed&&needed.every(name=>release.assets.find(asset=>asset.name===name)?.sha256))return release.assets.map(asset=>({...asset,signed:false}));
+  const sums=release.assets.find(asset=>[`SHA256SUMS-${release.tag}.txt`,`SHA256SUMS-${bare}.txt`].includes(asset.name))?.name||`SHA256SUMS-${bare}.txt`;
+  let table=null,signed=false;
+  try{const list=await downloadSignedText(transport,release.tag,sums,{sources,allowUnsigned:legacy});table=parseSums(list.text);signed=list.signed;}
+  catch(error){if(!legacy)throw error;}
+  return release.assets.map(asset=>({...asset,sha256:table?.get(asset.name)||(apiTrusted?asset.sha256:null),signed}));
 }
-/** A small text asset of a release (checksum list, component catalog), from the first mirror that has it. */
-export async function downloadReleaseText(transport,tag,name,{sources=releaseSources,limit=64*1024}={}){
-  const failures=[];
-  for(const source of sources){const id='dl'+Date.now().toString(36)+(++sequence);
-    try{const result=await transport('downloadComponent',{id,url:releaseUrl(source,tag,name),name,size:0,sha256:'',limit});const data=await readImportedArchive(result,token=>transport('releaseImport',{token}));return {text:new TextDecoder().decode(data),source:source.label};}
-    catch(error){failures.push(source.label+'：'+error.message);}}
-  throw Error('无法读取 '+name+'。'+failures.join('；'));
+async function fetchText(transport,source,tag,name,limit){
+  const id='dl'+Date.now().toString(36)+(++sequence),result=await transport('downloadComponent',{id,url:releaseUrl(source,tag,name),name,size:0,sha256:'',limit});
+  const bytes=await readImportedArchive(result,token=>transport('releaseImport',{token}));return {bytes,text:new TextDecoder().decode(bytes)};
+}
+/**
+ * A signed text asset (SHA256SUMS, catalog.json): the file and <file>.sig from the same mirror, tried in order until one
+ * verifies. A bad signature is never accepted. With allowUnsigned, a file without .sig is accepted from GitHub only, and
+ * only when no mirror has a valid signature; the result then has signed:false.
+ */
+export async function downloadSignedText(transport,tag,name,{sources=releaseSources,limit=64*1024,allowUnsigned=false}={}){
+  const failures=[];let unsigned=null;
+  for(const source of sources){
+    let file,signature=null;
+    try{file=await fetchText(transport,source,tag,name,limit);}catch(error){failures.push(source.label+'：'+error.message);continue;}
+    try{signature=(await fetchText(transport,source,tag,name+'.sig',4096)).text;}catch{/* no .sig on this mirror */}
+    if(signature===null){if(allowUnsigned&&source.id==='github'&&!unsigned)unsigned={...file,source:source.label,signed:false};failures.push(source.label+'：缺少签名');continue;}
+    const check=await verifySignature(file.bytes,signature);
+    if(check.valid)return {...file,source:source.label,signed:true,key:check.key};
+    failures.push(source.label+'：'+check.reason);
+  }
+  if(unsigned)return unsigned;
+  throw Object.assign(Error(`无法验证 ${name} 的签名，已拒绝使用。`+failures.join('；')),{code:'E_SIGNATURE',failures});
 }
 const COMPONENT_ASSET=/^Vela-((?:[A-Z][A-Za-z]*-)*[A-Z][A-Za-z]*)-(\d+\.\d+\.\d+)\.zip$/;
 /** Optional executable components (e.g. the e-book reader) published with an app release. */

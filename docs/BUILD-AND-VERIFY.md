@@ -101,8 +101,8 @@ TeX 引擎和中文组件不随应用版本变化时，单独以标签 `tex-<组
 应用内“在线组件”先读组件目录（固定标签 `catalog` 的 `catalog.json`），读不到时改读最新应用发布的附件；“检查更新”读最新应用发布。每次发布按顺序完成：
 
 1. 构建。`npm run build:lite`（或任一构建）会把 TeX 单包的文件名、大小和 SHA-256 写入 `tex/components.json` 的 `downloads.package` 字段，标签为 `tex-<组件版本>`。ZIP 由固定时间戳确定性打包，重复构建结果逐字节相同。核对 `dist/tex-components/*.zip` 与已发布组件的 SHA-256 一致；不一致说明 `vendor/wasmtex` 有变化，需要发布新的组件标签。
-2. 发布 TeX 组件标签（仅在组件变化时）。在 GitHub 创建 `tex-<版本>`，附 `Vela-TeX-<版本>.zip` 和 `SHA256SUMS-tex-<版本>.txt`，设为非 Latest。然后运行 `pwsh scripts/mirror-tex-gitee.ps1 -Owner kingpennymore -Repository wenzhou-vela-mirror-repository -Version <版本>` 镜像到 Gitee，脚本会从公开地址下载回来核对。
-3. 发布应用标签 `v<版本>`。附件需包含三端安装包、可选组件 ZIP（如 `Vela-Ebook-Reader-<版本>.zip`）和 `SHA256SUMS-<版本>.txt`。文件名须保持现有格式，更新器按名称识别：
+2. 发布 TeX 组件标签（仅在组件变化时）。在 GitHub 创建 `tex-<版本>`，附 `Vela-TeX-<版本>.zip`、`SHA256SUMS-tex-<版本>.txt` 和用 `node scripts/release-signing.mjs sign` 生成的 `SHA256SUMS-tex-<版本>.txt.sig`，设为非 Latest。然后运行 `pwsh scripts/mirror-tex-gitee.ps1 -Owner kingpennymore -Repository wenzhou-vela-mirror-repository -Version <版本>` 镜像到 Gitee，脚本会从公开地址下载回来核对。
+3. 发布应用标签 `v<版本>`。附件需包含三端安装包、可选组件 ZIP（如 `Vela-Ebook-Reader-<版本>.zip`）、`SHA256SUMS-<版本>.txt` 和它的签名 `SHA256SUMS-<版本>.txt.sig`（`finalize-release.py` 自动生成，需要发布者本机的签名私钥，见 `docs/RELEASE-SIGNING.md`）。文件名须保持现有格式，更新器按名称识别：
    - `Vela-<版本>-windows[-lite]-setup-x64.exe`
    - `Vela-<版本>-android.N[-lite]-release-signed.apk`
    - `Vela-<组件名>-<x.y.z>.zip`

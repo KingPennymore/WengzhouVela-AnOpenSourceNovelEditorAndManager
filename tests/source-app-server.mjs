@@ -12,8 +12,9 @@ const mime={'.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; char
 
 export async function startSourceAppServer({port=0}={}){
   const pkg=JSON.parse(await readFile('package.json','utf8')),bundle=(entry,define)=>build({entryPoints:['web/'+entry],bundle:true,write:false,format:'iife',target:'chrome105',define}).then(result=>['/'+entry,result.outputFiles[0].contents]);
-  // app.js is split like the real build: an ES module plus chunks/ for import().
-  const outdir=path.resolve('.source-app-server'),app=await build({entryPoints:['web/app.js'],bundle:true,write:false,format:'esm',splitting:true,outdir,entryNames:'[name]',chunkNames:'chunks/[name]-[hash]',target:'chrome105',define:{__VELA_HARMONY_VERSION__:JSON.stringify(pkg.harmonyVersion||pkg.version)}});
+  // app.js is split like the real build: an ES module plus chunks/ for import(). VELA_TEST_RELEASE_KEYS (JSON) adds
+  // throwaway release signing keys for tests; release builds define none.
+  const outdir=path.resolve('.source-app-server'),app=await build({entryPoints:['web/app.js'],bundle:true,write:false,format:'esm',splitting:true,outdir,entryNames:'[name]',chunkNames:'chunks/[name]-[hash]',target:'chrome105',define:{__VELA_HARMONY_VERSION__:JSON.stringify(pkg.harmonyVersion||pkg.version),__VELA_TEST_RELEASE_KEYS__:process.env.VELA_TEST_RELEASE_KEYS||'[]'}});
   const assets=new Map([...app.outputFiles.map(file=>['/'+path.relative(outdir,file.path).split(path.sep).join('/'),file.contents]),...await Promise.all(workers.map(name=>bundle(name)))]);
   const mapped=[['/katex.min.css','node_modules/katex/dist/katex.min.css'],['/fonts/','node_modules/katex/dist/fonts/'],['/pdf/cmaps/','node_modules/pdfjs-dist/cmaps/'],['/pdf/fonts/','node_modules/pdfjs-dist/standard_fonts/']];
   const roots=[path.resolve('web'),path.resolve('entry/src/main/resources/rawfile/web'),path.resolve('dist/web')];

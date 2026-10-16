@@ -22,20 +22,20 @@ if ($Catalog) {
   # The catalog changes in place: same tag, same file names, new content each time, so files are always replaced.
   $tag = 'catalog'
   $folder = Join-Path $root 'dist\releases\catalog'
-  $names = @('catalog.json', 'SHA256SUMS-catalog.txt')
+  $names = @('catalog.json', 'catalog.json.sig', 'SHA256SUMS-catalog.txt')
   $notes = $null
 } elseif ($AppVersion) {
   # Installers, optional components and the checksum list. Gitee rejects attachments over 100 MB, so larger files
   # (currently the Windows installer and ZIP) stay GitHub-only and the app falls back to GitHub for them.
   $tag = "v$AppVersion"
   $folder = Join-Path $root "dist\releases\$AppVersion"
-  $names = @(Get-ChildItem -LiteralPath $folder -File | Where-Object { $_.Name -match '\.(apk|hap|exe|zip|txt)$' -and $_.Name -notmatch '-source\.zip$' -and $_.Length -le 100MB } | ForEach-Object Name)
+  $names = @(Get-ChildItem -LiteralPath $folder -File | Where-Object { $_.Name -match '\.(apk|hap|exe|zip|txt|sig)$' -and $_.Name -notmatch '-source\.zip$' -and $_.Length -le 100MB } | ForEach-Object Name)
   foreach ($skipped in (Get-ChildItem -LiteralPath $folder -File | Where-Object { $_.Length -gt 100MB })) { Write-Host "超过 Gitee 附件上限，仅保留在 GitHub：$($skipped.Name)" }
   $notes = Join-Path $root "dist\metadata\$AppVersion\release-notes-$AppVersion.md"
 } else {
   $tag = "tex-$Version"
   $folder = Join-Path $root "dist\releases\$tag"
-  $names = @("Vela-TeX-$Version.zip", "SHA256SUMS-$tag.txt")
+  $names = @("Vela-TeX-$Version.zip", "SHA256SUMS-$tag.txt") + @(if (Test-Path -LiteralPath (Join-Path $folder "SHA256SUMS-$tag.txt.sig")) { "SHA256SUMS-$tag.txt.sig" })
   $notes = Join-Path $root "dist\metadata\release-notes-$tag.md"
 }
 foreach ($name in $names) { if (!(Test-Path -LiteralPath (Join-Path $folder $name))) { throw "缺少文件：$folder\$name（先准备 GitHub 上的同名组件发布）" } }

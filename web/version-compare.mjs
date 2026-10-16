@@ -1,0 +1,2 @@
+// Version order for app and component versions: 0.9.8.1, 0.9.8-1 and v0.9.8.1 compare equal ("-" separates parts).
+export function compareVersions(left,right){const parts=value=>String(value).replace(/^v/,'').split(/[.-]/).filter(part=>/^\d+$/.test(part)).slice(0,4).map(Number),a=parts(left),b=parts(right);for(let i=0;i<Math.max(a.length,b.length);i++)if((a[i]||0)!==(b[i]||0))return Math.sign((a[i]||0)-(b[i]||0));return 0;}

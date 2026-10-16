@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {readFileSync,existsSync} from 'node:fs';
+import {readFileSync,existsSync,readdirSync} from 'node:fs';
 import {bundleIsCurrent,resourceDir} from './frontend-state.mjs';
 
 const json=path=>JSON.parse(readFileSync(path,'utf8'));
@@ -29,5 +29,7 @@ for(const name of ['tex-component-worker.js','project-archive-worker.js','html-r
   assert.ok(readFileSync(resourceDir+'/index.html','utf8').includes('<script type="module" src="./app.js">'),'app.js 须以模块方式加载');
   console.log(`PASS 分包：启动 ${startup.size} 个模块，共 ${graph.size} 个模块`);
 }
+// Release signing (docs/RELEASE-SIGNING.md): the app embeds at least one public key and no test key.
+{const {RELEASE_KEYS}=await import('../web/release-keys.mjs');assert.ok(RELEASE_KEYS.length>0,'没有内置发布签名公钥');const bundle=readdirSync(resourceDir+'/chunks').map(name=>readFileSync(resourceDir+'/chunks/'+name,'utf8')).join('')+readFileSync(resourceDir+'/app.js','utf8');assert.ok(!bundle.includes('vela-test-key'),'发布包含有测试签名密钥');}
 for(const name of Object.keys(components.files))assert.equal(existsSync(resourceDir+'/tex/'+name),components.builtin,'组件内置状态不符：'+name);
 console.log('PASS 三端版本、共享前端摘要及 '+version.flavor+' 组件清单一致');

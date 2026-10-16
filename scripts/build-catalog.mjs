@@ -8,6 +8,7 @@ import {existsSync} from 'node:fs';
 import {createHash} from 'node:crypto';
 import {unzipSync,strFromU8} from 'fflate';
 import {catalogText,parseCatalog} from '../web/component-catalog.mjs';
+import {signFiles} from './release-signing.mjs';
 
 const arg=name=>{const at=process.argv.indexOf('--'+name);return at>0?process.argv[at+1]:null;};
 const pkg=JSON.parse(await readFile('package.json','utf8')),version=arg('version')||pkg.version;
@@ -30,5 +31,7 @@ if(existsSync(previousPath)){const previous=parseCatalog(await readFile(previous
 await mkdir(out,{recursive:true});
 const text=catalogText([...kept,...entries]);await writeFile(`${out}/catalog.json`,text);
 const sum=createHash('sha256').update(text).digest('hex');await writeFile(`${out}/SHA256SUMS-catalog.txt`,`${sum}  catalog.json\n`);
+// Apps accept the catalog only with a valid catalog.json.sig (docs/RELEASE-SIGNING.md).
+const key=await signFiles([`${out}/catalog.json`]);console.log(`已签名 ${out}/catalog.json.sig（${key}）`);
 console.log(`组件目录：${out}/catalog.json（${JSON.parse(text).components.length} 项，本次 ${entries.length} 项，沿用 ${kept.length} 项）`);
 for(const item of JSON.parse(text).components)console.log(`  ${item.id} ${item.version} · ${item.tag}/${item.name} · ${item.bytes} 字节`);

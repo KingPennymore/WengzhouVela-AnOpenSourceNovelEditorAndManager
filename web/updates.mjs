@@ -1,8 +1,9 @@
-import {releaseSources,findRelease,completeAssets,releaseUrl,releaseComponents,formatBytes} from './component-downloads.mjs';
+import {releaseSources,findRelease,trustedAssets,releaseUrl,releaseComponents,formatBytes} from './component-downloads.mjs';
 export const updateRepository=releaseSources.find(source=>source.id==='github').repository;
 export const UPDATE_LIMIT=256*1024*1024;
 const APP_TAG=/^v?\d+\.\d+\.\d+(?:\.\d+)?$/;
-export function compareVersions(left,right){const parts=value=>String(value).replace(/^v/,'').split(/[.-]/).filter(part=>/^\d+$/.test(part)).slice(0,4).map(Number),a=parts(left),b=parts(right);for(let i=0;i<Math.max(a.length,b.length);i++)if((a[i]||0)!==(b[i]||0))return Math.sign((a[i]||0)-(b[i]||0));return 0;}
+import {compareVersions} from './version-compare.mjs';
+export {compareVersions};
 export const releasePage=(sourceLabel,tag)=>sourceLabel==='Gitee'?`https://gitee.com/${releaseSources[0].repository}/releases/tag/${tag}`:`https://github.com/${updateRepository}/releases/tag/${tag}`;
 /** The installer this platform can apply in place. HarmonyOS apps cannot be side-loaded, so it only gets the release page. */
 export function installerFor(platform,assets,{lite=true}={}){
@@ -15,12 +16,16 @@ export function installerFor(platform,assets,{lite=true}={}){
 export async function checkUpdates(transport,current,{platform='',lite=true,installed=new Map(),sources=releaseSources}={}){
   const release=await findRelease(transport,releases=>releases.filter(item=>APP_TAG.test(item.tag)&&!item.prerelease).sort((a,b)=>compareVersions(b.tag,a.tag))[0],{sources});
   const available=compareVersions(release.tag,current)>0;
-  let assets=release.assets,installer=available?installerFor(platform,assets,{lite}):null;
-  const components=releaseComponents(release).filter(item=>installed.has(item.id)&&compareVersions(item.version,installed.get(item.id))>0);
-  if(installer&&!installer.sha256||components.some(item=>!item.sha256)){assets=await completeAssets(transport,release,{sources});installer=installer&&assets.find(asset=>asset.name===installer.name);}
-  const verified=item=>({...item,sha256:item.sha256||assets.find(asset=>asset.name===item.name)?.sha256||null});
-  return {available,version:release.tag,source:release.source,url:releasePage(release.source,release.tag),notes:release.notes,checkedAt:Date.now(),
-    installer:installer?.sha256&&installer.bytes!==0?installer:null,components:components.map(verified).filter(item=>item.sha256)};
+  let installer=available?installerFor(platform,release.assets,{lite}):null,signed=null;
+  let components=releaseComponents(release).filter(item=>installed.has(item.id)&&compareVersions(item.version,installed.get(item.id))>0);
+  // Hashes come only from the release's signed SHA256SUMS (or, for releases from before signing, GitHub); a release
+  // that should be signed and is not makes the check fail rather than offer something unverified.
+  if(installer||components.length){
+    const assets=await trustedAssets(transport,release,{sources,needed:[installer?.name,...components.map(item=>item.name)].filter(Boolean)}),hash=name=>assets.find(asset=>asset.name===name)?.sha256||null;
+    installer=installer&&{...installer,sha256:hash(installer.name)};components=components.map(item=>({...item,sha256:hash(item.name)}));signed=assets[0]?.signed??null;
+  }
+  return {available,version:release.tag,source:release.source,url:releasePage(release.source,release.tag),notes:release.notes,checkedAt:Date.now(),signed,
+    installer:installer?.sha256&&installer.bytes!==0?installer:null,components:components.filter(item=>item.sha256)};
 }
 let sequence=0;
 /** Native code downloads and checks the installer itself (too large for the page); the page only gets an opaque token. */
