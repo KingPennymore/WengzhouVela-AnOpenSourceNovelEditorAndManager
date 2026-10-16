@@ -39,7 +39,7 @@ export class Subscriptions {
   enter(){this.visited=true;for(const item of this.items())item.pageSeen=true;this.save();this.dot();this.render();this.refresh();}
   leave(){this.visited=false;}
   async add(url){const repo=subscriptionRepo(url);if(this.items().some(item=>item.repo.toLowerCase()===repo.toLowerCase()))throw new Error('此仓库已订阅。');if(this.items().length>=30)throw new Error('最多订阅 30 个仓库。');const snapshot=await this.api.snapshot(repo);const item={repo,snapshot,unread:false,pageSeen:true};this.items().push(item);this.save();this.render();return item;}
-  refresh(){if(this.running)return this.running;this.abort=new AbortController();this.running=this.runRefresh(this.abort.signal).finally(()=>{this.running=null;if(this.visited)this.render();});return this.running;}
+  refresh(){if(this.running)return this.running;this.abort=new AbortController();this.running=this.runRefresh(this.abort.signal).finally(()=>{this.running=null;if(this.visited)this.render();});if(this.visited)this.render();return this.running;}
   async runRefresh(signal){
     for(const item of [...this.items()]){if(signal?.aborted)break;try{const snapshot=await this.api.snapshot(item.repo,signal);if(!this.items().includes(item))continue;const changed=subscriptionChanged(item.snapshot,snapshot);await this.cache({...item,snapshot});if(!this.items().includes(item))continue;item.snapshot=snapshot;item.error='';if(changed){item.unread=!(this.visited&&this.detail===item);item.pageSeen=this.visited;}this.save();this.dot();}catch(error){if(!signal?.aborted&&this.items().includes(item)){item.error=error.message;this.save();}}}
   }

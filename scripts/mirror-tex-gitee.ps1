@@ -4,6 +4,7 @@
 # Usage: pwsh scripts/mirror-tex-gitee.ps1 -Owner <gitee user> -Repository <repo> [-Version 0.1.1] [-CreateRepository]
 #        pwsh scripts/mirror-tex-gitee.ps1 -Owner <gitee user> -Repository <repo> -AppVersion 0.9.8
 #        pwsh scripts/mirror-tex-gitee.ps1 -Owner <gitee user> -Repository <repo> -Catalog   (component catalog, tag catalog)
+#        Add -Replace to upload every file again even when one of the same size is there (a rebuilt release).
 #        Add -SkipVerify when downloads from Gitee are slow: sizes are checked through the API and only files under 1 MB are downloaded back.
 param(
   [Parameter(Mandatory)][string]$Owner,
@@ -12,6 +13,7 @@ param(
   [string]$AppVersion = '',
   [switch]$Catalog,
   [switch]$SkipVerify,
+  [switch]$Replace,
   [switch]$CreateRepository
 )
 $ErrorActionPreference = 'Stop'
@@ -69,7 +71,7 @@ try {
     $file = Get-Item -LiteralPath (Join-Path $folder $name)
     # Every copy of a replaced attachment is deleted, so the fixed download address serves only the new file.
     $existing = @($attached | Where-Object name -eq $name)
-    if ($existing.Count -eq 1 -and !$Catalog -and [int64]$existing[0].size -eq $file.Length) { Write-Host "已存在，跳过：$name"; continue }
+    if ($existing.Count -eq 1 -and !$Catalog -and !$Replace -and [int64]$existing[0].size -eq $file.Length) { Write-Host "已存在，跳过：$name"; continue }
     foreach ($old in $existing) { Invoke-RestMethod -Uri "$repoUrl/releases/$($release.id)/attach_files/$($old.id)?access_token=$token" -Method Delete | Out-Null }
     # Gitee ignores access_token as a multipart field (40001); it has to be in the query string here.
     Invoke-RestMethod -Uri "$repoUrl/releases/$($release.id)/attach_files?access_token=$token" -Method Post -Form @{ file = $file } | Out-Null

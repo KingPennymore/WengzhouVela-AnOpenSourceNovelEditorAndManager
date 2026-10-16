@@ -430,3 +430,8 @@ body:not(.wide-shell) .format-style-button #format-style-label{max-width:4em}
    jumped to the new theme while everything else faded. The page lets the non-scrolling .workspace (same --paper
    background) show through instead. */
 .workspace>.github-view{background:transparent}
+/* Same for the other scrolling surfaces with their own background: the file tab strip (painted by .file-rowbar) and
+   the reader's library (painted by .reader-stage; the document slides in over it with its own background). */
+.file-rowbar>.document-tabs{background:transparent}
+.reader-stage{background:radial-gradient(90% 50% at 100% 0%,var(--accent-tint),transparent 60%),var(--paper)}
+.reader-stage>.reader-library{background:transparent}
