@@ -23,7 +23,7 @@ import {scrollPastEndCustom} from '../vendor/acode/src/cm/scrollPastEnd.ts';
 import {newDocument,validateWorkspace,chapterPosition,normalizeText,fileName,fileKind,documentKind,repoPath,MAX_TEXT_BYTES} from './model.mjs';
 import {GitHub,deviceLogin} from './github.mjs';
 import {Gitee} from './gitee.mjs';
-import {native,transport,readWorkspace,saveWorkspace,exportText,exportBinary,openAuthorization,readEnvironment} from './platform.mjs';
+import {native,transport,readWorkspace,saveWorkspace,primeWorkspaceBaseline,exportText,exportBinary,openAuthorization,readEnvironment} from './platform.mjs';
 import {guide,isOriginalDemo,previousGuideHashes} from './guide.mjs';
 import {shortcuts,matchesKey} from './shortcuts.mjs';
 import {SidebarLayout} from './sidebars.mjs';
@@ -1002,7 +1002,7 @@ async function openProjectDocument(path,read,args={}){
 async function boot(){try{
   await recoverBrowserProjects();
   const raw=readWorkspace();
-  if(raw)workspace=validateWorkspace(JSON.parse(raw));else{const doc=newDocument('操作指南.txt',guide);workspace={version:1,documents:[doc],openIds:[doc.id],activeId:doc.id,settings:{theme:'system'}};}
+  if(raw){workspace=validateWorkspace(JSON.parse(raw));primeWorkspaceBaseline(workspace);}else{const doc=newDocument('操作指南.txt',guide);workspace={version:1,documents:[doc],openIds:[doc.id],activeId:doc.id,settings:{theme:'system'}};}
   gh=workspace.settings?.gitProvider==='gitee'?new Gitee(transport):new GitHub(transport);
   workspace.settings={language:'zh-CN',readingMode:'scroll',theme:'system',palette:'pine',fontSize:16,clientId:'',...workspace.settings,writer:chapterSettings(workspace.settings?.writer)};
   documents=new DocumentService({workspace:()=>workspace,write:saveWorkspace});for(const doc of workspace.documents)documents.register(doc);

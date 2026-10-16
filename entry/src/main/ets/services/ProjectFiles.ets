@@ -3,6 +3,7 @@ import { fileIo as fs, picker, fileUri } from '@kit.CoreFileKit';
 import { util } from '@kit.ArkTS';
 import { cryptoFramework } from '@kit.CryptoArchitectureKit';
 import { encodeFileText, decodeFileText } from './FileText';
+import { hydrateWorkspace } from './WorkspaceStore';
 import { previewMime } from './PreviewResource';
 
 interface ProjectEntry { path: string; kind: string; mime: string; size: number; revision: string; modifiedAt: string; entryId?: string; blobId?: string; sha256?: string; }
@@ -164,7 +165,7 @@ export class ProjectFiles {
   async call(action: string, owner: string, json: string): Promise<Object> {
     this.recover(); if (!/^[A-Za-z0-9-]{1,100}$/.test(owner)) fail('E_PERMISSION', '插件会话无效。'); const a = JSON.parse(json) as Request;
     if (action === 'capabilities') { const limits: Limits = { textBytes: 8 * MB, readChunkBytes: CHUNK, bridgeChunkBytes: CHUNK, importFileBytes: 128 * MB, projectEntries: 5000, archiveExpandedBytes: 0, archiveEntries: 0, projectBytes: 512 * MB, snapshotBytes: 512 * MB, assetBytes: 8 * MB }; const features: Features = { filesystem: true, transactions: true, assetSessions: true, archives: false, snapshots: true, nativePicker: true, independentPreview: false, externalWatch: false }; const resource: ResourceFlags = { range: false, worker: true, canvas2d: true }; const result: Capabilities = { limits: limits, features: features, resource: resource }; return result; }
-    if (action === 'receipt') return this.exists(this.base() + '/workspace.json') ? fs.readTextSync(this.base() + '/workspace.json') : '';
+    if (action === 'receipt') return this.exists(this.base() + '/workspace.json') ? hydrateWorkspace(this.base(), fs.readTextSync(this.base() + '/workspace.json')) : '';
     if (action === 'tree') return this.tree(a.root || '');
     if (action === 'apply') return this.apply(owner, a);
     if (action === 'begin') return this.begin(owner, a);

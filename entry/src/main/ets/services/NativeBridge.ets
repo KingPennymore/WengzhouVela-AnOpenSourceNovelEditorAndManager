@@ -11,6 +11,7 @@ import { Runtime } from './Runtime';
 import { HtmlPreviewSession, ReaderLayout } from './HtmlPreviewSession';
 import { PreviewResource } from './PreviewResource';
 import { WorkspaceFiles, BinaryWorkspaceFile } from './WorkspaceFiles';
+import { hydrateWorkspace } from './WorkspaceStore';
 import { decodeFileText, decodedFileName, encodeFileText } from './FileText';
 import { ReleaseDownloads } from './ReleaseDownloads';
 interface ProjectSystemError { code?: number; message?: string; }
@@ -92,7 +93,7 @@ export class NativeBridge {
     this.projects.context = this.context; this.projects.recover();
     const path = this.getContext().filesDir + '/workspace.json';
     if (!fs.accessSync(path)) return '';
-    return fs.readTextSync(path);
+    return hydrateWorkspace(this.getContext().filesDir, fs.readTextSync(path));
   }
 
   readEnvironment(): string { return Runtime.readEnvironment(); }
@@ -126,9 +127,23 @@ export class NativeBridge {
       this.writeFile(temp, data);
       if (fs.accessSync(path)) fs.copyFileSync(path, path + '.bak');
       fs.renameSync(temp, path);
+      try { this.workspaceFiles.collectStore(); } catch (_) { /* store files are collected on the next save */ }
       return 'ok';
     } catch (error) {
       return '本地保存失败：' + (error as Error).message;
+    }
+  }
+
+  // Incremental save (WorkspaceStore.ets). Errors starting with E_DELTA_BASE make the page fall back to writeWorkspace.
+  writeWorkspaceDelta(data: string): string {
+    try {
+      if (this.projects.busy) throw new Error('项目事务正在提交，请稍后保存。');
+      this.workspaceFiles.context = this.context;
+      this.workspaceFiles.saveDelta(data);
+      return 'ok';
+    } catch (error) {
+      const message = (error as Error).message;
+      return message.startsWith('E_DELTA_BASE') ? message : '本地保存失败：' + message;
     }
   }
 

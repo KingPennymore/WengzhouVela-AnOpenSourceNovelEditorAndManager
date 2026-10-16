@@ -187,7 +187,7 @@ struct Index {
           object: this.bridge,
           name: 'WenzhouNative',
           // Register Promise-returning calls in methodList. asyncMethodList is fire-and-forget.
-          methodList: ['readWorkspace', 'writeWorkspace', 'readPlugins', 'writePlugins', 'readEnvironment', 'call'],
+          methodList: ['readWorkspace', 'writeWorkspace', 'writeWorkspaceDelta', 'readPlugins', 'writePlugins', 'readEnvironment', 'call'],
           controller: this.controller
         })
         .onInterceptRequest(event => this.resource(event.request)!)

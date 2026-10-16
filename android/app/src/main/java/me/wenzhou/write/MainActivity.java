@@ -168,7 +168,7 @@ public final class MainActivity extends Activity {
         String script = "(()=>{if(window.top!==window)return;const secret=" + JSONObject.quote(capability) + ";const pending=new Map();"
             + "window.wenzhouAndroidResolve=(id,raw)=>{const task=pending.get(id);if(task){clearTimeout(task.timer);pending.delete(id);task.resolve(raw);}};"
             + "window.WenzhouNative={platform:'android',readEnvironment:()=>WenzhouAndroid.readEnvironment(secret),readWorkspace:()=>WenzhouAndroid.readWorkspace(secret),"
-            + "writeWorkspace:data=>WenzhouAndroid.writeWorkspace(secret,data),readPlugins:()=>WenzhouAndroid.readPlugins(secret),writePlugins:data=>WenzhouAndroid.writePlugins(secret,data),"
+            + "writeWorkspace:data=>WenzhouAndroid.writeWorkspace(secret,data),writeWorkspaceDelta:data=>WenzhouAndroid.writeWorkspaceDelta(secret,data),readPlugins:()=>WenzhouAndroid.readPlugins(secret),writePlugins:data=>WenzhouAndroid.writePlugins(secret,data),"
             + "call:(op,json)=>new Promise((resolve,reject)=>{const id=crypto.randomUUID();const timer=setTimeout(()=>{pending.delete(id);reject(new Error('设备操作超时，请重试。'));},(['import','export','exportPdf','importPlugin'].includes(op)||(op==='project'&&['pick','deliver','exportFile'].includes(JSON.parse(json).action)))?600000:['downloadComponent','downloadUpdate'].includes(op)?1800000:120000);"
             + "pending.set(id,{resolve,reject,timer});try{WenzhouAndroid.post(secret,id,op,json);}catch(error){clearTimeout(timer);pending.delete(id);reject(error);}})};})();";
         html = html.replace("script-src 'self' blob:", "script-src 'self' blob: 'nonce-" + capability + "'");

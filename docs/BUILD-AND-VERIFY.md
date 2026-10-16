@@ -7,6 +7,8 @@
 - 浏览器检查用 `tests/wait-helpers.mjs` 里的条件等待代替固定等待：`settled`（动画结束并绘制两帧）、`readerReady` / `readerIdle`（阅读页就绪，阅读位置防抖保存完成，对应 `data-position-pending`）、`until`（轮询 Node 侧条件）、`themeShiftDone`。`noMotion(context)` 是测试专用的关闭动画开关（localStorage `vela.test.motion=off`，见 `web/motion.mjs`），只用于不检查动画本身的组。仍保留的固定等待有两类：长按手势本身的按住时长，以及断言“这段时间内不应出现某变化”的观察窗口，都已注明。
 - 14 核机器上实测：原串行一轮 500 秒，并行后 62–65 秒。
 
+工作区保存协议（整份 / 增量、磁盘格式、三端校验规则）见 `docs/WORKSPACE-STORAGE.md`。40 万字、50 个文件的工作区修改一个文件后，Windows 存储上单次保存（含 JSON 序列化）由整份的 83.5 ms、1,219,842 字节降为增量的 37.1 ms、28,450 字节（`node scripts/benchmark-workspace-save.mjs`，整份保存后的第一次增量要迁移全部正文，约 195 ms）。
+
 `npm run verify:release` 额外执行真实中文 TeX / PDF 编译及 Windows 原生检查。Windows 原生检查需要先安装 `windows/` 的开发依赖；设置 `VELA_TEST_EXECUTABLE` 可以检查最终打包的程序。共享界面检查通过不代表鸿蒙、安卓真机验收。
 
 GitHub Actions 的 `Verify` 工作流在 master 推送、拉取请求或手动启动时分别执行完整版和轻量版的共享检查与真实 TeX 编译。工作流只有仓库读取权限，不使用发布签名或私人账号，也不会自动发布。

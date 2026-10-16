@@ -36,10 +36,37 @@ export async function transport(operation,payload={}) {
 }
 function headers(token,provider='github') { if(provider==='gitee')return {'Authorization':`Bearer ${token}`,'Accept':'application/json','Content-Type':'application/json'};return {'Authorization':`Bearer ${token}`,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'}; }
 export function readWorkspace() { return native ? window.WenzhouNative.readWorkspace() : localStorage.getItem('wenzhou.workspace'); }
+// Native saves are incremental when the shell offers writeWorkspaceDelta (docs/WORKSPACE-STORAGE.md): only texts and
+// local histories that differ from the last state the shell confirmed are sent, with the rest of the workspace as a
+// small skeleton. `saveId` names that confirmed state; a shell whose state has a different saveId answers E_DELTA_BASE
+// and the save falls back to the full JSON (still the only path for the browser and for older shells).
+let baseline=null;
+const newSaveId=()=>crypto.randomUUID();
+function remember(value,saveId){baseline={saveId,storage:value.storage?.id||'',texts:new Map(value.documents.map(doc=>[doc.id,doc.text])),histories:new Map(Object.entries(value.localHistory||{}).map(([id,list])=>[id,{list,length:list?.length}]))};}
+export function primeWorkspaceBaseline(value){const saveId=value.saveId;delete value.saveId;if(native&&typeof saveId==='string')remember(value,saveId);}
+export function workspaceDelta(value,base,id=newSaveId()){
+  const texts={},histories={},current=value.localHistory||{};
+  const documents=value.documents.map(doc=>{const {text,...rest}=doc;if(base.texts.get(doc.id)!==text)texts[doc.id]=text;return rest;});
+  for(const [docId,list] of Object.entries(current)){const old=base.histories.get(docId);if(!old||old.list!==list||old.length!==list?.length)histories[docId]=list;}
+  for(const docId of base.histories.keys())if(!(docId in current))histories[docId]=null;
+  const {localHistory,saveId,...rest}=value;
+  return {format:2,id,base:base.saveId,workspace:{...rest,documents},texts,histories};
+}
+export const workspaceSaveStats={mode:'',bytes:0,milliseconds:0};
 export function saveWorkspace(value) {
+  const start=performance.now();
+  if(native) {
+    if(baseline&&typeof window.WenzhouNative.writeWorkspaceDelta==='function'&&baseline.storage===(value.storage?.id||'')){
+      const delta=workspaceDelta(value,baseline),data=JSON.stringify(delta),result=window.WenzhouNative.writeWorkspaceDelta(data);
+      if(result==='ok'){remember(value,delta.id);Object.assign(workspaceSaveStats,{mode:'delta',bytes:data.length,milliseconds:performance.now()-start});return;}
+      if(!String(result).includes('E_DELTA_BASE'))throw new Error(result);
+    }
+    const saveId=newSaveId(),data=JSON.stringify({...value,saveId}),result=window.WenzhouNative.writeWorkspace(data); if(result!=='ok') throw new Error(result);
+    remember(value,saveId);Object.assign(workspaceSaveStats,{mode:'full',bytes:data.length,milliseconds:performance.now()-start});
+    return;
+  }
   const data=JSON.stringify(value);
-  if(native) { const result=window.WenzhouNative.writeWorkspace(data); if(result!=='ok') throw new Error(result); }
-  else try{localStorage.setItem('wenzhou.workspace',data);}catch(error){
+  try{localStorage.setItem('wenzhou.workspace',data);}catch(error){
     if(error.name!=='QuotaExceededError'||!value.localHistory||!Object.values(value.localHistory).some(list=>list.length))throw error;
     // Evict recoverable snapshots only; current documents must never be omitted.
     localStorage.setItem('wenzhou.workspace',JSON.stringify({...value,localHistory:{}}));value.localHistory={};

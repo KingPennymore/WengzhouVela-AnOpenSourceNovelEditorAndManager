@@ -61,7 +61,7 @@ final class WorkspaceFiles {
     }
     private JSONObject json(File file) throws Exception { return new JSONObject(new String(read(file, 64 * 1024 * 1024), StandardCharsets.UTF_8)); }
     private JSONArray array(JSONObject value, String name) { JSONArray result = value.optJSONArray(name); return result == null ? new JSONArray() : result; }
-    private JSONObject metadata() throws Exception { return cache.exists() ? json(cache) : new JSONObject().put("version", 1).put("documents", new JSONArray()).put("repositories", new JSONArray()); }
+    private JSONObject metadata() throws Exception { return cache.exists() ? hydrate(json(cache)) : new JSONObject().put("version", 1).put("documents", new JSONArray()).put("repositories", new JSONArray()); }
     private String documentPath(JSONObject doc) throws Exception { return doc.optString("path", doc.getString("name")); }
     private boolean contains(String parent, String path) { return path.equals(parent) || path.startsWith(parent + "/"); }
 
@@ -111,7 +111,10 @@ final class WorkspaceFiles {
         }
     }
 
-    synchronized String readWorkspace() throws Exception { return workspace.exists() ? new String(read(workspace, 64 * 1024 * 1024), StandardCharsets.UTF_8) : ""; }
+    synchronized String readWorkspace() throws Exception {
+        String raw = workspace.exists() ? new String(read(workspace, 64 * 1024 * 1024), StandardCharsets.UTF_8) : "";
+        return raw.startsWith(SKELETON) ? hydrate(new JSONObject(raw)).toString() : raw;
+    }
     synchronized String readPlugins() throws Exception {
         File file = new File(base, "plugins.json");
         return file.exists() ? new String(read(file, 24 * 1024 * 1024), StandardCharsets.UTF_8) : "";
@@ -203,8 +206,132 @@ final class WorkspaceFiles {
             for (String path : before.keySet()) if (!paths.contains(path) && target(path).exists()) tx.delete(target(path));
             tx.write(cache, utf8(data)); tx.write(workspace, utf8(data)); tx.commit();
         }
+        collectStore();
     }
 
+    // Incremental saves (docs/WORKSPACE-STORAGE.md), with the same rules as windows/storage.mjs and WorkspaceFiles.ets.
+    // After one, workspace.json and the folder cache hold a skeleton without texts and local history; those live in
+    // workspace-store/ as <id>.<generation> files named by the skeleton's leading "store" key.
+    private static final String SKELETON = "{\"store\":";
+    private File storeFolder() { return new File(base, "workspace-store"); }
+    private File storeFile(String name) throws IOException {
+        if (name == null || !name.matches("[A-Za-z0-9_-]{1,80}\\.[0-9a-f]{12}\\.(txt|json)")) throw new IOException("工作区存储文件名无效。");
+        return new File(storeFolder(), name);
+    }
+    private String storeText(String name) throws Exception { return new String(read(storeFile(name), 64 * 1024 * 1024), StandardCharsets.UTF_8); }
+    private JSONObject hydrate(JSONObject value) throws Exception {
+        JSONObject store = value.optJSONObject("store");
+        if (store == null || store.optInt("format") != 2) return value;
+        JSONObject texts = store.optJSONObject("texts"), histories = store.optJSONObject("histories"), history = new JSONObject();
+        JSONArray docs = array(value, "documents");
+        for (int i = 0; i < docs.length(); i++) {
+            JSONObject doc = docs.getJSONObject(i); if (doc.has("text")) continue;
+            String name = texts == null ? null : texts.optString(doc.getString("id"), null);
+            if (name == null) throw new IOException("工作区存储缺少文稿：" + documentPath(doc));
+            doc.put("text", storeText(name));
+        }
+        if (histories != null) for (java.util.Iterator<String> keys = histories.keys(); keys.hasNext();) { String key = keys.next(); history.put(key, new JSONArray(storeText(histories.getString(key)))); }
+        value.put("localHistory", history); value.remove("store"); return value;
+    }
+    private void storeNames(File file, Set<String> names) throws Exception {
+        if (!file.exists()) return;
+        String raw = new String(read(file, 64 * 1024 * 1024), StandardCharsets.UTF_8);
+        if (!raw.startsWith(SKELETON)) return;
+        JSONObject store = new JSONObject(raw).getJSONObject("store");
+        for (String field : new String[]{"texts", "histories"}) { JSONObject map = store.optJSONObject(field); if (map != null) for (java.util.Iterator<String> keys = map.keys(); keys.hasNext();) names.add(map.getString(keys.next())); }
+    }
+    /** Keeps the store files named by workspace.json, the folder cache and the previous skeleton. */
+    synchronized void collectStore() {
+        File[] files = storeFolder().listFiles(); if (files == null) return;
+        Set<String> keep = new HashSet<>();
+        try { storeNames(workspace, keep); storeNames(cache, keep); storeNames(new File(storeFolder(), "previous.json"), keep); } catch (Exception unreadable) { return; }
+        for (File file : files) if (!file.getName().equals("previous.json") && !keep.contains(file.getName())) { try { Files.deleteIfExists(file.toPath()); } catch (IOException retry) { /* collected on the next save */ } }
+    }
+    private static final class Changed { final String id, path, text; final File file; Changed(String id, String path, File file, String text) { this.id = id; this.path = path; this.file = file; this.text = text; } }
+    synchronized void saveWorkspaceDelta(String data) throws Exception {
+        if (utf8(data).length > 64 * 1024 * 1024) throw new IOException("工作区数据不能超过 64 MB。");
+        JSONObject message = new JSONObject(data), value = message.optJSONObject("workspace"), texts = message.optJSONObject("texts"), histories = message.optJSONObject("histories");
+        JSONObject storage = value == null ? null : value.optJSONObject("storage");
+        if (message.optInt("format") != 2 || value == null || texts == null || histories == null || value.optInt("version") != 1 || value.optJSONArray("documents") == null || storage == null || !id.equals(storage.optString("id"))
+            || !message.optString("id").matches("[A-Za-z0-9_-]{1,80}") || value.has("store") || value.has("localHistory")) throw new IOException("增量数据或工作区标识无效。");
+        JSONObject current = workspace.exists() ? json(workspace) : null;
+        if (current == null || !current.optString("saveId", "\u0000").equals(message.optString("base", "\u0001"))) throw new IOException("E_DELTA_BASE 增量保存的基线已变化，改为整份保存。");
+        JSONObject store = current.optJSONObject("store") != null && current.getJSONObject("store").optInt("format") == 2 ? current.getJSONObject("store") : null;
+        JSONObject storeTexts = store == null ? null : store.optJSONObject("texts");
+        Map<String, JSONObject> byId = new HashMap<>(), atPath = new HashMap<>();
+        JSONArray oldDocs = array(current, "documents");
+        for (int i = 0; i < oldDocs.length(); i++) { JSONObject doc = oldDocs.getJSONObject(i); byId.put(doc.getString("id"), doc); atPath.put(documentPath(doc), doc); }
+        JSONArray docs = value.getJSONArray("documents"), folders = array(value, "folders");
+        if (docs.length() + folders.length() > 5000) throw new IOException("工作区超过 5000 项。");
+        Set<String> paths = new HashSet<>(), ids = new HashSet<>(); List<Changed> changed = new ArrayList<>();
+        for (int i = 0; i < docs.length(); i++) {
+            JSONObject doc = docs.getJSONObject(i); String docId = doc.getString("id"), path = documentPath(doc); File file = target(path);
+            Object sent = texts.opt(docId);
+            if (!docId.matches("[A-Za-z0-9_-]{1,80}") || !ids.add(docId) || !paths.add(path) || doc.has("text") || (sent != null && (!(sent instanceof String) || utf8((String)sent).length > FileText.MAX_BYTES))) throw new IOException("文件标识、同名路径或文件大小无效。");
+            JSONObject before = byId.get(docId);
+            if (sent == null && (before == null || (store != null && (storeTexts == null || !storeTexts.has(docId))))) throw new IOException("E_DELTA_BASE 增量保存缺少文稿基线，改为整份保存。");
+            if (sent != null || !documentPath(before).equals(path)) {
+                String text = sent != null ? (String)sent : baseText(byId, store, docId);
+                if (text == null) throw new IOException("E_DELTA_BASE 增量保存缺少文稿基线，改为整份保存。");
+                changed.add(new Changed(docId, path, file, text));
+            }
+        }
+        for (java.util.Iterator<String> keys = texts.keys(); keys.hasNext();) if (!ids.contains(keys.next())) throw new IOException("增量文本不属于任何文稿。");
+        for (java.util.Iterator<String> keys = histories.keys(); keys.hasNext();) {
+            String key = keys.next(); if (histories.isNull(key)) continue;
+            JSONArray list = histories.optJSONArray(key); if (!ids.contains(key) || list == null) throw new IOException("本地历史数据无效。");
+            for (int i = 0; i < list.length(); i++) { JSONObject item = list.optJSONObject(i); if (item == null || !(item.opt("text") instanceof String) || !(item.opt("createdAt") instanceof Number)) throw new IOException("本地历史数据无效。"); }
+        }
+        for (int i = 0; i < folders.length(); i++) { String folder = folders.getString(i); target(folder); if (paths.contains(folder)) throw new IOException("文件和文件夹路径冲突。"); }
+        for (Changed item : changed) {
+            if (!item.file.exists()) continue;
+            String disk = FileText.decode(read(item.file, FileText.MAX_BYTES)); JSONObject before = atPath.get(item.path);
+            if (!disk.equals(item.text) && (before == null || !disk.equals(baseText(byId, store, before.getString("id"))))) throw new IOException("文件已在外部修改：" + item.path + "。请刷新工作区后重试。");
+        }
+        List<String> removed = new ArrayList<>();
+        for (Map.Entry<String, JSONObject> item : atPath.entrySet()) {
+            if (paths.contains(item.getKey()) || !target(item.getKey()).exists()) continue;
+            if (!FileText.decode(read(target(item.getKey()), FileText.MAX_BYTES)).equals(baseText(byId, store, item.getValue().getString("id")))) throw new IOException("文件已在外部修改，无法删除：" + item.getKey());
+            removed.add(item.getKey());
+        }
+        Files.createDirectories(storeFolder().toPath());
+        List<String> written = new ArrayList<>(); JSONObject nextTexts = new JSONObject(), nextHistories = new JSONObject();
+        try {
+            for (int i = 0; i < docs.length(); i++) {
+                String docId = docs.getJSONObject(i).getString("id");
+                nextTexts.put(docId, texts.has(docId) ? put(written, docId, "txt", texts.getString(docId)) : store != null ? storeTexts.getString(docId) : put(written, docId, "txt", baseText(byId, store, docId)));
+            }
+            JSONObject oldHistories = store == null ? null : store.optJSONObject("histories"), inline = store == null ? current.optJSONObject("localHistory") : null;
+            if (oldHistories != null) for (java.util.Iterator<String> keys = oldHistories.keys(); keys.hasNext();) { String key = keys.next(); if (ids.contains(key) && !histories.has(key)) nextHistories.put(key, oldHistories.getString(key)); }
+            if (inline != null) for (java.util.Iterator<String> keys = inline.keys(); keys.hasNext();) { String key = keys.next(); JSONArray list = inline.optJSONArray(key); if (ids.contains(key) && !histories.has(key) && list != null && list.length() > 0) nextHistories.put(key, put(written, key, "json", list.toString())); }
+            for (java.util.Iterator<String> keys = histories.keys(); keys.hasNext();) { String key = keys.next(); JSONArray list = histories.optJSONArray(key); if (list != null && list.length() > 0) nextHistories.put(key, put(written, key, "json", list.toString())); }
+            value.put("saveId", message.getString("id"));
+            String skeleton = SKELETON + new JSONObject().put("format", 2).put("texts", nextTexts).put("histories", nextHistories).toString() + "," + value.toString().substring(1);
+            // The previous skeleton is kept (not fsynced: it is a convenience copy, not part of the commit).
+            if (store != null) { File previous = new File(storeFolder(), "previous.json"), temp = new File(previous.getPath() + ".wenzhou-tmp"); Files.write(temp.toPath(), utf8(current.toString())); Files.move(temp.toPath(), previous.toPath(), StandardCopyOption.REPLACE_EXISTING); }
+            try (Transaction tx = new Transaction()) {
+                for (int i = 0; i < folders.length(); i++) tx.mkdir(target(folders.getString(i)));
+                for (Changed item : changed) {
+                    if (item.file.exists() && FileText.decode(read(item.file, FileText.MAX_BYTES)).equals(item.text)) continue;
+                    JSONObject before = atPath.get(item.path);
+                    if (before != null) { String previous = baseText(byId, store, before.getString("id")); if (previous != null) tx.write(new File(base, "previous-" + before.getString("id") + ".txt"), utf8(previous)); }
+                    tx.mkdir(item.file.getParentFile()); tx.write(item.file, utf8(item.text));
+                }
+                for (String path : removed) tx.delete(target(path));
+                tx.write(cache, utf8(skeleton)); tx.write(workspace, utf8(skeleton)); tx.commit();
+            }
+        } catch (Exception error) { for (String name : written) Files.deleteIfExists(storeFile(name).toPath()); throw error; }
+        collectStore();
+    }
+    private String put(List<String> written, String docId, String kind, String content) throws Exception {
+        String name = docId + "." + UUID.randomUUID().toString().replace("-", "").substring(0, 12) + "." + kind;
+        atomic(storeFile(name), utf8(content)); written.add(name); return name;
+    }
+    private String baseText(Map<String, JSONObject> byId, JSONObject store, String docId) throws Exception {
+        if (store == null) { JSONObject doc = byId.get(docId); return doc == null ? null : doc.optString("text", null); }
+        JSONObject texts = store.optJSONObject("texts"); String name = texts == null ? null : texts.optString(docId, null);
+        return name != null && storeFile(name).exists() ? storeText(name) : null;
+    }
     synchronized JSONObject writeFiles(JSONArray files, JSONArray folders) throws Exception {
         if (files.length() + folders.length() > 5000) throw new IOException("仓库超过 5000 个文件与目录。");
         Set<String> seen = new HashSet<>(); long total = 0;

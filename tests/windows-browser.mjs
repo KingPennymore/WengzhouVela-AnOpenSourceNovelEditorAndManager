@@ -24,6 +24,15 @@ try{
     await page.keyboard.press('Control+z');assert.equal(await page.evaluate(()=>velaEditorView.state.doc.toString()),'　　正文');
     await page.evaluate(text=>{const v=velaEditorView;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:text},selection:{anchor:0}});},original);
   });
+  await check('Windows 自动保存按文稿增量写入，重载后正文完整',async()=>{
+    const stored=()=>fs.readFileSync(path.join(data,'workspace.json'),'utf8'),original=await page.evaluate(()=>velaEditorView.state.doc.toString()),marker='增量保存标记'+Date.now();
+    await page.evaluate(()=>window.wenzhouSave());const edit=async text=>{await page.evaluate(text=>{const v=velaEditorView;v.dispatch({changes:{from:v.state.doc.length,insert:text}});},text);assert.notEqual(await page.evaluate(()=>window.wenzhouSave()),false);};
+    await edit(String.fromCharCode(10)+marker);await edit('续');
+    assert.ok(stored().startsWith('{"store":{"format":2'),'workspace.json is a skeleton after an incremental save');assert.ok(!stored().includes(marker),'texts live in workspace-store, not in the skeleton');
+    const read=JSON.parse(await page.evaluate(()=>window.WenzhouNative.readWorkspace()));assert.ok(read.documents.some(doc=>doc.text.endsWith(marker+'续')));
+    await page.reload();await page.waitForSelector('.cm-editor',{timeout:30000});assert.ok((await page.evaluate(()=>velaEditorView.state.doc.toString())).endsWith(marker+'续'));
+    await page.evaluate(text=>{const v=velaEditorView;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:text}});},original);await page.evaluate(()=>window.wenzhouSave());
+  });
   await check('全局配置 GUI 可枚举内部文件、调整排版、保存后恢复',async()=>{
     await page.locator('#more-tools').click();await page.locator('#settings').click();await page.locator('#edit-global-vela').click();await page.waitForSelector('#vela-form');assert.ok(await page.locator('#vela-form [name=readingFiles]').count()>0);await page.locator('#vela-form [name=fontSize]').fill('22');await page.locator('#vela-form [name=lineHeight]').fill('2.2');await page.locator('#vela-form [name=marginLeft]').fill('48');await page.locator('#vela-form .primary').click();const config=JSON.parse(fs.readFileSync(path.join(data,'workspaces/Vela/.global.vela'),'utf8'));assert.equal(config.reader.layout.fontSize,22);assert.equal(config.reader.layout.lineHeight,2.2);assert.equal(config.reader.layout.marginLeft,48);
   });

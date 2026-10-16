@@ -186,7 +186,7 @@ final class ProjectFiles {
     Object call(String action,String owner,JSONObject a)throws Exception{
         if(owner==null||!owner.matches("[a-zA-Z0-9_-]{1,128}"))throw fail("E_PERMISSION","插件会话无效。");for(Map.Entry<String,Blob> e:blobs.entrySet())if(e.getValue().expires<System.currentTimeMillis()){Blob b=blobs.remove(e.getKey());if(b.file.getParentFile().equals(temp))Files.deleteIfExists(b.file.toPath());}
         switch(action){
-            case "receipt": synchronized(files) { return new File(files.projectBase(), "workspace.json").exists() ? new String(Files.readAllBytes(new File(files.projectBase(), "workspace.json").toPath()), StandardCharsets.UTF_8) : ""; }
+            case "receipt": return files.readWorkspace();
             case "capabilities":return capabilities();case "cancel":cancelled.add(owner+":"+a.optString("taskId"));return true;case "tree":return new JSONObject().put("entries",tree(a.optString("root")));
             case "begin":return begin(owner,a);case "chunk":return chunk(owner,a);case "finish":return finish(owner,a.getString("blobId"));case "abort":{Blob b=ownedBlob(owner,a.getString("blobId"));if(b.file.getParentFile().equals(temp))Files.deleteIfExists(b.file.toPath());blobs.remove(a.getString("blobId"));return true;}
             case "read":return read(owner,a);case "apply":return apply(owner,a);case "selectionStage":return selectionStage(owner,a);
