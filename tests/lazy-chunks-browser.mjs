@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {existsSync} from 'node:fs';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {startSourceAppServer} from './source-app-server.mjs';
+import {createOutline,outlineText} from '../web/outline.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
 
 // Code-split bundle (web/lazy.mjs): startup fetches none of the PDF, formula, EPUB, LaTeX or reader chunks; each
@@ -11,12 +12,12 @@ import {openRecentFile} from './start-page-helper.mjs';
 const server=await startSourceAppServer();
 const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||(existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe')?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined)});
 const checks=[],errors=[];const check=async(name,run)=>{await run();checks.push(name);console.log('PASS '+name);};
-const docs=[{id:'book',name:'正文.txt',path:'书/正文.txt',text:'第一章 起航\n\n　　船离开港口。\n',updatedAt:1},{id:'math',name:'公式.md',path:'书/公式.md',text:'# 公式\n\n质能方程 $E=mc^2$。\n\n$$\\int_0^1 x\\,dx$$\n',updatedAt:1},{id:'paper',name:'论文.tex',path:'书/论文.tex',text:'\\documentclass{article}\n\\begin{document}\n\\section{引言}\n正文\n\\end{document}\n',updatedAt:1}];
+const docs=[{id:'outline',name:'大纲.pcs',path:'书/大纲.pcs',text:outlineText(createOutline()),updatedAt:1},{id:'book',name:'正文.txt',path:'书/正文.txt',text:'第一章 起航\n\n　　船离开港口。\n',updatedAt:1},{id:'math',name:'公式.md',path:'书/公式.md',text:'# 公式\n\n质能方程 $E=mc^2$。\n\n$$\\int_0^1 x\\,dx$$\n',updatedAt:1},{id:'paper',name:'论文.tex',path:'书/论文.tex',text:'\\documentclass{article}\n\\begin{document}\n\\section{引言}\n正文\n\\end{document}\n',updatedAt:1}];
 const seed={version:1,activeId:'book',openIds:['book','math','paper'],folders:['书'],settings:{theme:'light'},documents:docs};
 const features=['pdf-preview','katex','reader','epub-export','latex-editor','latex-language'];
-async function open({block=[]}={}){
+async function open({block=[],language='zh'}={}){
   const context=await browser.newContext({viewport:{width:1280,height:800}}),requested=[];
-  await context.addInitScript(seed=>{if(!localStorage.getItem('wenzhou.workspace'))localStorage.setItem('wenzhou.workspace',JSON.stringify(seed));},seed);
+  await context.addInitScript(seed=>{if(!localStorage.getItem('wenzhou.workspace'))localStorage.setItem('wenzhou.workspace',JSON.stringify(seed));},{...seed,settings:{...seed.settings,language}});
   const blocked=new Set(block);await context.route(/\/chunks\/[^?]*\.js(\?.*)?$/,route=>{const name=new URL(route.request().url()).pathname.split('/').pop().replace(/-[A-Z0-9]+\.js$/,'');requested.push(name);return blocked.has(name)?route.abort():route.continue();});
   const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));
   await page.goto(server.url);await page.waitForFunction(()=>window.velaReady===true);
@@ -24,6 +25,7 @@ async function open({block=[]}={}){
 }
 const preview=async page=>{await page.keyboard.press('Control+Shift+P');await page.locator('#preview').waitFor();};
 try{
+  await check('outline load failure and retry are translated in English',async()=>{const {context,page,unblock}=await open({block:['outline-view'],language:'en'});await openRecentFile(page,page.locator('[data-recent=outline]'));await page.getByRole('heading',{name:'Module failed to load'}).waitFor();unblock('outline-view');await page.getByRole('button',{name:'Retry',exact:true}).click();await page.locator('.outline-plane').waitFor();await context.close();});
   await check('startup loads none of the lazy feature chunks',async()=>{
     const {context,page,requested}=await open();await openRecentFile(page,page.locator('[data-recent=book]'));await page.waitForSelector('.cm-editor');
     assert.deepEqual(requested.filter(name=>features.includes(name)),[]);await context.close();

@@ -1,0 +1,4 @@
+const cache=new WeakMap();
+export function mapImage(asset,request=()=>{}){if(!asset)return null;let entry=cache.get(asset);if(!entry){const image=new Image();entry={image,ready:false,callbacks:new Set(),promise:null};entry.promise=new Promise(resolve=>{entry.resolve=resolve;image.onload=()=>{entry.ready=true;resolve(image);for(const f of entry.callbacks)f();entry.callbacks.clear();};image.onerror=()=>{resolve(null);entry.callbacks.clear();};});cache.set(asset,entry);image.src=asset.data;}if(!entry.ready)entry.callbacks.add(request);return entry.ready?entry.image:null;}
+export async function prepareMapImages(value){await Promise.all(Object.values(value.images||{}).map(a=>{mapImage(a);return cache.get(a).promise;}));}
+export function releaseMapImages(value){for(const a of Object.values(value.images||{})){const e=cache.get(a);if(e){e.resolve(null);e.callbacks.clear();e.image.onload=null;e.image.onerror=null;e.image.src='';cache.delete(a);}}}

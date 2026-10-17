@@ -7,6 +7,7 @@ import {glossaryKeywords,matchesGlossary} from './glossary-search.mjs';
 // and deleting at once, edits shortly after typing stops. The page keeps its place (list or entry, search, filter,
 // scroll) across re-renders, so saving never interrupts typing.
 const pages=new Map();
+export function selectGlossaryEntry(id,entry){const state=pages.get(id)||{query:'',category:'',scroll:0};state.entry=entry;pages.set(id,state);}
 const LONG_PRESS=500,EDIT_DELAY=700;
 
 /** onSave(text) writes the file without redrawing this page; onCopy(text) copies; notify(message) shows a toast. */

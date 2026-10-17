@@ -29,8 +29,8 @@ const dark=page=>page.evaluate(()=>document.body.classList.contains('dark'));
 try{
   const page=await open();
   await check('the theme button changes the look on the first press and returns to following the system',async()=>{
-    assert.equal(await dark(page),false);await page.evaluate(()=>document.querySelector('#theme').click());assert.equal(await dark(page),true,'first press did nothing');
-    assert.equal((await stored(page)).settings.theme,'dark');await page.evaluate(()=>document.querySelector('#theme').click());assert.equal(await dark(page),false);
+    assert.equal(await dark(page),false);await page.evaluate(()=>document.querySelector('#theme').click());await page.waitForFunction(()=>document.body.classList.contains('dark'));assert.equal(await dark(page),true,'first press did nothing');
+    assert.equal((await stored(page)).settings.theme,'dark');await page.evaluate(()=>document.querySelector('#theme').click());await page.waitForFunction(()=>!document.body.classList.contains('dark'));assert.equal(await dark(page),false);
     assert.equal((await stored(page)).settings.theme,'system','back to the system look means following the system');
   });
   await check('a theme switch starts the cross-fade in the same update and the GitHub page background fades with the workspace',async()=>{

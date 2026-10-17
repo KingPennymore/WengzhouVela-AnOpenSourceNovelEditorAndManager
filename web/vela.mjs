@@ -1,3 +1,4 @@
+import {rewritePlanningFiles} from './planning-paths.mjs';
 import {documentKind,newDocument} from './model.mjs';
 import {chapterSettings} from './chapters.mjs';
 import {documentPath} from './workspace.mjs';
@@ -82,6 +83,7 @@ export function includeNewReadingFile(workspace,doc){
   if(!readingItems(config).some(item=>item.path===path)){const container=config.kind==='global'?config.library:config.reading;container.items=[...readingItems(config),{id:itemId(path),path}];project.doc.text=velaText(config);project.doc.updatedAt=Date.now();}
 }
 export function rewriteVelaFiles(before,after,action,path,destination=''){
+  rewritePlanningFiles(before,after,action,path,destination);
   const affected=value=>value===path||value.startsWith(path+'/');
   const binaryIds={...after.binaryIds};for(const [file,id] of Object.entries(before.binaryIds||{}))if(affected(file)){
     if(action==='move'){delete binaryIds[file];binaryIds[destination+file.slice(path.length)]=id;}

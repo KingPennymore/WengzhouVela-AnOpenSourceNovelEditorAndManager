@@ -1,3 +1,4 @@
+import {mergePlanningTexts} from './planning-merge.mjs';
 const lines=text=>String(text).match(/[^\n]*\n|[^\n]+$/g)||[];
 
 // Bound the diff work for long manuscripts. The fallback reports a wider
@@ -25,6 +26,7 @@ function replaced(base,start,end,edits){let at=start,text='';for(const edit of e
 
 export function mergeTexts(baseText,localText,remoteText){
   if(localText===remoteText)return [{text:localText}];
+  if(typeof baseText==='string'&&baseText.trimStart().startsWith('{')){const structured=mergePlanningTexts(baseText,localText,remoteText);if(structured!==null)return [{text:structured}];}
   if(typeof baseText!=='string')return [{conflict:true,base:null,local:localText,remote:remoteText}];
   const base=lines(baseText),local=changes(base,lines(localText)),remote=changes(base,lines(remoteText));
   const edits=[...local.map(edit=>({...edit,side:'local'})),...remote.map(edit=>({...edit,side:'remote'}))].sort((a,b)=>a.start-b.start||a.end-b.end);

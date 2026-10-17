@@ -18,12 +18,12 @@ test('version codes and npm versions follow scripts/check-build.mjs',()=>{
 
 test('bump sets every version field, keeps the rest of each file, and the result passes the consistency check',()=>{
   const root=copy();try{
-    for(const version of ['0.9.9','1.0.0.2']){
+    for(const version of [readVersions(root).release==='0.9.9'?'0.9.9.1':'0.9.9','1.0.0.2']){
       assert.equal(bumpVersions(version,root).length,6);const v=readVersions(root);assert.deepEqual(versionProblems(v),[]);
-      assert.equal(v.release,version);assert.equal(v.harmony.code,versionCode(version));assert.equal(v.android.name,version+'-android.1');assert.equal(v.windows.vela,version);
+      assert.equal(v.release,version);assert.equal(v.harmony.code,versionCode(version));assert.equal(v.android.name,version+'-android.1');assert.equal(v.windows.vela,version);assert.deepEqual(bumpVersions(version,root),[],'repeating the same version is a no-op');
     }
     const lock=fs.readFileSync(path.join(root,'package-lock.json'),'utf8'),original=fs.readFileSync('package-lock.json','utf8');
-    assert.equal(lock.split('\n').length,original.split('\n').length);assert.equal(lock.split('\n').filter((line,i)=>line!==original.split('\n')[i]).length,2,'only the two own version lines change');
+    assert.equal(lock.split('\n').length,original.split('\n').length);assert.equal(lock.split('\n').filter((line,i)=>line!==original.split('\n')[i]).length,readVersions().release==='1.0.0.2'?0:2,'only the two own version lines change');
     fs.writeFileSync(path.join(root,'android/app/build.gradle'),fs.readFileSync(path.join(root,'android/app/build.gradle'),'utf8').replace(/versionCode \d+/,'versionCode 1'));
     assert.match(versionProblems(readVersions(root)).join(),/安卓 versionCode 1/);
   }finally{fs.rmSync(root,{recursive:true,force:true});}

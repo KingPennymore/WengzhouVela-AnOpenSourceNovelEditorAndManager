@@ -15,3 +15,9 @@ The module's `PreserveLauncherIcon` build task runs after resource compilation a
 Android uses its separate adaptive icon foreground vector and opaque `icon_background` color. Its foreground contains only the sail geometry; the launcher applies its own mask. Windows uses the square composite.
 
 `test-results/icon-0.8.3/mask-preview.png` shows simulated square, rounded-square, and circular system masks for visual review. It is not a shipping resource. Real-device launcher review and AppGallery acceptance are separate from source and package validation.
+
+## Planning file icons
+
+OUTLINE and MAP use code-defined 24-unit line icons in `web/icons.mjs`: a branching node diagram and a hexagonal map. They share the existing stroke, inherit theme colors, carry accessible Chinese / English labels, and appear in the file manager and start-page recents. Tabs use the uppercase type labels PCS and VLMP. No third-party icon library is used.
+
+The `simplify` icon represents removal of redundant drawing points and is distinct from the boundary and arrange icons. The Markdown guide references real SVG files under `docs/vela-guide-icons/`; `scripts/build-guide.mjs` generates only referenced icons from the same code definitions and prunes obsolete guide icons. The built-in Markdown renderer resolves these exact guide paths to embedded SVG images, so the first-run guide also displays icons offline without adding arbitrary SVG loading to user documents.

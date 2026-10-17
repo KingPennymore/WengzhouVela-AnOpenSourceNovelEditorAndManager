@@ -370,16 +370,16 @@ export class NativeBridge {
         const clip = await pasteboard.getSystemPasteboard().getData();
         return this.success(await clip.getPrimaryText());
       }
-      if (operation === 'export' || operation === 'exportPdf' || operation === 'exportOdt') {
+      if (operation === 'export' || operation === 'exportPdf' || operation === 'exportOdt' || operation === 'exportPng') {
         const name = data.name || '文稿.txt';
         if (/[\\/\x00-\x1f]/.test(name)) throw new Error('文件名无效。');
         const documentPicker = new picker.DocumentViewPicker(this.getContext());
         const options: picker.DocumentSaveOptions = { newFileNames: [name] };
         const uris = await documentPicker.save(options);
         if (uris.length === 0) return this.success(false);
-        if (operation === 'exportPdf' || operation === 'exportOdt') {
+        if (operation === 'exportPdf' || operation === 'exportOdt' || operation === 'exportPng') {
           const bytes = new util.Base64Helper().decodeSync(data.data || '');
-          if (bytes.length < 5 || bytes.length > 32 * 1024 * 1024 || (operation === 'exportPdf' ? new util.TextDecoder('utf-8').decodeToString(bytes.slice(0, 5)) !== '%PDF-' : bytes[0] !== 0x50 || bytes[1] !== 0x4b)) throw new Error('PDF 无效或超过 32 MB。');
+          if (bytes.length < 5 || bytes.length > 32 * 1024 * 1024 || (operation === 'exportPng' ? bytes.length < 8 || bytes[0] !== 137 || bytes[1] !== 80 || bytes[2] !== 78 || bytes[3] !== 71 || bytes[4] !== 13 || bytes[5] !== 10 || bytes[6] !== 26 || bytes[7] !== 10 : operation === 'exportPdf' ? new util.TextDecoder('utf-8').decodeToString(bytes.slice(0, 5)) !== '%PDF-' : bytes[0] !== 0x50 || bytes[1] !== 0x4b)) throw new Error('PDF 无效或超过 32 MB。');
           const file = fs.openSync(uris[0], fs.OpenMode.WRITE_ONLY | fs.OpenMode.CREATE | fs.OpenMode.TRUNC);
           try { const buffer = new ArrayBuffer(bytes.byteLength); new Uint8Array(buffer).set(bytes); fs.writeSync(file.fd, buffer); } finally { fs.closeSync(file); }
         } else this.writeFile(uris[0], data.text || '');
@@ -430,6 +430,13 @@ export class NativeBridge {
       if (operation === 'releaseImport') return this.success(this.downloads.release(data.token || ''));
       if (operation === 'openRelease') { this.downloads.context = this.context; return this.success(await this.downloads.openRelease(data.url || '')); }
       if (operation === 'downloadUpdate' || operation === 'installUpdate') throw new Error('鸿蒙版请在发布页或应用市场获取新版本。');
+      if (operation === 'importImage') {
+        const documentPicker = new picker.DocumentViewPicker(this.getContext());
+        const uris = await documentPicker.select({ fileSuffixFilters: ['图片|.png,.jpg,.jpeg,.webp'], maxSelectNumber: 1 });
+        if (uris.length === 0) return this.success(false);
+        this.downloads.context = this.context;
+        return this.success(this.downloads.stage(uris[0], decodedFileName(new fileUri.FileUri(uris[0]).name), true));
+      }
       if (operation === 'importPlugin') {
         const documentPicker = new picker.DocumentViewPicker(this.getContext());
         const uris = await documentPicker.select({ fileSuffixFilters: [data.purpose === 'tex-component' ? '离线排版组件|.zip' : '插件或组件|.zip'], maxSelectNumber: 1 });

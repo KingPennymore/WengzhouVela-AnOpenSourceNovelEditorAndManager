@@ -193,7 +193,7 @@ dialog{color:var(--text);max-height:88dvh;overflow:auto}
 .error{color:var(--error)}
 .danger{color:var(--danger)}
 [data-toggle-theme]{padding:7px}
-html,body{touch-action:pan-x pan-y}
+html,body{touch-action:manipulation}
 #app{padding-top:var(--safe-top);padding-left:var(--safe-left);padding-right:var(--safe-right);background:var(--panel)}
 .statusbar{padding-bottom:var(--safe-bottom)}
 .github-view{padding-bottom:calc(40px + var(--safe-bottom))}

@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {hitSymbol,transformSymbol} from '../web/map-selection.mjs';
+import {hexGridPaths} from '../web/map-grid.mjs';
+import {createMap,parseMap,mapText} from '../web/map.mjs';
+import {parseV2,effectiveVela} from '../web/vela-v2.mjs';
+const near=(a,b)=>assert.ok(Math.abs(a-b)<1e-8,`${a} != ${b}`);
+test('元素：旋转图片按局部矩形命中，双指绕中点旋转缩放并平移',()=>{const s={type:'image',width:100,height:20,x:10,y:20,rotation:90,scale:2};assert.ok(hitSymbol(s,{x:10,y:110}));assert.ok(!hitSymbol(s,{x:80,y:20}));const v=transformSymbol({x:20,y:0,rotation:30,scale:1},{x:-10,y:0},{x:10,y:0},{x:5,y:-15},{x:5,y:25});near(v.x,5);near(v.y,45);near(v.rotation,120);near(v.scale,2);const c=transformSymbol({x:0,y:0,scale:10},{x:-1,y:0},{x:1,y:0},{x:-100,y:0},{x:100,y:0});assert.equal(c.scale,20);});
+test('网格：两种方向裁剪到可见区域，极小缩放不绘制高密度线',()=>{for(const orientation of ['flat','pointy']){const paths=hexGridPaths({size:32,orientation},{left:-80,top:-80,right:80,bottom:80});assert.ok(paths.length>10&&paths.length<100);assert.ok(paths.every(p=>p.length===6&&p.flat().every(Number.isFinite)));}assert.deepEqual(hexGridPaths({size:32,orientation:'flat'},{left:-8000,top:-8000,right:8000,bottom:8000},.1),[]);});
+test('网格：文件及三级配置继承，保留未知元数据，拒绝错误类型',()=>{const m=createMap();m.grid.visible=true;m.grid.future={value:8};assert.deepEqual(parseMap(mapText(m)).grid,m.grid);m.grid.visible='yes';assert.throws(()=>mapText(m),/布尔/);assert.throws(()=>parseV2({version:2,kind:'global',formats:{map:{showHexGrid:1}}}),/布尔/);const global=parseV2({version:2,kind:'global',formats:{map:{showHexGrid:true}}});assert.equal(effectiveVela(global,null,'地图.vlmp').formats.map.showHexGrid,true);});

@@ -1,3 +1,4 @@
+import {outlineFixture} from './planning-fixtures.mjs';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -13,6 +14,8 @@ import {ProjectStore} from '../windows/project-store.mjs';
 import {newDocument} from '../web/model.mjs';
 import {createVelaV2,velaText,parseVela} from '../web/vela.mjs';
 import {DocumentService} from '../web/document-service.mjs';
+import {createOutline,outlineText,parseOutline} from '../web/outline.mjs';
+import {createMap,mapText,parseMap} from '../web/map.mjs';
 import {inspectZip,crc32} from '../web/project-archive.mjs';
 import {zipSync,strToU8} from 'fflate';
 
@@ -25,6 +28,7 @@ async function fixture(){
  return {base,store,backend,config,manager,binding,api,documents,host,state:()=>workspace,confirms:()=>confirms,close:async()=>{await binding.stop();fs.rmSync(base,{recursive:true,force:true});}};
 }
 const batch=async(f,changes,key=crypto.randomUUID())=>f.api.fs.applyBatch({workspaceId:f.config.id,expectedWorkspaceRevision:(await f.api.workspace.current()).revision,idempotencyKey:key,label:'测试事务',changes});
+test('lazy planning files are hydrated and rewritten on disk in a plugin move and deletion',async()=>{const f=await fixture();try{const o=outlineFixture(),m=createMap();o.nodes[o.root].anchors=[{id:'a',path:'工程/正文.txt',offset:0,end:2,quote:'相遇'}];m.cells['0,0']={fill:'plain',link:'工程/正文.txt'};await batch(f,[{kind:'writeText',path:'正文.txt',text:'相遇',expectedRevision:null},{kind:'writeText',path:'大纲.pcs',text:outlineText(o),expectedRevision:null},{kind:'writeText',path:'地图.vlmp',text:mapText(m),expectedRevision:null}]);assert.ok(!f.state().documents.some(d=>d.name==='大纲.pcs'));const original=await f.api.fs.stat({workspaceId:f.config.id,path:'正文.txt'});await batch(f,[{kind:'move',from:'正文.txt',to:'改稿.txt',expectedRevision:original.revision}]);const outline=()=>parseOutline(fs.readFileSync(f.store.target('工程/大纲.pcs'),'utf8')),map=()=>parseMap(fs.readFileSync(f.store.target('工程/地图.vlmp'),'utf8'));assert.equal(outline().nodes[o.root].anchors[0].path,'工程/改稿.txt');assert.equal(map().cells['0,0'].link,'工程/改稿.txt');const moved=await f.api.fs.stat({workspaceId:f.config.id,path:'改稿.txt'});await batch(f,[{kind:'delete',path:'改稿.txt',expectedRevision:moved.revision,mode:'trash'}]);assert.ok(outline().nodes[o.root].anchors[0].invalid);assert.ok(map().cells['0,0'].invalid);}finally{await f.close();}});
 
 test('host file rename preserves lazy text identity and watch aggregates one transaction',async()=>{const f=await fixture();try{
  await batch(f,[{kind:'writeText',path:'Makefile',text:'all:\n\techo Vela',expectedRevision:null}]);const before=await f.api.fs.stat({workspaceId:f.config.id,path:'Makefile'}),events=[],off=f.api.fs.watch({workspaceId:f.config.id,paths:['']},event=>events.push(event));await new Promise(r=>setTimeout(r,20));

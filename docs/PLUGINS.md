@@ -43,6 +43,11 @@ VelaPlugins.register('sample.vela.tools', {
 | `library-sidebar` | 文件侧栏的工具区 |
 | `outline-sidebar` | 章节侧栏的工具区 |
 | `selection-menu` | 选中正文后弹出的选区菜单；`run` 收到 `{selection:{text,from,to,editable}}` |
+| `planning-toolbar` | 大纲与地图预览的局部工具栏，需 `planning-ui-v1` |
+| `planning-sidebar` | 大纲与地图的补充工具 / 可折叠面板，需 `planning-ui-v1` |
+| `planning-bottom` | 大纲与地图预览底部的补充快捷操作，需 `planning-ui-v1` |
+
+规划区域复用既有插件生命周期，可在文件打开前注册，切换文件后保留面板 DOM 状态。全局顶栏详情按钮与底栏统计随文件类型切换，正文专用操作在规划预览中停用，源码模式恢复。当前规划视图的内置工具可通过 `vela.ui.builtins()` / `setBuiltin()` 查询、隐藏或排序，具体 ID 和数据接口见 [规划格式插件接口](PLANNING-PLUGINS.md)。
 
 ```javascript
 const button = vela.ui.addButton({

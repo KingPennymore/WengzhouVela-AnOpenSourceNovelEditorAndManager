@@ -1,3 +1,4 @@
+import {planningDefaults,validatePlanning} from './planning-config.mjs';
 import {validateStyles} from './rich-text-styles.mjs';
 import {validateRecord} from './rich-text.mjs';
 import {repoPath,documentKind} from './model.mjs';
@@ -21,8 +22,9 @@ export function parseV2(raw){
   // Without reading.items a work reads every supported file in its folder; the list is written only when curated.
   if(value.kind==='workspace'){value.reading={...reading};if(reading.items!==undefined)value.reading.items=validateItems(reading.items);}
   if(value.library){object(value.library,'library');choice(value.library,'mode',['auto','manual']);if(value.library.items!==undefined)value.library.items=validateItems(value.library.items);if(value.library.showUnconfiguredFiles!==undefined&&typeof value.library.showUnconfiguredFiles!=='boolean')throw Error('showUnconfiguredFiles 必须为布尔值。');}
-  if(value.files){object(value.files,'files');if(Object.keys(value.files).length>5000)throw Error('单文件配置最多 5000 项。');for(const [path,settings] of Object.entries(value.files)){repoPath(path);object(settings,'file settings');parseV2({version:2,kind:'global',editor:settings.editor,reader:settings.reader,reading:settings.reading,chapters:settings.chapters});}}
-  if(value.workspaceDefaults){object(value.workspaceDefaults,'workspaceDefaults');parseV2({version:2,kind:'global',editor:value.workspaceDefaults.editor,reader:value.workspaceDefaults.reader,reading:value.workspaceDefaults.reading,chapters:value.workspaceDefaults.chapters});}
+  if(value.files){object(value.files,'files');if(Object.keys(value.files).length>5000)throw Error('单文件配置最多 5000 项。');for(const [path,settings] of Object.entries(value.files)){repoPath(path);object(settings,'file settings');parseV2({version:2,kind:'global',editor:settings.editor,reader:settings.reader,reading:settings.reading,chapters:settings.chapters,formats:settings.formats});}}
+  if(value.workspaceDefaults){object(value.workspaceDefaults,'workspaceDefaults');parseV2({version:2,kind:'global',editor:value.workspaceDefaults.editor,reader:value.workspaceDefaults.reader,reading:value.workspaceDefaults.reading,chapters:value.workspaceDefaults.chapters,formats:value.workspaceDefaults.formats});}
+  validatePlanning(value.formats);
   const latex=value.formats?.latex;if(latex){object(latex,'latex');if(latex.main)repoPath(latex.main);choice(latex,'engine',['xetex','pdftex']);}
   if(value.publishing?.changelog)repoPath(value.publishing.changelog);
   return value;
@@ -42,7 +44,7 @@ function validateRichText(raw){
 export const configStyles=config=>({...config?.styles,...config?.richText?.styles});
 export function mergeConfig(base,override){const result={...base};for(const [key,value] of Object.entries(override||{})){const next=value&&typeof value==='object'&&!Array.isArray(value)?mergeConfig(base?.[key]||{},value):structuredClone(value);Object.defineProperty(result,key,{value:next,writable:true,enumerable:true,configurable:true});}return result;}
 export function effectiveVela(global,project,path=''){
-  const inherited={editor:{...editorDefaults},reader:structuredClone(readerDefaults),chapters:{templates:[]}};
+  const inherited={formats:structuredClone(planningDefaults),editor:{...editorDefaults},reader:structuredClone(readerDefaults),chapters:{templates:[]}};
   // Format records are read through formatRecord(), not inherited; leaving them out keeps this cheap for large works.
   const normalize=value=>value?JSON.parse(JSON.stringify({...value,files:undefined,positions:undefined,richText:value.richText&&{...value.richText,documents:undefined}})):{};
   const g=normalize(global),p=normalize(project),file=project?.files?.[path]||{};let result=mergeConfig(mergeConfig(inherited,g),p);const recommended=mergeConfig(result.reader.layout,result.reading?.layout);result=mergeConfig(result,file);

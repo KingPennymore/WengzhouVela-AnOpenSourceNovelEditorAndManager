@@ -29,7 +29,7 @@ try{
   await connect();
   await check('Android 原生桥、内部工作区和操作指南首次启动',async()=>{
     assert.equal(await p.evaluate(()=>window.WenzhouNative.platform),'android');
-    const state=await saved();assert.equal(state.storage.internal,true);assert.equal(state.storage.needsSetup,false);assert.ok(state.documents.some(d=>d.name==='操作指南.txt'));
+    const state=await saved();assert.equal(state.storage.internal,true);assert.equal(state.storage.needsSetup,false);assert.ok(state.documents.some(d=>d.name==='操作指南.md'));
     const layout=await p.evaluate(()=>({top:document.querySelector('.topbar').getBoundingClientRect().top,env:JSON.parse(window.WenzhouNative.readEnvironment())}));
     assert.ok(layout.top>=layout.env.top-.5);assert.equal(await p.locator('#setup-storage,#open-folder').count(),0);
   });
