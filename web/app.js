@@ -52,7 +52,7 @@ import {chapterMarkdown,chapterHtml} from './rich-text-export.mjs';
 import {renderPlainChapters} from './reader-layout.mjs';
 import {textPoint,invalidateTextIndex} from './reading-position.mjs';
 import {epubFileName,MAX_COVER_BYTES,COVER_TYPES} from './epub-names.mjs';
-import {loadPdfPreview,loadReader,loadEpubExport,loadLatexEditor,chunkFailure} from './lazy.mjs';
+import {loadOutlineView,loadMapView,loadPdfPreview,loadReader,loadEpubExport,loadLatexEditor,chunkFailure} from './lazy.mjs';
 import {readPluginZip,fromBase64} from './plugin-package.mjs';
 import {documentPath,uniquePath,preparePaths,adoptFolder,folderTree,gitFileState} from './workspace.mjs';
 import {applyRemoteFile,repositoryFolder,applyRepository,resolveRepositoryConflict} from './git-workspace.mjs';
@@ -360,7 +360,7 @@ function switchDocument(id){
   if(view){editorStates.delete(workspace.activeId);editorStates.set(workspace.activeId,view.state);if(dirty&&!save())return;if(workspace.activeId!==id)rememberPosition(workspace.activeId,view.state);while(editorStates.size>8)editorStates.delete(editorStates.keys().next().value);}
   if(!workspace.openIds.includes(id))workspace.openIds.push(id);
   workspace.activeId=id;const doc=current();if(!doc)return;
-  home=false;csvPage=0;csvColumnPage=0;$('#start-page').hidden=true;isPreview=['CSV','VELA','GLY','VODT'].includes(documentKind(doc));
+  home=false;csvPage=0;csvColumnPage=0;$('#start-page').hidden=true;isPreview=['CSV','VELA','GLY','VODT','OUTLINE','MAP'].includes(documentKind(doc));
   // A file operation recreates the view; the kept state (undo history, formats) is reused while the text is unchanged.
   const kept=editorStates.get(id),reused=!!kept&&(!!view||kept.doc.toString()===doc.text);if(view)view.setState(kept||makeState(doc));else view=new EditorView({state:reused?kept:makeState(doc),parent:$('#editor')});if(!reused)restorePosition(doc);
   activateLanguage(doc);index=null;setFontSize(projectConfig(workspace,doc)?.config?.editor?.fontSize??workspace.settings.fontSize,false);$('#current-name').textContent=doc.name;
@@ -390,7 +390,7 @@ function renderDisplayOptions(){
   const doc=current();$('#display-options').hidden=home||!doc;if(!doc)return;
   const kind=documentKind(doc);$('#display-options').innerHTML=`<button data-format title="选择文件类型">${kind==='MD'?'Markdown':kind==='TXT'?'文本':kind}</button><button data-display="source" title="源码" aria-label="源码" class="${!isPreview?'selected':''}">${icon('code')}</button><button data-display="preview" title="预览" aria-label="预览" class="${isPreview?'selected':''}">${icon('preview')}</button>${native&&kind==='HTML'&&isPreview?`<button data-native-html title="在独立页面中调试 HTML" aria-label="独立预览">${icon('external')}</button>`:''}`;
 }
-$('#display-options').onclick=e=>{if(e.target.closest('[data-native-html]')){openNativeHtml();return;}const mode=e.target.closest('[data-display]');if(mode){isPreview=mode.dataset.display==='preview';updateEditorVisibility();if(isPreview)renderPreview();else view.focus();}if(e.target.closest('[data-format]')){const doc=current();openModal('文件类型',`<label>编辑格式<select name="kind">${[['','按扩展名识别'],['TXT','纯文本'],['MD','Markdown'],['HTML','HTML'],['CSV','CSV 表格'],['VELA','VELA 工作区配置'],['GLY','术语库'],['TEX','LaTeX'],['CODE','代码']].map(([value,label])=>`<option value="${value}" ${value===(doc.kind||'')?'selected':''}>${label}</option>`).join('')}</select></label>`,f=>{doc.kind=f.get('kind')||undefined;isPreview=['CSV','VELA','GLY','VODT'].includes(documentKind(doc));refreshFileType(doc);save();});}};
+$('#display-options').onclick=e=>{if(e.target.closest('[data-native-html]')){openNativeHtml();return;}const mode=e.target.closest('[data-display]');if(mode){isPreview=mode.dataset.display==='preview';updateEditorVisibility();if(isPreview)renderPreview();else view.focus();}if(e.target.closest('[data-format]')){const doc=current();openModal('文件类型',`<label>编辑格式<select name="kind">${[['','按扩展名识别'],['TXT','纯文本'],['MD','Markdown'],['HTML','HTML'],['CSV','CSV 表格'],['VELA','VELA 工作区配置'],['GLY','术语库'],['TEX','LaTeX'],['CODE','代码']].map(([value,label])=>`<option value="${value}" ${value===(doc.kind||'')?'selected':''}>${label}</option>`).join('')}</select></label>`,f=>{doc.kind=f.get('kind')||undefined;isPreview=['CSV','VELA','GLY','VODT','OUTLINE','MAP'].includes(documentKind(doc));refreshFileType(doc);save();});}};
 function showHome(){
   if(view){if(dirty&&!save())return;editorStates.set(workspace.activeId,view.state);rememberPosition(workspace.activeId,view.state);view.destroy();view=null;}
   ui.close();selectionMenu.hide();$('#preview').odfDispose?.();document.body.classList.remove('focus');
@@ -439,6 +439,7 @@ function renderPreview(){
   if(documentKind(current())!=='TEX')texPreview?.dispose();
   $('#preview').className='markdown';
   if(documentKind(current())==='VELA'){renderVela();return;}
+  if(['OUTLINE','MAP'].includes(documentKind(current()))){const doc=current(),loader=documentKind(doc)==='OUTLINE'?loadOutlineView:loadMapView;loader().then(module=>{if(current()!==doc||!isPreview)return;(module.renderOutline||module.renderMap)({root:$('#preview'),doc,escape:esc,config:projectConfig(workspace,doc)?.config?.formats,onSave:async text=>{if(current()!==doc||projectLocked)throw Error(t('请先保存当前文稿。'));view.dispatch({changes:{from:0,to:view.state.doc.length,insert:text},userEvent:'input.planning'});if(!save())throw Error(t('保存失败'));},onOpen:path=>{const target=workspace.documents.find(d=>documentPath(d)===path);if(target)switchDocument(target.id);},markdown:text=>DOMPurify.sanitize(md.render(text)),notify:toast});}).catch(error=>chunkFailure($('#preview'),error,renderPreview));return;}
   if(documentKind(current())==='GLY'){renderGlossary({root:$('#preview'),doc:current(),escape:esc,onCopy:copyText,notify:toast,onSave:text=>{if(text===view.state.doc.toString())return;view.dispatch({changes:{from:0,to:view.state.doc.length,insert:text},userEvent:'input.glossary'});if(!save())throw Error('保存失败');}});return;}
   const kind=documentKind(current()),text=view.state.doc.toString();$('#preview').classList.toggle('plain-preview',kind==='TXT');$('#preview').classList.toggle('csv-preview',kind==='CSV');$('#preview').classList.toggle('html-preview',kind==='HTML');
   if(kind==='CSV'){

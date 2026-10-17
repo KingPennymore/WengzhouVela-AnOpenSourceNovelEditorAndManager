@@ -1,0 +1,5 @@
+import {parseOutline,outlineText} from './outline.mjs';
+import {parseMap,mapText} from './map.mjs';
+export function rewritePlanningFiles(before,after,action,path,destination=''){
+ const affected=v=>v===path||v.startsWith(path+'/');for(const doc of after.documents){const outline=/\.(process|pcs)$/i.test(doc.name),map=/\.(velamap|vlmp)$/i.test(doc.name);if(!outline&&!map)continue;try{const value=(outline?parseOutline:parseMap)(doc.text),original=before.documents.find(d=>d.id===doc.id),copied=action==='copy'&&!original;let changed=false;const rewrite=(item,key)=>{if(!item[key]||!affected(item[key]))return;if(action==='delete'){item.invalid=true;if(outline)item.needsReview=true;changed=true;}else if(action==='move'||copied){item[key]=destination+item[key].slice(path.length);changed=true;}};if(outline)for(const n of Object.values(value.nodes))for(const a of n.anchors||[])rewrite(a,'path');else for(const c of Object.values(value.cells))rewrite(c,'link');if(changed){doc.text=(outline?outlineText:mapText)(value);doc.updatedAt=Date.now();}}catch{}}
+}

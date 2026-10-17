@@ -1,0 +1,12 @@
+import {chromium} from 'playwright';
+import assert from 'node:assert/strict';
+import {mkdir} from 'node:fs/promises';
+import {startSourceAppServer} from './source-app-server.mjs';
+import {openRecentFile} from './start-page-helper.mjs';
+import {noMotion,settled} from './wait-helpers.mjs';
+import {createOutline,outlineText} from '../web/outline.mjs';
+import {createMap,mapText} from '../web/map.mjs';
+const doc=(id,name,text)=>({id,name,path:name,text,updatedAt:1}),seed={version:1,documents:[doc('outline','情节.pcs',outlineText(createOutline('情节'))),doc('map','北境.vlmp',mapText(createMap('北境'))),doc('book','操作指南.txt','第一章\n\n她推开门。\n\n风吹进来。')],activeId:'book',openIds:['book'],settings:{theme:'light'}};
+const server=process.env.VELA_TEST_URL?null:await startSourceAppServer(),browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'}),context=await browser.newContext({viewport:{width:1280,height:850}}),errors=[];
+await noMotion(context);await context.addInitScript(seed=>{if(window===window.top&&!localStorage.getItem('wenzhou.workspace'))localStorage.setItem('wenzhou.workspace',JSON.stringify(seed));},seed);const p=await context.newPage();p.on('pageerror',e=>errors.push(e.message));const open=async id=>{await p.keyboard.press('Control+Alt+h');await openRecentFile(p,p.locator('[data-recent="'+id+'"]'));};
+try{await p.goto((server?.url||process.env.VELA_TEST_URL)+'/?ui=harmonyos');await p.waitForSelector('.cm-editor');await open('outline');await p.waitForSelector('.planning-preview');assert.match(await p.locator('#preview').textContent(),/情节/);await p.locator('[data-display=source]').click();await p.waitForSelector('#editor:not([hidden]) .cm-editor');await p.evaluate(()=>{const v=velaEditorView;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:'{"broken":'}});});await p.locator('[data-display=preview]').click();await p.locator('#preview [role=alert]').waitFor();assert.ok(await p.locator('#preview pre').textContent()==='{"broken":');await open('map');await p.waitForSelector('.planning-preview');assert.match(await p.locator('#preview').textContent(),/北境/);await settled(p);assert.deepEqual(errors,[]);console.log('PASS 大纲与地图按需预览、JSON 源码修复与无效原文保留');}finally{await browser.close();await server?.close();}

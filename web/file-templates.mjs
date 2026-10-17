@@ -1,3 +1,5 @@
+import {createOutline,outlineText} from './outline.mjs';
+import {createMap,mapText} from './map.mjs';
 import {fileKind} from './model.mjs';
 import {createGlossary,glossaryText} from './glossary.mjs';
 import {createVelaV2,velaText} from './vela.mjs';
@@ -27,6 +29,8 @@ const formats={
  CSV:{label:'表格格式',description:'带表头的表格：第一行为列名，CSV 用逗号、TSV 用制表符分隔。',text:name=>{const sep=/\.tsv$/i.test(name)?'\t':',';return ['列一','列二','列三'].join(sep)+'\n'+['','',''].join(sep)+'\n';}},
  HTML:{label:'HTML 文档',description:'完整 HTML5 文档结构：字符集、视口、标题、样式与正文。',text:()=>'<!doctype html>\n<html lang="zh-CN">\n<head>\n  <meta charset="utf-8">\n  <meta name="viewport" content="width=device-width,initial-scale=1">\n  <title>标题</title>\n  <style>\n    body{max-width:42em;margin:auto;padding:24px;font-family:system-ui;line-height:1.8}\n  </style>\n</head>\n<body>\n  <h1>标题</h1>\n  <p>正文。</p>\n</body>\n</html>\n'},
  TEX:{label:'LaTeX 文档',description:'ctexart 中文文档结构：导言区、标题信息与正文；编译需要离线 TeX 组件。',text:()=>'\\documentclass[UTF8]{ctexart}\n\\usepackage[a4paper,margin=2.5cm]{geometry}\n\n\\title{标题}\n\\author{作者}\n\\date{\\today}\n\n\\begin{document}\n\\maketitle\n\n\\section{第一节}\n正文。\n\n\\end{document}\n'},
+ OUTLINE:{label:'大纲结构',description:'树和关系图共用的大纲文件。',text:name=>outlineText(createOutline(name.replace(/\.(process|pcs)$/i,'')))},
+ MAP:{label:'地图结构',description:'六边形地图文件。',text:name=>mapText(createMap(name.replace(/\.(velamap|vlmp)$/i,'')))},
  GLY:{label:'术语库结构',description:'使用项目现有术语库结构。',text:name=>glossaryText(createGlossary(name))},
  VELA:{label:'工作区配置结构',description:'使用现有 VELA 配置结构。',text:name=>velaText(createVelaV2(name.replace(/\.vela$/i,'')))},
  CODE:{label:'代码格式',description:'按扩展名生成该语言的最小可用结构。',text:name=>{const value=code[codeKey(name)];return typeof value==='function'?value(name):value||'';}}
@@ -45,7 +49,7 @@ export function templateText(name,id){
  if(/\.(odt|ott|ods|ots|odp|otp|odg|otg)$/i.test(name))throw Error('二进制 ODF 请先创建 .vodt 或 Flat ODF 文稿，再从组件导出对应格式。');
  const kind=fileKind(name);if(!templatesFor(name).some(t=>t.id===id))throw Error('此模板不适用于当前文件格式。');
  // Structured formats must stay parseable even when blank.
- if(kind==='GLY'||kind==='VELA')return formats[kind].text(name);
+ if(['GLY','VELA','OUTLINE','MAP'].includes(kind))return formats[kind].text(name);
  if(kind==='VODT'){const match=/\.(fods|fodp|fodg)$/i.exec(name);if(match){const type={fods:'spreadsheet',fodp:'presentation',fodg:'graphics'}[match[1].toLowerCase()],body=type==='graphics'?'drawing':type;return createVelaOdt().replace('application/vnd.oasis.opendocument.text','application/vnd.oasis.opendocument.'+type).replace('<office:text><text:p/></office:text>','<office:'+body+'/>').replace(' vela:profile="1"','');}return createVelaOdt([]);}
  return id==='empty'?'':formats[kind].text(name);
 }
