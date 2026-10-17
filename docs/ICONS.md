@@ -18,4 +18,6 @@ Android uses its separate adaptive icon foreground vector and opaque `icon_backg
 
 ## Planning file icons
 
-OUTLINE and MAP use code-defined 24-unit line icons in `web/icons.mjs`: a branching node diagram and a hexagonal map. They share the existing stroke, inherit theme colors, carry accessible Chinese / English labels, and appear in the file manager, tabs and start-page recents. No third-party icon library is used.
+OUTLINE and MAP use code-defined 24-unit line icons in `web/icons.mjs`: a branching node diagram and a hexagonal map. They share the existing stroke, inherit theme colors, carry accessible Chinese / English labels, and appear in the file manager and start-page recents. Tabs use the uppercase type labels PCS and VLMP. No third-party icon library is used.
+
+The `simplify` icon represents removal of redundant drawing points and is distinct from the boundary and arrange icons. The Markdown guide references real SVG files under `docs/vela-guide-icons/`; `scripts/build-guide.mjs` generates only referenced icons from the same code definitions and prunes obsolete guide icons. The built-in Markdown renderer resolves these exact guide paths to embedded SVG images, so the first-run guide also displays icons offline without adding arbitrary SVG loading to user documents.

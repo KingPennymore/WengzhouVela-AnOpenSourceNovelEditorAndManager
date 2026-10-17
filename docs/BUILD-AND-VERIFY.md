@@ -163,3 +163,9 @@ Android 大 ZIP 通过私有缓存与同源二进制 URL 传输，读取后释�
 默认 verify 包含 app-choices-browser、planning-usability-browser 和 map-images 单元测试：窄屏浅深主题、对话框下拉 / 多选 / 颜色、高熵图片缩小、非法图片原文保留、PNG/SVG 图片输出，以及 32 张地图连续跳转成环并逐张返回、重复两轮的节点 / 监听器 / 堆内存检查。
 
 `npm run verify -- --windows --jobs 8` 额外运行原有 windows-browser 和 planning-windows-browser。后者启动实际 Electron，使用独立临时 QA 工作区，以鼠标和键盘测试分类、文件导入、图片移动旋转与撤销、关系节点和地图循环跳转，重载确认原生存储保留图片。测试窗口显示但不主动抢焦点，结束关闭并仅清理确认过路径的 QA 目录。不会访问用户常用工作区。结果和截图在 test-results/planning/usability。
+
+### 面板收起与保形精简
+
+planning-refinement-browser 检查 390 px 浅色 / 深色和 1280 px 界面：再次点击选择栏 / 工具 / 地图整理 / 范围 / 详情收起，触摸从选择栏起滑不误触，地形建筑分类、后台精简预览不写文件与撤销、大纲卡片分区和指南实际图标。map-simplify 与 planning-refinement 单元测试验证精确边界 / 填充、保护附加信息和箭头点、确定性、空图、环形 / 开放 / 独立点组，以及指南资源与源码一致。map-performance-browser 增加 20000 点 Worker 精简统计，确认后台运算期间界面仍有绘制帧；Windows 实际 Electron 也覆盖面板再次收起、精简预览和撤销。
+
+构建会同步 docs/USER-GUIDE.md 至内置指南并维护旧指南哈希，以继续保留用户修改过的指南。新增 map-simplify-worker.js 在源码服务和发布资源中独立构建，完整性检查确认其存在。

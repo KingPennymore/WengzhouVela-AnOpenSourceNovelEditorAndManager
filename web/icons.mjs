@@ -17,4 +17,5 @@ Object.assign(paths,{refresh:'M20 8a8 8 0 1 0 1 7M20 3v5h-5',newWorkspace:'M3 5h
 Object.assign(paths,{outlineFile:'M3 4h6v5H3zM15 3h6v5h-6zM15 16h6v5h-6zM9 6.5h3v12h3M12 5.5h3',map:'M12 2 21 7v10l-9 5-9-5V7zM3 7l9 5 9-5M12 12v10'});
 export const fileIcon=kind=>kind==='OUTLINE'||kind==='MAP'?`<span role="img" aria-label="${t(kind==='OUTLINE'?'大纲':'地图')}">${icon(kind==='OUTLINE'?'outlineFile':'map')}</span>`:kind;
 // Names plugins may use for their buttons; plugins never supply their own SVG.
+paths.simplify='M3 6h2M3 12h2M3 18h2M9 6h2M9 12h2M9 18h2M14 12h7M18 9l3 3-3 3M22 6h.01M22 18h.01';
 export const iconNames=Object.freeze([...Object.keys(paths),'settings']);

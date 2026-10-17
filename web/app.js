@@ -1,3 +1,6 @@
+import {guideIconImage} from './guide-icons.mjs';
+import {bindPanelTapGuard} from './tap-guard.mjs';
+bindPanelTapGuard();
 import {bindAppChoices} from './app-choices.mjs';
 bindAppChoices();
 import {outlineMarkers,outlineMarksChanged} from './outline-markers.mjs';
@@ -96,7 +99,7 @@ const gitName=()=>gh.provider==='gitee'?'Gitee':'GitHub';
 const md=new MarkdownIt({html:false,linkify:false,breaks:true});
 // Local previews do not fetch remote images or open links inside the privileged WebView.
 md.use(taskLists);md.use(markdownMath);
-md.renderer.rules.image=(tokens,i,_options,env)=>{const token=tokens[i],src=token.attrGet('src')||'',alt=token.content||'图片';if(/^data:image\/(png|jpeg|gif|webp|avif);base64,[A-Za-z0-9+/=]+$/.test(src))return `<img src="${src}" alt="${esc(alt)}">`;const path=relativeResource(env.path||'',src);return path?`<span class="workspace-image" data-workspace-image="${esc(path)}">[图片：${esc(alt)}]</span>`:`<span>[外部图片：${esc(alt)}]</span>`;};
+md.renderer.rules.image=(tokens,i,_options,env)=>{const token=tokens[i],src=token.attrGet('src')||'',alt=token.content||'图片',guideImage=guideIconImage(src,alt,esc);if(guideImage)return guideImage;if(/^data:image\/(png|jpeg|gif|webp|avif);base64,[A-Za-z0-9+/=]+$/.test(src))return `<img src="${src}" alt="${esc(alt)}">`;const path=relativeResource(env.path||'',src);return path?`<span class="workspace-image" data-workspace-image="${esc(path)}">[图片：${esc(alt)}]</span>`:`<span>[外部图片：${esc(alt)}]</span>`;};
 let workspace,view,index,indexDoc,indexSettings='',saveTimer,statsTimer,toastTimer,outlineRevision='',documents,indexService,editing,outlineLimit=200;
 let account=null,repositories=[],selectedRepo=null,selectedBranch='',selectedPath='',loadEpoch=0;
 let isPreview=false,dirty=false,bootFailed=false,dialogHandler=null,dialogCancel=null,dialogBusy=false,dialogVersion=0;
