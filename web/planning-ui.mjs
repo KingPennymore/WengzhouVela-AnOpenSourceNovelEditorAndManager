@@ -1,0 +1,4 @@
+import {icon} from './icons.mjs';
+import {t} from './i18n.mjs';
+export function mountPlanningUi(options,root,kind){const toolbar=root.querySelector('.planning-toolbar');toolbar?.setAttribute('role','toolbar');toolbar?.setAttribute('aria-label',t(kind==='OUTLINE'?'大纲工具':'地图工具'));for(const b of root.querySelectorAll('.planning-toolbar button,.outline-fit')){const label=b.getAttribute('aria-label')||b.title||b.textContent.trim();b.title=label;b.setAttribute('aria-label',label);const glyph=b.matches('[data-add]')?'newFile':b.matches('[data-child]')?'indent':b.matches('[data-arrange]')?'boundary':b.matches('[data-review]')?'alert':null;if(glyph&&!b.querySelector('svg'))b.innerHTML=icon(glyph)+`<span>${b.textContent}</span>`;}options.uiHost?.mountPlanning(root,kind);}
+export const detailButton=()=>`<button class="planning-details-button" aria-label="${t('显示详情')}" title="${t('显示详情')}" aria-expanded="false">${icon('info')}</button>`;

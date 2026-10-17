@@ -436,7 +436,6 @@ body{position:fixed;inset:0}
 
 @layer app{.map-layer-options{position:relative}.map-layer-options[open]{display:flex;flex-wrap:wrap;gap:8px}.map-layer-options label{display:flex;flex-direction:column;max-width:160px}.map-layer-options input{width:100%}.map-layer-options summary{padding:8px;cursor:pointer}}
 
-@layer app{.map-info{position:absolute;bottom:0;left:0;right:0;height:56px;z-index:2;border-top:1px solid var(--line);box-shadow:var(--shadow)}.map-info[data-state=half]{height:50%}.map-info[data-state=full]{height:100%}.map-info-surface{height:100%;display:flex;flex-direction:column;background:var(--panel)}.map-info-handle{height:56px;flex:none;display:flex;flex-wrap:wrap;justify-content:flex-start;padding:6px 16px;touch-action:none}.map-info-handle>span{width:100%;line-height:4px;text-align:center;color:var(--muted)}.map-info-handle small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1;text-align:left}.map-info-scroll{overflow:auto;flex:1;min-height:0;padding:12px}.map-info-form,.map-info-form label{display:flex;flex-direction:column;gap:8px}.map-info-form{gap:12px}.map-info [data-info-field]{display:flex;gap:8px}.map-info [data-info-field] input{min-width:0;width:45%}.map-info-side{left:auto;top:0;width:320px;height:100%}.map-info-side[data-state=half]{height:100%}.map-info-side[data-state=collapsed]{top:auto}.map-breadcrumbs button{font-size:12px}.map-info table{width:100%;text-align:left}.map-info-detail{overflow-wrap:anywhere}}
 
 @layer app{.planning-preview{flex:1;display:flex;flex-direction:column}.planning-surface{flex:1;height:auto;min-height:0}}
 
@@ -446,4 +445,4 @@ body{position:fixed;inset:0}
 
 @layer app{.outline-row [data-tree-drag]{width:26px;flex:none;touch-action:none;color:var(--muted);cursor:grab}.outline-row [data-fold]{width:26px;flex:none}.outline-graph-card [data-graph-fold]{position:absolute;right:-12px;top:20px;width:24px;height:24px;background:var(--soft);border-radius:50%}}
 
-@layer app{.map-info-form textarea{background:transparent}.planning-preview>section{min-height:0;overflow:auto;padding:16px}.planning-preview>section>pre{white-space:pre-wrap;overflow-wrap:anywhere}}
+@layer app{.map-info-form textarea{background:transparent}.planning-preview:not(.map-preview):not(.outline-preview)>section{min-height:0;overflow:auto;padding:16px}.planning-preview:not(.map-preview):not(.outline-preview)>section>pre{white-space:pre-wrap;overflow-wrap:anywhere}}

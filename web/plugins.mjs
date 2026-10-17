@@ -14,7 +14,7 @@ import {isTexPackage,storeTexPackage,removeTexPackage} from './tex-packages.mjs'
 
 /** Vela plugin API 4: in-page plugins without the former Acode compatibility layer. */
 export const PLUGIN_API=4;
-const BASE_CAPABILITIES=['ui-slots','commands','pages','assets','completion','editor-extensions','documents','configuration-v2','chapters','local-history','tex','document-formats-v1','planning-formats-v1','map-symbols-v1','map-algorithms-v1'];
+const BASE_CAPABILITIES=['ui-slots','commands','pages','assets','completion','editor-extensions','documents','configuration-v2','chapters','local-history','tex','document-formats-v1','planning-formats-v1','planning-ui-v1','map-symbols-v1','map-algorithms-v1'];
 // Extensions must come from the host's CodeMirror instance; a bundled second copy would be rejected.
 const codemirror=Object.freeze({state,view,commands,language,search,autocomplete});
 const isComponent=record=>record.manifest.vela?.type==='tex-component';

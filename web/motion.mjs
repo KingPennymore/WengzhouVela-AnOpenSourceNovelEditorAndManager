@@ -84,19 +84,16 @@ function savedPulse(){
   }).observe(state,{attributes:true,attributeFilter:['class']});
 }
 
-// Theme changes cross-fade colors. The class must be on <html> in the same style update as the new theme, so
-// applyTheme() calls beginThemeShift() before toggling; the observer only covers other code that toggles `dark`.
-let themeTimer=0;
-export function beginThemeShift(){
-  if(reducedMotion())return;
-  document.documentElement.classList.add('theme-shift');clearTimeout(themeTimer);
-  themeTimer=setTimeout(()=>document.documentElement.classList.remove('theme-shift'),480);
+// Capture the old appearance once; fade composited images instead of animating every editor span.
+let themeTimer=0,themeTransition=null,themeEpoch=0;
+export function beginThemeShift(update=()=>{}){
+ const token=++themeEpoch;themeTransition?.skipTransition();clearTimeout(themeTimer);if(reducedMotion()){document.documentElement.classList.remove('theme-shift','theme-snapshot');update();return;}document.documentElement.classList.add('theme-shift');if(document.startViewTransition){document.documentElement.classList.add('theme-snapshot');themeTransition=document.startViewTransition(()=>{if(token===themeEpoch)update();});themeTransition.ready.catch(()=>{});themeTransition.finished.catch(()=>{}).finally(()=>{if(token===themeEpoch){themeTransition=null;document.documentElement.classList.remove('theme-shift','theme-snapshot');}});return;}document.documentElement.classList.remove('theme-snapshot');update();themeTimer=setTimeout(()=>document.documentElement.classList.remove('theme-shift'),320);
 }
 function themeCrossfade(){
   let last=document.body.classList.contains('dark');
   new MutationObserver(()=>{
     const dark=document.body.classList.contains('dark');
-    if(dark!==last&&!document.documentElement.classList.contains('theme-shift'))beginThemeShift();
+    if(dark!==last&&!themeTransition&&!document.documentElement.classList.contains('theme-shift'))beginThemeShift();
     last=dark;
   }).observe(document.body,{attributes:true,attributeFilter:['class']});
 }

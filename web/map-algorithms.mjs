@@ -1,5 +1,6 @@
 import {hexVertices,directions} from './map-geometry.mjs';
 import {planningDefaults} from './planning-config.mjs';
+export {distanceBoundary} from './map-distance-boundary.mjs';
 const extensions=new Map();
 export const mapAlgorithmExtensions=()=>[...extensions.values()];
 export function registerMapAlgorithm(owner,spec){if(!spec||!/^[a-z][\w.-]{0,100}$/i.test(spec.id)||typeof spec.label!=='string'||!spec.label||typeof spec.run!=='function'||spec.defaults&&(typeof spec.defaults!=='object'||Array.isArray(spec.defaults)||Object.keys(spec.defaults).some(k=>!/^[-\w.]{1,64}$/.test(k))||Object.values(spec.defaults).some(v=>!['string','number','boolean'].includes(typeof v)||typeof v==='number'&&!Number.isFinite(v))))throw Error('插件算法定义无效。');const id=owner+'.'+spec.id;if(extensions.has(id))throw Error('插件算法已存在。');extensions.set(id,{...spec,id,defaults:structuredClone(spec.defaults||{})});return {id,dispose:()=>extensions.delete(id)};}
