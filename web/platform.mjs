@@ -87,6 +87,6 @@ export async function openAuthorization() {
 }
 
 export async function exportBinary(name,bytes,mime='application/vnd.oasis.opendocument.text'){
- if(native){let data='';for(let i=0;i<bytes.length;i+=16384)data+=String.fromCharCode(...bytes.subarray(i,i+16384));return transport('exportOdt',{name,data:btoa(data)});}
+ if(native){let data='';for(let i=0;i<bytes.length;i+=16384)data+=String.fromCharCode(...bytes.subarray(i,i+16384));return transport(mime==='image/png'?'exportPng':'exportOdt',{name,data:btoa(data)});}
  const url=URL.createObjectURL(new Blob([bytes],{type:mime}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);return true;
 }
