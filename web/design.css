@@ -433,3 +433,5 @@ body.reader-open .reader-header{transform:none;visibility:visible;pointer-events
 @layer app{html.theme-snapshot *,html.theme-snapshot *::before,html.theme-snapshot *::after{transition:none!important}}
 
 @layer app{.planning-sheet-surface{min-height:0}}
+
+@layer state{body[data-page=write][data-planning]:not([data-planning=""]) :is(#quick-top,#quick-bottom,#quick-chapter-top,#quick-chapter-bottom,#search-editor,#add-glossary){display:none}body[data-page=write][data-planning]:not([data-planning=""]) .outline-shell{flex-basis:0;width:0;visibility:hidden}}
