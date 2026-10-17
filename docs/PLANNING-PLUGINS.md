@@ -33,7 +33,7 @@ const algorithm = await vela.planning.registerMapAlgorithm({
 | planning-sidebar | 是 | 是 | 画布内靠右的补充工具与可折叠面板 |
 | planning-bottom | 是 | 否 | 当前视图的补充快捷操作 |
 
-可以在插件启动时注册，不必等文件打开。离开规划预览时区域暂时移出文档，切换大纲、地图或重新渲染时复用原 DOM，保留插件面板自身状态；停用插件会完整恢复。空区域隐藏，不占空间。窄屏中的工具保留触摸面积，多余属性收进“更多地图工具”。
+可以在插件启动时注册，不必等文件打开。离开规划预览时区域暂时移出文档，切换大纲、地图或重新渲染时复用原 DOM，保留插件面板自身状态；停用插件会完整恢复。空区域隐藏，不占空间。顶栏保持单行，溢出工具进入编辑页右上角纵向菜单。planning-bottom 与常用内置工具一起挂入文舟原有底栏，保留全局 bottom-toolbar；离开预览会清理挂载。箭头和元素属性在专用右侧栏中。
 
 ```js
 vela.ui.addButton({
@@ -45,11 +45,13 @@ vela.ui.addButton({
 const panel = vela.ui.addPanel({id: 'notes', title: '辅助资料', location: 'planning-sidebar'});
 panel.body.textContent = '插件自己的内容';
 // 在规划文件打开后查询当前视图可调整的内置工具。
-const tools = vela.ui.builtins('planning-toolbar');
+const tools = vela.ui.builtins('planning-bottom');
 const restore = vela.ui.setBuiltin('outline-arrange', {hidden: true});
 restore();
 ```
 
-内置 ID 以 outline- / map- 开头：例如 outline-add、outline-child、outline-arrange、outline-outline-mode-graph、map-tool-draw、map-tool-info、map-map-fit、map-export-map-svg；地图右下角详情按钮为 map-details。隐藏与排序声明跨视图重绘继续生效，插件释放时恢复。按钮回调新增 documentKind，上层原有参数 location 保留。
+内置 ID 以 outline- / map- 开头：例如 outline-add、outline-child、outline-arrange、outline-outline-mode-relations、map-tool-draw、map-tool-info、map-map-fit、map-export-map-svg；地图右下角详情按钮为 map-details。隐藏与排序声明跨视图重绘继续生效，插件释放时恢复。按钮回调新增 documentKind，上层原有参数 location 保留。
 
 信息点的数据在 markers 数组，以稳定 ID 参与读写、路径改写和结构化合并。新算法可以返回附加的 JSON 元数据，默认距离边界的 anchors 就是此扩展方式；不要把本机 DOM 或函数写进地图。
+
+大纲顶层 nodes / edges 与 relations.nodes / edges 是独立集合。插件处理锚点时应携带集合名 outline / relations，不能只按节点 ID 跨集合查找。两套集合都经过解析、路径改写和同步合并；relationDegrees / relationSize 为纯函数，便于扩展统计。距离算法返回 fillPaths，内置自动填充使用保留图层 ID g-drawing-fill。

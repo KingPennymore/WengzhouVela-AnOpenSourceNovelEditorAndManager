@@ -25,7 +25,7 @@ async function open({block=[],language='zh'}={}){
 }
 const preview=async page=>{await page.keyboard.press('Control+Shift+P');await page.locator('#preview').waitFor();};
 try{
-  await check('outline load failure and retry are translated in English',async()=>{const {context,page,unblock}=await open({block:['outline-view'],language:'en'});await openRecentFile(page,page.locator('[data-recent=outline]'));await page.getByRole('heading',{name:'Module failed to load'}).waitFor();unblock('outline-view');await page.getByRole('button',{name:'Retry',exact:true}).click();await page.locator('.outline-tree').waitFor();await context.close();});
+  await check('outline load failure and retry are translated in English',async()=>{const {context,page,unblock}=await open({block:['outline-view'],language:'en'});await openRecentFile(page,page.locator('[data-recent=outline]'));await page.getByRole('heading',{name:'Module failed to load'}).waitFor();unblock('outline-view');await page.getByRole('button',{name:'Retry',exact:true}).click();await page.locator('.outline-plane').waitFor();await context.close();});
   await check('startup loads none of the lazy feature chunks',async()=>{
     const {context,page,requested}=await open();await openRecentFile(page,page.locator('[data-recent=book]'));await page.waitForSelector('.cm-editor');
     assert.deepEqual(requested.filter(name=>features.includes(name)),[]);await context.close();

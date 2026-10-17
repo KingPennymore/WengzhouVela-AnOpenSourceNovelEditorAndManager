@@ -1,5 +1,5 @@
 import {hexPoint} from './map-geometry.mjs';
-export const drawingRadius=(value,settings={})=>value.grid.size*Math.sqrt(3)*(value.drawing?.distance??settings.neighborDistance??1.25);
+export const drawingRadius=(value,settings={})=>value.grid.size*Math.sqrt(3)*(value.drawing?.distance??settings.neighborDistance??3);
 export const drawingCells=value=>Object.fromEntries(Object.entries(value.cells).filter(([,c])=>c.type!=='info'));
 let cache=new WeakMap();
 export const clearPointCache=value=>{if(value)cache.delete(value);else cache=new WeakMap();};
