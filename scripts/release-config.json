@@ -1,8 +1,20 @@
 {
   "github": "KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager",
-  "gitee": { "owner": "kingpennymore", "repository": "wenzhou-vela-mirror-repository", "attachmentLimit": 104857600 },
+  "gitee": {
+    "owner": "kingpennymore",
+    "repository": "wenzhou-vela-mirror-repository",
+    "attachmentLimit": 104857600
+  },
   "deveco": "D:/DevEco Studio",
   "androidCertificate": "",
-  "fingerprints": { "android": "", "harmonyos": "", "releaseKey": "vela-b042e2de130a329a" },
-  "allowDirty": [".idea/", "build-profile.json5", "entry/src/main/resources/rawfile/web/"]
+  "fingerprints": {
+    "android": "73412e575dfedc020de41df74206ca584ac77146d6e9511c70ba514caf4523f0",
+    "harmonyos": "df21a3c09f7954579305f85c64f80cad86f79853ee3a887c1dec95d218df3a37",
+    "releaseKey": "vela-b042e2de130a329a"
+  },
+  "allowDirty": [
+    ".idea/",
+    "build-profile.json5",
+    "entry/src/main/resources/rawfile/web/"
+  ]
 }

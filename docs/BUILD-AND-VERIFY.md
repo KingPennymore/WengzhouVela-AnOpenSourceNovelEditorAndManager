@@ -173,3 +173,5 @@ planning-refinement-browser 检查 390 px 浅色 / 深色和 1280 px 界面：�
 ### 横屏与 PC 窗口
 
 landscape-browser 覆盖横屏手机、平板、PC 窄窗口和 1920 宽屏，包含地图面板与算法、大纲 / 关系、术语库、文件、新建、设置、阅读、覆盖式键盘仿真及横竖屏切换。使用 --windows 还运行 landscape-windows-browser，在实际 Electron 中测试三种窗口尺寸、鼠标键盘和保留工具参数的窗口缩放；允许系统 DPI 的 3 px 取整差异，检查实际可见区域。截图、范围及未验证项见 LANDSCAPE.md。
+
+地图元素交互新增 `map-interaction-browser` 和 `map-interaction-windows-browser`：检查窄屏选中框/设置切换、角点与旋转键盘操作、双指旋转缩放不改变地图、整步撤销、网格状态保存及磁盘重载、未知字段保留、34 个符号路径可绘制及共享导出定义。Windows 同时验证原生窗口从宽屏缩至窄屏和横屏；多点触摸由 CDP 仿真，不能代替真机。Gitee 发布认证使用 Authorization 请求头，凭据不放入 URL。

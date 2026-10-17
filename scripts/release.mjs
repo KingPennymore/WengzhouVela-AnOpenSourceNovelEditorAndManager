@@ -218,18 +218,18 @@ async function giteeToken(ctx){
 async function giteeMirror(ctx,{tag,folder,names,title,notes,sums,replace=flag('--gitee-replace')}){
   const {owner,repository}=config.gitee,base=`https://gitee.com/api/v5/repos/${owner}/${repository}`;
   if(ctx.dryRun){say(`  · Gitee ${owner}/${repository}：发布 ${tag}（没有则创建），上传 ${names.length} 个文件${replace?'（全部替换）':'（同名同大小的跳过）'}，再核对大小，并从公开地址下载 1 MB 以下的文件核对 SHA-256${flag('--gitee-full-verify')?'（--gitee-full-verify：全部下载核对）':''}`);for(const name of names)say('      '+name);return;}
-  const token=await giteeToken(ctx),auth='access_token='+encodeURIComponent(token);
-  const call=async(url,init={})=>{const response=await fetch(url,init);if(!response.ok&&!(init.allow404&&response.status===404))throw Error(`Gitee API ${init.method||'GET'} ${redact(url.split('?')[0])} 失败：HTTP ${response.status} ${redact((await response.text()).slice(0,200))}`);return response.status===404?null:response.status===204?null:response.json();};
-  let release=await call(`${base}/releases/tags/${tag}?${auth}`,{allow404:true});
-  if(!release?.id){const body=new URLSearchParams({access_token:token,tag_name:tag,name:title,body:notes&&existsSync(notes)?readFileSync(notes,'utf8'):title,target_commitish:'master'});release=await call(`${base}/releases`,{method:'POST',body});say(`  · 已创建 Gitee 发布 ${tag}`);}
-  const list=async()=>(await call(`${base}/releases/${release.id}/attach_files?${auth}&per_page=100`))||[];
+  const token=await giteeToken(ctx);
+  const call=async(url,init={})=>{const response=await fetch(url,{...init,headers:{...init.headers,Authorization:'Bearer '+token}});if(!response.ok&&!(init.allow404&&response.status===404))throw Error(`Gitee API ${init.method||'GET'} ${redact(url.split('?')[0])} 失败：HTTP ${response.status} ${redact((await response.text()).slice(0,200))}`);return response.status===404?null:response.status===204?null:response.json();};
+  let release=await call(`${base}/releases/tags/${tag}`,{allow404:true});
+  if(!release?.id){const body=new URLSearchParams({tag_name:tag,name:title,body:notes&&existsSync(notes)?readFileSync(notes,'utf8'):title,target_commitish:'master'});release=await call(`${base}/releases`,{method:'POST',body});say(`  · 已创建 Gitee 发布 ${tag}`);}
+  const list=async()=>(await call(`${base}/releases/${release.id}/attach_files?per_page=100`))||[];
   const attached=await list();
   for(const name of names){
     const file=path.join(folder,name),existing=attached.filter(item=>item.name===name);
     if(existing.length===1&&!replace&&Number(existing[0].size)===size(file)){say('  · 已存在，跳过：'+name);continue;}
-    for(const old of existing)await call(`${base}/releases/${release.id}/attach_files/${old.id}?${auth}`,{method:'DELETE'});
+    for(const old of existing)await call(`${base}/releases/${release.id}/attach_files/${old.id}`,{method:'DELETE'});
     const form=new FormData();form.append('file',new Blob([readFileSync(file)]),name);
-    await call(`${base}/releases/${release.id}/attach_files?${auth}`,{method:'POST',body:form});say(`  · 已上传：${name}（${size(file)} 字节）`);
+    await call(`${base}/releases/${release.id}/attach_files`,{method:'POST',body:form});say(`  · 已上传：${name}（${size(file)} 字节）`);
   }
   // Sizes through the API (fast); content by downloading small files back from the public address. Downloading the
   // installers back from Gitee is slow, so that only happens with --gitee-full-verify.
