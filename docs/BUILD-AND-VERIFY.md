@@ -169,3 +169,7 @@ Android 大 ZIP 通过私有缓存与同源二进制 URL 传输，读取后释�
 planning-refinement-browser 检查 390 px 浅色 / 深色和 1280 px 界面：再次点击选择栏 / 工具 / 地图整理 / 范围 / 详情收起，触摸从选择栏起滑不误触，地形建筑分类、后台精简预览不写文件与撤销、大纲卡片分区和指南实际图标。map-simplify 与 planning-refinement 单元测试验证精确边界 / 填充、保护附加信息和箭头点、确定性、空图、环形 / 开放 / 独立点组，以及指南资源与源码一致。map-performance-browser 增加 20000 点 Worker 精简统计，确认后台运算期间界面仍有绘制帧；Windows 实际 Electron 也覆盖面板再次收起、精简预览和撤销。
 
 构建会同步 docs/USER-GUIDE.md 至内置指南并维护旧指南哈希，以继续保留用户修改过的指南。新增 map-simplify-worker.js 在源码服务和发布资源中独立构建，完整性检查确认其存在。
+
+### 横屏与 PC 窗口
+
+landscape-browser 覆盖横屏手机、平板、PC 窄窗口和 1920 宽屏，包含地图面板与算法、大纲 / 关系、术语库、文件、新建、设置、阅读、覆盖式键盘仿真及横竖屏切换。使用 --windows 还运行 landscape-windows-browser，在实际 Electron 中测试三种窗口尺寸、鼠标键盘和保留工具参数的窗口缩放；允许系统 DPI 的 3 px 取整差异，检查实际可见区域。截图、范围及未验证项见 LANDSCAPE.md。
