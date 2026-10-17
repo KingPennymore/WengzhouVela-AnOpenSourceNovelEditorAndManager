@@ -14,8 +14,9 @@ try{
   await check('Windows 原生启动、沙箱桥与内部文件夹持久保存',async()=>{
     assert.equal(await application.evaluate(({Menu})=>Menu.getApplicationMenu()),null);
     assert.equal(await page.evaluate(()=>window.WenzhouNative.platform),'windows');assert.equal(await page.evaluate(()=>typeof window.require),'undefined');assert.equal(await page.evaluate(()=>typeof window.process),'undefined');assert.equal(await page.locator('#workspace-name').textContent(),'内部文件夹');
-    const state=await page.evaluate(()=>JSON.parse(window.WenzhouNative.readWorkspace()));assert.ok(state.documents.some(doc=>doc.name==='操作指南.txt'));assert.ok(fs.existsSync(path.join(data,'workspaces/Vela/操作指南.txt')));
+    const state=await page.evaluate(()=>JSON.parse(window.WenzhouNative.readWorkspace()));assert.ok(state.documents.some(doc=>doc.name==='操作指南.md'));assert.ok(fs.existsSync(path.join(data,'workspaces/Vela/操作指南.md')));
   });
+  await page.keyboard.press('Control+n');await page.locator('#dialog [name=name]').fill('Windows 正文测试.txt');await page.locator('#dialog-submit').click();await page.waitForSelector('#editor:not([hidden]) .cm-editor');
   await check('Windows 正文候选后台 Worker 与补全撤销',()=>checkNativeNouns(page));
   await check('Windows 段落换行完整继承全角缩进及撤销恢复',async()=>{
     const original=await page.evaluate(()=>velaEditorView.state.doc.toString());
@@ -57,7 +58,7 @@ try{
     await page.locator('.reader-viewport').evaluate(el=>{const b=el.getBoundingClientRect();el.dispatchEvent(new MouseEvent('click',{clientX:b.x+b.width/2,clientY:b.y+b.height/2,bubbles:true}));});await page.locator('#reader-back').click();
   });
   await check('Windows 随包 TeX 引擎实际编译并显示 PDF',async()=>{
-    await page.locator('[data-view=write]').click();await page.locator('#mobile-library').click();await page.locator('#new-doc').click();await page.locator('#dialog [name=name]').fill('Windows-compile.tex');await page.locator('[name=template]').selectOption('empty');await page.locator('#dialog-submit').click();
+    await page.locator('[data-view=write]').click();await page.locator('#mobile-library').click();await page.locator('#new-doc').click();await page.locator('#dialog [name=name]').fill('Windows-compile.tex');await page.locator('#dialog-submit').click();
     await page.evaluate(()=>{const view=window.velaEditorView;view.dispatch({changes:{from:0,to:view.state.doc.length,insert:'\\documentclass{article}\n\\begin{document}\nWindows Vela PDF test.\\newpage Second page.\n\\end{document}'}});});await page.locator('#quick-save').click();await page.locator('[data-display=preview]').click();if(process.env.VELA_TEST_FLAVOR==='lite'){await page.waitForSelector('.tex-component-controls:not([hidden])');await page.locator('.tex-component-import').click();for(const group of ['engine','chinese']){await page.locator('#plugin-input').setInputFiles('dist/tex-components/Vela-TeX-0.1.1-'+group+'.zip');await page.waitForFunction(group=>[...document.querySelectorAll('.plugin-card')].some(card=>card.textContent.includes('vela.component.tex.'+group)&&card.textContent.includes('已启用')),group,{timeout:120000});}await page.locator('#dialog-cancel').click();await page.locator('[data-display=source]').click();await page.locator('[data-display=preview]').click();await page.waitForFunction(()=>document.querySelector('.tex-component-note').textContent.includes('已就绪'),{},{timeout:120000});}await page.locator('.tex-compile').click();await page.waitForSelector('.pdf-canvas canvas',{timeout:90000});assert.ok(await page.locator('.pdf-canvas canvas').evaluate(canvas=>canvas.width>100&&canvas.height>100));
   });
   assert.deepEqual(errors,[]);fs.mkdirSync('test-results',{recursive:true});await page.screenshot({path:'test-results/windows-071.png'});fs.writeFileSync('test-results/windows-071-results.json',JSON.stringify({passed:checks.length,checks,errors},null,2));

@@ -81,18 +81,18 @@ export class Downloads{
     return {token:result.token,size:result.size,sha256:result.sha256,name:result.name};
   }
   /** A ZIP picked by the user, copied into the cache and read by the editor through the same imports URL. */
-  stage(source,name){
-    if(this.files.size>=4)throw fail('请先完成当前组件导入。');if(!/\.zip$/i.test(name))throw fail('请选择 ZIP 安装包。');
-    const token=randomUUID(),file=path.join(this.directory,token);fs.copyFileSync(source,file);const size=fs.statSync(file).size;this.files.set(token,{file,name:'picked.zip'});
+  stage(source,name,image=false){
+    if(this.files.size>=4)throw fail('请先完成当前组件导入。');if(image?!/\.(png|jpe?g|webp)$/i.test(name):!/\.zip$/i.test(name))throw fail(image?'只支持静态 PNG、JPEG 或 WebP 图片。':'请选择 ZIP 安装包。');if(fs.statSync(source).size>(image?20:96)*1024*1024)throw fail(image?'原图不能超过 20 MB。':'安装包不能超过 96 MB。');
+    const token=randomUUID(),file=path.join(this.directory,token);let size;try{fs.copyFileSync(source,file);size=fs.statSync(file).size;if(size>(image?20:96)*1024*1024)throw fail(image?'原图不能超过 20 MB。':'安装包不能超过 96 MB。');}catch(error){fs.rmSync(file,{force:true});throw error;}this.files.set(token,{file,name:image?'picked.image':'picked.zip'});
     return {name,size,importToken:token,url:'vela://editor/imports/'+token};
   }
   cancel(id){this.active.get(id)?.abort();return true;}
   release(token){const entry=this.files.get(token);this.files.delete(token);if(entry)fs.rmSync(entry.file,{force:true});return true;}
   response(url){
     const entry=this.files.get(url.pathname.slice('/imports/'.length));
-    if(!entry||!/\.zip$|\.txt$/i.test(entry.name))return new Response('',{status:404});
+    if(!entry||!/\.zip$|\.txt$|\.image$/i.test(entry.name))return new Response('',{status:404});
     const stat=fs.statSync(entry.file);
-    return new Response(Readable.toWeb(fs.createReadStream(entry.file)),{headers:{'Content-Type':/\.txt$/i.test(entry.name)?'text/plain; charset=utf-8':'application/zip','Content-Length':String(stat.size),'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
+    return new Response(Readable.toWeb(fs.createReadStream(entry.file)),{headers:{'Content-Type':/\.txt$/i.test(entry.name)?'text/plain; charset=utf-8':/\.image$/i.test(entry.name)?'application/octet-stream':'application/zip','Content-Length':String(stat.size),'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
   }
   /** Starts the verified NSIS installer detached; the caller then closes Vela so files can be replaced. */
   install(token){

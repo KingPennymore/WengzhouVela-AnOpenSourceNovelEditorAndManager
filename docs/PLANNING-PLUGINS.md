@@ -59,3 +59,9 @@ restore();
 ## 术语库链接和方向描述
 
 节点可包含 glossaryLinks: [{id, path, entryId, label}]，按 id 合并，以 path 参与移动 / 删除改写，以 entryId 定位词条。关系中的旧正文 anchors 保留，新的正文选区链接只指向大纲。edges 支持 direction（none / forward / backward / both）及 Markdown description，父子边元数据存于子节点 parentEdge；未知字段往返保留。布局和节点尺寸按唯一邻居计算，忽略视觉方向。map-tool-select 现位于 planning-bottom，map-tool-symbol 位于 planning-toolbar。
+
+### 元素分类和图片数据
+
+通过现有 registerMapSymbol 注册的带插件命名空间的符号统一显示在“插件元素”，不与内置 unit / facility / event 冲突，停用仍按原接口清理。内置“我的图片”使用地图的 images 字典和 image 元素，不占用第三方图标命名空间；插件可通过现有 documents 接口读写同一数据，必须满足静态栅格、尺寸、像素、单图容量及整个地图的校验限制，不能注入 SVG 或外部图片 URL。保存仍经过宿主的格式、路径、冲突和权限检查。
+
+主界面及插件挂入的面板中的 HTML select、颜色输入统一使用应用内选择层；支持多选、禁用项、分组和长列表搜索，保留原生元素的 value、input、change 事件，插件不需改用专有选择 API。只影响选项展示，文件导入继续使用系统授予文件访问权限的入口。

@@ -169,7 +169,7 @@ public final class MainActivity extends Activity {
             + "window.wenzhouAndroidResolve=(id,raw)=>{const task=pending.get(id);if(task){clearTimeout(task.timer);pending.delete(id);task.resolve(raw);}};"
             + "window.WenzhouNative={platform:'android',readEnvironment:()=>WenzhouAndroid.readEnvironment(secret),readWorkspace:()=>WenzhouAndroid.readWorkspace(secret),"
             + "writeWorkspace:data=>WenzhouAndroid.writeWorkspace(secret,data),writeWorkspaceDelta:data=>WenzhouAndroid.writeWorkspaceDelta(secret,data),readPlugins:()=>WenzhouAndroid.readPlugins(secret),writePlugins:data=>WenzhouAndroid.writePlugins(secret,data),"
-            + "call:(op,json)=>new Promise((resolve,reject)=>{const id=crypto.randomUUID();const timer=setTimeout(()=>{pending.delete(id);reject(new Error('设备操作超时，请重试。'));},(['import','export','exportPdf','importPlugin'].includes(op)||(op==='project'&&['pick','deliver','exportFile'].includes(JSON.parse(json).action)))?600000:['downloadComponent','downloadUpdate'].includes(op)?1800000:120000);"
+            + "call:(op,json)=>new Promise((resolve,reject)=>{const id=crypto.randomUUID();const timer=setTimeout(()=>{pending.delete(id);reject(new Error('设备操作超时，请重试。'));},(['import','export','exportPdf','importPlugin','importImage'].includes(op)||(op==='project'&&['pick','deliver','exportFile'].includes(JSON.parse(json).action)))?600000:['downloadComponent','downloadUpdate'].includes(op)?1800000:120000);"
             + "pending.set(id,{resolve,reject,timer});try{WenzhouAndroid.post(secret,id,op,json);}catch(error){clearTimeout(timer);pending.delete(id);reject(error);}})};})();";
         html = html.replace("script-src 'self' blob:", "script-src 'self' blob: 'nonce-" + capability + "'");
         html = html.replace("<script src=\"./licenses.js\">", "<script nonce=\"" + capability + "\">" + script + "</script><script src=\"./licenses.js\">");
@@ -239,7 +239,8 @@ public final class MainActivity extends Activity {
                     if (name.isEmpty() || name.matches("(?s).*[\\\\/\u0000-\u001f].*")) throw new IOException("文件名无效。");
                     intent = new Intent(Intent.ACTION_CREATE_DOCUMENT).setType(operation.equals("project-export") ? PreviewResource.mime(name) : mime(name)); intent.putExtra(Intent.EXTRA_TITLE, name);
                 } else {
-                    intent = new Intent(Intent.ACTION_OPEN_DOCUMENT).setType(operation.equals("importPlugin") ? "application/zip" : "*/*");
+                    intent = new Intent(Intent.ACTION_OPEN_DOCUMENT).setType(operation.equals("importImage") ? "image/*" : operation.equals("importPlugin") ? "application/zip" : "*/*");
+                    if (operation.equals("importImage")) intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"image/png", "image/jpeg", "image/webp"});
                     intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, operation.equals("import") || operation.equals("project-pick") && data.getJSONObject("args").optBoolean("multiple"));
                     if (operation.equals("project-pick")) {
                         JSONArray accept = data.getJSONObject("args").optJSONArray("accept"); java.util.List<String> types = new java.util.ArrayList<>();
@@ -287,7 +288,8 @@ public final class MainActivity extends Activity {
                         stream.write(output); stream.flush();
                     }
                     value = true;
-                } else if (operation.equals("importPlugin")) value = bridge.imports.stage(getContentResolver().openInputStream(uris.get(0)), displayName(uris.get(0)));
+                } else if (operation.equals("importImage")) value = bridge.imports.stageImage(getContentResolver().openInputStream(uris.get(0)), displayName(uris.get(0)));
+                else if (operation.equals("importPlugin")) value = bridge.imports.stage(getContentResolver().openInputStream(uris.get(0)), displayName(uris.get(0)));
                 else {
                     JSONArray files = new JSONArray();
                     for (Uri uri : uris) {

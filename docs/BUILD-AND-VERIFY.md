@@ -157,3 +157,9 @@ Android 大 ZIP 通过私有缓存与同源二进制 URL 传输，读取后释�
 ## 大纲与地图验证
 
 统一 verify 新增 planning-browser、planning-visual-browser、map-performance-browser，所有新增 .test.mjs 自动纳入单元测试。源码浏览器测试各自启动 `tests/source-app-server.mjs` 的新实例，修改 JS 后不会复用旧的内存分包。分包完整性检查登记 outline-view、map-view、map-algorithm-view，并限制 app.js 相对基线 827b094 的 gzip 增量不超过 15 KiB。`node scripts/planning-metrics.mjs` 可复核基线与当前主包、三个新分包的压缩前后大小。
+
+### 地图图片、应用内选择与 Windows 原生交互
+
+默认 verify 包含 app-choices-browser、planning-usability-browser 和 map-images 单元测试：窄屏浅深主题、对话框下拉 / 多选 / 颜色、高熵图片缩小、非法图片原文保留、PNG/SVG 图片输出，以及 32 张地图连续跳转成环并逐张返回、重复两轮的节点 / 监听器 / 堆内存检查。
+
+`npm run verify -- --windows --jobs 8` 额外运行原有 windows-browser 和 planning-windows-browser。后者启动实际 Electron，使用独立临时 QA 工作区，以鼠标和键盘测试分类、文件导入、图片移动旋转与撤销、关系节点和地图循环跳转，重载确认原生存储保留图片。测试窗口显示但不主动抢焦点，结束关闭并仅清理确认过路径的 QA 目录。不会访问用户常用工作区。结果和截图在 test-results/planning/usability。

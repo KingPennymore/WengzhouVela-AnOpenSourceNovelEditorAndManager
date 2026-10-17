@@ -430,6 +430,13 @@ export class NativeBridge {
       if (operation === 'releaseImport') return this.success(this.downloads.release(data.token || ''));
       if (operation === 'openRelease') { this.downloads.context = this.context; return this.success(await this.downloads.openRelease(data.url || '')); }
       if (operation === 'downloadUpdate' || operation === 'installUpdate') throw new Error('鸿蒙版请在发布页或应用市场获取新版本。');
+      if (operation === 'importImage') {
+        const documentPicker = new picker.DocumentViewPicker(this.getContext());
+        const uris = await documentPicker.select({ fileSuffixFilters: ['图片|.png,.jpg,.jpeg,.webp'], maxSelectNumber: 1 });
+        if (uris.length === 0) return this.success(false);
+        this.downloads.context = this.context;
+        return this.success(this.downloads.stage(uris[0], decodedFileName(new fileUri.FileUri(uris[0]).name), true));
+      }
       if (operation === 'importPlugin') {
         const documentPicker = new picker.DocumentViewPicker(this.getContext());
         const uris = await documentPicker.select({ fileSuffixFilters: [data.purpose === 'tex-component' ? '离线排版组件|.zip' : '插件或组件|.zip'], maxSelectNumber: 1 });
