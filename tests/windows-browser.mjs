@@ -14,8 +14,9 @@ try{
   await check('Windows 原生启动、沙箱桥与内部文件夹持久保存',async()=>{
     assert.equal(await application.evaluate(({Menu})=>Menu.getApplicationMenu()),null);
     assert.equal(await page.evaluate(()=>window.WenzhouNative.platform),'windows');assert.equal(await page.evaluate(()=>typeof window.require),'undefined');assert.equal(await page.evaluate(()=>typeof window.process),'undefined');assert.equal(await page.locator('#workspace-name').textContent(),'内部文件夹');
-    const state=await page.evaluate(()=>JSON.parse(window.WenzhouNative.readWorkspace()));assert.ok(state.documents.some(doc=>doc.name==='操作指南.txt'));assert.ok(fs.existsSync(path.join(data,'workspaces/Vela/操作指南.txt')));
+    const state=await page.evaluate(()=>JSON.parse(window.WenzhouNative.readWorkspace()));assert.ok(state.documents.some(doc=>doc.name==='操作指南.md'));assert.ok(fs.existsSync(path.join(data,'workspaces/Vela/操作指南.md')));
   });
+  await page.keyboard.press('Control+n');await page.locator('#dialog [name=name]').fill('Windows 正文测试.txt');await page.locator('#dialog-submit').click();await page.waitForSelector('#editor:not([hidden]) .cm-editor');
   await check('Windows 正文候选后台 Worker 与补全撤销',()=>checkNativeNouns(page));
   await check('Windows 段落换行完整继承全角缩进及撤销恢复',async()=>{
     const original=await page.evaluate(()=>velaEditorView.state.doc.toString());
@@ -23,6 +24,15 @@ try{
     await page.keyboard.press('Enter');assert.equal(await page.evaluate(()=>velaEditorView.state.doc.toString()),'　　正文\n　　');assert.equal(await page.evaluate(()=>velaEditorView.state.selection.main.head),7);
     await page.keyboard.press('Control+z');assert.equal(await page.evaluate(()=>velaEditorView.state.doc.toString()),'　　正文');
     await page.evaluate(text=>{const v=velaEditorView;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:text},selection:{anchor:0}});},original);
+  });
+  await check('Windows 自动保存按文稿增量写入，重载后正文完整',async()=>{
+    const stored=()=>fs.readFileSync(path.join(data,'workspace.json'),'utf8'),original=await page.evaluate(()=>velaEditorView.state.doc.toString()),marker='增量保存标记'+Date.now();
+    await page.evaluate(()=>window.wenzhouSave());const edit=async text=>{await page.evaluate(text=>{const v=velaEditorView;v.dispatch({changes:{from:v.state.doc.length,insert:text}});},text);assert.notEqual(await page.evaluate(()=>window.wenzhouSave()),false);};
+    await edit(String.fromCharCode(10)+marker);await edit('续');
+    assert.ok(stored().startsWith('{"store":{"format":2'),'workspace.json is a skeleton after an incremental save');assert.ok(!stored().includes(marker),'texts live in workspace-store, not in the skeleton');
+    const read=JSON.parse(await page.evaluate(()=>window.WenzhouNative.readWorkspace()));assert.ok(read.documents.some(doc=>doc.text.endsWith(marker+'续')));
+    await page.reload();await page.waitForSelector('.cm-editor',{timeout:30000});assert.ok((await page.evaluate(()=>velaEditorView.state.doc.toString())).endsWith(marker+'续'));
+    await page.evaluate(text=>{const v=velaEditorView;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:text}});},original);await page.evaluate(()=>window.wenzhouSave());
   });
   await check('全局配置 GUI 可枚举内部文件、调整排版、保存后恢复',async()=>{
     await page.locator('#more-tools').click();await page.locator('#settings').click();await page.locator('#edit-global-vela').click();await page.waitForSelector('#vela-form');assert.ok(await page.locator('#vela-form [name=readingFiles]').count()>0);await page.locator('#vela-form [name=fontSize]').fill('22');await page.locator('#vela-form [name=lineHeight]').fill('2.2');await page.locator('#vela-form [name=marginLeft]').fill('48');await page.locator('#vela-form .primary').click();const config=JSON.parse(fs.readFileSync(path.join(data,'workspaces/Vela/.global.vela'),'utf8'));assert.equal(config.reader.layout.fontSize,22);assert.equal(config.reader.layout.lineHeight,2.2);assert.equal(config.reader.layout.marginLeft,48);
@@ -48,7 +58,7 @@ try{
     await page.locator('.reader-viewport').evaluate(el=>{const b=el.getBoundingClientRect();el.dispatchEvent(new MouseEvent('click',{clientX:b.x+b.width/2,clientY:b.y+b.height/2,bubbles:true}));});await page.locator('#reader-back').click();
   });
   await check('Windows 随包 TeX 引擎实际编译并显示 PDF',async()=>{
-    await page.locator('[data-view=write]').click();await page.locator('#mobile-library').click();await page.locator('#new-doc').click();await page.locator('#dialog [name=name]').fill('Windows-compile.tex');await page.locator('[name=template]').selectOption('empty');await page.locator('#dialog-submit').click();
+    await page.locator('[data-view=write]').click();await page.locator('#mobile-library').click();await page.locator('#new-doc').click();await page.locator('#dialog [name=name]').fill('Windows-compile.tex');await page.locator('#dialog-submit').click();
     await page.evaluate(()=>{const view=window.velaEditorView;view.dispatch({changes:{from:0,to:view.state.doc.length,insert:'\\documentclass{article}\n\\begin{document}\nWindows Vela PDF test.\\newpage Second page.\n\\end{document}'}});});await page.locator('#quick-save').click();await page.locator('[data-display=preview]').click();if(process.env.VELA_TEST_FLAVOR==='lite'){await page.waitForSelector('.tex-component-controls:not([hidden])');await page.locator('.tex-component-import').click();for(const group of ['engine','chinese']){await page.locator('#plugin-input').setInputFiles('dist/tex-components/Vela-TeX-0.1.1-'+group+'.zip');await page.waitForFunction(group=>[...document.querySelectorAll('.plugin-card')].some(card=>card.textContent.includes('vela.component.tex.'+group)&&card.textContent.includes('已启用')),group,{timeout:120000});}await page.locator('#dialog-cancel').click();await page.locator('[data-display=source]').click();await page.locator('[data-display=preview]').click();await page.waitForFunction(()=>document.querySelector('.tex-component-note').textContent.includes('已就绪'),{},{timeout:120000});}await page.locator('.tex-compile').click();await page.waitForSelector('.pdf-canvas canvas',{timeout:90000});assert.ok(await page.locator('.pdf-canvas canvas').evaluate(canvas=>canvas.width>100&&canvas.height>100));
   });
   assert.deepEqual(errors,[]);fs.mkdirSync('test-results',{recursive:true});await page.screenshot({path:'test-results/windows-071.png'});fs.writeFileSync('test-results/windows-071-results.json',JSON.stringify({passed:checks.length,checks,errors},null,2));

@@ -4,6 +4,7 @@ const read=operation=>{const result=ipcRenderer.sendSync('vela:sync',operation);
 contextBridge.exposeInMainWorld('WenzhouNative',Object.freeze({
   platform:'windows',readWorkspace:()=>read('readWorkspace'),readPlugins:()=>read('readPlugins'),readEnvironment:()=>read('readEnvironment'),
   writeWorkspace:data=>ipcRenderer.sendSync('vela:sync','writeWorkspace',data).value,
+  writeWorkspaceDelta:data=>ipcRenderer.sendSync('vela:sync','writeWorkspaceDelta',data).value,
   writePlugins:data=>ipcRenderer.sendSync('vela:sync','writePlugins',data).value,
   call:(operation,json)=>ipcRenderer.invoke('vela:call',operation,json)
 }));

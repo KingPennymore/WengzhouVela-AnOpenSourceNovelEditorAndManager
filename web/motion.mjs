@@ -1,6 +1,11 @@
 // Presentation-only motion for the shell. Nothing here changes layout geometry or app state;
 // every effect is skipped when the system asks for reduced motion.
 const reduced=matchMedia('(prefers-reduced-motion: reduce)');
+// Test-only switch: browser tests set localStorage `vela.test.motion` to `off` (tests/wait-helpers.mjs noMotion) so
+// that page turns, view entrances and transitions finish at once instead of being waited for with fixed sleeps.
+const testOff=(()=>{try{return localStorage.getItem('vela.test.motion')==='off';}catch{return false;}})();
+if(testOff)document.documentElement.classList.add('vela-no-motion');
+export const reducedMotion=()=>testOff||reduced.matches;
 const views=['write','github','subscriptions','reader'];
 const staggerTargets='#start-page .start-stat,#start-page .recent-files>button,.repo-grid>*,.reader-books>*,.subscription-card,.vela-card,.glossary-entry,.empty-state';
 const staggerLimit=14;
@@ -11,7 +16,7 @@ function replay(element,...names){
 }
 
 export function stagger(root){
-  if(reduced.matches||!root)return;
+  if(reducedMotion()||!root)return;
   [...root.querySelectorAll(staggerTargets)].filter(item=>item.offsetParent!==null).slice(0,staggerLimit).forEach((item,index)=>{
     item.style.setProperty('--stagger',index);replay(item,'stagger-in');
   });
@@ -42,7 +47,7 @@ function viewTransitions(){
     const view=document.getElementById(name+'-view');if(!view)continue;
     let wasHidden=view.hidden;
     new MutationObserver(()=>{
-      if(wasHidden&&!view.hidden&&!reduced.matches){
+      if(wasHidden&&!view.hidden&&!reducedMotion()){
         // The editor keeps exact horizontal edges against the sidebars, so it only fades.
         if(name==='write')replay(view,'view-enter','view-enter-fade');else replay(view,'view-enter');
         requestAnimationFrame(()=>stagger(view));
@@ -64,7 +69,7 @@ function tabEntrances(){
   known=read();
   new MutationObserver(()=>{
     const next=read();
-    if(!reduced.matches)for(const tab of tabs.querySelectorAll('.document-tab')){const key=tab.dataset.id||tab.dataset.tab||tab.textContent;if(!known.has(key))replay(tab,'tab-enter');}
+    if(!reducedMotion())for(const tab of tabs.querySelectorAll('.document-tab')){const key=tab.dataset.id||tab.dataset.tab||tab.textContent;if(!known.has(key))replay(tab,'tab-enter');}
     known=next;
   }).observe(tabs,{childList:true});
 }
@@ -74,7 +79,7 @@ function savedPulse(){
   let dirty=state.classList.contains('dirty');
   new MutationObserver(()=>{
     const now=state.classList.contains('dirty');
-    if(dirty&&!now&&!reduced.matches)replay(state,'saved-flash');
+    if(dirty&&!now&&!reducedMotion())replay(state,'saved-flash');
     dirty=now;
   }).observe(state,{attributes:true,attributeFilter:['class']});
 }
@@ -83,7 +88,7 @@ function savedPulse(){
 // applyTheme() calls beginThemeShift() before toggling; the observer only covers other code that toggles `dark`.
 let themeTimer=0;
 export function beginThemeShift(){
-  if(reduced.matches)return;
+  if(reducedMotion())return;
   document.documentElement.classList.add('theme-shift');clearTimeout(themeTimer);
   themeTimer=setTimeout(()=>document.documentElement.classList.remove('theme-shift'),480);
 }

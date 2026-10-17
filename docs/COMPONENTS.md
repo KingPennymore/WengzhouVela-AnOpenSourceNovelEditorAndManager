@@ -38,7 +38,7 @@ ODF/VODT 组件已移除。已有的 Flat ODF / VODT 文稿保留原文，以纯
 4. 完成后返回同源地址，网页按 0.9.5 修复安卓组件安装的方式读取：安卓 `https://appassets.androidplatform.net/imports/<token>`，鸿蒙 `https://wenzhou-editor.local/imports/<token>`，Windows `vela://editor/imports/<token>`。读取后调用 `releaseImport` 删除临时文件。不会把整包 Base64 传过桥。
 5. 网页再次核对整个 ZIP 的大小和 SHA-256，然后交给 `TexAssets.install(bytes)`（逐文件 SHA-256）或插件安装流程。网络失败、大小不符或摘要错误都会换下一个镜像；取消则不再尝试。
 
-可选组件的 SHA-256 取自 GitHub 资产的 `digest`；没有时取发布中的 `SHA256SUMS-<版本>.txt`。没有摘要的组件不会显示。
+可选组件的 SHA-256 取自发布中签名的 `SHA256SUMS-<版本>.txt`（验签见 `docs/RELEASE-SIGNING.md`）；0.9.8.1 及更早未签名的发布只采信 GitHub 资产的 `digest` 或 GitHub 上的校验文件。没有可信摘要的组件不会显示。
 
 **应用内更新。** 入口为“更多 → 检查更新”，以及设置中的“检查更新 / 自动检查更新”（三端均有，自动检查每天最多一次）。
 

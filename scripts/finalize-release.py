@@ -1,7 +1,7 @@
 from pathlib import Path
 from zipfile import ZipFile, ZIP_DEFLATED
 from datetime import datetime, timezone
-import hashlib, json, sys, shutil
+import hashlib, json, sys, shutil, subprocess
 
 root = Path(__file__).resolve().parent.parent
 dist = root / 'dist'
@@ -52,6 +52,10 @@ for name in assets:
     lines.append(f'{checksum}  {name}')
 (release / f'SHA256SUMS-{version}.txt').write_text('\n'.join(lines) + '\n', encoding='utf-8')
 assets.append(f'SHA256SUMS-{version}.txt')
+# The app trusts these hashes only with a valid signature (docs/RELEASE-SIGNING.md). The signing script reads the
+# publisher's private key itself (VELA_RELEASE_SIGNING_KEY or ~/.vela-release-signing/release-ecdsa-p256.pem).
+subprocess.run(['node', str(root / 'scripts' / 'release-signing.mjs'), 'sign', str(release / f'SHA256SUMS-{version}.txt')], check=True, cwd=root)
+assets.append(f'SHA256SUMS-{version}.txt.sig')
 (metadata / f'release-assets-{version}.json').write_text(json.dumps(assets, ensure_ascii=False, indent=2) + '\n', encoding='utf-8')
 notes = (root / 'RELEASE_NOTES.md').read_text(encoding='utf-8').split('\n# ', 1)[0]
 (metadata / f'release-notes-{version}.md').write_text(notes.rstrip() + '\n', encoding='utf-8')

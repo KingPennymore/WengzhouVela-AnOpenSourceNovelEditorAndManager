@@ -29,9 +29,9 @@ const data={version:1,activeId:'book',settings:{theme:'system'},documents:[doc('
 async function importFile(p,name,text){await p.locator('#file-input').setInputFiles({name,mimeType:'text/plain',buffer:Buffer.from(text)});await p.waitForFunction(name=>document.querySelector('#current-name').textContent===name,name);}
 try{
   const fresh=await context(null,{colorScheme:'dark'}),p=fresh.p;
-  await check('首次安装显示操作指南，Tab 插入两个全角空格且保持正文焦点',async()=>{
+  await check('首次安装显示 Markdown 指南，Tab 插入普通空格且保持正文焦点',async()=>{
     assert.match(await p.locator('.cm-content').innerText(),/^文舟操作指南/);assert.equal(await p.locator('body').evaluate(el=>el.classList.contains('dark')),true);
-    await p.locator('#quick-top').click();await p.keyboard.press('Tab');assert.ok((await saved(p)).documents[0].text.startsWith('　　文舟'));
+    await p.locator('#quick-top').click();await p.keyboard.press('Tab');assert.ok((await saved(p)).documents[0].text.startsWith('  文舟'));
     assert.equal(await p.locator('.cm-content').evaluate(el=>el.contains(document.activeElement)||el===document.activeElement),true);
     await p.keyboard.press('Shift+Tab');assert.ok((await saved(p)).documents[0].text.startsWith('文舟'));
   });

@@ -29,7 +29,7 @@ try{
   await connect();
   await check('Android 原生桥、内部工作区和操作指南首次启动',async()=>{
     assert.equal(await p.evaluate(()=>window.WenzhouNative.platform),'android');
-    const state=await saved();assert.equal(state.storage.internal,true);assert.equal(state.storage.needsSetup,false);assert.ok(state.documents.some(d=>d.name==='操作指南.txt'));
+    const state=await saved();assert.equal(state.storage.internal,true);assert.equal(state.storage.needsSetup,false);assert.ok(state.documents.some(d=>d.name==='操作指南.md'));
     const layout=await p.evaluate(()=>({top:document.querySelector('.topbar').getBoundingClientRect().top,env:JSON.parse(window.WenzhouNative.readEnvironment())}));
     assert.ok(layout.top>=layout.env.top-.5);assert.equal(await p.locator('#setup-storage,#open-folder').count(),0);
   });
@@ -42,6 +42,7 @@ try{
     await p.locator('#quick-redo').click();assert.ok((await saved()).documents.find(d=>d.path===prefix+'/正文.txt').text.startsWith('　　第一章'));
     await p.locator('#quick-bottom').click();await p.locator('#quick-chapter-top').click();assert.match(await p.locator('#current-chapter').innerText(),/第二章/);
     assert.match(adb('shell','run-as','me.wenzhou.write','cat','files/workspaces/文舟/'+prefix+'/正文.txt'),/原始正文/);
+    assert.match(adb('shell','run-as','me.wenzhou.write','head','-c','24','files/workspace.json'),/^\{"store":\{"format":2/,'saves after the first one are incremental (docs/WORKSPACE-STORAGE.md)');
   });
   await check('系统深浅模式实时跟随，手动主题保留',async()=>{
     adb('shell','cmd','uimode','night','yes');await p.waitForFunction(()=>document.body.classList.contains('dark'));

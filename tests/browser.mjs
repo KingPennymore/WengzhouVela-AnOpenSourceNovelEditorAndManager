@@ -5,6 +5,7 @@ import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import {existsSync} from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
+import {until} from './wait-helpers.mjs';
 const root=path.resolve('dist/web');
 const server=http.createServer(async(req,res)=>{
   const pathname=new URL(req.url,'http://localhost').pathname;
@@ -111,7 +112,7 @@ try{
   await check('仓库创建、设置更新和远端文件删除走对应确认表单',async()=>{
     await click('github-shortcut');await click('back-repos');await click('create-repo');await page.locator('[name="name"]').fill('new-novel');await click('dialog-submit');await page.waitForSelector('.repo-card');
     const create=remoteCalls.find(r=>r.method==='POST'&&r.path==='/user/repos');assert.equal(create.body.name,'new-novel');assert.equal(create.body.private,true);
-    await page.locator('.repo-card').click();await page.waitForSelector('[data-file]');await click('repo-settings');await page.locator('[name="description"]').fill('长篇小说');await click('dialog-submit');await page.waitForSelector('[data-file]');assert.ok(remoteCalls.some(r=>r.method==='PATCH'&&r.body.description==='长篇小说'));
+    await page.locator('.repo-card').click();await page.waitForSelector('[data-file]');await click('repo-settings');await page.locator('[name="description"]').fill('长篇小说');await click('dialog-submit');await page.waitForSelector('[data-file]');await until(()=>remoteCalls.some(r=>r.method==='PATCH'&&r.body.description==='长篇小说'));assert.ok(remoteCalls.some(r=>r.method==='PATCH'&&r.body.description==='长篇小说'));
     await page.locator('[data-delete]').click();await click('dialog-submit');await page.waitForSelector('[data-file]');const del=remoteCalls.find(r=>r.method==='DELETE');assert.equal(del.body.sha,'original-sha');await page.locator('[data-return-write]').click();
   });
   await check('浏览器刷新保留全文且不保留登录令牌',async()=>{

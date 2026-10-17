@@ -24,9 +24,9 @@ try{
     assert.equal(await p.locator('#setup-storage,#open-folder,#internal-storage').count(),0);
   });
   await check('首次创建操作指南，嵌套空文件夹即时显示且侧栏仅通过文件夹按钮切换',async()=>{
-    assert.equal((await saved()).documents[0].name,'操作指南.txt');assert.equal(await p.locator('#library').isVisible(),false);await p.locator('#mobile-library').click();
-    await p.locator('#new-folder').click();await p.locator('[name=path]').fill('小说/资料');await submit();assert.equal(await p.locator('[data-folder="小说"]').count(),1);assert.equal(await p.locator('[data-folder="小说/资料"]').count(),1);
-    await menu('小说/资料');await p.locator('#folder-new-file').click();await p.locator('[name=name]').fill('人物.csv');await p.locator('[name=template]').selectOption('empty');await submit();assert.equal((await saved()).documents.find(d=>d.name==='人物.csv').path,'小说/资料/人物.csv');assert.equal(await p.locator('#library').isVisible(),true);
+    assert.equal((await saved()).documents[0].name,'操作指南.md');assert.equal(await p.locator('#library').isVisible(),false);await p.locator('#mobile-library').click();
+    await p.locator('#new-folder').click();await p.locator('[name=name]').fill('小说');await submit();await p.locator('#new-folder').click();await p.locator('[name=name]').fill('资料');await p.locator('[data-pick-folder="小说"]').click();await submit();assert.equal(await p.locator('[data-folder="小说"]').count(),1);assert.equal(await p.locator('[data-folder="小说/资料"]').count(),1);
+    await menu('小说/资料');await p.locator('#folder-new-file').click();await p.locator('[name=name]').fill('人物.csv');await p.locator('[name=skeleton]').uncheck();await submit();assert.equal((await saved()).documents.find(d=>d.name==='人物.csv').path,'小说/资料/人物.csv');assert.equal(await p.locator('#library').isVisible(),true);
   });
   await check('文件夹更名保留子文件和编辑内容，属性、复制粘贴、剪切移动与排序可用',async()=>{
     await p.locator('[data-display=source]').click();await p.evaluate(()=>{const v=velaEditorView;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:'姓名,身份\n甲,主角'}});});
@@ -43,7 +43,7 @@ try{
     await menu('长篇 (2)');await p.locator('#delete-doc').click();await submit();await p.locator('#open-trash').click();await p.locator('[data-permanent]').click();assert.equal((await saved()).trash.length,1);await p.locator('#dialog-submit').click();await p.waitForFunction(()=>document.querySelector('#dialog').open&&document.querySelector('#dialog-title').textContent==='回收站');assert.equal((await saved()).trash.length,0);await p.locator('#dialog-cancel').click();
   });
   await check('章节始终自动识别，可同时添加多种模板并在重启后保留',async()=>{
-    await p.locator('#workspace-root').click();await p.locator('#new-doc').click();await p.locator('[name=name]').fill('正文.txt');await p.locator('[name=template]').selectOption('empty');await submit();await p.evaluate(()=>{const v=velaEditorView;v.dispatch({changes:{from:0,insert:'第一章 开始\n正文\n【二】海岸\n正文\n幕 Three — 航路\n正文'}});});
+    await p.locator('#workspace-root').click();await p.locator('#new-doc').click();await p.locator('[name=name]').fill('正文.txt');await p.locator('[name=skeleton]').uncheck();await submit();await p.evaluate(()=>{const v=velaEditorView;v.dispatch({changes:{from:0,insert:'第一章 开始\n正文\n【二】海岸\n正文\n幕 Three — 航路\n正文'}});});
     const novel=(await saved()).activeId;await p.locator('#more-tools').click();await p.locator('#settings').click();assert.equal(await p.locator('[name=format]').count(),0);assert.equal(await p.locator('#dialog [name=titleTemplates]').count(),0);await p.locator('#create-vela').click();await p.locator('#vela-form [name=titleTemplates]').fill('【{序号}】{标题}\n幕 {number} — {title}');await p.locator('#vela-form .primary').click();await p.locator(`[data-doc="${novel}"]`).click();await p.waitForFunction(()=>document.querySelector('#chapter-count').textContent.includes('3 章'));
     await p.reload();await p.waitForFunction(()=>document.querySelector('#chapter-count').textContent==='3 章');assert.equal(JSON.parse((await saved()).documents.find(doc=>doc.path==='.vela').text).chapters.templates.length,2);assert.equal(await p.locator('#chapter-count').textContent(),'3 章');
   });

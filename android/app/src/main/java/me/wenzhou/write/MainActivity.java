@@ -168,8 +168,8 @@ public final class MainActivity extends Activity {
         String script = "(()=>{if(window.top!==window)return;const secret=" + JSONObject.quote(capability) + ";const pending=new Map();"
             + "window.wenzhouAndroidResolve=(id,raw)=>{const task=pending.get(id);if(task){clearTimeout(task.timer);pending.delete(id);task.resolve(raw);}};"
             + "window.WenzhouNative={platform:'android',readEnvironment:()=>WenzhouAndroid.readEnvironment(secret),readWorkspace:()=>WenzhouAndroid.readWorkspace(secret),"
-            + "writeWorkspace:data=>WenzhouAndroid.writeWorkspace(secret,data),readPlugins:()=>WenzhouAndroid.readPlugins(secret),writePlugins:data=>WenzhouAndroid.writePlugins(secret,data),"
-            + "call:(op,json)=>new Promise((resolve,reject)=>{const id=crypto.randomUUID();const timer=setTimeout(()=>{pending.delete(id);reject(new Error('设备操作超时，请重试。'));},(['import','export','exportPdf','importPlugin'].includes(op)||(op==='project'&&['pick','deliver','exportFile'].includes(JSON.parse(json).action)))?600000:['downloadComponent','downloadUpdate'].includes(op)?1800000:120000);"
+            + "writeWorkspace:data=>WenzhouAndroid.writeWorkspace(secret,data),writeWorkspaceDelta:data=>WenzhouAndroid.writeWorkspaceDelta(secret,data),readPlugins:()=>WenzhouAndroid.readPlugins(secret),writePlugins:data=>WenzhouAndroid.writePlugins(secret,data),"
+            + "call:(op,json)=>new Promise((resolve,reject)=>{const id=crypto.randomUUID();const timer=setTimeout(()=>{pending.delete(id);reject(new Error('设备操作超时，请重试。'));},(['import','export','exportPdf','importPlugin','importImage'].includes(op)||(op==='project'&&['pick','deliver','exportFile'].includes(JSON.parse(json).action)))?600000:['downloadComponent','downloadUpdate'].includes(op)?1800000:120000);"
             + "pending.set(id,{resolve,reject,timer});try{WenzhouAndroid.post(secret,id,op,json);}catch(error){clearTimeout(timer);pending.delete(id);reject(error);}})};})();";
         html = html.replace("script-src 'self' blob:", "script-src 'self' blob: 'nonce-" + capability + "'");
         html = html.replace("<script src=\"./licenses.js\">", "<script nonce=\"" + capability + "\">" + script + "</script><script src=\"./licenses.js\">");
@@ -234,12 +234,13 @@ public final class MainActivity extends Activity {
             if (pickerId != null) { deliver(id, NativeBridge.failure(new IOException("请先完成当前文件选择。"))); return; }
             try {
                 Intent intent;
-                if ((operation.equals("export") || (operation.equals("exportPdf") || operation.equals("exportOdt")) || operation.equals("project-export"))) {
+                if ((operation.equals("export") || (operation.equals("exportPdf") || operation.equals("exportOdt") || operation.equals("exportPng")) || operation.equals("project-export"))) {
                     String name = data.optString("name", "文稿.txt");
                     if (name.isEmpty() || name.matches("(?s).*[\\\\/\u0000-\u001f].*")) throw new IOException("文件名无效。");
                     intent = new Intent(Intent.ACTION_CREATE_DOCUMENT).setType(operation.equals("project-export") ? PreviewResource.mime(name) : mime(name)); intent.putExtra(Intent.EXTRA_TITLE, name);
                 } else {
-                    intent = new Intent(Intent.ACTION_OPEN_DOCUMENT).setType(operation.equals("importPlugin") ? "application/zip" : "*/*");
+                    intent = new Intent(Intent.ACTION_OPEN_DOCUMENT).setType(operation.equals("importImage") ? "image/*" : operation.equals("importPlugin") ? "application/zip" : "*/*");
+                    if (operation.equals("importImage")) intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"image/png", "image/jpeg", "image/webp"});
                     intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, operation.equals("import") || operation.equals("project-pick") && data.getJSONObject("args").optBoolean("multiple"));
                     if (operation.equals("project-pick")) {
                         JSONArray accept = data.getJSONObject("args").optJSONArray("accept"); java.util.List<String> types = new java.util.ArrayList<>();
@@ -259,7 +260,7 @@ public final class MainActivity extends Activity {
         if (lower.endsWith(".odp") || lower.endsWith(".otp")) return "application/vnd.oasis.opendocument.presentation" + (lower.endsWith(".otp") ? "-template" : "");
         if (lower.endsWith(".odg") || lower.endsWith(".otg")) return "application/vnd.oasis.opendocument.graphics" + (lower.endsWith(".otg") ? "-template" : "");
         if (lower.endsWith(".ott")) return "application/vnd.oasis.opendocument.text-template";
-        return lower.endsWith(".odt") ? "application/vnd.oasis.opendocument.text" : lower.endsWith(".fodt") || lower.endsWith(".fods") || lower.endsWith(".fodp") || lower.endsWith(".fodg") || lower.endsWith(".velaodt") || lower.endsWith(".vodt") ? "application/xml" : lower.endsWith(".pdf") ? "application/pdf" : lower.endsWith(".csv") ? "text/csv" : lower.endsWith(".html") || lower.endsWith(".htm") ? "text/html" : lower.endsWith(".md") ? "text/markdown" : lower.endsWith(".epub") ? "application/epub+zip" : "text/plain";
+        return lower.endsWith(".png") ? "image/png" : lower.endsWith(".svg") ? "image/svg+xml" : lower.endsWith(".odt") ? "application/vnd.oasis.opendocument.text" : lower.endsWith(".fodt") || lower.endsWith(".fods") || lower.endsWith(".fodp") || lower.endsWith(".fodg") || lower.endsWith(".velaodt") || lower.endsWith(".vodt") ? "application/xml" : lower.endsWith(".pdf") ? "application/pdf" : lower.endsWith(".csv") ? "text/csv" : lower.endsWith(".html") || lower.endsWith(".htm") ? "text/html" : lower.endsWith(".md") ? "text/markdown" : lower.endsWith(".epub") ? "application/epub+zip" : "text/plain";
     }
     @Override protected void onActivityResult(int request, int result, Intent data) {
         super.onActivityResult(request, result, data);
@@ -279,15 +280,16 @@ public final class MainActivity extends Activity {
                     value = new JSONObject().put("cancelled", false).put("selections", selections);
                 } else if (operation.equals("project-export")) {
                     value = bridge.projects.deliver(payload.getString("owner"), payload.getJSONObject("args"), uris.get(0));
-                } else if ((operation.equals("export") || (operation.equals("exportPdf") || operation.equals("exportOdt")))) {
+                } else if ((operation.equals("export") || (operation.equals("exportPdf") || operation.equals("exportOdt") || operation.equals("exportPng")))) {
                     try (OutputStream stream = getContentResolver().openOutputStream(uris.get(0), "wt")) {
                         if (stream == null) throw new IOException("无法写入所选文件。");
-                        byte[] output = (operation.equals("exportPdf") || operation.equals("exportOdt")) ? android.util.Base64.decode(payload.optString("data"), android.util.Base64.DEFAULT) : payload.optString("text").getBytes(StandardCharsets.UTF_8);
-                        if ((operation.equals("exportPdf") || operation.equals("exportOdt")) && (output.length < 5 || output.length > 32 * 1024 * 1024 || (operation.equals("exportPdf") ? !new String(output, 0, 5, StandardCharsets.US_ASCII).equals("%PDF-") : output[0] != 0x50 || output[1] != 0x4b))) throw new IOException("导出文档无效或超过 32 MB。");
+                        byte[] output = (operation.equals("exportPdf") || operation.equals("exportOdt") || operation.equals("exportPng")) ? android.util.Base64.decode(payload.optString("data"), android.util.Base64.DEFAULT) : payload.optString("text").getBytes(StandardCharsets.UTF_8);
+                        if ((operation.equals("exportPdf") || operation.equals("exportOdt") || operation.equals("exportPng")) && (output.length < 5 || output.length > 32 * 1024 * 1024 || (operation.equals("exportPng") ? output.length < 8 || output[0] != (byte)137 || output[1] != 80 || output[2] != 78 || output[3] != 71 || output[4] != 13 || output[5] != 10 || output[6] != 26 || output[7] != 10 : operation.equals("exportPdf") ? !new String(output, 0, 5, StandardCharsets.US_ASCII).equals("%PDF-") : output[0] != 0x50 || output[1] != 0x4b))) throw new IOException("导出文档无效或超过 32 MB。");
                         stream.write(output); stream.flush();
                     }
                     value = true;
-                } else if (operation.equals("importPlugin")) value = bridge.imports.stage(getContentResolver().openInputStream(uris.get(0)), displayName(uris.get(0)));
+                } else if (operation.equals("importImage")) value = bridge.imports.stageImage(getContentResolver().openInputStream(uris.get(0)), displayName(uris.get(0)));
+                else if (operation.equals("importPlugin")) value = bridge.imports.stage(getContentResolver().openInputStream(uris.get(0)), displayName(uris.get(0)));
                 else {
                     JSONArray files = new JSONArray();
                     for (Uri uri : uris) {

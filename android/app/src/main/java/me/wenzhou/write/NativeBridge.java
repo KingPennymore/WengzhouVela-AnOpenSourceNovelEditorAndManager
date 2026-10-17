@@ -47,6 +47,12 @@ final class NativeBridge {
         authorize(secret);
         try { if (projects.busy) throw ProjectFiles.fail("E_CONFLICT", "项目正在提交，请稍后保存。"); files.saveWorkspace(data); return "ok"; } catch (Exception error) { return message(error); }
     }
+    /** Incremental save; a message starting with E_DELTA_BASE makes the page fall back to writeWorkspace. */
+    @JavascriptInterface public String writeWorkspaceDelta(String secret, String data) {
+        authorize(secret);
+        try { if (projects.busy) throw ProjectFiles.fail("E_CONFLICT", "项目正在提交，请稍后保存。"); files.saveWorkspaceDelta(data); return "ok"; }
+        catch (Exception error) { String text = error.getMessage(); return text != null && text.startsWith("E_DELTA_BASE") ? text : message(error); }
+    }
     @JavascriptInterface public String readPlugins(String secret) {
         authorize(secret);
         try { return files.readPlugins(); } catch (Exception error) { throw new IllegalStateException("无法读取插件配置。"); }
@@ -72,7 +78,7 @@ final class NativeBridge {
                     }
                     activity.deliver(requestId, success(projects.call(action, owner, args))); return;
                 }
-                if (Arrays.asList("import", "export", "exportPdf", "exportOdt", "importPlugin").contains(operation)) { activity.pick(requestId, operation, data); return; }
+                if (Arrays.asList("import", "export", "exportPdf", "exportOdt", "exportPng", "importPlugin", "importImage").contains(operation)) { activity.pick(requestId, operation, data); return; }
                 Object value = dispatch(operation, data, generation);
                 activity.deliver(requestId, success(value));
             } catch (Exception error) { activity.deliver(requestId, failure(operation.equals("project") ? projectError(error) : error)); }

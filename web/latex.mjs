@@ -1,6 +1,19 @@
-import katex from 'katex';
+import DOMPurify from 'dompurify';
+import {loadKatex} from './lazy.mjs';
+// KaTeX is a lazy chunk. Until it has loaded, formulas render as placeholders holding their source; the first one
+// starts the load, after which every placeholder in the page is typeset in place (sanitized like the previews).
+let katex=null,loading=null;
+const pendingClass='vela-math-pending';
+function loadMath(){
+  loading??=loadKatex().then(module=>{katex=module.default||module;typesetPending(document);}).catch(error=>{loading=null;for(const element of document.querySelectorAll('.'+pendingClass))element.outerHTML=`<code class="latex-error" title="${esc(error.message)}">${esc(element.textContent)}</code>`;});
+  return loading;
+}
+export function typesetPending(root){
+  if(!katex||!root)return;
+  for(const element of root.querySelectorAll('.'+pendingClass)){const template=document.createElement('template');template.innerHTML=DOMPurify.sanitize(renderMath(element.textContent,element.dataset.display==='1'),{FORBID_TAGS:['iframe','form','input','button','video','audio','style'],FORBID_ATTR:['style','contenteditable']});element.replaceWith(template.content);}
+}
 const esc=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-export function renderMath(source,display=false){try{return katex.renderToString(source,{displayMode:display,throwOnError:true,trust:false,strict:'ignore',maxExpand:1000,maxSize:20,output:'htmlAndMathml'});}catch(error){return `<code class="latex-error" title="${esc(error.message)}">${esc(source)}</code>`;}}
+export function renderMath(source,display=false){if(!katex){if(typeof document!=='undefined')loadMath();return `<span class="${pendingClass}" data-display="${display?1:0}">${esc(source)}</span>`;}try{return katex.renderToString(source,{displayMode:display,throwOnError:true,trust:false,strict:'ignore',maxExpand:1000,maxSize:20,output:'htmlAndMathml'});}catch(error){return `<code class="latex-error" title="${esc(error.message)}">${esc(source)}</code>`;}}
 function group(text,start){if(text[start]!=='{')return null;let level=1;for(let i=start+1;i<text.length;i++){if(text[i]==='\\'){i++;continue;}if(text[i]==='{')level++;if(text[i]==='}'&&!--level)return {text:text.slice(start+1,i),end:i+1};}return null;}
 export function latexInline(text){let result='';for(let i=0;i<text.length;){
   const delimiter=text.startsWith('\\[',i)?'\\[':text.startsWith('\\(',i)?'\\(':text.startsWith('$$',i)?'$$':text[i]==='$'?'$':null;

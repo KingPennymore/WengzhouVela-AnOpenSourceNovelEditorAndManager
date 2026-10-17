@@ -3,6 +3,8 @@ import {keymap,EditorView} from '@codemirror/view';
 import {foldService,foldGutter,foldKeymap} from '@codemirror/language';
 import {linter,lintGutter} from '@codemirror/lint';
 import {snippetCompletion} from '@codemirror/autocomplete';
+import {LEVELS,texHeading} from './tex-heading.mjs';
+export {texHeading};
 
 // ---------------------------------------------------------------------------------------------------------------------
 // Catalog: commands and environments offered by completion. Templates use CodeMirror snippet fields (${name}).
@@ -91,13 +93,6 @@ const VERBATIM=/^(verbatim\*?|lstlisting|minted|comment)$/;
 /** Environments still open at the end of `text`, innermost last. */
 export function openEnvironments(text){const stack=[];for(const match of stripComments(text).matchAll(/\\(begin|end)\{([^}]+)\}/g)){if(match[1]==='begin')stack.push(match[2]);else{const at=stack.lastIndexOf(match[2]);if(at>=0)stack.splice(at,1);}}return stack;}
 const stripComments=text=>text.replace(/(^|[^\\])%.*$/gm,(all,lead)=>lead+' '.repeat(all.length-lead.length));
-const LEVELS={part:0,chapter:1,section:2,subsection:3,subsubsection:4,paragraph:5};
-/** Outline heading for a source line, e.g. "  2  引言" for \section{引言}; null for other lines. */
-export function texHeading(line){
-  const match=/^\s*\\(part|chapter|section|subsection|subsubsection|paragraph)(\*?)\s*(?:\[[^\]]*\])?\s*\{(.*)\}\s*(?:%.*)?$/.exec(line);if(!match)return null;
-  const level=LEVELS[match[1]],title=match[3].replace(/\\[A-Za-z]+\*?\s*(\{([^{}]*)\})?/g,(all,group,inner)=>inner??'').replace(/[{}]/g,'').trim()||match[1];
-  return '　'.repeat(Math.max(0,level-1))+title;
-}
 function foldLatex(state,lineStart,lineEnd){
   const line=state.doc.lineAt(lineStart),text=line.text;
   const begin=/\\begin\{([^}]+)\}/.exec(text);

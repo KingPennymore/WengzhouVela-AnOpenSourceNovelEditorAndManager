@@ -1,14 +1,21 @@
 import { build } from 'esbuild';
-import { mkdir, copyFile, cp, readFile, writeFile } from 'node:fs/promises';
+import { mkdir, copyFile, cp, readFile, writeFile, rm } from 'node:fs/promises';
 import { recordBundle } from './frontend-state.mjs';
 import {copyTexAssets} from './tex-assets.mjs';
 import {packageEbookComponent} from './package-ebook-component.mjs';
+await import('./build-guide.mjs');
 const out = 'entry/src/main/resources/rawfile/web';
 const lite=process.argv.includes('--lite')||process.env.VELA_BUILD_FLAVOR==='lite';
 await mkdir(out, { recursive: true });
+for(const name of ['plugin-package-worker.js','plugin-runtime.js'])for(const folder of [out,'dist/web'])await rm(`${folder}/${name}`,{force:true});
 const pkg=JSON.parse(await readFile('package.json','utf8'));
 const version=pkg.harmonyVersion||pkg.version;
-const bundle = await build({entryPoints:['web/app.js'],bundle:true,outfile:`${out}/app.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof',metafile:true,define:{__VELA_HARMONY_VERSION__:JSON.stringify(version)}});
+// app.js is an ES module; features loaded with import() (web/lazy.mjs, CodeMirror language data) become chunks in
+// chunks/. Hashed names change with content, so old chunks are removed first (also from dist/web below).
+await rm(`${out}/chunks`,{recursive:true,force:true});
+const bundle = await build({entryPoints:['web/app.js'],bundle:true,outdir:out,entryNames:'[name]',chunkNames:'chunks/[name]-[hash]',splitting:true,format:'esm',target:'chrome105',minify:true,legalComments:'eof',metafile:true,define:{__VELA_HARMONY_VERSION__:JSON.stringify(version),__VELA_TEST_RELEASE_KEYS__:'[]'}});
+await mkdir('dist',{recursive:true});await writeFile('dist/app-metafile.json',JSON.stringify(bundle.metafile));
+await build({entryPoints:['web/map-simplify-worker.js'],bundle:true,outfile:`${out}/map-simplify-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
 await build({entryPoints:['web/noun-worker.js'],bundle:true,outfile:`${out}/noun-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
 await build({entryPoints:['web/project-archive-worker.js'],bundle:true,outfile:`${out}/project-archive-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
 await build({entryPoints:['web/tex-component-worker.js'],bundle:true,outfile:`${out}/tex-component-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
@@ -38,6 +45,7 @@ await packageEbookComponent();
 recordBundle(process.cwd());
 await mkdir('dist',{recursive:true});
 // Remove only obsolete TeX files: cp alone would leave full assets in a lite build.
-if(lite){const {rm}=await import('node:fs/promises');const descriptor=JSON.parse(await readFile(`${out}/tex/components.json`,'utf8'));for(const name of Object.keys(descriptor.files))await rm('dist/web/tex/'+name,{force:true});}
+if(lite){const descriptor=JSON.parse(await readFile(`${out}/tex/components.json`,'utf8'));for(const name of Object.keys(descriptor.files))await rm('dist/web/tex/'+name,{force:true});}
+await rm('dist/web/chunks',{recursive:true,force:true});
 await cp(out,'dist/web',{recursive:true});
 console.log('文舟编辑器已构建（'+(lite?'轻量版':'完整版')+'）：'+out);

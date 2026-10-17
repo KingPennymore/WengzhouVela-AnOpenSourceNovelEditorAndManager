@@ -1,6 +1,6 @@
 import Writer from '../vendor/acode-writer/src/core.js';
 import {chapterMatcher} from './chapters.mjs';
-import {texHeading} from './latex-editor.mjs';
+import {texHeading} from './tex-heading.mjs';
 export class EditorIndex {
   constructor(doc,settings){this.settings=settings;this.tex=!!settings.tex;this.matcher=this.tex?texHeading:chapterMatcher(settings);this.records=[];for(let n=1;n<=doc.lines;n++)this.records.push(this.record(doc.line(n).text));this.doc=doc;this.rebuild();}
   record(text){const heading=this.matcher(text);return {length:text.length,count:Writer.countText(text,this.settings.countMode),title:heading?(this.tex?heading:text.trim()):null};}

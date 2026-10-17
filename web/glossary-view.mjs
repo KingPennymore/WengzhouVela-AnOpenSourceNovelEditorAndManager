@@ -7,12 +7,14 @@ import {glossaryKeywords,matchesGlossary} from './glossary-search.mjs';
 // and deleting at once, edits shortly after typing stops. The page keeps its place (list or entry, search, filter,
 // scroll) across re-renders, so saving never interrupts typing.
 const pages=new Map();
+export function selectGlossaryEntry(id,entry){const state=pages.get(id)||{query:'',category:'',scroll:0};state.entry=entry;pages.set(id,state);}
 const LONG_PRESS=500,EDIT_DELAY=700;
 
 /** onSave(text) writes the file without redrawing this page; onCopy(text) copies; notify(message) shows a toast. */
 export function renderGlossary({root,doc,escape:esc,onSave,onCopy=()=>{},notify=()=>{}}){
+  // The scrolling root stays transparent; .glossary-surface paints the page (ArkWeb repaints it during theme fades).
   root.className='glossary-preview';let value;
-  try{value=parseGlossary(doc.text);}catch(error){root.innerHTML=`<section class="glossary-error"><h2>${t('术语库')}</h2><p class="error">${esc(error.message)}</p><p>${t('配置无效，请切换源码修复。')}</p></section>`;return;}
+  try{value=parseGlossary(doc.text);}catch(error){root.innerHTML=`<div class="glossary-surface"><section class="glossary-error"><h2>${t('术语库')}</h2><p class="error">${esc(error.message)}</p><p>${t('配置无效，请切换源码修复。')}</p></section></div>`;return;}
   const state=pages.get(doc.id)||{entry:null,query:'',category:'',scroll:0};pages.set(doc.id,state);
   let entries=structuredClone(value.entries),name=value.name||doc.name.replace(/\.(gly|glossary)$/i,''),timer=null,draft=null;
   if(state.entry&&state.entry!=='new'&&!entries.some(entry=>entry.id===state.entry))state.entry=null;
@@ -30,12 +32,12 @@ export function renderGlossary({root,doc,escape:esc,onSave,onCopy=()=>{},notify=
 
   function renderList(){
     const shown=visible(),all=categories();
-    root.innerHTML=`<section class="glossary-page"><header class="glossary-head"><span class="glossary-kind">GLY</span><input class="glossary-name" name="name" maxlength="160" value="${esc(name)}" aria-label="${t('术语库名称')}"><small class="glossary-status">${t('修改会自动保存')}</small></header>
+    root.innerHTML=`<div class="glossary-surface"><section class="glossary-page"><header class="glossary-head"><span class="glossary-kind">GLY</span><input class="glossary-name" name="name" maxlength="160" value="${esc(name)}" aria-label="${t('术语库名称')}"><small class="glossary-status">${t('修改会自动保存')}</small></header>
 <div class="glossary-tools"><input type="search" id="glossary-search" value="${esc(state.query)}" placeholder="${t('搜索词条、别名或释义…')}" aria-label="${t('搜索词条')}"><button type="button" class="primary" id="glossary-add">＋ ${t('新建词条')}</button></div>
 ${all.length?`<div class="glossary-filters" role="radiogroup" aria-label="${t('按分类筛选')}"><button type="button" role="radio" data-category="" aria-checked="${!state.category}">${t('全部')} ${entries.length}</button>${all.map(category=>`<button type="button" role="radio" data-category="${esc(category)}" aria-checked="${state.category===category}">${esc(category)} ${entries.filter(entry=>(entry.category||'').trim()===category).length}</button>`).join('')}</div>`:''}
 <p class="glossary-count">${shown.length===entries.length?entries.length+' '+t('个词条'):shown.length+' / '+entries.length+' '+t('个词条')} · <span>${t('点按查看，长按复制词条')}</span></p>
 <ul class="glossary-list" role="list">${shown.map(entry=>`<li><button type="button" class="glossary-row" data-entry="${esc(entry.id)}"><strong data-user-content>${esc(entry.term)}</strong>${entry.category?`<span class="glossary-tag" data-user-content>${esc(entry.category)}</span>`:''}<span class="glossary-gist" data-user-content>${esc((entry.definition||'').split('\n')[0])||`<em>${t('无释义')}</em>`}</span>${entry.aliases.length?`<small>${t('别名')} ${entry.aliases.length}</small>`:''}</button></li>`).join('')}</ul>
-${shown.length?'':`<p class="blank">${entries.length?t('没有匹配的词条'):t('还没有词条。点“新建词条”添加人物、地名、设定等。')}</p>`}</section>`;
+${shown.length?'':`<p class="blank">${entries.length?t('没有匹配的词条'):t('还没有词条。点“新建词条”添加人物、地名、设定等。')}</p>`}</section></div>`;
     const list=root.querySelector('.glossary-list');list.scrollTop=0;root.scrollTop=state.scroll;
     const search=root.querySelector('#glossary-search');search.oninput=search.onsearch=()=>{state.query=search.value;const caret=search.selectionStart;renderList();const next=root.querySelector('#glossary-search');next.focus();next.setSelectionRange(caret,caret);};
     root.querySelector('.glossary-name').onchange=event=>{name=event.target.value.trim()||name;persist();};
@@ -63,12 +65,12 @@ ${shown.length?'':`<p class="blank">${entries.length?t('没有匹配的词条'):
   function renderEntry(){
     const entry=state.entry==='new'?draft:entries.find(item=>item.id===state.entry);if(!entry){state.entry=null;renderList();return;}
     const shown=visible(),at=shown.indexOf(entry),prev=at>0?shown[at-1]:null,next=at>=0&&at<shown.length-1?shown[at+1]:null;
-    root.innerHTML=`<section class="glossary-page glossary-detail"><header class="glossary-head"><button type="button" class="secondary" id="glossary-back">← ${t('全部词条')}</button><small class="glossary-status">${entry===draft?t('填写词条后自动保存'):t('修改会自动保存')}</small><span class="glossary-nav"><button type="button" class="secondary" data-go="${esc(prev?.id||'')}" ${prev?'':'disabled'} aria-label="${t('上一条')}">‹</button><button type="button" class="secondary" data-go="${esc(next?.id||'')}" ${next?'':'disabled'} aria-label="${t('下一条')}">›</button></span></header>
+    root.innerHTML=`<div class="glossary-surface"><section class="glossary-page glossary-detail"><header class="glossary-head"><button type="button" class="secondary" id="glossary-back">← ${t('全部词条')}</button><small class="glossary-status">${entry===draft?t('填写词条后自动保存'):t('修改会自动保存')}</small><span class="glossary-nav"><button type="button" class="secondary" data-go="${esc(prev?.id||'')}" ${prev?'':'disabled'} aria-label="${t('上一条')}">‹</button><button type="button" class="secondary" data-go="${esc(next?.id||'')}" ${next?'':'disabled'} aria-label="${t('下一条')}">›</button></span></header>
 <form class="glossary-fields" autocomplete="off"><label class="glossary-term">${t('词条')}<input name="term" maxlength="120" value="${esc(entry.term)}" required placeholder="${t('人物、地名、设定…')}"></label>
 <div class="glossary-pair"><label>${t('分类')}<input name="category" maxlength="120" value="${esc(entry.category||'')}" list="glossary-categories"></label><label>${t('别名')}<input name="aliases" value="${esc(entry.aliases.join('，'))}" placeholder="${t('多个别名用逗号分隔')}"></label></div>
 <datalist id="glossary-categories">${categories().map(category=>`<option value="${esc(category)}">`).join('')}</datalist>
 <label class="glossary-definition">${t('释义')}<textarea name="definition" maxlength="4000" rows="10">${esc(entry.definition||'')}</textarea></label>
-<div class="glossary-actions"><button type="button" class="secondary" id="glossary-copy">${t('复制词条')}</button><button type="button" class="danger" id="glossary-delete">${t('删除词条')}</button></div></form></section>`;
+<div class="glossary-actions"><button type="button" class="secondary" id="glossary-copy">${t('复制词条')}</button><button type="button" class="danger" id="glossary-delete">${t('删除词条')}</button></div></form></section></div>`;
     const form=root.querySelector('form');root.scrollTop=0;if(entry===draft)form.elements.term.focus();
     form.oninput=event=>{const field=event.target.name;if(!field)return;entry[field]=field==='aliases'?event.target.value.split(/[,，、]/).map(item=>item.trim()).filter(Boolean):field==='term'?event.target.value.trim():event.target.value;if(entry===draft&&!entry.term){status(t('填写词条后自动保存'));return;}later();};
     form.onsubmit=event=>event.preventDefault();

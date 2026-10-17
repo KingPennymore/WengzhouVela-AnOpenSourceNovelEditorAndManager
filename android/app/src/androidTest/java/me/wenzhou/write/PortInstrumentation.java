@@ -29,13 +29,38 @@ public final class PortInstrumentation extends Instrumentation {
                 @Override public File getFilesDir() { return directory; }
                 @Override public File getNoBackupFilesDir() { return new File(directory, "no-backup"); }
             };
-            credentials(); workspace(); rollback(); crashRecovery(); htmlResources(); textZoom(); projects(); archiveImports();
+            credentials(); workspace(); workspaceDelta(); rollback(); crashRecovery(); htmlResources(); textZoom(); projects(); archiveImports();
             result.putString("results", new JSONObject().put("passed", passed.length()).put("checks", passed).toString());
             finish(Activity.RESULT_OK, result);
         } catch (Throwable error) { result.putString("failure", error.getClass().getSimpleName() + ": " + error.getMessage()); finish(Activity.RESULT_CANCELED, result); }
         finally { if (directory != null) cleanup(directory); }
     }
     private void cleanup(File file) { if (file.isDirectory()) { File[] children = file.listFiles(); if (children != null) for (File child : children) cleanup(child); } file.delete(); }
+    private void workspaceDelta() throws Exception {
+        File own = new File(directory, "delta-" + UUID.randomUUID()); Files.createDirectories(own.toPath());
+        Context context = new ContextWrapper(getTargetContext()) { @Override public File getFilesDir() { return own; } };
+        WorkspaceFiles files = new WorkspaceFiles(context); JSONObject state = files.scan(); File root = new File(state.getJSONObject("storage").getString("root"));
+        JSONObject history = new JSONObject().put("a", new JSONArray().put(new JSONObject().put("text", "旧").put("createdAt", 1)));
+        files.saveWorkspace(new JSONObject().put("version", 1).put("storage", state.getJSONObject("storage")).put("saveId", "s0").put("folders", new JSONArray().put("书")).put("localHistory", history)
+            .put("documents", new JSONArray().put(doc("a", "书/甲.txt", "甲")).put(doc("b", "书/乙.txt", "乙")).put(doc("c", "丙.txt", "丙"))).toString());
+        JSONArray headers = new JSONArray();
+        for (String[] item : new String[][]{{"a", "书/甲.txt"}, {"b", "书/乙卷.txt"}, {"d", "书/新.txt"}}) { JSONObject header = doc(item[0], item[1], ""); header.remove("text"); headers.put(header); }
+        JSONObject skeleton = new JSONObject().put("version", 1).put("storage", state.getJSONObject("storage")).put("folders", new JSONArray().put("书")).put("documents", headers);
+        JSONObject delta = new JSONObject().put("format", 2).put("id", "s1").put("base", "s0").put("workspace", skeleton).put("texts", new JSONObject().put("a", "甲二").put("d", "新")).put("histories", new JSONObject().put("a", JSONObject.NULL));
+        files.saveWorkspaceDelta(delta.toString());
+        require(text(new File(root, "书/甲.txt")).equals("甲二") && text(new File(root, "书/乙卷.txt")).equals("乙") && text(new File(root, "书/新.txt")).equals("新"), "Delta must write changed and renamed files");
+        require(!new File(root, "书/乙.txt").exists() && !new File(root, "丙.txt").exists(), "Delta must remove renamed and deleted paths");
+        require(text(new File(own, "previous-a.txt")).equals("甲"), "Delta must keep the previous text");
+        JSONObject read = new JSONObject(new WorkspaceFiles(context).readWorkspace());
+        require(read.getString("saveId").equals("s1") && read.getJSONArray("documents").getJSONObject(0).getString("text").equals("甲二") && read.getJSONObject("localHistory").length() == 0, "Reads must return the hydrated workspace");
+        try { files.saveWorkspaceDelta(new JSONObject(delta.toString()).put("id", "s2").toString()); require(false, "A stale base must be refused"); }
+        catch (java.io.IOException expected) { require(expected.getMessage().startsWith("E_DELTA_BASE"), "A stale base must ask for a full save"); }
+        WorkspaceFiles.atomic(new File(root, "书/甲.txt"), "外部".getBytes(StandardCharsets.UTF_8));
+        try { files.saveWorkspaceDelta(new JSONObject(delta.toString()).put("base", "s1").put("id", "s3").put("texts", new JSONObject().put("a", "内部")).put("histories", new JSONObject()).toString()); require(false, "External edits must be refused"); }
+        catch (java.io.IOException expected) { require(expected.getMessage().contains("外部修改"), "External edits must be reported: " + expected.getMessage()); }
+        require(text(new File(root, "书/甲.txt")).equals("外部"), "A refused delta must keep the external edit");
+        passed.put("Incremental workspace saves: changed texts, rename, delete, history, stale base and external edits");
+    }
     private void credentials() throws Exception {
         CredentialStore store = new CredentialStore(fixture);
         String token = "LOCAL-QA-ONLY-" + UUID.randomUUID();

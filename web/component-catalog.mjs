@@ -2,7 +2,7 @@
 // mirrored to Gitee. It lists the newest version of every downloadable component, so a component (or a new TeX
 // version) published later shows up in apps that are already installed, without a new app release.
 import {compareVersions} from './updates.mjs';
-import {downloadReleaseText,releaseSources} from './component-downloads.mjs';
+import {downloadSignedText,releaseSources} from './component-downloads.mjs';
 
 export const CATALOG_TAG='catalog',CATALOG_NAME='catalog.json',CATALOG_LIMIT=256*1024;
 const ID=/^vela\.component\.[a-z0-9][a-z0-9.-]{0,63}$/,NAME=/^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$/,TAG=/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/,VERSION=/^\d+\.\d+\.\d+$/;
@@ -46,8 +46,16 @@ export function catalogText(components,{updated=new Date().toISOString()}={}){
   const list=[...latest.values()].sort((a,b)=>a.id.localeCompare(b.id)).map(item=>Object.fromEntries(fields.filter(key=>item[key]!==undefined&&item[key]!==null&&item[key]!=='').map(key=>[key,item[key]])));
   const result=JSON.stringify({format:1,updated,components:list},null,2)+'\n';parseCatalog(result);return result;
 }
-/** Reads the catalog from the first mirror that has it (Gitee, then GitHub). */
+/**
+ * Reads the catalog from the first mirror with a valid catalog.json.sig (Gitee, then GitHub). Until this device has
+ * seen a signed catalog it also accepts the unsigned catalog published before signing, from GitHub only; afterwards
+ * an unsigned catalog is refused, so a mirror cannot fall back to it.
+ */
+const SIGNED_SEEN='vela.catalog.signed';
+const seenSigned=()=>{try{return localStorage.getItem(SIGNED_SEEN)==='1';}catch{return false;}};
 export async function loadCatalog(transport,{sources=releaseSources}={}){
-  const {text,source}=await downloadReleaseText(transport,CATALOG_TAG,CATALOG_NAME,{sources,limit:CATALOG_LIMIT});
-  return {...parseCatalog(text),source};
+  const {text,source,signed}=await downloadSignedText(transport,CATALOG_TAG,CATALOG_NAME,{sources,limit:CATALOG_LIMIT,allowUnsigned:!seenSigned()});
+  const catalog=parseCatalog(text);
+  if(signed)try{localStorage.setItem(SIGNED_SEEN,'1');}catch{}
+  return {...catalog,source,signed};
 }

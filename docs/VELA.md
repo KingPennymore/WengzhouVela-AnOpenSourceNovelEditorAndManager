@@ -72,3 +72,19 @@
 支持 version: 2 和 3（第三版只是增加字段，第二版文件无需转换）；更早的格式不读取、不自动转换，也不提供升级入口。旧文件原文保留，预览提示版本错误，可重新创建配置。新版配置修改保留最多 5 次备份，自定义未知字段保留；写错时保留源文件，使用最近一次有效配置并提供恢复入口。没有有效配置时显示错误供源码修复。
 
 全局配置和私有元数据默认不进入 GitHub 工作区提交。本地历史和备份有容量上限，请另外导出正式备份。
+
+## 大纲与地图
+
+`formats.outline` / `formats.map` 在第二、三版配置中均可使用，按内置 → 全局 `.global.vela` → 作品 `.vela` → `files[path].formats` 继承，数组整体替换。新建规划文件时采用当前生效的默认视图、六边形方向与尺寸。高级区提供“大纲与地图配置”和“单文件配置 JSON”编辑框，未知配置字段保留。
+
+大纲：`defaultView: "outline"`（或 "relations"；旧 tree / graph 与 treeStyle 兼容读取）、`longPressMs: 500`、`showEditorMarkers: true`；默认状态为 idea / draft / done，标签构思 / 草稿 / 完成。长按 200–2000 ms，状态最多 64 项。见 [OUTLINE.md](OUTLINE.md)。
+
+地图现采用绘制点与自由信息点：`orientation: "pointy"`、`hexSize: 32`、`neighborDistance: 3`。新文件继承尺寸和相邻范围，已有文件的 drawing.distance 优先；范围为 1–16 倍相邻格心距离。信息详情统一从右下角按钮打开，窄屏为底部弹层，宽屏为浮层，不再显示常驻地图信息栏。
+
+默认算法参数：`boundary: {smoothing: 2, roughness: 0.2, seed: 1}`。smoothing 为 0–4 整数，roughness 为 0–1，seed 为 32 位非负整数，均支持全局、作品、单文件继承。在生成对话框临时调整不会改写配置。距离算法统一生成各个轮廓，不区分内外边界；算法步骤及限制见 [MAP.md](MAP.md)。
+
+旧配置的 palette、infoPanel、coastline、city 及其未知字段仍保留和校验，以便旧地图及插件继续读取；新版绘制工具不展示地形调色板，也不使用旧 infoPanel 的常驻布局。阵营仍供箭头和符号使用。界面与算法扩展接口见 [PLANNING-PLUGINS.md](PLANNING-PLUGINS.md)。
+
+新建文件对话框按文件类型选择，名称扩展名同步修改，也可手工输入受支持的其他扩展名。当前文件夹已有 `.vela` 时禁用作品设置选项，手工改文件名也不能绕过重复检查；`.global.vela` 限根目录且同样不能重复。普通新建文件夹不再自动创建设置文件，可勾选“同时建立作品设置”。移动与创建位置通过可视目录选择，移动文件夹时不列出其自身和后代。
+
+地图参考网格可设 `formats.map.showHexGrid: true`，默认 false，按全局、作品和单文件配置继承；地图本身可用 `grid.visible` 覆盖。两处均只接受布尔值。网格仅辅助显示，不影响边界算法或绘制点。

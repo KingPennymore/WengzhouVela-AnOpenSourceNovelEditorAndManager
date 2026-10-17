@@ -19,7 +19,7 @@ export async function checkAppUpdates(host,{visible=false}={}){
   const components=result.components.length?`<h3>组件更新</h3><ul class="update-components">${result.components.map(item=>`<li>${esc(item.title)}：${esc(host.installed.get(item.id))} → ${esc(item.version)}</li>`).join('')}</ul><div class="button-row"><button type="button" class="secondary" id="update-components">在插件与组件中更新</button></div>`:'';
   const node=body();if(!node)return result;
   node.innerHTML=result.available
-    ?`<p>新版本 <strong>${esc(result.version)}</strong>（当前 ${esc(host.current)}，来源 ${esc(result.source)}）</p><pre class="history-diff">${esc(result.notes)}</pre>
+    ?`<p>新版本 <strong>${esc(result.version)}</strong>（当前 ${esc(host.current)}，来源 ${esc(result.source)}）${result.signed===true?'<br><small>发布清单签名已验证。</small>':result.signed===false?'<br><small>签名机制启用前的旧版发布，校验值只采信 GitHub。</small>':''}</p><pre class="history-diff">${esc(result.notes)}</pre>
       ${installable?`<p><small>安装包 ${esc(result.installer.name)} · ${esc(result.installer.bytes?formatBytes(result.installer.bytes):'大小未知')}。下载后先核对 SHA-256，再交给系统安装程序${host.platform==='android'?'；安卓会检查签名与当前应用一致':''}。</small></p>${mobile?'<p><small class="download-hint">安装包较大，建议在 Wi‑Fi 下下载。</small></p>':''}<div id="update-progress"></div>`
         :`<p><small>${host.platform==='harmonyos'?'鸿蒙版不能在应用内安装，请在发布页或应用市场获取新版本。':host.native?'未找到适用于此设备的安装包，请在发布页下载。':'浏览器预览版请在发布页下载对应平台的安装包。'}</small></p>`}
       <div class="button-row">${installable?'<button type="button" class="primary" id="download-update">下载并安装</button>':''}<button type="button" class="secondary" id="open-release">打开发布页</button></div>${components}`

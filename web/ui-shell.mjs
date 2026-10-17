@@ -1,3 +1,4 @@
+import {reducedMotion} from './motion.mjs';
 import {t} from './i18n.mjs';
 
 export function platformProfile(environment,search='') {
@@ -80,7 +81,7 @@ export function organizeSettings(root) {
   groups.forEach(([title,names],index)=>{
     const section=document.createElement('section');section.className='settings-section';section.id='settings-section-'+index;
     const heading=document.createElement('h3');heading.textContent=t(title);section.append(heading);
-    const link=document.createElement('button');link.type='button';link.textContent=t(title);link.onclick=()=>section.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});nav.append(link);
+    const link=document.createElement('button');link.type='button';link.textContent=t(title);link.onclick=()=>section.scrollIntoView({block:'start',behavior:reducedMotion()?'instant':'smooth'});nav.append(link);
     for(const name of names){const control=root.querySelector(`[name="${name}"],#${name}`);if(!control)continue;const container=control.closest('fieldset')||control.closest('label');section.append(container||control);}
     content.append(section);
   });

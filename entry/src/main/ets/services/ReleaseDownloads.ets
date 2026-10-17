@@ -126,16 +126,17 @@ export class ReleaseDownloads {
   }
 
   /** A ZIP picked by the user, copied into the cache and read through the same imports URL as a download. */
-  stage(uri: string, name: string): DownloadedComponent {
+  stage(uri: string, name: string, image: boolean = false): DownloadedComponent {
     if (this.files.size >= 2) throw new Error('请先完成当前组件导入。');
     const token = util.generateRandomUUID(true), path = this.directory() + '/' + token;
     const source = fs.openSync(uri, fs.OpenMode.READ_ONLY);
     try {
       const size = fs.statSync(source.fd).size;
-      if (size > COMPONENT_LIMIT) throw new Error('安装包不能超过 96 MB。');
+      if (size > (image ? 20 * 1024 * 1024 : COMPONENT_LIMIT)) throw new Error(image ? '原图不能超过 20 MB。' : '安装包不能超过 96 MB。');
       fs.copyFileSync(source.fd, path);
     } finally { fs.closeSync(source); }
     const size = fs.statSync(path).size;
+    if (size > (image ? 20 * 1024 * 1024 : COMPONENT_LIMIT)) { fs.unlinkSync(path); throw new Error(image ? '原图不能超过 20 MB。' : '安装包不能超过 96 MB。'); }
     this.files.set(token, { path: path, name: 'picked.zip' });
     const result: DownloadedComponent = { name: name, size: size, sha256: '', importToken: token, url: 'https://wenzhou-editor.local/imports/' + token };
     return result;

@@ -1,4 +1,4 @@
-import {downloadAsset,texDownloads,findRelease,completeAssets,releaseComponents,formatBytes,COMPONENT_LIMIT} from './component-downloads.mjs';
+import {downloadAsset,texDownloads,findRelease,trustedAssets,releaseComponents,formatBytes,COMPONENT_LIMIT} from './component-downloads.mjs';
 import {compareVersions} from './updates.mjs';
 import {loadCatalog,catalogBlocker,catalogStatus} from './component-catalog.mjs';
 
@@ -14,8 +14,8 @@ const APP_TAG=/^v?\d+\.\d+\.\d+(?:\.\d+)?$/;
  */
 function discover(transport,{force=false}={}){
   if(discovery&&!force&&Date.now()-discovery.at<600000)return discovery.promise;
-  const promise=loadCatalog(transport).then(catalog=>({source:catalog.source,catalog:true,updated:catalog.updated,skipped:catalog.skipped,components:catalog.items})).catch(()=>findRelease(transport,releases=>releases.filter(release=>APP_TAG.test(release.tag)&&!release.prerelease&&releaseComponents(release).length).sort((a,b)=>compareVersions(b.tag,a.tag))[0])
-    .then(async release=>{const assets=await completeAssets(transport,release).catch(()=>release.assets);return {source:release.source,catalog:false,release:release.tag,components:releaseComponents({...release,assets}).filter(item=>item.sha256)};}));
+  const promise=loadCatalog(transport).then(catalog=>({source:catalog.source,catalog:true,signed:catalog.signed,updated:catalog.updated,skipped:catalog.skipped,components:catalog.items})).catch(()=>findRelease(transport,releases=>releases.filter(release=>APP_TAG.test(release.tag)&&!release.prerelease&&releaseComponents(release).length).sort((a,b)=>compareVersions(b.tag,a.tag))[0])
+    .then(async release=>{const assets=await trustedAssets(transport,release,{needed:releaseComponents(release).map(item=>item.name)});return {source:release.source,catalog:false,signed:assets[0]?.signed??null,release:release.tag,components:releaseComponents({...release,assets}).filter(item=>item.sha256)};}));
   discovery={at:Date.now(),promise};promise.catch(()=>{if(discovery?.promise===promise)discovery.at=0;});
   return promise;
 }
@@ -57,7 +57,8 @@ export function mountComponentDownloads(container,host){
     const intro=host.native?`<small>来源：Gitee 镜像优先，失败时改用 GitHub。下载后先核对整个 ZIP 的 SHA-256，再按文件校验安装；单个组件不超过 ${formatBytes(COMPONENT_LIMIT)}。</small>${mobile?'<small class="download-hint">组件较大，建议在 Wi‑Fi 下下载。</small>':''}`
       :'<p class="blank" data-download-unavailable>浏览器预览版不能直接下载组件。请在文舟应用中使用此功能，或从 GitHub / Gitee 发布页下载 ZIP 后点击“从 ZIP 安装”。</p>';
     const info=remote.info,when=info?.updated&&!Number.isNaN(Date.parse(info.updated))?new Date(info.updated).toLocaleDateString('zh-CN'):'';
-    const origin=!info?'':info.catalog?`组件目录 · ${esc(info.source)}${when?' · 更新于 '+esc(when):''}${info.skipped?` · ${info.skipped} 项格式无效已跳过`:''}`:`暂时读不到组件目录，显示 ${esc(info.release)} 附带的组件 · ${esc(info.source)}`;
+    const trust=info?.signed===true?' · 签名已验证':info?.signed===false?' · 发布签名前的旧清单，仅接受 GitHub':'';
+    const origin=!info?'':(info.catalog?`组件目录 · ${esc(info.source)}${when?' · 更新于 '+esc(when):''}${info.skipped?` · ${info.skipped} 项格式无效已跳过`:''}`:`暂时读不到组件目录，显示 ${esc(info.release)} 附带的组件 · ${esc(info.source)}`)+trust;
     const updates=list.filter(item=>status(item,installed).update).length;
     const discoveryNote=remote.state==='loading'?'<small class="blank">正在从 Gitee / GitHub 获取组件目录…</small>':remote.state==='error'?`<p class="error">${esc(remote.error)}</p>`:'';
     const head=`<div class="download-head"><h3>在线组件${updates?` <span class="download-badge">${updates} 个可更新</span>`:''}</h3>${host.native?`<button type="button" class="secondary" data-download-refresh ${remote.state==='loading'?'disabled':''}>检查更新</button>`:''}</div>${origin?`<small class="download-origin">${origin}</small>`:''}`;
