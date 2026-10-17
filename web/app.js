@@ -638,7 +638,7 @@ function applyTheme(mode=workspace.settings.theme){
   const menuLabel=$('#theme .menu-label');$('#theme').innerHTML=icon(dark?'sun':'theme');if(menuLabel)$('#theme').append(menuLabel);$('#theme').title=label+' (Ctrl+Alt+T)';$('#theme').setAttribute('aria-label',label);
   const githubTheme=$('[data-toggle-theme]');if(githubTheme){githubTheme.innerHTML=icon(dark?'sun':'theme');githubTheme.title=label;githubTheme.setAttribute('aria-label',label);}
   if(native)transport('appearance',{dark,background:paletteFor(workspace.settings.palette,dark).colors.bg,foreground:paletteFor(workspace.settings.palette,dark).colors.text}).catch(fail);
-  if(isPreview&&current()&&documentKind(current())==='HTML')renderPreview();};if(changed)beginThemeShift(update);else update();
+  if(isPreview&&current()&&documentKind(current())==='HTML')renderPreview();};if(changed||document.documentElement.classList.contains('theme-shift'))beginThemeShift(update);else update();
 }
 /** Create or edit a custom palette: three colours per mode with a live preview and readability notes. */
 function showPaletteEditor(id='',from=workspace.settings.palette){
