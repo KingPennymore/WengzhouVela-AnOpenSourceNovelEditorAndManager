@@ -1,0 +1,11 @@
+import {parseOutline,outlineText} from './outline.mjs';
+export class OutlineAnchors{
+ constructor(workspace,remap,resolve){Object.assign(this,{workspace,remap,resolve});this.opened=new Map();this.dirty=new Set();}
+ open(doc){let page=this.opened.get(doc.id);if(!page||page.text!==doc.text){page={text:doc.text,value:parseOutline(doc.text)};this.opened.set(doc.id,page);}return page.value;}
+ accept(doc,text){const parsed=parseOutline(text),old=this.opened.get(doc.id);this.opened.set(doc.id,{text,value:old&&outlineText(old.value)===text?old.value:parsed});this.dirty.delete(doc.id);}
+ entries(doc){const path=doc.path||doc.name,result=[],live=new Set((this.workspace().documents||[]).map(d=>d.id));for(const [id,stored] of this.opened){const source=this.workspace().documents.find(d=>d.id===id);let page=stored;if(source&&stored.text!==source.text){try{this.open(source);page=this.opened.get(id);}catch{continue;}}if(!live.has(id)){this.opened.delete(id);continue;}for(const [nodeId,node] of Object.entries(page.value.nodes))for(const anchor of node.anchors||[])if(anchor.path===path)result.push({outlineId:id,nodeId,title:node.title,anchor});}return result;}
+ changed(doc,changes,oldText,newText){for(const entry of this.entries(doc)){const next=this.remap([entry.anchor],changes,oldText,newText)[0];Object.assign(entry.anchor,next,{prefix:newText.slice(Math.max(0,next.offset-32),next.offset)});this.dirty.add(entry.outlineId);}}
+ locate(doc,anchor){const text=doc.text,quote=anchor.quote||'',context=anchor.prefix??anchor.context??'';if(anchor.invalid)return {...anchor,needsReview:true};const hits=[];let from=0;while(quote&&hits.length<2){const at=text.indexOf(quote,from);if(at<0)break;if(!context||text.slice(Math.max(0,at-context.length),at)===context)hits.push(at);from=at+1;}const next=hits.length===1?this.resolve(text,{...anchor,offset:hits[0],context}):{...anchor,needsReview:true};Object.assign(anchor,next);return next;}
+ text(doc){return outlineText(this.open(doc));}
+ updates(){const result=[];for(const id of this.dirty){const page=this.opened.get(id),doc=this.workspace().documents.find(d=>d.id===id);if(page&&doc&&page.text===doc.text)result.push({doc,text:outlineText(page.value)});}return result;}
+}
