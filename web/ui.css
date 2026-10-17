@@ -441,3 +441,9 @@ body{position:fixed;inset:0}
 @layer app{.planning-preview{flex:1;display:flex;flex-direction:column}.planning-surface{flex:1;height:auto;min-height:0}}
 
 @layer app{.map-algorithm-dialog{max-width:min(90vw,480px);max-height:85vh;overflow:auto;background:var(--panel);color:var(--text);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}.map-algorithm-dialog form,.map-algorithm-dialog label{display:flex;flex-direction:column;gap:8px}.map-algorithm-dialog form{gap:12px}.map-algorithm-dialog button{padding:8px;background:var(--soft)}}
+
+@layer app{.file-kind svg,.doc-symbol svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7}.outline-detail textarea{background:transparent}.map-info-scroll .map-cell-info{max-height:none;overflow:visible}}
+
+@layer app{.outline-row [data-tree-drag]{width:26px;flex:none;touch-action:none;color:var(--muted);cursor:grab}.outline-row [data-fold]{width:26px;flex:none}.outline-graph-card [data-graph-fold]{position:absolute;right:-12px;top:20px;width:24px;height:24px;background:var(--soft);border-radius:50%}}
+
+@layer app{.map-info-form textarea{background:transparent}.planning-preview>section{min-height:0;overflow:auto;padding:16px}.planning-preview>section>pre{white-space:pre-wrap;overflow-wrap:anywhere}}

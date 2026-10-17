@@ -1,3 +1,4 @@
+import {loadMapView,loadOutlineView,loadMapAlgorithms} from './lazy.mjs';
 import * as state from '@codemirror/state';
 import * as view from '@codemirror/view';
 import * as commands from '@codemirror/commands';
@@ -13,7 +14,7 @@ import {isTexPackage,storeTexPackage,removeTexPackage} from './tex-packages.mjs'
 
 /** Vela plugin API 4: in-page plugins without the former Acode compatibility layer. */
 export const PLUGIN_API=4;
-const BASE_CAPABILITIES=['ui-slots','commands','pages','assets','completion','editor-extensions','documents','configuration-v2','chapters','local-history','tex','document-formats-v1'];
+const BASE_CAPABILITIES=['ui-slots','commands','pages','assets','completion','editor-extensions','documents','configuration-v2','chapters','local-history','tex','document-formats-v1','planning-formats-v1','map-symbols-v1','map-algorithms-v1'];
 // Extensions must come from the host's CodeMirror instance; a bundled second copy would be rejected.
 const codemirror=Object.freeze({state,view,commands,language,search,autocomplete});
 const isComponent=record=>record.manifest.vela?.type==='tex-component';
@@ -95,6 +96,12 @@ export class PluginRuntime {
       }),
       project:resources.project?.api||null,
       tex:Object.freeze({async compile(fileId,options={}){alive();if(runtime.loadingId===id)throw velaError('E_INVALID_DATA','请在初始化完成后的用户操作中编译。');const target=doc(fileId),controller=new AbortController(),cancel=()=>controller.abort();resources.disposers.push(cancel);options.signal?.addEventListener('abort',cancel,{once:true});try{return await host.compileTex(target,{engine:options.engine||'xetex',onLog:options.onLog,signal:controller.signal});}finally{options.signal?.removeEventListener('abort',cancel);resources.disposers=resources.disposers.filter(fn=>fn!==cancel);}}}),
+      planning:Object.freeze({
+        async parse(kind,text){alive();const module=kind==='OUTLINE'?await loadOutlineView():kind==='MAP'?await loadMapView():null;alive();if(!module)throw velaError('E_INVALID_DATA','规划格式无效。');return structuredClone((module.parseOutline||module.parseMap)(text));},
+        async serialize(kind,value){alive();const module=kind==='OUTLINE'?await loadOutlineView():kind==='MAP'?await loadMapView():null;alive();if(!module)throw velaError('E_INVALID_DATA','规划格式无效。');return (module.outlineText||module.mapText)(structuredClone(value));},
+        async registerMapSymbol(spec){alive();const module=await loadMapView();alive();const handle=module.registerMapSymbol(id,spec),dispose=own(handle.dispose);return Object.freeze({type:handle.type,dispose});},
+        async registerMapAlgorithm(spec){alive();if(!spec||typeof spec.run!=='function')throw velaError('E_INVALID_DATA','插件算法定义无效。');const module=await loadMapAlgorithms();alive();const handle=module.registerMapAlgorithm(id,{...spec,run:async(...args)=>{alive();const result=await spec.run(...args);alive();return result;}}),dispose=own(handle.dispose);return Object.freeze({id:handle.id,dispose});}
+      }),
       formats:Object.freeze({register(provider){alive();return own(registerDocumentFormat(id,provider));}}),
       on(event,fn){alive();if(typeof fn!=='function')throw velaError('E_INVALID_DATA','事件监听器必须是函数。');const entry={event,fn},list=runtime.listeners.get(id)||[];list.push(entry);runtime.listeners.set(id,list);return own(()=>{const current=runtime.listeners.get(id)||[];runtime.listeners.set(id,current.filter(item=>item!==entry));});},
       dispose(fn){alive();if(typeof fn!=='function')throw velaError('E_INVALID_DATA','清理器必须是函数。');resources.disposers.push(fn);return fn;}

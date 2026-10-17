@@ -15,3 +15,7 @@ The module's `PreserveLauncherIcon` build task runs after resource compilation a
 Android uses its separate adaptive icon foreground vector and opaque `icon_background` color. Its foreground contains only the sail geometry; the launcher applies its own mask. Windows uses the square composite.
 
 `test-results/icon-0.8.3/mask-preview.png` shows simulated square, rounded-square, and circular system masks for visual review. It is not a shipping resource. Real-device launcher review and AppGallery acceptance are separate from source and package validation.
+
+## Planning file icons
+
+OUTLINE and MAP use code-defined 24-unit line icons in `web/icons.mjs`: a branching node diagram and a hexagonal map. They share the existing stroke, inherit theme colors, carry accessible Chinese / English labels, and appear in the file manager, tabs and start-page recents. No third-party icon library is used.

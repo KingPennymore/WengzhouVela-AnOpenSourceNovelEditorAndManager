@@ -153,3 +153,7 @@ Android 大 ZIP 通过私有缓存与同源二进制 URL 传输，读取后释�
 ## 可选电子书组件
 
 构建会生成 `dist/plugins/Vela-Ebook-Reader-1.1.0.zip`，也可执行 `npm run package:ebook` 单独打包。安装、开发协议及限制见 [COMPONENTS.md](COMPONENTS.md)。轻量构建后运行 `npm run test:components` 检查旧组件迁移、列表生命周期和电子书导入/阅读；本用例自己启动临时预览服务器。
+
+## 大纲与地图验证
+
+统一 verify 新增 planning-browser、planning-visual-browser、map-performance-browser，所有新增 .test.mjs 自动纳入单元测试。源码浏览器测试各自启动 `tests/source-app-server.mjs` 的新实例，修改 JS 后不会复用旧的内存分包。分包完整性检查登记 outline-view、map-view、map-algorithm-view，并限制 app.js 相对基线 827b094 的 gzip 增量不超过 15 KiB。`node scripts/planning-metrics.mjs` 可复核基线与当前主包、三个新分包的压缩前后大小。

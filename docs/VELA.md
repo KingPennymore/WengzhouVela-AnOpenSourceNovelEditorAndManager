@@ -72,3 +72,13 @@
 支持 version: 2 和 3（第三版只是增加字段，第二版文件无需转换）；更早的格式不读取、不自动转换，也不提供升级入口。旧文件原文保留，预览提示版本错误，可重新创建配置。新版配置修改保留最多 5 次备份，自定义未知字段保留；写错时保留源文件，使用最近一次有效配置并提供恢复入口。没有有效配置时显示错误供源码修复。
 
 全局配置和私有元数据默认不进入 GitHub 工作区提交。本地历史和备份有容量上限，请另外导出正式备份。
+
+## 大纲与地图
+
+`formats.outline` / `formats.map` 在第二、三版配置中均可使用，按内置 → 全局 `.global.vela` → 作品 `.vela` → `files[path].formats` 继承，数组整体替换。新建规划文件时采用当前生效的默认视图、六边形方向与尺寸。高级区提供“大纲与地图配置”和“单文件配置 JSON”编辑框，未知配置字段保留。
+
+大纲：`defaultView: "tree"`、`treeStyle: "indent"`、`longPressMs: 500`、`showEditorMarkers: true`；默认状态为 idea / draft / done，标签构思 / 草稿 / 完成。长按 200–2000 ms，状态最多 64 项。见 [OUTLINE.md](OUTLINE.md)。
+
+地图：`orientation: "pointy"`、`hexSize: 32`、`infoPanel: "auto"`；可选择 bottom / side（side 在至少 900 px 宽度时生效）。默认调色板为 water / plain / mountain / city，role 为 water / land / city / other，cost 为正数。调色板 1–256 项，阵营最多 64 项，颜色为十六进制。地图中的 `palette: "inherit"` 使用生效配置，内联数组整体覆盖。
+
+默认算法参数：`coastline: {smoothing: 2, roughness: 0.35, seed: 1}`、`city: {radius: 4, wallPadding: 0.2, wallStyle: "round", weighted: true}`。在生成对话框临时调整不会改写配置。算法步骤及限制见 [MAP.md](MAP.md)，扩展接口见 [PLANNING-PLUGINS.md](PLANNING-PLUGINS.md)。

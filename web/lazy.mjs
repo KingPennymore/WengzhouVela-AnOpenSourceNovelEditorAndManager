@@ -1,3 +1,4 @@
+import {t} from './i18n.mjs';
 // Features split out of the startup bundle (scripts/build.mjs builds ESM chunks into web/chunks/). Each loader
 // imports its chunk once; a failed import is not kept, so the next use retries, and the error names the feature
 // so callers can show it in place of the missing view (chunkFailure) instead of leaving it blank.
@@ -9,7 +10,7 @@ function lazy(name,load){
   return ()=>{
     if(!loaded.has(name))loaded.set(name,(failed?import(failed+'?retry='+(++attempt)):load()).catch(error=>{
       loaded.delete(name);failed=String(error?.message||'').match(/[a-z]+:\/\/\S+?\.js/)?.[0]||failed;
-      throw Object.assign(new Error(`无法加载“${labels[name]}”模块：${error?.message||error}。请检查应用是否完整，或重启后重试。`),{code:'E_CHUNK',feature:name,cause:error});
+      throw Object.assign(new Error(t('无法加载“{name}”模块：{error}。请检查应用是否完整，或重启后重试。').replace('{name}',t(labels[name])).replace('{error}',error?.message||error)),{code:'E_CHUNK',feature:name,cause:error});
     }));
     return loaded.get(name);
   };
@@ -28,6 +29,6 @@ const escapeHtml=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&
 /** Shows a load failure inside `root` with a retry button. */
 export function chunkFailure(root,error,retry){
   if(!root)return;
-  root.innerHTML=`<div class="blank chunk-failure" role="alert"><h2>模块未能加载</h2><p>${escapeHtml(error?.message||error)}</p>${retry?'<button type="button" class="primary" data-chunk-retry>重试</button>':''}</div>`;
+  root.innerHTML=`<div class="blank chunk-failure" role="alert"><h2>${t('模块未能加载')}</h2><p>${escapeHtml(error?.message||error)}</p>${retry?`<button type="button" class="primary" data-chunk-retry>${t('重试')}</button>`:''}</div>`;
   root.querySelector('[data-chunk-retry]')?.addEventListener('click',retry);
 }
