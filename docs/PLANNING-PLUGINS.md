@@ -55,3 +55,7 @@ restore();
 信息点的数据在 markers 数组，以稳定 ID 参与读写、路径改写和结构化合并。新算法可以返回附加的 JSON 元数据，默认距离边界的 anchors 就是此扩展方式；不要把本机 DOM 或函数写进地图。
 
 大纲顶层 nodes / edges 与 relations.nodes / edges 是独立集合。插件处理锚点时应携带集合名 outline / relations，不能只按节点 ID 跨集合查找。两套集合都经过解析、路径改写和同步合并；relationDegrees / relationSize 为纯函数，便于扩展统计。距离算法返回 fillPaths，内置自动填充使用保留图层 ID g-drawing-fill。
+
+## 术语库链接和方向描述
+
+节点可包含 glossaryLinks: [{id, path, entryId, label}]，按 id 合并，以 path 参与移动 / 删除改写，以 entryId 定位词条。关系中的旧正文 anchors 保留，新的正文选区链接只指向大纲。edges 支持 direction（none / forward / backward / both）及 Markdown description，父子边元数据存于子节点 parentEdge；未知字段往返保留。布局和节点尺寸按唯一邻居计算，忽略视觉方向。map-tool-select 现位于 planning-bottom，map-tool-symbol 位于 planning-toolbar。

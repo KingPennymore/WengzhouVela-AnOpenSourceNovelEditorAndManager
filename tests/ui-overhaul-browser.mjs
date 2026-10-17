@@ -33,7 +33,7 @@ try{
   checks.push(profile+' navigation, settings, English, home, library, reader, VELA, dark mode and bounds');await context.close();
  }
  // An empty paragraph and inserted ASCII spaces must keep the actual caret on the text baseline.
- const context=await browser.newContext({viewport:{width:1100,height:850}}),page=await context.newPage();await page.goto((process.env.VELA_TEST_URL||'http://127.0.0.1:4173')+'/?ui=harmonyos');await page.waitForSelector('.cm-editor');
+ const context=await browser.newContext({viewport:{width:1100,height:850}}),page=await context.newPage();await page.goto((process.env.VELA_TEST_URL||'http://127.0.0.1:4173')+'/?ui=harmonyos');await page.waitForSelector('.cm-editor');await page.keyboard.press('Control+n');await page.locator('#dialog [name=name]').fill('光标测试.txt');await page.locator('#dialog-submit').click();await page.waitForSelector('.cm-editor');
  const set=async text=>{await page.evaluate(text=>{const v=velaEditorView;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:text},selection:{anchor:text.length}});v.focus();},text);await settled(page);};
  const caret=()=>page.evaluate(()=>{const v=velaEditorView,p=v.state.selection.main.head,r=v.coordsAtPos(p),cursor=v.dom.querySelector('.cm-cursor')?.getBoundingClientRect(),line=v.contentDOM.querySelector('.cm-line:last-child'),rect=line.getBoundingClientRect();return {position:p,text:v.state.doc.toString(),x:r.left,drawn:cursor?.left,start:rect.left+parseFloat(getComputedStyle(line).paddingLeft)+parseFloat(getComputedStyle(line).textIndent||0)};});
  await set('第一章 航程\n正文\n');const empty=await caret();assert.ok(Math.abs(empty.x-empty.start)<2,JSON.stringify(empty));

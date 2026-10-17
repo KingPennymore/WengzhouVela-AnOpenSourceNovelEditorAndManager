@@ -24,7 +24,7 @@ try{
     assert.equal(await p.locator('#setup-storage,#open-folder,#internal-storage').count(),0);
   });
   await check('首次创建操作指南，嵌套空文件夹即时显示且侧栏仅通过文件夹按钮切换',async()=>{
-    assert.equal((await saved()).documents[0].name,'操作指南.txt');assert.equal(await p.locator('#library').isVisible(),false);await p.locator('#mobile-library').click();
+    assert.equal((await saved()).documents[0].name,'操作指南.md');assert.equal(await p.locator('#library').isVisible(),false);await p.locator('#mobile-library').click();
     await p.locator('#new-folder').click();await p.locator('[name=name]').fill('小说');await submit();await p.locator('#new-folder').click();await p.locator('[name=name]').fill('资料');await p.locator('[data-pick-folder="小说"]').click();await submit();assert.equal(await p.locator('[data-folder="小说"]').count(),1);assert.equal(await p.locator('[data-folder="小说/资料"]').count(),1);
     await menu('小说/资料');await p.locator('#folder-new-file').click();await p.locator('[name=name]').fill('人物.csv');await p.locator('[name=skeleton]').uncheck();await submit();assert.equal((await saved()).documents.find(d=>d.name==='人物.csv').path,'小说/资料/人物.csv');assert.equal(await p.locator('#library').isVisible(),true);
   });
