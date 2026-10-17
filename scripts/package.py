@@ -19,13 +19,11 @@ out.mkdir(exist_ok=True)
 # Refuse to publish a source archive without its ready-to-build editor resources.
 resources = root / "entry/src/main/resources/rawfile/web"
 state = json.loads((resources / "build-manifest.json").read_text(encoding="utf-8"))
-inputs = [file.relative_to(root).as_posix() for directory in ["web", "vendor/acode/src/cm", "vendor/wasmtex", "vendor/jieba", "components"] for file in (root / directory).rglob("*") if file.is_file()]
-inputs += ["vendor/acode/LICENSE", "vendor/acode-writer/src/core.js", "vendor/acode-writer/LICENSE", "package.json", "package-lock.json", "scripts/build.mjs", "scripts/frontend-state.mjs", "scripts/tex-assets.mjs", "scripts/package-ebook-component.mjs"]
-source_hash = hashlib.sha256()
-for name in sorted(inputs):
-    checksum = hashlib.sha256((root / name).read_bytes()).hexdigest()
-    source_hash.update(f"{name}\0{checksum}\n".encode("utf-8"))
-if state.get("source") != source_hash.hexdigest():
+# Keep the manifest and archive gate on the same authoritative input list.
+source_hash = subprocess.run(["node", "--input-type=module", "-e",
+    "import {sourceDigest} from './scripts/frontend-state.mjs'; process.stdout.write(sourceDigest(process.cwd()));"],
+    cwd=root, capture_output=True, text=True, check=True).stdout.strip()
+if state.get("source") != source_hash:
     raise SystemExit("编辑器资源与源码不一致，请先重新构建 HAP。")
 for name in ["index.html", "app.js", "style.css", "file-manager.css", "licenses.js", "version.json"]:
     if name not in state["outputs"]:
