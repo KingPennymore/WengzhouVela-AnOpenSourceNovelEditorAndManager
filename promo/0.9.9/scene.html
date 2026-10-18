@@ -1,0 +1,390 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>炉火祈愿 · 文舟 0.9.9 宣传片</title>
+<style>
+  /* Noto Serif SC (SIL OFL 1.1), cut down to the characters used here by fonts/subset.py */
+  @font-face{font-family:"Promo Serif";src:url("fonts/promo-serif.woff2") format("woff2");font-weight:100 500}
+  @font-face{font-family:"Promo Serif";src:url("fonts/promo-serif-bold.woff2") format("woff2");font-weight:600 900}
+  html,body{margin:0;height:100%;background:#000;display:grid;place-items:center;overflow:hidden}
+  canvas{max-width:100vw;max-height:100vh;display:block}
+  #play{position:fixed;inset:0;display:grid;place-items:center;background:#000c;color:#e8eef3;font:28px sans-serif;letter-spacing:4px;cursor:pointer;border:0}
+</style>
+</head>
+<body>
+<canvas id="stage" width="1920" height="1080"></canvas>
+<button id="play" hidden>▶ 播放（含配乐与配音）</button>
+<script src="lines.js"></script>
+<script src="voice/timing.js"></script>
+<script>
+// 《炉火祈愿》× 文舟 0.9.9 promo. Every picture is drawn here on a 2D canvas in a flat, low-poly style; renderAt(t)
+// draws the frame at t seconds. The soundtrack (music, effects and voice) is mixed by soundtrack.py from the same
+// timeline in lines.js. ?t=12.5 shows one frame; without ?record=1 the page plays along with soundtrack.wav.
+const P=window.PROMO,VT=window.VOICE_TIMING||{},DURATION=P.duration;window.DURATION=DURATION;
+const W=1920,H=1080,canvas=document.getElementById('stage'),ctx=canvas.getContext('2d');
+const params=new URLSearchParams(location.search);
+const SERIF='"Promo Serif","Source Han Serif SC","Noto Serif CJK SC","Songti SC","STSong","SimSun",serif';
+const SANS='"HarmonyOS Sans SC","Microsoft YaHei UI","Microsoft YaHei","PingFang SC","Noto Sans SC","WenQuanYi Zen Hei",sans-serif';
+const TAU=Math.PI*2;
+
+// ---------------------------------------------------------------- maths and colour
+const clamp=(v,a=0,b=1)=>Math.max(a,Math.min(b,v));
+const seg=(t,a,b)=>clamp((t-a)/(b-a));
+const lerp=(a,b,k)=>a+(b-a)*k;
+const sm=p=>p*p*(3-2*p);
+const easeOut=p=>1-Math.pow(1-p,3);
+const easeIn=p=>p*p*p;
+const easeInOut=p=>p<.5?4*p*p*p:1-Math.pow(-2*p+2,3)/2;
+const back=p=>{const c=1.7,d=c+1;return 1+d*Math.pow(p-1,3)+c*Math.pow(p-1,2);};
+const hash=i=>{const s=Math.sin(i*127.1+311.7)*43758.5453;return s-Math.floor(s);};
+const noise=x=>{const i=Math.floor(x),f=x-i;return lerp(hash(i),hash(i+1),sm(f));};
+const RGB=new Map();
+const rgbOf=h=>{let v=RGB.get(h);if(!v){v=[1,3,5].map(i=>parseInt(h.slice(i,i+2),16));if(RGB.size<4096)RGB.set(h,v);}return v;};
+const toHex=v=>'#'+v.map(x=>Math.round(clamp(x,0,255)).toString(16).padStart(2,'0')).join('');
+const mix=(a,b,k)=>k<=0?a:k>=1?b:toHex(rgbOf(a).map((v,i)=>v+(rgbOf(b)[i]-v)*k));
+const rgba=(h,a)=>`rgba(${rgbOf(h).join(',')},${a})`;
+// A global colour wash applied by poly(): scenes use it for dusk, darkness and backlit silhouettes.
+const TINT={to:'#000000',k:0};
+const tint=c=>TINT.k>0?mix(c,TINT.to,TINT.k):c;
+function withTint(to,k,draw){const o={...TINT};TINT.to=o.k>0&&k>0?mix(o.to,to,k/(o.k+k)):k>0?to:o.to;TINT.k=1-(1-o.k)*(1-k);draw();Object.assign(TINT,o);}
+
+// ---------------------------------------------------------------- drawing primitives
+function path(p){ctx.beginPath();ctx.moveTo(p[0],p[1]);for(let i=2;i<p.length;i+=2)ctx.lineTo(p[i],p[i+1]);ctx.closePath();}
+function poly(p,fill){path(p);ctx.fillStyle=tint(fill);ctx.fill();}
+function blob(x,y,r,fill,n=7,rot=0,squash=1){const p=[];for(let i=0;i<n;i++){const a=rot+i/n*TAU;p.push(x+Math.cos(a)*r,y+Math.sin(a)*r*squash);}poly(p,fill);}
+function limb(a,b,w1,w2,fill){const dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1,nx=-dy/L,ny=dx/L;poly([a[0]+nx*w1/2,a[1]+ny*w1/2,b[0]+nx*w2/2,b[1]+ny*w2/2,b[0]-nx*w2/2,b[1]-ny*w2/2,a[0]-nx*w1/2,a[1]-ny*w1/2],fill);}
+function rect(x,y,w,h,fill){ctx.fillStyle=tint(fill);ctx.fillRect(x,y,w,h);}
+function grad(y0,y1,stops,x0=0,x1=W){const g=ctx.createLinearGradient(0,y0,0,y1);stops.forEach(([k,c])=>g.addColorStop(k,tint(c)));ctx.fillStyle=g;ctx.fillRect(x0,Math.min(y0,y1),x1-x0,Math.abs(y1-y0));}
+function glow(x,y,r,color,a){if(a<=0)return;const g=ctx.createRadialGradient(x,y,0,x,y,r);g.addColorStop(0,rgba(color,a));g.addColorStop(1,rgba(color,0));ctx.fillStyle=g;ctx.fillRect(x-r,y-r,r*2,r*2);}
+function rr(x,y,w,h,r){ctx.beginPath();ctx.roundRect(x,y,w,h,Math.max(0,Math.min(r,w/2,h/2)));}
+function fillRR(x,y,w,h,r,c){rr(x,y,w,h,r);ctx.fillStyle=c;ctx.fill();}
+function strokeRR(x,y,w,h,r,c,lw=1){rr(x,y,w,h,r);ctx.strokeStyle=c;ctx.lineWidth=lw;ctx.stroke();}
+function text(str,x,y,{size=24,weight=400,color='#fff',align='left',font=SANS,a=1,spacing=0,baseline='alphabetic'}={}){
+  if(a<=0||!str)return;ctx.save();ctx.globalAlpha*=a;ctx.font=`${weight} ${size}px ${font}`;ctx.fillStyle=color;ctx.textAlign=align;ctx.textBaseline=baseline;
+  if(spacing)ctx.letterSpacing=spacing+'px';ctx.fillText(str,x,y);ctx.restore();
+}
+function measure(str,size,weight=400,font=SANS,spacing=0){ctx.save();ctx.font=`${weight} ${size}px ${font}`;if(spacing)ctx.letterSpacing=spacing+'px';const w=ctx.measureText(str).width;ctx.restore();return w;}
+const LOGO=new Path2D('M37 129h120l-34 34H70zM95 28v86H43zM111 46l47 68h-47z');
+
+// ---------------------------------------------------------------- scenery
+// A low-poly pine standing at (x,y): stacked jagged tiers with a lit facet on the left (light from the upper left).
+function pine(x,y,h,col,lite,{seed=0,snow=null,trunk=null}={}){
+  const tiers=4+Math.floor(hash(seed*7.3)*2),tw=h*.028;
+  poly([x-tw,y+2,x+tw,y+2,x+tw*.55,y-h*.6,x-tw*.55,y-h*.6],trunk||col);
+  for(let i=0;i<tiers;i++){
+    const k=i/tiers,yb=y-h*(.13+.74*k),yt=i===tiers-1?y-h:yb-h*(.3-.08*k),hw=h*.24*(1-.72*k)*(.88+.24*hash(seed+i*3.1)),ax=x+(hash(seed+i)-.5)*h*.02;
+    poly([ax,yt,x+hw,yb,x+hw*.5,yb-h*.045,x+hw*.12,yb+h*.008,x-hw*.32,yb-h*.04,x-hw,yb],col);
+    poly([ax,yt,x-hw,yb,x-hw*.32,yb-h*.04,x-hw*.02,yb-h*.11],lite);
+    if(snow)poly([ax,yt,x-hw*.62,yt+(yb-yt)*.62,x-hw*.18,yt+(yb-yt)*.5,x+hw*.2,yt+(yb-yt)*.6],snow);
+  }
+}
+// A broad-leafed tree for the spring meadow.
+function leafTree(x,y,h,col,lite,dark,seed=0){
+  poly([x-h*.035,y+2,x+h*.035,y+2,x+h*.02,y-h*.55,x-h*.02,y-h*.55],dark);
+  for(let i=0;i<4;i++){const a=hash(seed+i*2.1)*TAU,r=h*(.16+.07*hash(seed+i)),cx=x+Math.cos(a)*h*.12,cy=y-h*.66+Math.sin(a)*h*.12;blob(cx,cy,r,i%2?col:dark,6,a);}
+  blob(x-h*.08,y-h*.74,h*.17,lite,6,.4);blob(x+h*.09,y-h*.6,h*.14,col,6,1.1);
+}
+// Mountain ridge across the frame, scrolled by `off` (world px) and repeating every `step`.
+function ridge(seed,y,amp,col,lite,{step=220,off=0,x0=-300,x1=W+300}={}){
+  const i0=Math.floor((x0+off)/step)-1,i1=Math.ceil((x1+off)/step)+1,pts=[x0,H+50];const peaks=[];
+  for(let i=i0;i<=i1;i++){const px=i*step-off+(hash(seed+i)-.5)*step*.5,py=y-amp*(.35+.65*hash(seed+i*1.7)),vx=px+step*.5,vy=y-amp*.2*hash(seed+i*2.3);pts.push(px,py,vx,vy);peaks.push([px,py,vx,vy]);}
+  pts.push(x1,H+50);poly(pts,col);
+  peaks.forEach(([px,py],j)=>{const prev=peaks[j-1];if(!prev)return;poly([px,py,prev[2],prev[3],px-(px-prev[2])*.15,py+(prev[3]-py)*.75+30],lite);});
+}
+// Ground with an uneven top edge; `bands` adds flat-shaded drifts.
+function ground(y,col,{seed=1,amp=14,off=0,bands=null}={}){
+  const pts=[-50,H+50];for(let x=-50;x<=W+100;x+=120){pts.push(x,y+(noise((x+off)/300+seed)-.5)*amp*2);}pts.push(W+100,H+50);poly(pts,col);
+  if(bands)bands.forEach(([dy,c,s],i)=>{const p=[-50,H+50];for(let x=-50;x<=W+100;x+=160)p.push(x,y+dy+(noise((x+off)/260+seed+i*5+s)-.5)*amp*3);p.push(W+100,H+50);poly(p,c);});
+}
+function snowfall(t,n,{seed=0,speed=60,wind=-30,size=3,color='#ffffff',alpha=.8,x0=0,y0=0,w=W,h=H}={}){
+  ctx.save();ctx.fillStyle=color;
+  for(let i=0;i<n;i++){const r=hash(seed+i*1.31),z=.4+.6*hash(seed+i*2.7),x=x0+(((hash(seed+i)*w+t*wind*z+Math.sin(t*.8+i)*12)%w)+w)%w,y=y0+(((r*h+t*speed*z)%h)+h)%h,s=size*z;
+    ctx.globalAlpha=alpha*(.4+.6*z);ctx.beginPath();ctx.moveTo(x,y-s);ctx.lineTo(x+s,y);ctx.lineTo(x,y+s);ctx.lineTo(x-s,y);ctx.fill();}
+  ctx.restore();
+}
+function shafts(t,a,{color='#ffffff',angle=.55,x=0}={}){
+  if(a<=0)return;ctx.save();ctx.globalCompositeOperation='screen';
+  for(let i=0;i<5;i++){const w=60+hash(i*3)*140,px=x+i*260+hash(i)*120+Math.sin(t*.2+i)*20,al=a*(.05+.06*hash(i*7));ctx.fillStyle=`rgba(255,255,255,${al})`;
+    ctx.beginPath();ctx.moveTo(px,-20);ctx.lineTo(px+w,-20);ctx.lineTo(px+w+H*Math.tan(angle),H+20);ctx.lineTo(px+H*Math.tan(angle),H+20);ctx.fill();}
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------- anatomy toolkit
+// Outlines are smooth closed curves (Catmull-Rom through anatomical landmarks) filled flat. A limb segment is traced
+// around its bone from a profile [[t, front, back], …]: offsets across the bone at fraction t of its length, front
+// being the side the figure faces while the bone hangs down. Ends are rounded so joints close without seams.
+function smooth(pts,ten=1){
+  const n=pts.length/2,P=i=>[pts[((i%n)+n)%n*2],pts[((i%n)+n)%n*2+1]];ctx.beginPath();ctx.moveTo(pts[0],pts[1]);
+  for(let i=0;i<n;i++){const p0=P(i-1),p1=P(i),p2=P(i+1),p3=P(i+2);ctx.bezierCurveTo(p1[0]+(p2[0]-p0[0])*ten/6,p1[1]+(p2[1]-p0[1])*ten/6,p2[0]-(p3[0]-p1[0])*ten/6,p2[1]-(p3[1]-p1[1])*ten/6,p2[0],p2[1]);}
+  ctx.closePath();
+}
+function shape(pts,fill){smooth(pts);ctx.fillStyle=tint(fill);ctx.fill();}
+function segPts(a,b,prof){
+  const dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1,ux=dx/L,uy=dy/L,nx=uy,ny=-ux,P=(t,o)=>[a[0]+ux*t*L+nx*o,a[1]+uy*t*L+ny*o],out=[];
+  const cap=(row,dir)=>{const [t,f,bk]=row,c=(f+bk)/2,r=(f-bk)/2;for(const th of [.8,1.57,2.35]){const along=Math.sin(th)*r*dir,q=P(t,c+Math.cos(th)*r*dir);out.push(q[0]+ux*along,q[1]+uy*along);}};
+  for(const [t,f] of prof){const q=P(t,f);out.push(q[0],q[1]);}
+  cap(prof[prof.length-1],1);
+  for(let i=prof.length-1;i>=0;i--){const q=P(prof[i][0],prof[i][2]);out.push(q[0],q[1]);}
+  cap(prof[0],-1);return out;
+}
+// Lit in the manner of Another World: each part is its shadow tone with a lit block along the front.
+const LIT=c=>mix(c,'#fff1dc',.16),SHADE=c=>mix(c,'#000000',.14);
+function part(a,b,prof,fill,lit=.55){shape(segPts(a,b,prof),SHADE(fill));if(lit>0)shape(segPts(a,b,prof.map(([t,f,bk])=>[t,f,f-(f-bk)*lit])),LIT(fill));}
+function disc(p,r,fill){ctx.beginPath();ctx.arc(p[0],p[1],r,0,TAU);ctx.fillStyle=tint(fill);ctx.fill();}
+function capsule(a,b,r1,r2,fill){limb(a,b,r1*2,r2*2,fill);disc(a,r1,fill);disc(b,r2,fill);}
+const rot=(q,a)=>[q[0]*Math.cos(a)-q[1]*Math.sin(a),q[0]*Math.sin(a)+q[1]*Math.cos(a)];
+const along=(a,b,k)=>[lerp(a[0],b[0],k),lerp(a[1],b[1],k)];
+
+// ---------------------------------------------------------------- people
+// An adult in profile, facing +x (`face` -1 mirrors): 180 units tall, the head a little under a ninth of that, the
+// hip joint at half height. The torso follows the rib cage, waist, sacrum and buttocks; limbs carry the deltoid,
+// biceps and forearm, quadriceps, hamstring and calf. Limbs are solved with two-bone IK from hand (wrist) and foot
+// (ankle) targets relative to the hip joint, so poses read like puppet keys. Faces are a flat skin silhouette.
+const HUM={thigh:44,shin:42,ua:31,fa:26,sole:7};
+const POSE={x:0,y:0,s:1,face:1,tor:0,hd:0,hF:[14,-20],hB:[-6,-18],fF:[5,85],fB:[-5,85],ftF:0,ftB:0,cape:0};
+const PROFILE={
+  thigh:[[0,9,-10],[.2,9.6,-9.2],[.5,8.4,-7.8],[.8,6.8,-6],[1,5.6,-5.2]],
+  shin:[[0,5.4,-5.6],[.22,4.6,-8.4],[.42,4.2,-7.6],[.75,3.2,-4.2],[1,3,-3.4]],
+  boot:[[0,5,-7.2],[.5,4.2,-5.2],[1,4,-4.4]],
+  ua:[[0,6.6,-7],[.18,6.4,-6.4],[.5,5.2,-5.4],[.85,4.3,-4.4],[1,4,-4]],
+  fa:[[0,4.2,-4.3],[.25,5,-4.6],[.7,3.4,-3.3],[1,2.9,-2.9]],
+  hand:[[0,2.9,-2.9],[.45,3.6,-3.3],[.8,3.1,-2.3],[1,1.4,-1]],
+};
+// torso, hip joint at the origin: pubis, abdomen, rib cage and chest in front; buttocks, sacrum, lumbar curve,
+// shoulder blades and trapezius behind
+const TORSO=[4,10,9,4,10.5,-6,10.8,-17,10.2,-26,11.6,-33,14,-41,13.2,-48,10.2,-54,7,-58,5,-61,-6,-63,-9.4,-58,-12.6,-50,-12.6,-40,-11,-30,-9,-20,-10.6,-8,-13.2,-2,-14,4,-11.4,12,-3,13];
+// head and neck about the base of the neck: throat, chin, lips, nose, brow, crown, occiput, nape
+const HEAD=[6.4,2,5.6,-3.4,4,-7.2,7.8,-8.6,10.2,-10,9.7,-11.6,10.5,-12.7,10,-13.5,10.7,-14.5,10.3,-15.8,12.6,-17.2,9.8,-20.6,10.2,-22,9.4,-25.6,6.2,-29.4,0,-31.4,-6.2,-30,-9.6,-25.4,-10,-19.6,-8.2,-14.6,-6.6,-10.6,-7,-4,-8,2];
+const HAIR=[-5.8,-11.2,-9,-14.5,-10.4,-20,-10,-25.8,-6.6,-30.6,0,-32.2,6.6,-30.2,9.8,-26,7.4,-26.6,3,-27.4,-1,-25.2,-3.6,-20,-4.4,-14];
+const BEARD=[3.2,-7.2,7.8,-8.6,10.6,-10.2,10.8,-12.6,9.2,-13.4,5.4,-12.4,1.6,-15.2,-1.4,-12,0,-8.4];
+const HAT=[-11,-16.5,-10.8,-25,-7,-31.6,0,-33.8,7,-31.8,10.8,-26.6,11.2,-23.6,4,-24.8,-4,-23,-8,-19.8];
+const FLAP=[-6.8,-22,.4,-23,.2,-12.6,-2.4,-10.6,-5.4,-12.4];
+function lerpPose(a,b,k){const o={...a};for(const key in b){const v=a[key]??POSE[key],w=b[key];o[key]=Array.isArray(w)?w.map((x,i)=>lerp(v[i],x,k)):typeof w==='number'&&typeof v==='number'?lerp(v,w,k):w;}return o;}
+function keyed(t,keys,ease=easeInOut){
+  const full=keys.map(([kt,p])=>[kt,{...POSE,...p}]);
+  if(t<=full[0][0])return full[0][1];
+  for(let i=1;i<full.length;i++)if(t<full[i][0]){const [t0,p0]=full[i-1],[t1,p1]=full[i];return lerpPose(p0,p1,ease((t-t0)/(t1-t0)));}
+  return full[full.length-1][1];
+}
+function ik(a,b,l1,l2,pref){
+  const dx=b[0]-a[0],dy=b[1]-a[1],d=clamp(Math.hypot(dx,dy),Math.abs(l1-l2)+.01,l1+l2-.01),th=Math.atan2(dy,dx),al=Math.acos(clamp((l1*l1+d*d-l2*l2)/(2*l1*d),-1,1));
+  const c1=[a[0]+Math.cos(th+al)*l1,a[1]+Math.sin(th+al)*l1],c2=[a[0]+Math.cos(th-al)*l1,a[1]+Math.sin(th-al)*l1];
+  const side=c=>Math.sign(((c[0]-a[0])*dy-(c[1]-a[1])*dx)||1),e=side(c1)===pref?c1:c2;
+  const ang=Math.atan2(b[1]-e[1],b[0]-e[0]);return [e,[e[0]+Math.cos(ang)*l2,e[1]+Math.sin(ang)*l2]];
+}
+const STYLE={
+  soldier:{skin:'#b88f73',shirt:'#3e4a3c',vest:'#3b2c22',pants:'#2b3039',boot:'#1c1a19',hair:'#4a3527',hat:'#2f3433',flap:'#3d3a36'},
+  boy:{skin:'#c99b7c',shirt:'#55634e',vest:'#6b4a32',pants:'#3a3f47',boot:'#2a211c',hair:'#6b4a2f'},
+  smith:{skin:'#b98a6a',shirt:'#5d4433',vest:'#3a2a20',pants:'#33302d',boot:'#211b17',hair:'#4b3a2c',beard:'#5a4332'},
+  smithCoat:{skin:'#b98a6a',shirt:'#4a4440',vest:'#5a4636',pants:'#33302d',boot:'#211b17',hair:'#4b3a2c',beard:'#5a4332'},
+};
+function foot(a,ft,fill){ctx.save();ctx.translate(a[0],a[1]);ctx.rotate(ft);shape([-4,-4,-6.6,1.4,-5.8,7,6,7,18,7,20.6,5.2,17.4,1.6,8,-1.2,3.6,-5],fill);ctx.restore();}
+function human(p,st,{parts='all',hold=null,sil=0,silCol='#11161d'}={}){
+  const C=c=>mix(c,silCol,sil),D=c=>mix(C(c),'#000000',.22);
+  ctx.save();ctx.translate(p.x,p.y);ctx.scale(p.s*p.face,p.s);
+  const shF=rot([1,-53],p.tor),shB=[shF[0]-3,shF[1]+1];
+  const [eF,wF]=ik(shF,p.hF,HUM.ua,HUM.fa,-1),[eB,wB]=ik(shB,p.hB,HUM.ua,HUM.fa,-1);
+  const [kF,aF]=ik([2,0],p.fF,HUM.thigh,HUM.shin,1),[kB,aB]=ik([-2,0],p.fB,HUM.thigh,HUM.shin,1);
+  const J={shF,shB,eF,wF,eB,wB,kF,aF,kB,aB};
+  const arm=(sh,e,w,shirt,skin)=>{part(sh,e,PROFILE.ua,shirt);part(e,w,PROFILE.fa,shirt);const d=[w[0]-e[0],w[1]-e[1]],l=Math.hypot(d[0],d[1])||1;part(along(w,e,.06),[w[0]+d[0]/l*16,w[1]+d[1]/l*16],PROFILE.hand,skin);};
+  const leg=(hip,k,a,ft,pants,boot)=>{part(hip,k,PROFILE.thigh,pants);part(k,a,PROFILE.shin,pants);part(along(k,a,.5),a,PROFILE.boot,boot);foot(a,ft,boot);};
+  if(parts!=='arm'){
+    hold?.('back',J);
+    arm(shB,eB,wB,D(st.shirt),D(st.skin));
+    leg([-2,0],kB,aB,p.ftB,D(st.pants),D(st.boot));
+    ctx.save();ctx.rotate(p.tor);
+    shape(TORSO,SHADE(C(st.shirt)));
+    ctx.save();smooth(TORSO);ctx.clip();
+    poly([-1,-64,30,-64,30,-40,-3,-40],LIT(C(st.shirt)));
+    poly([-20,2,20,2,20,-44,9,-55,-1,-58,-20,-53],SHADE(C(st.vest)));poly([-2,2,20,2,20,-44,9,-55,-1,-58,-4,-40],LIT(C(st.vest)));
+    rect(-20,2,40,20,SHADE(C(st.pants)));rect(-1,2,30,20,LIT(C(st.pants)));rect(-20,-3.6,40,5.6,C('#1d1915'));
+    ctx.restore();
+    ctx.translate(0,-59.5);ctx.rotate(p.hd);
+    shape(HEAD,SHADE(C(st.skin)));ctx.save();smooth(HEAD);ctx.clip();poly([1,4,20,4,20,-40,1,-40,-1,-20],LIT(C(st.skin)));ctx.restore();
+    if(st.beard)shape(BEARD,C(st.beard));
+    if(st.hat){shape(HAT,C(st.hat));shape(FLAP,C(st.flap));}else shape(HAIR,C(st.hair));
+    ctx.restore();
+    leg([2,0],kF,aF,p.ftF,C(st.pants),C(st.boot));
+  }
+  if(parts!=='body'){hold?.('front',J);arm(shF,eF,wF,C(st.shirt),C(st.skin));hold?.('hand',J);}
+  ctx.restore();return J;
+}
+// Riga's spear, held in both hands (local figure coordinates).
+function spear(x,y0,y1,col='#1d2433',head='#2a3550'){limb([x,y0],[x,y1],3.6,3,col);shape([x,y1-38,x+5.5,y1-14,x+2,y1-2,x-2,y1-2,x-5.5,y1-14],head);}
+
+// ---------------------------------------------------------------- the horse, Pipe
+// A bay horse in profile, facing +x, hooves at y=0: 150 units at the withers, body as long as it is tall, belly at
+// half height, head about two-fifths of the height. The outline runs croup, loin, withers, crest, poll, face,
+// muzzle, jowl, throat, chest, brisket, belly, flank and buttock; legs are traced from forearm and gaskin muscle
+// down to cannon, fetlock, pastern and hoof, the hock set high and pointing back. Lower legs, mane and tail are
+// black, as on a bay. gait: 0 stand, 1 walk, 2 gallop; phase in strides. Returns the saddle seat and the bit.
+const HORSE={body:'#6a4a34',dark:'#2a1e18',hoof:'#18120e'},HORSE_SEAT=[-4,-144];
+const GAIT_OFF={1:[0,.5,.25,.75],2:[0,.1,.42,.52]}; // hind near, hind far, fore near, fore far
+const HORSE_OUT=[-86,-136,-70,-147,-42,-144,-10,-139,18,-142,40,-153,56,-167,74,-186,90,-202,100,-209,112,-210,121,-201,132,-183,141,-167,146,-159,145,-151,139,-148,132,-151,121,-158,109,-166,103,-175,99,-181,93,-160,86,-138,84,-120,87,-109,84,-97,72,-86,58,-83,44,-78,10,-75,-20,-78,-44,-84,-56,-90,-66,-88,-80,-89,-90,-102,-92,-116,-90,-128];
+const HORSE_MANE=[38,-152,55,-168,73,-187,89,-203,100,-211,104,-206,96,-199,82,-186,64,-168,50,-153];
+const HLEG={forearm:[[0,11,-13],[.3,8.8,-8],[.75,6.2,-5.6],[1,6,-6]],cannon:[[0,5,-5.4],[.3,4.2,-4.8],[.8,4.4,-5.4],[1,5.2,-6.6]],pastern:[[0,5.2,-6.2],[.6,4.2,-4.2],[1,4.6,-4]],
+  gaskin:[[0,15,-17],[.4,9.4,-9.4],[.85,6,-7.4],[1,6,-8.4]],hcannon:[[0,5.4,-6.4],[.3,4.4,-5],[.8,4.4,-5.4],[1,5.2,-6.6]]};
+function legSwing(gait,p,hind){
+  if(gait===1){if(p<.6)return [lerp(.22,-.22,p/.6),0];const q=(p-.6)/.4;return [lerp(-.22,.22,sm(q)),Math.sin(Math.PI*q)*.7];}
+  const reach=hind?.45:.7;if(p<.38)return [lerp(reach,-.6,p/.38),0];const q=(p-.38)/.62;return [lerp(-.6,reach,sm(q)),Math.sin(Math.PI*q)*1.05];
+}
+function horse(o){
+  const {x,y,s=1,gait=0,phase=0,blend=1,neck=0,sil=0,silCol='#11161d',tail=0,face=1}=o;
+  const C=c=>mix(c,silCol,sil),D=c=>mix(C(c),'#000000',.28);
+  const bob=gait===2?-Math.sin(TAU*phase)*6*blend:gait===1?-Math.abs(Math.sin(TAU*phase*2))*1.5*blend:0;
+  const pitch=gait===2?Math.sin(TAU*phase+1)*.045*blend:0;
+  ctx.save();ctx.translate(x,y);ctx.scale(s*face,s);
+  const legs=[[-66,-90],[-61,-92],[62,-92],[66,-92]];
+  const drawLeg=(i,far)=>{const hind=i<2,[lx,ly]=legs[i];let u=0,f=0;
+    if(gait){const off=GAIT_OFF[gait][i],p=(((phase-off)%1)+1)%1;[u,f]=legSwing(gait,p,hind);u*=blend;f*=blend;}
+    const a1=hind?-.26+u:u,a2=hind?a1+.35-f*.8:a1-f*1.7,a3=a2+.46-f*.5,L=hind?[40,34,13]:[38,35,13];
+    const d=a=>[Math.sin(a),Math.cos(a)];ctx.save();ctx.translate(0,bob);ctx.rotate(pitch);
+    const p0=[lx,ly],p1=[p0[0]+d(a1)[0]*L[0],p0[1]+d(a1)[1]*L[0]],p2=[p1[0]+d(a2)[0]*L[1],p1[1]+d(a2)[1]*L[1]],p3=[p2[0]+d(a3)[0]*L[2],p2[1]+d(a3)[1]*L[2]];
+    const up=far?D(HORSE.body):C(HORSE.body),pt=far?D(HORSE.dark):C(HORSE.dark);
+    part(p0,p1,hind?HLEG.gaskin:HLEG.forearm,up);part(p1,p2,hind?HLEG.hcannon:HLEG.cannon,pt);part(p2,p3,HLEG.pastern,pt);
+    ctx.save();ctx.translate(p3[0],p3[1]);ctx.rotate(-a3*.5);poly([-5.5,-3,5.2,-3.4,9,4.5,-6.5,4.5],C(HORSE.hoof));ctx.restore();ctx.restore();};
+  drawLeg(1,true);drawLeg(3,true);
+  ctx.save();ctx.translate(0,bob);ctx.rotate(pitch);
+  const sw=Math.sin(tail)*.16+(gait===2?.8*blend:.04);ctx.save();ctx.translate(-86,-133);ctx.rotate(sw);shape([5,-5,-6,-1,-14,24,-19,56,-16,86,-8,84,-1,58,4,26,8,6],C(HORSE.dark));ctx.restore();
+  // neck and head bend about the base of the neck
+  const bend=(a)=>{const o=[];for(let i=0;i<a.length;i+=2){const k=clamp((a[i]-40)/40),q=rot([a[i]-72,a[i+1]+128],neck*k);o.push(q[0]+72,q[1]-128);}return o;};
+  ctx.save();ctx.translate(...rot([0,0],0));const ear=bend([100,-209,102,-225,107,-210]),ear2=bend([104,-209,107,-223,110,-208]);poly(ear2,D(HORSE.body));ctx.restore();
+  shape(bend(HORSE_OUT),SHADE(C(HORSE.body)));ctx.save();smooth(bend(HORSE_OUT));ctx.clip();poly(bend([-110,-180,40,-180,180,-260,180,-150,96,-128,74,-110,-10,-118,-110,-114]),LIT(C(HORSE.body)));ctx.restore();poly(ear,C(HORSE.body));shape(bend(HORSE_MANE),C(HORSE.dark));
+  shape([-28,-139,-18,-148,12,-149,24,-139,19,-120,-24,-119],C('#3a2419'));
+  ctx.restore();
+  drawLeg(0,false);drawLeg(2,false);
+  ctx.restore();
+  const [sx,sy]=HORSE_SEAT,c=Math.cos(pitch),sn=Math.sin(pitch),m=rot([139-72,-150+128],neck);
+  return {x:x+(sx*c-sy*sn)*s*face,y:y+(sx*sn+sy*c+bob)*s,mouth:[x+(m[0]+72)*s*face,y+(m[1]-128+bob)*s],pitch};
+}
+
+// ---------------------------------------------------------------- the great bear, Arthur
+// A brown bear in profile, facing +x, paws at y=0: the shoulder hump stands above the forelegs and the back falls to a
+// lower rump, the head hangs from a thick neck, the legs are heavy and plantigrade. rear 0..1 stands it up on bent
+// hind legs; head 0 forward, 1 sniffing; jaw 0..1 opens the mouth.
+const BEAR_OUT=[-106,-80,-102,-98,-86,-108,-58,-112,-24,-114,8,-122,32,-134,50,-134,68,-124,84,-110,92,-96,92,-80,84,-66,66,-58,40,-52,10,-49,-24,-50,-52,-54,-74,-56,-94,-64];
+const BEAR_HEAD=[-12,-20,0,-28,10,-33,22,-30,32,-22,40,-15,50,-11,57,-8,61,-4,60,2,52,6,40,9,26,13,10,18,-6,16,-14,6];
+const BLEG={upper:[[0,18,-19],[.5,14,-13],[1,11.5,-11]],lower:[[0,11.5,-11],[.6,10,-10],[1,10.5,-10]],thigh:[[0,22,-24],[.5,16,-17],[1,13,-13]],shank:[[0,13,-13],[.6,11,-10],[1,10.5,-9.5]]};
+const BEAR_UP=[-100,-60,-104,-84,-103,-110,-99,-140,-93,-170,-85,-196,-75,-216,-60,-230,-44,-234,-32,-226,-26,-212,-22,-196,-20,-178,-20,-158,-18,-138,-22,-116,-28,-98,-38,-82,-52,-70,-86,-58];
+function bear(o){
+  const {x,y,s=1,phase=0,walk=0,rear=0,head=0,jaw=0}=o,B='#6b4a2e',Dk='#4c3421',M='#5e2420',r=sm(rear);
+  ctx.save();ctx.translate(x,y);ctx.scale(s,s);
+  const out=BEAR_OUT.map((v,i)=>lerp(v,BEAR_UP[i],r));
+  const sway=i=>walk?Math.sin(TAU*(phase-[0,.5,.25,.75][i]))*.3*walk:0,d=a=>[Math.sin(a),Math.cos(a)];
+  const paw=(f,col,ang=0)=>{ctx.save();ctx.translate(f[0],f[1]);ctx.rotate(ang);shape([-13,-9,4,-12,16,-8,24,-2,25,4,-14,4],col);ctx.restore();};
+  const leg=(i,far)=>{const fore=i>=2,col=far?Dk:B;
+    if(fore){const base=along([62+(far?-8:0),-80],[-30+(far?-8:0),-196],r);let u=sway(i),l=u*.4;u=lerp(u,(far?1.2:.95)+jaw*.5,r);l=lerp(l,(far?.6:.35)+jaw*.7,r);
+      const k=[base[0]+d(u)[0]*40,base[1]+d(u)[1]*40],f=[k[0]+d(l)[0]*30,k[1]+d(l)[1]*30];part(base,k,BLEG.upper,col,0);part(k,f,BLEG.lower,col,0);
+      if(r<.5)paw([f[0],f[1]+6],col);else{ctx.save();ctx.translate(f[0],f[1]);ctx.rotate(-l+.3);shape([-11,-4,11,-4,13,10,6,20,-6,20,-12,10],col);for(const c of [-6,0,6])poly([c-2,19,c+2,19,c+1,26],'#d9cbb0');ctx.restore();}}
+    else{const base=along([-74+(far?6:0),-60],[-66+(far?6:0),-70],r),u=sway(i)*(1-r)+r*.28,k=[base[0]+d(u)[0]*32,base[1]+d(u)[1]*32],an=[k[0]-6-r*6,-10];
+      part(base,k,BLEG.thigh,col,0);part(k,an,BLEG.shank,col,0);paw([an[0]+2,6],col);}
+  };
+  leg(1,true);leg(3,true);
+  shape(out,SHADE(B));ctx.save();smooth(out);ctx.clip();
+  poly(r<.5?[-130,-160,140,-160,140,-96,60,-90,-20,-86,-130,-80]:[-40,-260,40,-260,40,-40,-30,-40,-40,-140],LIT(B));ctx.restore();
+  const nk=along([86,-92],[-38,-222],r),ha=lerp(lerp(.22,.95,head),-.2,r)-jaw*.45;
+  ctx.save();ctx.translate(nk[0],nk[1]);ctx.rotate(ha);
+  shape([-16,-24,6,-22,12,22,-12,28],B);
+  ctx.save();ctx.translate(26,10);ctx.rotate(jaw*.6);if(jaw>.15)shape([0,-6,30,-9,32,0,6,4],M);shape([-2,-1,30,-3,33,2,24,8,2,8],B);ctx.restore();
+  shape(BEAR_HEAD,SHADE(B));ctx.save();smooth(BEAR_HEAD);ctx.clip();poly([-20,-40,80,-40,80,-12,-20,-6],LIT(B));ctx.restore();disc([8,-31],5.5,B);
+  ctx.restore();
+  leg(0,false);leg(2,false);
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------- the raven, Sinfran
+// A raven in profile, facing +x at (x,y): heavy arched bill, shaggy throat, wedge tail; wings reach a little over twice
+// the body. Seen from the side a wing beats about the body's axis, so it is drawn at full length when raised or
+// lowered and foreshortened as it passes the horizontal. flap: -1 raised .. 1 lowered; fold 0..1; look tilts the
+// head down; perch tilts the body up as when sitting.
+const RAVEN_BODY=[-30,-8,-6,-13,16,-14,26,-17,34,-20,41,-18,45,-15,55,-12,62,-8,56,-6,45,-5,40,-1,36,3,30,6,10,11,-14,9,-30,4,-56,5,-62,0,-57,-6,-34,-8];
+function raven(o){
+  const {x,y,s=1,face=1,flap=0,fold=1,look=0,body=0,perch=0}=o,K='#10141b',Dk='#06080c';
+  ctx.save();ctx.translate(x,y);ctx.scale(s*face,s);
+  if(perch>0){limb([0,8],[-2,26],3,2.4,K);limb([8,6],[8,26],3,2.4,K);poly([-10,24,4,24,6,28,-10,28],K);poly([0,24,14,24,16,28,0,28],K);}
+  ctx.rotate(body-perch*.42);
+  const wing=(far)=>{const k=clamp(-(flap+(far?.15:0)),-1,1),sy=Math.sign(k||1)*Math.max(Math.abs(k),.1),L=lerp(26,150,1-fold);
+    ctx.save();ctx.translate(-4,-10);ctx.scale(1,sy);
+    poly([28,0,24,-L*.35,14,-L*.7,6,-L*.86,-2,-L*.98,-6,-L,-12,-L*.94,-14,-L*.86,-20,-L*.8,-22,-L*.7,-28,-L*.62,-30,-L*.5,-34,-L*.3,-30,0],far?Dk:K);ctx.restore();};
+  if(fold<1)wing(true);
+  shape(RAVEN_BODY,K);
+  if(fold>0){ctx.save();ctx.globalAlpha*=fold;shape([22,-12,-36,-8,-50,-2,-8,6,18,2],Dk);ctx.restore();}
+  ctx.save();ctx.translate(28,-12);ctx.rotate(look);ctx.translate(-28,12);shape([20,-15,26,-17,34,-20,41,-18,45,-15,55,-12,62,-8,56,-6,45,-5,40,-1,28,2],K);ctx.restore();
+  if(!perch&&fold<1){limb([2,9],[-10,16],2.6,2,K);limb([8,8],[-4,16],2.6,2,K);}
+  if(fold<1)wing(false);
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------- 文舟 interface overlays (screen space)
+const UI={bg:'#16201b',panel:'#1c2821',line:'#35483c',text:'#e3efe7',muted:'#96ac9e',accent:'#8ad0a8',deep:'#257c67',tint:'#2e4838'};
+function glass(x,y,w,h,a,r=14){if(a<=0)return;ctx.save();ctx.globalAlpha*=a;ctx.shadowColor='rgba(0,0,0,.35)';ctx.shadowBlur=30;ctx.shadowOffsetY=12;fillRR(x,y,w,h,r,'rgba(22,32,27,.9)');ctx.shadowColor='transparent';strokeRR(x+.5,y+.5,w-1,h-1,r,'rgba(138,208,168,.35)',1.2);ctx.restore();}
+function cursor(x,y,a=1,press=0){if(a<=0)return;ctx.save();ctx.globalAlpha*=a;ctx.translate(x,y);ctx.scale(1.25-press*.15,1.25-press*.15);path([0,0,0,22,6,17,10,27,14,25,10,16,17,16]);ctx.fillStyle='#ffffff';ctx.fill();ctx.strokeStyle='#1a1a1a';ctx.lineWidth=1.5;ctx.stroke();ctx.restore();if(press>0){ctx.save();ctx.globalAlpha=a*press*.6;ctx.strokeStyle=UI.accent;ctx.lineWidth=2;ctx.beginPath();ctx.arc(x,y,10+16*(1-press),0,TAU);ctx.stroke();ctx.restore();}}
+const typed=(str,p)=>str.slice(0,Math.floor(str.length*clamp(p)+.0001));
+function chip(x,y,label,{a=1,fill=UI.tint,color=UI.accent,size=17}={}){const w=measure(label,size,600)+28;fillRR(x,y,w,size+16,(size+16)/2,fill);text(label,x+14,y+size+4,{size,weight:600,color,a});return w;}
+// Selecting a term in the manuscript and adding it to the glossary. q compresses the timing (Sinfran's is quicker).
+function glossaryOverlay(t,{t0,t1,x,y,sentence,term,cat,def,q=1,keepTag=true}){
+  const lt=(t-t0)/q;if(t<t0||t>t1+.6)return;const out=1-seg(t,t1,t1+.5);
+  const w=560,size=26,ty=y+70,tx=x+28,start=sentence.indexOf(term),preW=measure(sentence.slice(0,start),size,400,SERIF),termW=measure(term,size,400,SERIF);
+  const open=easeOut(seg(lt,0,.45)),collapse=easeInOut(seg(lt,6.8,7.5)),cardA=open*(1-collapse)*out;
+  ctx.save();ctx.translate(0,(1-open)*-16);
+  if(cardA>0){
+    const exp=easeInOut(seg(lt,3.3,3.9)),h=104+exp*252;glass(x,y,w,h,cardA);ctx.save();ctx.globalAlpha*=cardA;ctx.beginPath();ctx.rect(x,y-80,w,h+80);ctx.clip();
+    text('正文.txt',x+24,y+34,{size:15,color:UI.muted});text('炉火祈愿',x+w-24,y+34,{size:15,color:UI.muted,align:'right'});
+    const sel=seg(lt,1.3,1.9);if(sel>0&&lt<3.3){fillRR(tx+preW-2,ty-size+2,termW*sel+4,size+8,4,'rgba(138,208,168,.32)');}
+    if(lt>=3.3){fillRR(tx+preW-2,ty-size+2,termW+4,size+8,4,'rgba(138,208,168,.18)');ctx.save();ctx.setLineDash([4,3]);ctx.strokeStyle=UI.accent;ctx.lineWidth=1.6;ctx.beginPath();ctx.moveTo(tx+preW,ty+6);ctx.lineTo(tx+preW+termW,ty+6);ctx.stroke();ctx.restore();}
+    text(sentence,tx,ty,{size,color:UI.text,font:SERIF});
+    if(exp>0){ctx.save();ctx.globalAlpha*=exp;const fy=y+108;ctx.fillStyle=UI.line;ctx.fillRect(x+20,fy-8,w-40,1);
+      text('新建词条',x+24,fy+24,{size:17,weight:700,color:UI.text});text('设定.gly',x+w-24,fy+24,{size:15,color:UI.muted,align:'right'});
+      const field=(i,label,value,p)=>{const yy=fy+44+i*48;text(label,x+24,yy+26,{size:16,color:UI.muted});fillRR(x+86,yy,w-110,38,8,'#22322a');strokeRR(x+86,yy,w-110,38,8,p>0&&p<1?UI.accent:'#3a4f43',1.2);text(typed(value,p),x+100,yy+26,{size:19,color:UI.text,font:SERIF});
+        if(p>0&&p<1&&Math.floor(t*3)%2===0){const cw=measure(typed(value,p),19,400,SERIF);ctx.fillStyle=UI.accent;ctx.fillRect(x+102+cw,yy+9,2,21);}};
+      field(0,'词条',term,1);field(1,'分类',cat,seg(lt,4.0,4.4));field(2,'释义',def,seg(lt,4.6,5.4));
+      const save=seg(lt,5.85,6.0);fillRR(x+w-110,fy+192,86,34,17,save>0?UI.accent:UI.deep);text('保存',x+w-67,fy+215,{size:16,weight:700,color:save>0?'#10241a':'#eaf6ef',align:'center'});ctx.restore();}
+    ctx.restore();
+    // selection menu and the "更多" dropdown
+    const menuA=seg(lt,2.0,2.2)*(1-seg(lt,3.2,3.35));if(menuA>0){const mx=tx+preW-60,my=ty-size-62;ctx.save();ctx.globalAlpha*=menuA*cardA;fillRR(mx,my,262,42,10,'#26352d');
+      ['剪切','复制','粘贴','更多'].forEach((l,i)=>{if(i===3&&lt>2.6)fillRR(mx+196,my+5,60,32,7,UI.tint);text(l,mx+30+i*64,my+28,{size:16,color:i===3&&lt>2.6?UI.accent:UI.text,align:'center'});});
+      const dd=seg(lt,2.65,2.85);if(dd>0){ctx.globalAlpha*=dd;fillRR(mx+170,my+48,150,86,10,'#26352d');text('搜索',mx+190,my+80,{size:16,color:UI.text});if(lt>2.95)fillRR(mx+176,my+92,138,34,7,UI.tint);text('加入术语库',mx+190,my+116,{size:16,color:lt>2.95?UI.accent:UI.text});}
+      ctx.restore();}
+    // cursor path: to the term, drag across, to 更多, to 加入术语库, to the fields, to 保存
+    const cp=[[0,x+w*.75,y+150],[1.2,tx+preW+2,ty-6],[1.9,tx+preW+termW,ty-4],[2.5,tx+preW+166,ty-size-38],[3.05,tx+preW+180,ty-size+6],[3.3,tx+preW+180,ty-size+6],[3.9,x+w*.6,y+212],[5.5,x+w-80,y+318],[6.3,x+w-60,y+330]];
+    let cx=cp[0][1],cy=cp[0][2];for(let i=1;i<cp.length;i++)if(lt>=cp[i-1][0]){const k=easeInOut(seg(lt,cp[i-1][0],cp[i][0]));cx=lerp(cp[i-1][1],cp[i][1],k);cy=lerp(cp[i-1][2],cp[i][2],k);}
+    const press=Math.max(...[1.3,2.6,3.15,5.9].map(c=>1-Math.min(1,Math.abs(lt-c)/.15)));cursor(cx,cy,cardA*seg(lt,.3,.7),Math.max(0,press));
+  }
+  // toast, then the saved term collapses into a tag
+  const toast=seg(lt,6.0,6.2)*(1-seg(lt,7.2,7.5))*out;if(toast>0){ctx.save();ctx.globalAlpha*=toast;fillRR(x+w/2-130,y-58,260,44,22,'#26352d');text('✓ 词条已加入术语库',x+w/2,y-29,{size:17,weight:600,color:UI.accent,align:'center'});ctx.restore();}
+  if(keepTag){const tg=seg(lt,7.0,7.5)*out;if(tg>0){ctx.save();ctx.globalAlpha*=tg;const label=`${term} · ${def}`,tw=measure(label,18,600)+30,ax=x+w-tw;fillRR(ax,y+(1-tg)*30,tw,38,19,'rgba(22,32,27,.85)');strokeRR(ax,y+(1-tg)*30,tw,38,19,'rgba(138,208,168,.5)',1.2);text(label,ax+15,y+26+(1-tg)*30,{size:18,weight:600,color:UI.accent});ctx.restore();}}
+  ctx.restore();
+}
+
+// ---------------------------------------------------------------- subtitles
+function subtitles(t){
+  for(const l of P.lines){const dur=VT[l.id]??(l.end-l.at-.4),a0=l.at-.15,a1=Math.max(l.at+dur+.5,l.at+1.6);if(t<a0||t>a1+.3)continue;
+    const a=seg(t,a0,a0+.25)*(1-seg(t,a1,a1+.3)),zh=wrapZh(l.zh,36,1500),en=wrapEn(l.en,21,1560),y=H-70-en.length*30-(zh.length-1)*50;
+    ctx.save();ctx.globalAlpha=a;const top=y-90-(zh.length-1)*50,g=ctx.createLinearGradient(0,top,0,H);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(.45,'rgba(0,0,0,.38)');g.addColorStop(1,'rgba(0,0,0,.62)');ctx.fillStyle=g;ctx.fillRect(0,top,W,H-top);
+    ctx.shadowColor='rgba(0,0,0,.8)';ctx.shadowBlur=12;
+    zh.forEach((line,i)=>text(line,W/2,y+i*50,{size:36,weight:500,color:'#f7f4ee',align:'center',font:SERIF,spacing:1}));
+    en.forEach((line,i)=>text(line,W/2,y+(zh.length-1)*50+44+i*30,{size:21,color:'rgba(236,238,240,.9)',align:'center',font:'Georgia,"Times New Roman",serif'}));
+    ctx.restore();}
+}
+// Break a Chinese line at punctuation so each part fits; English lines break between words.
+function wrapZh(str,size,max){if(measure(str,size,500,SERIF)<=max)return [str];const cut=[...str.matchAll(/[，、；]/g)].map(m=>m.index+1),mid=str.length/2;const at=cut.sort((a,b)=>Math.abs(a-mid)-Math.abs(b-mid))[0]||Math.ceil(mid);return [str.slice(0,at),str.slice(at)];}
+function wrapEn(str,size,max){const out=[];let cur='';for(const w of str.split(' ')){const next=cur?cur+' '+w:w;if(cur&&measure(next,size,400,'Georgia,serif')>max){out.push(cur);cur=w;}else cur=next;}out.push(cur);return out;}
+// When a cue word is spoken: proportional to its place in the English line.
+function cue(id,word){const l=P.lines.find(x=>x.id===id),i=l.en.indexOf(word);return l.at+(VT[id]??(l.end-l.at))*(i<0?0:i/l.en.length);}
+// Gallop phase (strides) from the shared rate curve [t, strides per second].
+function gallopPhase(t){const g=P.gallop;let ph=0;for(let i=1;i<g.length;i++){const [t0,r0]=g[i-1],[t1,r1]=g[i];if(t<=t0)break;const e=Math.min(t,t1),k=(e-t0)/(t1-t0);ph+=(e-t0)*(r0+(r0+(r1-r0)*k))/2;}return ph;}
+function gallopRate(t){const g=P.gallop;for(let i=1;i<g.length;i++)if(t<g[i][0]){const [t0,r0]=g[i-1],[t1,r1]=g[i];return lerp(r0,r1,(t-t0)/(t1-t0));}return 0;}
+
+// ---------------------------------------------------------------- sparks (forge)
+function sparkBurst(t,t0,ox,oy,{n=46,seed=0,scale=1,spread=1}={}){
+  const age=t-t0;if(age<0||age>2.4)return;
+  for(let i=0;i<n;i++){const r=hash(seed+i*3.7),a=-Math.PI/2+(hash(seed+i)-.5)*Math.PI*1.25*spread,v=(260+520*hash(seed+i*1.9))*scale,life=.5+1.6*r;if(age>life)continue;
+    const k=age/life,x=ox+Math.cos(a)*v*age,y=oy+Math.sin(a)*v*age+900*scale*age*age,col=k<.2?mix('#fffbe8','#ffd45a',k/.2):k<.6?mix('#ffd45a','#ff7a1e',(k-.2)/.4):mix('#ff7a1e','#5a1a08',(k-.6)/.4),sz=(3+4*hash(seed+i*5))*scale*(1-k*.6);
+    ctx.save();ctx.translate(x,y);ctx.rotate(a+age*6*(r-.5));ctx.globalAlpha=1-k*k;poly([-sz*2,0,0,-sz*.7,sz*1.6,0,0,sz*.7],col);ctx.restore();}
+}
+</script>
+<script src="scenes.js"></script>
+</body>
+</html>
