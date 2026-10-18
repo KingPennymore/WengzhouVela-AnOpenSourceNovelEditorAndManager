@@ -37,7 +37,7 @@ try{
   }else{
     const duration=await page.evaluate(()=>window.DURATION),total=Math.round(duration*FPS),t0=Date.now();
     const ff=spawn(process.env.FFMPEG||'ffmpeg',['-y','-loglevel','error','-f','image2pipe','-framerate',String(FPS),'-c:v','mjpeg','-i','-','-i',path.join(dir,'soundtrack.wav'),
-      '-c:v','libx264','-preset','slow','-crf','20','-tune','animation','-pix_fmt','yuv420p','-colorspace','bt709','-color_primaries','bt709','-color_trc','bt709',
+      '-c:v','libx264','-preset','slow','-crf','25','-tune','animation','-pix_fmt','yuv420p','-colorspace','bt709','-color_primaries','bt709','-color_trc','bt709',
       '-af','loudnorm=I=-16:TP=-1.5:LRA=11','-ar','48000','-c:a','aac','-b:a','192k','-shortest','-movflags','+faststart',video],{stdio:['pipe','inherit','inherit']});
     for(let f=0;f<total;f++){const buf=await frame(f/FPS,'image/jpeg');if(!ff.stdin.write(buf))await new Promise(r=>ff.stdin.once('drain',r));if(f%300===0)console.log(`frame ${f}/${total}  ${((Date.now()-t0)/1000).toFixed(0)} s`);}
     ff.stdin.end();const code=await new Promise(r=>ff.on('close',r));if(code)throw Error('ffmpeg exited with '+code);console.log(video);
