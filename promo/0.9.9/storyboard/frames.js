@@ -1,67 +1,18 @@
-// Key frames of storyboard v4 (storyboard.md): every scene woven, and no people in any of them. Havard and Riga are
-// there only in what they leave: a spear, breath, tools, footprints, reins running out of the frame. The world and
-// the horse Pipe are woven in the modelled manner of late-medieval Flemish tapestry; the two spirits, Arthur and
-// Sinfran, in the older Viking manner (one silhouette, an inner contour, spirals at the joints).
+// Key frames of storyboard v5 (storyboard.md). Every scene is woven in the one manner approved for Arthur and Sinfran:
+// 6×4 picks, flat dyes, each figure or object a single silhouette edged in dark wool with an inner contour, palmette
+// trees, a Latin inscription above and lozenges below. No people anywhere: Havard and Riga are there only in what
+// they leave (a spear, breath, a white-hot iron, footprints).
 window.FRAMES={};const frame=(id,fn)=>{window.FRAMES[id]=()=>{ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';ctx.filter='none';TINT.k=0;UI_LAYER.length=0;fn();ctx.setTransform(1,0,0,1,0,0);UI_LAYER.forEach(f=>{ctx.save();f();ctx.restore();});};};
 const line=id=>P.lines.find(l=>l.id===id);
 const caption=id=>{const l=line(id);sampleCaption(l.zh,l.en);};
 const R=RAMP;
 
-// ---------------------------------------------------------------- figure kit
 // A limb from a to b (and on to c), tapered from w0 to w1 (and w2): returns outline points for mshape.
 function limbPts(pts,ws){const n=pts.length/2,L=[],Rr=[];for(let i=0;i<n;i++){const x=pts[i*2],y=pts[i*2+1],j0=Math.max(0,i-1),j1=Math.min(n-1,i+1),dx=pts[j1*2]-pts[j0*2],dy=pts[j1*2+1]-pts[j0*2+1],l=Math.hypot(dx,dy)||1,nx=-dy/l,ny=dx/l,w=ws[i]/2;L.push(x+nx*w,y+ny*w);Rr.push(x-nx*w,y-ny*w);}
   const out=[...L];for(let i=n-1;i>=0;i--)out.push(Rr[i*2],Rr[i*2+1]);return out;}
 const ell=(cx,cy,rx,ry,n=14,rot=0)=>{const p=[];for(let i=0;i<n;i++){const a=i/n*TAU,x=Math.cos(a)*rx,y=Math.sin(a)*ry;p.push(cx+x*Math.cos(rot)-y*Math.sin(rot),cy+x*Math.sin(rot)+y*Math.cos(rot));}return p;};
 function at(x,y,s,face,draw){ctx.save();ctx.translate(x,y);ctx.scale(s*face,s);draw();ctx.restore();}
-function hammerAt(hx,hy,ang,len=150){const ex=hx+Math.cos(ang)*len,ey=hy+Math.sin(ang)*len;mshape(limbPts([hx-Math.cos(ang)*26,hy-Math.sin(ang)*26,ex,ey],[12,12]),R.walnut,{lw:5});
-  ctx.save();ctx.translate(ex,ey);ctx.rotate(ang);mshape([-14,-36,14,-36,18,32,-18,32],R.iron,{poly:true,lw:5,ang:0});ctx.restore();}
-function tongsAt(x0,y0,x1,y1){wline([x0,y0,(x0+x1)/2,(y0+y1)/2-6,x1,y1],DYE.black,9);wline([x0,y0+12,(x0+x1)/2,(y0+y1)/2+8,x1,y1+4],DYE.black,9);}
-
-// ---------------------------------------------------------------- the forge
-function forgeRoom({look=0,raised=1,thread=0}={}){
-  // a dark timbered room; the hearth at the back left throws its light across the planks in hatched bands
-  for(let i=0;i<26;i++){const x=i*76-10;mshape([x,-10,x+76,-10,x+76,760,x,760],R.walnut,{poly:true,lw:5,ang:hash(i)>.5?1.2:1.9,bias:.15});}
-  ctx.save();ctx.globalCompositeOperation='source-over';const fg=ctx.createRadialGradient(300,560,40,300,560,900);fg.addColorStop(0,'rgba(227,195,110,.95)');fg.addColorStop(.3,'rgba(196,106,74,.7)');fg.addColorStop(.7,'rgba(110,42,32,.25)');fg.addColorStop(1,'rgba(58,42,34,0)');ctx.fillStyle=fg;ctx.fillRect(0,0,W,760);ctx.restore();
-  for(const y of [120,430])mshape([-10,y,W+10,y,W+10,y+34,-10,y+34],R.walnut,{poly:true,lw:5,ang:1.57});
-  // window on the snow
-  mshape([1420,170,1680,170,1680,470,1420,470],R.sky,{poly:true,lw:8,ang:1.4});for(let i=0;i<7;i++)spruceW(1440+i*40,470,60+hash(i)*70,R.moss);mshape([1420,430,1680,430,1680,470,1420,470],R.snow,{poly:true,line:null});
-  wline([1550,170,1550,470],DYE.walnut,12);wline([1420,320,1680,320],DYE.walnut,12);ctx.strokeStyle=OUT;ctx.lineWidth=14;ctx.strokeRect(1420,170,260,300);
-  // hearth of stone with its hood
-  mshape([120,760,120,420,170,340,470,340,520,420,520,760],R.wool,{poly:true,ang:1.1});
-  for(let r=0;r<8;r++)for(let c=0;c<5;c++){const bx=124+c*80+(r%2)*40,by=420+r*44;if(bx>500)continue;wline([bx,by,Math.min(bx+80,516),by],DYE.linen,4);}
-  mshape([180,760,180,480,460,480,460,760],[DYE.weldL,DYE.madder,DYE.madderD],{poly:true,ang:-1.57});
-  for(let i=0;i<6;i++){const fx=210+i*44,fh=120+hash(i*3)*100;mshape([fx-26,760,fx-10,760-fh*.6,fx,760-fh,fx+14,760-fh*.5,fx+26,760],i%2?R.weld:R.madder,{lw:5,ang:-1.57});}
-  mshape([80,340,560,340,450,40,190,40],R.walnut,{poly:true,ang:.9});
-  for(const [tx,ty,k] of [[740,180,0],[820,170,1],[900,190,0],[980,160,1]]){wline([tx,ty-40,tx,ty],DYE.black,5);if(k){wline([tx,ty,tx-14,ty+150,tx-10,ty+160],DYE.black,8);wline([tx,ty,tx+14,ty+150,tx+10,ty+160],DYE.black,8);}else{wline([tx,ty,tx,ty+120],DYE.walnutL,12);mshape([tx-26,ty+120,tx+26,ty+120,tx+26,ty+150,tx-26,ty+150],R.iron,{poly:true,lw:4});}}
-  // the floor, earth going dark towards us
-  mshape([-20,740,W+20,740,W+20,H+20,-20,H+20],[DYE.walnutL,DYE.walnut,DYE.umber],{poly:true,ang:1.57,line:null});
-  for(let i=0;i<50;i++){const x=hash(i*1.3)*W,y=760+hash(i*2.9)*300;wline([x,y,x+20+hash(i)*30,y+4],DYE.umber,4);}
-  // the anvil seen from the front quarter, on its stump
-  const A=(x,y)=>[960+(x-960)*1.15,y];
-  mshape([890,1060,1050,1060,1030,860,910,860].map((v,i)=>i%2?v:960+(v-960)*1.15),R.walnut,{poly:true,ang:.4});
-  mshape([770,790,1130,790,1180,746,830,746].map((v,i)=>i%2?v:960+(v-960)*1.1),R.iron,{poly:true,ang:1.57,lw:6});
-  mshape([770,790,1130,790,1110,836,1040,846,1050,866,900,866,910,846,820,836].map((v,i)=>i%2?v:960+(v-960)*1.1),R.black,{poly:true,lw:6});
-  mshape([660,768,770,756,770,790,690,786],R.black,{poly:true,lw:5});
-  mshape([900,746,1040,746,1052,730,890,730],[DYE.bone,DYE.weldL,DYE.weld],{poly:true,lw:5,line:DYE.ochre,ang:1.57});
-  // nobody here: the hammer still raised over the iron, its haft running out of the frame; or laid down across the
-  // anvil beside Riga's tongs, and between them the red thread
-  if(raised){hammerAt(1200,-60,1.95,780);for(let i=0;i<22;i++){const a=-Math.PI*(.08+.84*hash(i*3+11)),r=60+hash(i*7+11)*300;wFlake(970+Math.cos(a)*r*1.3,730+Math.sin(a)*r,.5+hash(i)*.4,i%3?DYE.weldL:DYE.bone);}}
-  else{hammerAt(1080,790,-2.9,200);}
-  tongsAt(1320,850,1010,738);
-  if(thread>0){ctx.save();ctx.setLineDash([26,18]);ctx.lineCap='round';ctx.strokeStyle=DYE.madder;ctx.lineWidth=12;ctx.beginPath();ctx.moveTo(880,770);ctx.bezierCurveTo(940,560,1180,560,1250,820);ctx.stroke();ctx.restore();}
-  wFrame();
-}
-// A spruce woven in the modelled manner: dark green tiers, lit on the left, snow on the upper edges.
-function spruceW(x,y,h,ramp=R.moss,{snow=true}={}){
-  wline([x,y,x,y-h*.9],DYE.umber,Math.max(4,h*.03));
-  const n=6;for(let i=0;i<n;i++){const k=i/n,yb=y-h*(.08+.8*k),w=h*.3*(1-k*.82),ht=h*.26;
-    mshape([x,yb-ht,x+w*.5,yb-ht*.35,x+w,yb,x+w*.4,yb-ht*.08,x,yb+ht*.04,x-w*.4,yb-ht*.08,x-w,yb,x-w*.5,yb-ht*.35],ramp,{poly:true,lw:Math.max(3,h*.018),ang:.3});
-    if(snow)mshape([x,yb-ht,x-w*.55,yb-ht*.25,x-w*.2,yb-ht*.32,x+w*.3,yb-ht*.3],R.snow,{poly:true,line:null});}
-}
-frame('09b',()=>{weave(()=>forgeRoom({raised:1}),{seed:21,flicker:.5,light:1.1,pw:4,ph:3});grade(0);caption('07');});
-frame('10',()=>{weave(()=>forgeRoom({raised:0,thread:1}),{seed:21,flicker:.2,light:1.1,pw:4,ph:3});grade(0);ui(()=>relationOverlay(76));caption('09');});
-
-// ================================================================ 01–02 · the logo as in the 0.9.8 film, then it burns from the corners
+function snapshot(){const c=layerCanvas();c.getContext('2d').drawImage(canvas,0,0);return c;}
 function vela98(t=6){
   const g=ctx.createRadialGradient(W*.7,H*.3,0,W*.7,H*.3,1300);g.addColorStop(0,'#1b3a2b');g.addColorStop(.45,'#0f2219');g.addColorStop(1,'#08120d');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
   glow(400,200,700,'#8ad0a8',.16);
@@ -73,53 +24,6 @@ function vela98(t=6){
   text('0.9.9 · 开源小说创作与阅读工具',W/2,650,{size:27,color:'#a9c2b4',align:'center'});
 }
 frame('01',()=>vela98());
-// the four burn fronts, one from each corner, already meeting near the middle; through them the woven wood
-const CORNERS=[[0,0],[W,0],[0,H],[W,H]];
-frame('02',()=>{
-  wood();grade(0);const under=snapshot();vela98();
-  const holes=CORNERS.map(([x,y],i)=>burnPath(x,y,640+i*30,1.3+i));
-  ctx.save();ctx.beginPath();holes.forEach(hp=>{ctx.moveTo(hp[0],hp[1]);for(let i=2;i<hp.length;i+=2)ctx.lineTo(hp[i],hp[i+1]);ctx.closePath();});ctx.clip();ctx.drawImage(under,0,0);ctx.restore();
-  holes.forEach(hp=>{ctx.save();path(hp);ctx.shadowColor='#ff6a10';ctx.shadowBlur=34;ctx.strokeStyle='#ff8c2e';ctx.lineWidth=8;ctx.stroke();ctx.shadowBlur=0;ctx.strokeStyle='#ffe2a6';ctx.lineWidth=2.4;ctx.stroke();ctx.restore();
-    for(let i=0;i<24;i++){const k=Math.floor(hash(i*7.3+hp[0])*hp.length/2)*2,x=hp[k],y=hp[k+1];ctx.save();glow(x,y,26,'#ff8a2a',.5);ctx.fillStyle='#241309';ctx.beginPath();ctx.arc(x+(hash(i)-.5)*30,y+(hash(i*3)-.5)*30,3+hash(i*5)*6,0,TAU);ctx.fill();ctx.restore();}});
-  caption('01');
-});
-function snapshot(){const c=layerCanvas();c.getContext('2d').drawImage(canvas,0,0);return c;}
-
-// ================================================================ 03–04 · the wood after the battle, woven
-// A verdure in winter: a high horizon, spruce woods going back in paler wools, the field of the fallen, and at the
-// right a great spruce. Riga is behind it: his spear stands beside the trunk and his breath curls out past it.
-function woodDesign({close=0,wind=0}={}){
-  mshape([-20,-20,W+20,-20,W+20,470,-20,470],[DYE.bone,DYE.skyL,DYE.sky],{poly:true,line:null,ang:-1.57});for(const [y,w] of [[90,900],[170,1300],[250,700]]){const x=hash(y)*W*.6;mshape([x,y,x+w,y-10,x+w+60,y+6,x+40,y+14],DYE.skyL,{poly:true,line:null});}
-  for(let i=0;i<8;i++){const x=i*280-60;mshape([x,520,x+150,330+hash(i)*70,x+300,520],R.sky,{poly:true,lw:5,ang:.3});mshape([x+150,330+hash(i)*70,x+110,380+hash(i)*60,x+190,380+hash(i)*60],R.snow,{poly:true,line:null});}
-  for(let i=0;i<34;i++)spruceW(i*60+hash(i)*30-20,560+hash(i*2)*16,120+hash(i*3)*70,R.sky);
-  mshape([-20,560,W+20,548,W+20,H+20,-20,H+20],R.snow,{poly:true,line:null,ang:1.57});
-  for(let i=0;i<22;i++)spruceW(i*92+hash(i+40)*40-30,640+hash(i*5)*30,200+hash(i*7)*120,R.moss);
-  mshape([-20,660,W+20,640,W+20,H+20,-20,H+20],R.snow,{poly:true,lw:5,ang:1.57,bias:-.1});
-  // the fallen under the snow, broken spears, a shield, the red banner
-  for(const [mx,my,mw,mh] of [[260,760,200,40],[640,740,160,30],[980,790,240,46],[1220,746,140,28],[480,820,130,26]])mshape([mx-mw/2,my,mx-mw*.3,my-mh*.8,mx,my-mh,mx+mw*.32,my-mh*.7,mx+mw/2,my],R.snow,{lw:5,ang:.6});
-  for(const [sx,sy,l,a] of [[340,762,150,-.45],[700,742,120,.35],[1030,790,190,-.2],[1180,750,90,.6],[860,800,110,-.75],[540,820,80,.25]]){wline([sx,sy,sx+Math.sin(a)*l,sy-Math.cos(a)*l],DYE.umber,7);}
-  mshape(ell(760,812,34,20),R.madder,{lw:5});wline([732,812,788,812],DYE.weld,6);
-  wline([1100,800,1124,580],DYE.umber,8);mshape([1123,590,1060,598,1010,588,960,612,990,620,950,640,1010,628,1060,640,1120,632],R.madder,{poly:true,lw:5,ang:1.57});
-  // boot prints from the left, going round behind the great spruce
-  for(let i=0;i<13;i++){const k=i/12,x=lerp(60,1500,k)+(i%2?10:-10),y=lerp(930,860,k);mshape(ell(x,y,lerp(22,14,k),lerp(9,6,k)),R.sky,{line:null});}
-  // the great spruce, the spear, the breath
-  const TX=1650;mshape([TX-90,-20,TX+90,-20,TX+120,880,TX-130,880],R.walnut,{poly:true,ang:.2,bias:-.15});
-  for(let i=0;i<16;i++){const y=hash(i*3.1)*860,x=TX-80+hash(i*5.3)*160;wline([x,y,x+(hash(i)-.5)*10,y+60+hash(i*2)*80],DYE.umber,5);}
-  for(let i=0;i<6;i++){const by=-40+i*76,L=300+i*70,dr=60+i*14,pt=u=>[TX-30-L*u,by+dr*u*u];const p=[];for(let k=0;k<=12;k++){const [x,y]=pt(k/12);p.push(x,y);}for(let k=12;k>=0;k--){const [x,y]=pt(k/12);p.push(x+(k%2?10:-6),y+(26+30*(1-k/12))*(k%2?1.5:.7));}mshape(p,R.moss,{poly:true,lw:5,ang:1.4});const q=[];for(let k=0;k<=11;k++){const [x,y]=pt(k/12);q.push(x,y-6);}for(let k=11;k>=0;k--){const [x,y]=pt(k/12);q.push(x,y+10);}mshape(q,R.snow,{poly:true,line:null});}
-  mshape([TX-250,890,TX-130,850,TX,846,TX+160,856,TX+300,890],R.snow,{lw:5,ang:1.57});
-  wline([TX-150,860,TX-160,180],DYE.walnut,10);mshape([TX-160,96,TX-148,150,TX-154,184,TX-166,184,TX-172,150],R.iron,{poly:true,lw:4});
-  mshape([TX-158,206,TX-230,214,TX-300,200,TX-262,226,TX-320,246,TX-240,238,TX-158,232],R.madder,{poly:true,lw:5,ang:1.57});
-  // breath: small scalloped woven clouds drifting left and up past the trunk
-  for(let i=0;i<4;i++){const bx=TX-170-i*130-wind*200,by=720-i*70,r=26+i*14;const p=[];for(let k=0;k<10;k++){const a=k/10*TAU,rr=r*(k%2?1:1.3);p.push(bx+Math.cos(a)*rr*1.5,by+Math.sin(a)*rr*.8);}mshape(p,R.snow,{lw:4,line:DYE.skyL,ang:1.4,ten:.8});}
-  if(wind>0){for(let k=0;k<9;k++){const y=120+k*100,p=[];for(let i=0;i<=14;i++){const u=i/14;p.push(W+40-u*W*1.2*wind,y+Math.sin(u*8+k)*24);}wcurve(p,16,k%2?DYE.bone:DYE.skyL,{lw:5,line:DYE.sky});}
-    for(let k=0;k<5;k++){const cx=W-200-k*330*wind,cy=200+hash(k)*600;wspiral(cx,cy,60+hash(k*3)*40,DYE.bone,{lw:14,turns:1.8});}}
-  wFrame();
-}
-function wood(o={}){weave(()=>woodDesign(o),{seed:3,flicker:.15,pw:4,ph:3});}
-frame('03',()=>{wood();grade(0);caption('01');});
-frame('04a',()=>{wood();grade(0);const b=snapshot();ctx.save();ctx.translate(-1480*1.0,-140);ctx.scale(1.9,1.9);ctx.drawImage(b,0,0);ctx.restore();caption('02');});
-frame('04b',()=>{wood({wind:.8});grade(0);});
-
 // ================================================================ 05–08 · the spirits, in the older manner (6×4 picks)
 function wSpring(){
   rect(0,0,W,H,DYE.wool);
@@ -195,29 +99,6 @@ frame('08',()=>{
   grade(0);caption('06');
 });
 
-// ================================================================ 09a · the blow, close
-frame('09a',()=>{weave(()=>{
-  mshape([-20,-20,W+20,-20,W+20,H+20,-20,H+20],R.walnut,{poly:true,line:null,ang:.2});
-  mshape([-20,-20,900,-20,700,H+20,-20,H+20],[DYE.weldL,DYE.madder,DYE.walnut],{poly:true,line:null,ang:0});
-  // the anvil, low and near, its horn to the left
-  mshape([240,700,420,660,600,640,1460,640,1610,652,1630,700,1480,712,1300,730,1260,790,1250,900,1360,990,1380,1100,640,1100,660,990,770,900,760,790,700,735,560,712,380,712],R.iron,{ang:1.57,ten:.35,lw:7});
-  mshape([600,640,1460,640,1440,664,620,664],[DYE.grey,DYE.sky,DYE.woad],{poly:true,lw:5,ang:1.57});
-  mshape([780,612,1200,612,1210,646,770,646],[DYE.bone,DYE.weldL,DYE.weld],{poly:true,lw:6,line:DYE.ochre,ang:1.57});
-  // the hammer face on the iron, the haft leaving the frame at the top right
-  mshape(limbPts([1260,-40,1060,420,960,560],[40,38,36]),R.walnut,{lw:5,ang:.3});mshape([820,520,1000,560,980,620,800,580],R.iron,{poly:true,ang:1.3,lw:6});
-  for(let i=0;i<40;i++){const a=-Math.PI*(.02+.96*hash(i*3.7)),r=40+hash(i*5.1)*420;wFlake(990+Math.cos(a)*r*1.4,620+Math.sin(a)*r*.7,.5+hash(i)*.7,i%3?DYE.weldL:DYE.bone);}
-  wFrame();},{seed:9,flicker:.6,light:1.1,pw:4,ph:3});grade(0);caption('07');});
-
-// ================================================================ 11 · the last spark
-frame('11',()=>{weave(()=>{
-  mshape([-20,-20,W+20,-20,W+20,H+20,-20,H+20],[DYE.walnut,DYE.umber,DYE.black],{poly:true,line:null,ang:1.57});
-  for(let i=0;i<160;i++){const x=hash(i*1.3)*W,y=380+hash(i*2.7)*700;wline([x,y,x+10+hash(i)*30,y+2],hash(i*6.6)>.6?DYE.grey:DYE.umber,4);}
-  mshape([1700,-20,1960,-20,1300,H+20,760,H+20],DYE.indigo,{poly:true,line:null});mshape([1780,-20,1900,-20,1180,H+20,940,H+20],DYE.woad,{poly:true,line:null});
-  for(let i=0;i<20;i++)wFlake(1100+hash(i*3)*700,hash(i*5)*700,.6,DYE.bone);
-  mshape(ell(960,640,120,64),[DYE.madderD,DYE.rust,DYE.umber],{line:null,ang:1.57});
-  mshape(ell(960,640,30,16),R.madder,{lw:5});wFlake(960,636,1.3,DYE.bone);
-  wFrame();},{seed:11,flicker:.1,light:.95,pw:4,ph:3});grade(0);});
-
 // ================================================================ the bay horse Pipe, modelled
 // Facing right, ground at y 0. The gallop follows the photograph: near foreleg planted and slightly back, far foreleg
 // folded, near hind reaching under the belly, far hind pushing off behind. Black points, mane and tail.
@@ -249,85 +130,6 @@ function pipe(x,y,s,{face=1,gait='gallop',saddle=true,bridle=true}={}){
     if(bridle){wline([254,-482,300,-404,348,-372],DYE.black,6);wline([286,-372,334,-376],DYE.black,6);}
     if(saddle){wshape([-60,-312,70,-330,96,-250,-46,-236],DYE.weld,{lw:7});wline([-50,-262,86,-272],DYE.madder,10);}})();
 }
-// ================================================================ 12 · the road out of the village, from behind them
-function winterVerdure({horizon=430}={}){
-  mshape([-20,-20,W+20,-20,W+20,horizon+20,-20,horizon+20],[DYE.bone,DYE.skyL,DYE.sky],{poly:true,line:null,ang:-1.57});for(const [y,w] of [[90,900],[170,1300],[250,700]]){const x=hash(y)*W*.6;mshape([x,y,x+w,y-10,x+w+60,y+6,x+40,y+14],DYE.skyL,{poly:true,line:null});}
-  for(let i=0;i<7;i++){const x=i*320-80;mshape([x,horizon+70,x+170,horizon-130+hash(i)*60,x+340,horizon+70],R.sky,{poly:true,lw:5,ang:.3});}
-  mshape([-20,horizon+40,W+20,horizon+30,W+20,H+20,-20,H+20],R.snow,{poly:true,line:null,ang:1.57});
-}
-frame('12',()=>{weave(()=>{winterVerdure({horizon:400});
-  // the road narrowing to the fork, trees on either hand
-  mshape([600,H+20,1320,H+20,1010,480,930,480],R.sky,{poly:true,line:null,ang:1.57});mshape([930,480,1010,480,760,440,720,446],R.sky,{poly:true,line:null});mshape([930,480,1010,480,1240,440,1200,446],R.sky,{poly:true,line:null});
-  for(let i=0;i<12;i++){const k=i/11,y=lerp(470,980,k*k),s=lerp(.35,1.6,k*k);spruceW(lerp(860,360,k*k)-hash(i)*40,y,260*s,R.moss);spruceW(lerp(1080,1600,k*k)+hash(i*3)*40,y+6,250*s,R.moss);}
-  // hoof prints and boot prints coming up behind them
-  for(let k=0;k<22;k++){const u=k/21,y=lerp(1060,500,Math.pow(u,.7)),sc=lerp(1,.25,Math.pow(u,.7));mshape(ell(lerp(880,950,Math.pow(u,.7)),y,20*sc,8*sc),R.woad,{line:null});mshape(ell(lerp(1040,980,Math.pow(u,.7))+(k%2?10:-10)*sc,y+12*sc,16*sc,7*sc),R.sky,{line:null});}
-  wFrame();},{seed:12,flicker:.1,pw:4,ph:3});grade(0);caption('10');});
-
-// ================================================================ 13 · the map, woven
-frame('13',()=>{weave(()=>{
-  mshape([-20,-20,W+20,-20,W+20,H+20,-20,H+20],R.wool,{poly:true,line:null,ang:1.2});
-  for(let i=0;i<10;i++){const x=150+i*66+(i%2)*18,y=220+(i%3)*22,h=70+hash(i)*30;mshape([x-44,y,x,y-h,x+44,y],R.sky,{poly:true,lw:5,ang:.2});mshape([x,y-h,x-16,y-h*.6,x+14,y-h*.62],R.snow,{poly:true,line:null});}
-  wcurve([1220,880,1460,700,1380,500,1600,380,1760,290,1700,160,1860,80],18,DYE.woad,{lw:5,line:DYE.indigo});
-  [[640,600,14],[1000,570,12],[1260,220,10],[300,500,12],[1380,720,9]].forEach(([fx,fy,n],j)=>{for(let i=0;i<n;i++)spruceW(fx+(hash(j*20+i)-.5)*220,fy+(hash(j*20+i*3)-.5)*100,54,R.moss,{snow:false});});
-  ctx.save();ctx.setLineDash([22,14]);ctx.lineCap='round';ctx.strokeStyle=DYE.madder;ctx.lineWidth=12;const pts=PLACES.map(p=>[p[1],p[2]]);for(let i=1;i<pts.length;i++){const [ax,ay]=pts[i-1],[bx,by]=pts[i],mx=(ax+bx)/2+(i%2?-40:40),my=(ay+by)/2+(i%2?60:-50);ctx.beginPath();ctx.moveTo(ax,ay);ctx.quadraticCurveTo(mx,my,bx,by);ctx.stroke();}ctx.restore();
-  PLACES.forEach(([name,x,y])=>{for(let k=0;k<3;k++){const hx=x-30+k*24,hy=y+(k===1?-8:0);mshape([hx-11,hy,hx-11,hy-18,hx+11,hy-18,hx+11,hy],R.wool,{poly:true,lw:4});mshape([hx-14,hy-18,hx,hy-34,hx+14,hy-18],R.madder,{poly:true,lw:4});}
-    text(name,x,y+64,{size:40,weight:700,color:DYE.umber,font:SERIF,align:'center',spacing:4});});
-  text('因舍森',330,130,{size:34,weight:700,color:DYE.umber,font:SERIF,spacing:8});text('柯戈德河',1680,330,{size:30,weight:700,color:DYE.indigo,font:SERIF,spacing:6});
-  mshape([760,960,1160,960,1180,1010,740,1010],R.madder,{poly:true,lw:5});text('瑞 达 内',960,1000,{size:36,weight:700,color:DYE.bone,font:SERIF,align:'center',spacing:10});
-  ctx.save();ctx.translate(1740,200);wdisc(0,0,56,DYE.weld,{lw:6});for(let k=0;k<8;k++){const a=k*Math.PI/4-Math.PI/2,r=k%2?54:96;wpoly([Math.cos(a)*r,Math.sin(a)*r,Math.cos(a+.3)*18,Math.sin(a+.3)*18,0,0,Math.cos(a-.3)*18,Math.sin(a-.3)*18],k%2?DYE.woad:DYE.madder,{lw:4});}ctx.restore();
-  wFrame();},{seed:13,flicker:.1,pw:4,ph:3});grade(0);ui(()=>{mapToolbar(103);cursor(1176,360,1,.4);});caption('11');});
-
-// ================================================================ 14 · the parting, as it is left in the snow
-function prints(x,y,s,a,{ramp=R.sky,lw=0}={}){ctx.save();ctx.translate(x,y);ctx.rotate(a);ctx.scale(s,s);mshape([-40,0,-38,-16,-10,-22,26,-20,42,-8,40,8,20,18,-14,18,-36,12],ramp,{line:lw?OUT:null,lw});mshape([-30,-4,-18,-12,10,-14,28,-10,30,0,14,8,-14,8],[DYE.woad,DYE.indigo,DYE.indigo],{line:null});ctx.restore();}
-frame('14a',()=>{weave(()=>{winterVerdure({horizon:420});
-  for(let i=0;i<8;i++)spruceW(80+i*80,560+hash(i)*20,260+hash(i*2)*80,R.moss);for(let i=0;i<5;i++)spruceW(1560+i*80,560+hash(i+9)*20,260+hash(i*5)*80,R.moss);
-  mshape([500,H+20,1400,H+20,1040,520,960,520],R.sky,{poly:true,line:null,ang:1.57});
-  pipe(1300,760,.95,{face:-1,gait:'stand'});
-  // two pairs of prints toe to toe, one pair large, one small; the large pair, a step back, turned towards the village
-  prints(860,880,1.3,0);prints(870,930,1.3,0);prints(1010,876,1.05,Math.PI);prints(1004,922,1.05,Math.PI);
-  prints(700,900,1.3,.2);prints(560,930,1.3,.15);
-  wFrame();},{seed:14,flicker:.15,pw:4,ph:3});grade(0);});
-frame('14b',()=>{weave(()=>{
-  mshape([-20,-20,W+20,-20,W+20,H+20,-20,H+20],R.snow,{poly:true,line:null,ang:1.2});
-  for(let i=0;i<30;i++){const x=hash(i*3)*W,y=hash(i*5)*H;mshape(ell(x,y,180+hash(i)*160,24),i%2?DYE.bone:DYE.skyL,{line:null});}
-  prints(760,560,3,0);prints(790,700,3,0);prints(1130,540,2.5,Math.PI);prints(1120,676,2.5,Math.PI);
-  for(let k=0;k<4;k++)prints(560-k*260,640+(k%2?70:-50),3,-.05);
-  for(let k=0;k<5;k++){const x=1380+k*130,y=600+(k%2?-30:30)-k*16;mshape(ell(x,y,40,26),R.sky,{line:null});mshape(ell(x+8,y,18,12),DYE.bone,{line:null});}
-  for(let i=0;i<50;i++)wFlake(hash(i*2.1)*W,hash(i*4.7)*H,.8+hash(i)*.5,DYE.bone);
-  wFrame();},{seed:15,flicker:.1,pw:4,ph:3});grade(0);caption('12');});
-
-// ================================================================ 15–18 · the ride, kept close on Pipe so the rider stays out of frame
-frame('15a',()=>{weave(()=>{winterVerdure({horizon:420});
-  for(let i=0;i<9;i++)spruceW(80+i*80,560+hash(i)*20,260+hash(i*2)*80,R.moss);for(let i=0;i<5;i++)spruceW(1560+i*80,560+hash(i+9)*20,260+hash(i*5)*80,R.moss);
-  mshape([500,H+20,1400,H+20,1040,520,960,520],R.sky,{poly:true,line:null,ang:1.57});
-  // Havard's prints stay by the road; the hoof prints lengthen into a run, snow kicked up behind them
-  prints(620,900,1.3,-.2);prints(640,950,1.3,-.2);
-  for(let k=0;k<9;k++){const u=k/8,x=lerp(960,1020,u),y=lerp(1000,560,Math.pow(u,.8)),sc=lerp(1.2,.35,u),gap=k%2?14:-14;mshape(ell(x+gap*sc,y,26*sc,12*sc),R.woad,{line:null});mshape(ell(x+gap*sc+4*sc,y-2*sc,12*sc,5*sc),DYE.bone,{line:null});}
-  for(let i=0;i<40;i++){const a=-Math.PI*(.2+.6*hash(i*2.3)),r=20+hash(i*4.1)*160;wFlake(1000+Math.cos(a)*r,640+Math.sin(a)*r*.6,.6+hash(i*7)*.5,DYE.bone);}
-  wFrame();},{seed:16,flicker:.1,pw:4,ph:3});grade(0);caption('13');});
-// the gallop of the photograph, the whole horse, running free: no saddle, no bridle
-function gallopDesign({x=900}={}){winterVerdure({horizon:420});
-  for(let i=0;i<14;i++)spruceW(i*150+hash(i)*60-40,600+hash(i*2)*30,240+hash(i*3)*120,R.moss);
-  mshape([-20,860,W+20,846,W+20,940,-20,960],R.sky,{poly:true,line:null,ang:1.57});
-  for(let i=0;i<14;i++)mshape(ell(x-560-i*110,904+(i%2)*14,16,7),R.woad,{line:null});
-  for(let i=0;i<70;i++){const fx=hash(i*3.3)*W,fy=60+hash(i*7.1)*700;wFlake(fx,fy,.7+hash(i)*.5,DYE.bone);}
-  pipe(x,900,1.35,{saddle:false,bridle:false});
-  for(let i=0;i<24;i++){const a=-Math.PI*(.15+.7*hash(i*2.3)),r=20+hash(i*4.1)*120;wFlake(x-150*1.35+Math.cos(a)*r,890+Math.sin(a)*r*.5,.6+hash(i*7)*.5,DYE.bone);}
-  wFrame();}
-frame('15b',()=>{weave(()=>gallopDesign(),{seed:17,flicker:.3,pw:4,ph:3});grade(0);});
-frame('16',()=>{weave(()=>gallopDesign({x:620}),{seed:17,flicker:.3,pw:4,ph:3});grade(0);ui(()=>outlinePanel(150.4));});
-frame('17',()=>{
-  weave(()=>gallopDesign({x:820}),{seed:17,flicker:.3,pw:4,ph:3});
-  const edge=y=>1440+Math.sin(y/90)*40+noise(y/26)*50;
-  ctx.save();ctx.beginPath();ctx.moveTo(W,0);for(let y=0;y<=H;y+=10)ctx.lineTo(edge(y),y);ctx.lineTo(W,H);ctx.closePath();ctx.fillStyle='#0f0b09';ctx.fill();ctx.clip();
-  for(let x=1300;x<W;x+=8){ctx.strokeStyle='rgba(222,207,174,.75)';ctx.lineWidth=2.2;ctx.beginPath();ctx.moveTo(x+Math.sin(x)*2,0);ctx.lineTo(x+Math.sin(x*1.7)*4,H);ctx.stroke();}ctx.restore();
-  for(let i=0;i<70;i++){const y=hash(i*2.3)*H,x0=edge(y),l=30+hash(i*5.1)*140;ctx.strokeStyle=[DYE.bone,DYE.sky,DYE.moss][i%3];ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x0,y);ctx.quadraticCurveTo(x0+l*.5,y+10,x0+l,y+l*.4);ctx.stroke();}
-  grade(0);caption('14');
-});
-frame('18',()=>{
-  weave(()=>{rect(0,0,W,H,DYE.black);for(let x=0;x<W;x+=8)wline([x,0,x,H],DYE.umber,2);pipe(760,900,1.35,{saddle:false,bridle:false});},{seed:18,light:.55,folds:0,pw:4,ph:3});
-  const g=ctx.createLinearGradient(200,0,1500,0);g.addColorStop(0,'rgba(5,4,3,.45)');g.addColorStop(.5,'rgba(5,4,3,.75)');g.addColorStop(1,'rgba(5,4,3,.98)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-});
 // ================================================================ 19 · the end card, in the 0.9.8 manner
 frame('19',()=>{
   const g=ctx.createRadialGradient(W*.7,H*.3,0,W*.7,H*.3,1300);g.addColorStop(0,'#1b3a2b');g.addColorStop(.45,'#0f2219');g.addColorStop(1,'#08120d');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);glow(400,200,700,'#8ad0a8',.16);
@@ -336,4 +138,167 @@ frame('19',()=>{
   const tw=measure('文舟 ',92,700),vw=measure('Vela',92,300);text('文舟 ',W/2-(tw+vw)/2,486,{size:92,weight:700,color:'#eef6f1',spacing:2});text('Vela',W/2-(tw+vw)/2+tw,486,{size:92,weight:300,color:'#8ad0a8',spacing:2});
   text('0.9.9 · 让故事，自此起航。',W/2,566,{size:30,color:'#a9c2b4',align:'center',font:SERIF,spacing:4});
   const bw=420;strokeRR(W/2-bw/2,640,bw,58,29,'rgba(138,208,168,.4)',1.2);text('现已上架鸿蒙应用市场',W/2,678,{size:24,color:'#8ad0a8',align:'center',spacing:3});
+});
+
+// ================================================================ the winter ground the scenes share
+const WINTER={leaf:DYE.sky,leaf2:DYE.bone,trunk:DYE.indigo};
+function winterField({ground=812,mountains=true,bands=true}={}){
+  rect(0,0,W,H,DYE.wool);
+  if(bands)for(let i=0;i<2;i++){const y=250+i*170;wpoly([-40,y,W+40,y-30,W+40,y+14,-40,y+44],DYE.sky,{lw:6});}
+  if(mountains)for(let i=0;i<9;i++){const x=i*240-40;wpoly([x,ground+8,x+130,ground-250+hash(i)*80,x+260,ground+8],i%2?DYE.sky:DYE.woad,{lw:7});wpoly([x+130,ground-250+hash(i)*80,x+96,ground-190+hash(i)*80,x+164,ground-190+hash(i)*80],DYE.bone,{line:null});}
+  wGround(ground,{cols:[DYE.bone,DYE.sky,DYE.bone]});
+}
+const borders=(words)=>{wBorderTop(words,{h:124});wBorderBottom();};
+// A woven object: whatever parts() paints becomes one silhouette with an edge and an inner contour, as the beasts are.
+const wObj=(parts,fill,inner,s=1)=>wFigure(parts,{fill,inner,band:[14*s,21*s]});
+
+// ================================================================ 02 · the logo burns away from the four corners
+const CORNERS=[[0,0],[W,0],[0,H],[W,H]];
+frame('02',()=>{
+  weave(()=>battleDesign(),{seed:3,flicker:.15});grade(0);const under=snapshot();vela98();
+  const holes=CORNERS.map(([x,y],i)=>burnPath(x,y,640+i*30,1.3+i));
+  ctx.save();ctx.beginPath();holes.forEach(hp=>{ctx.moveTo(hp[0],hp[1]);for(let i=2;i<hp.length;i+=2)ctx.lineTo(hp[i],hp[i+1]);ctx.closePath();});ctx.clip();ctx.drawImage(under,0,0);ctx.restore();
+  holes.forEach(hp=>{ctx.save();path(hp);ctx.shadowColor='#ff6a10';ctx.shadowBlur=34;ctx.strokeStyle='#ff8c2e';ctx.lineWidth=8;ctx.stroke();ctx.shadowBlur=0;ctx.strokeStyle='#ffe2a6';ctx.lineWidth=2.4;ctx.stroke();ctx.restore();
+    for(let i=0;i<24;i++){const k=Math.floor(hash(i*7.3+hp[0])*hp.length/2)*2,x=hp[k],y=hp[k+1];ctx.save();glow(x,y,26,'#ff8a2a',.5);ctx.fillStyle='#241309';ctx.beginPath();ctx.arc(x+(hash(i)-.5)*30,y+(hash(i*3)-.5)*30,3+hash(i*5)*6,0,TAU);ctx.fill();ctx.restore();}});
+  caption('01');
+});
+
+// ================================================================ 03–04 · the wood after the battle
+// The fallen are shown as the Bayeux weavers showed them: a horse on its back with its legs in the air, shields and
+// helmets in the snow, spears broken or standing. Riga is behind the great tree: his spear stands beside it, his
+// breath comes out past it in cold wavy bands, as the bear's warm breath does in shot 05.
+const FALLEN={body:[-200,0,-212,-70,-150,-132,-40,-142,80,-132,170,-92,204,-30,194,0],neck:[150,-104,224,-92,300,-52,340,-20,340,4,190,4],head:[296,-44,380,-44,424,-20,414,4,318,4],
+  tail:[-196,-44,-276,-24,-324,4,-206,4],fore:[150,-14,236,-2,262,10,150,10],hind:[-120,-22,-40,-2,-30,10,-140,10]};
+// a horse fallen in the snow: on its side, legs folded under it, head laid on the ground
+function fallenHorse(x,y,s){const T=f=>()=>at(x,y,s,1,f);
+  wObj(T(()=>{for(const k in FALLEN)shape(FALLEN[k],'#fff');}),DYE.walnut,DYE.ochre,s);
+  T(()=>{wpoly([258,-4,274,8,262,14,248,4],DYE.black,{lw:4});wspiral(-60,-70,46,DYE.black,{lw:18});wspiral(-60,-70,46,DYE.ochre,{lw:8});wdisc(330,-36,12,DYE.walnut);
+    for(const [cx,cy,w] of [[-120,-136,120],[40,-146,120],[220,-90,80]])wshape([cx-w/2,cy+10,cx-w*.2,cy-14,cx+w*.2,cy-16,cx+w/2,cy+10],DYE.bone,{lw:5});})();}
+function shield(x,y,r,tilt=.4,c1=DYE.madder,c2=DYE.weld){ctx.save();ctx.translate(x,y);ctx.scale(1,tilt);wdisc(0,0,r,c1);for(let k=0;k<4;k++){const a=k*Math.PI/2;wpoly([0,0,Math.cos(a)*r,Math.sin(a)*r,Math.cos(a+.6)*r,Math.sin(a+.6)*r],c2,{line:null});}wdisc(0,0,r*.3,DYE.sky);ctx.restore();}
+function helmet(x,y,s,a=.3){ctx.save();ctx.translate(x,y);ctx.rotate(a);ctx.scale(s,s);wshape([-40,0,-36,-34,-14,-60,0,-66,14,-60,36,-34,40,0],DYE.sky,{lw:7});wline([-40,-6,40,-6],DYE.indigo,10);wline([0,-6,0,24],DYE.indigo,9);ctx.restore();}
+function brokenSpear(x,y,l,a){const ex=x+Math.sin(a)*l,ey=y-Math.cos(a)*l;wcurve([x,y,ex,ey],11,DYE.walnut,{lw:6});}
+function standingSpear(x,y,l,{rag=1,head=true}={}){wcurve([x,y,x-4,y-l],16,DYE.walnut,{lw:7});
+  if(head){wshape([x-4,y-l-110,x+14,y-l-40,x-4,y-l+4,x-22,y-l-40],DYE.sky,{lw:7,ten:.4});wline([x-4,y-l-96,x-4,y-l-6],DYE.indigo,6);}
+  if(rag)wshape([x-6,y-l+40,x-90*rag,y-l+24,x-180*rag,y-l+50,x-140*rag,y-l+70,x-210*rag,y-l+96,x-100*rag,y-l+92,x-6,y-l+80],DYE.madder,{lw:6,ten:.6});}
+// cold breath: three wavy bands drifting left from behind the trunk
+function coldBreath(x,y,{len=300,s=1}={}){for(let k=0;k<3;k++){const p=[];for(let i=0;i<=10;i++){const u=i/10;p.push(x-u*len,y-k*30*s-u*len*.25+Math.sin(u*9+k)*14*s);}wcurve(p,10*s,k===1?DYE.bone:DYE.skyL,{lw:5});}}
+function battleDesign(){
+  winterField({ground:800});
+  for(const [tx,th,sd] of [[110,560,21],[360,420,22],[640,360,23],[900,330,24],[1150,380,25]])wTree(tx,812,th,{seed:sd,...WINTER});
+  // the field: drifts over the fallen, the horse on its back, shields, a helmet, spears
+  for(const [mx,my,mw] of [[300,900,220],[820,930,200],[1140,900,170]])wshape([mx-mw/2,my+10,mx-mw*.3,my-26,mx,my-36,mx+mw*.32,my-24,mx+mw/2,my+10],DYE.bone,{lw:7});
+  for(const [sx,sy,l,a] of [[360,900,170,-.45],[700,880,140,.35],[980,910,200,-.2],[1220,890,110,.6]])brokenSpear(sx,sy,l,a);
+  fallenHorse(560,926,1.0);shield(300,884,52);shield(1130,890,46,.42,DYE.woad,DYE.bone);helmet(860,930,.9,-.5);
+  // the great tree, the spear beside it, the breath
+  wTree(1650,850,820,{seed:26,...WINTER});
+  standingSpear(1480,860,520);coldBreath(1530,640);
+  borders('HIC RIGA IN SILVA LATET');
+}
+frame('03',()=>{weave(()=>battleDesign(),{seed:3,flicker:.15});grade(0);caption('01');});
+// Close on the spear and the breath; the rag tugged left as the wind comes up
+function spearDesign({wind=0}={}){
+  winterField({ground:820,mountains:false});
+  for(const [tx,th,sd] of [[140,420,31],[420,340,32],[700,300,33]])wTree(tx,830,th,{seed:sd,...WINTER});
+  wTree(1740,850,1700,{seed:27,...WINTER});
+  wshape([1440,840,1580,800,1700,794,1840,806,1960,850],DYE.bone,{lw:8});
+  standingSpear(1420,850,560,{rag:1+wind*.6});coldBreath(1560,560,{len:520,s:1.6});
+  if(wind>0){for(let k=0;k<7;k++){const p=[];for(let i=0;i<=12;i++){const u=i/12;p.push(W-u*W*1.15*wind,180+k*100+Math.sin(u*7+k)*30);}wcurve(p,12,k%2?DYE.bone:DYE.woad,{lw:5});}
+    for(let i=0;i<90;i++)wFlake(W-hash(i*2.9)*W*wind,150+hash(i*6.3)*660,.8+hash(i)*.6,i%3?DYE.bone:DYE.sky);
+    for(let k=0;k<4;k++)wspiral(W-260-k*360*wind,240+hash(k)*500,70,DYE.bone,{lw:14,turns:1.8});}
+  borders('HIC RIGA IN SILVA LATET');
+}
+frame('04a',()=>{weave(()=>spearDesign(),{seed:4,flicker:.15});grade(0);caption('02');});
+frame('04b',()=>{weave(()=>spearDesign({wind:.85}),{seed:4,flicker:.15});grade(0);});
+
+// ================================================================ 09–11 · the anvil, in pure profile, closing on the white-hot iron
+// No hammer, no sparks: the iron lies on the anvil burning white and hisses; steam goes up off it in wavy bands.
+const ANVIL=[-330,-150,-200,-176,-80,-190,240,-190,300,-180,310,-140,250,-128,180,-116,150,-80,150,-20,200,30,-160,30,-110,-20,-110,-80,-140,-112,-220,-124,-300,-132];
+function anvilDesign(){
+  rect(0,0,W,H,DYE.wool);
+  // the hearth on the left, its flames as palmettes; tools hung on the wall
+  wpoly([90,800,90,470,170,380,430,380,510,470,510,800],DYE.sky);wpoly([170,800,170,530,430,530,430,800],DYE.umber);
+  for(let i=0;i<5;i++){const fx=200+i*50,fh=110+hash(i*3)*80;wshape([fx-24,800,fx-8,800-fh*.6,fx,800-fh,fx+12,800-fh*.5,fx+24,800],i%2?DYE.weld:DYE.madder,{lw:6});}
+  wpoly([60,380,540,380,440,140,160,140],DYE.walnut);
+  for(const [tx,ty,k] of [[1400,240,0],[1490,230,1],[1580,250,0],[1670,230,1]]){wline([tx,ty-40,tx,ty],DYE.black,5);if(k){wline([tx,ty,tx-14,ty+150,tx-10,ty+160],DYE.black,8);wline([tx,ty,tx+14,ty+150,tx+10,ty+160],DYE.black,8);}else{wline([tx,ty,tx,ty+120],DYE.walnut,12);wpoly([tx-26,ty+120,tx+26,ty+120,tx+26,ty+150,tx-26,ty+150],DYE.black);}}
+  wGround(850,{cols:[DYE.walnut,DYE.umber,DYE.walnut]});
+  // stump and anvil, each one silhouette with its inner line
+  wObj(()=>wpoly([800,880,1120,880,1090,690,830,690],'#fff',{line:null}),DYE.walnut,DYE.ochre);
+  wObj(()=>{ctx.save();ctx.translate(960,690);shape(ANVIL,'#fff');ctx.restore();},DYE.black,DYE.woad);
+  // the iron, white at the heart, weld and madder at its edges; heat in rings; steam
+  for(let k=3;k>=1;k--){ctx.save();ctx.beginPath();ctx.ellipse(1000,480,140+k*60,46+k*22,0,Math.PI,TAU);ctx.strokeStyle=k===1?DYE.weld:k===2?DYE.madder:DYE.rust;ctx.lineWidth=12;ctx.stroke();ctx.restore();}
+  wshape([880,500,1120,500,1124,470,876,470],DYE.bone,{line:DYE.weld,lw:10,ten:.2});wline([900,486,1100,486],DYE.weldL,6);
+  for(let k=0;k<4;k++){const p=[];for(let i=0;i<=8;i++){const u=i/8;p.push(920+k*55+Math.sin(u*8+k)*20,460-u*300);}wcurve(p,10,k%2?DYE.bone:DYE.skyL,{lw:5});}
+  borders('HIC FERRVM HAVARDI CANDET');
+}
+function anvilAt(z,cx=1000,cy=486){weave(()=>{ctx.save();ctx.translate(cx,cy);ctx.scale(z,z);ctx.translate(-cx,-cy);anvilDesign();ctx.restore();},{seed:9,flicker:.4,light:1.05});grade(0);}
+frame('09',()=>{anvilAt(1);caption('07');});
+frame('10',()=>{anvilAt(1.7);ui(()=>relationOverlay(76));caption('09');});
+// so close that the white of the iron fills the frame: then the white is snow
+frame('11',()=>{anvilAt(6.5);ctx.save();ctx.globalAlpha=.55;rect(0,0,W,H,'#f3eee2');ctx.restore();});
+
+// ================================================================ 12–15 · footprints, seen from straight above
+// Havard walks ahead, Pipe follows. At the fork both stop; Riga's smaller prints come down beside the horse and stand
+// toe to toe with Havard's, who has turned round. Then the hoof prints break into a run and are gone.
+// A boot print seen from above, toe pointing along +y rotated by a: the ball of the foot and the heel, apart.
+function bootPrint(x,y,s,a){ctx.save();ctx.translate(x,y);ctx.rotate(a);ctx.scale(s,s);
+  wshape([-20,-8,-24,-34,-14,-58,0,-64,14,-58,24,-34,20,-8,0,0],DYE.woad,{lw:6});wshape([-16,16,-18,36,0,46,18,36,16,16,0,10],DYE.woad,{lw:6});
+  wline([-10,-46,10,-46],DYE.sky,6);ctx.restore();}
+// A hoof print from above: round, the V of the frog at its heel.
+function hoofPrint(x,y,s,a=0){ctx.save();ctx.translate(x,y);ctx.rotate(a);ctx.scale(s,s);
+  wshape([-32,16,-36,-10,-24,-34,0,-42,24,-34,36,-10,32,16,16,34,-16,34],DYE.woad,{lw:6});wpoly([-12,30,0,-6,12,30],DYE.sky,{lw:4});ctx.restore();}
+// Walking to the right along a row y: boot prints left, right…; hoof prints in two tracks, one per step.
+function walkPrints(y,x0,x1,{step=150,s=1,gap=30}={}){for(let x=x0,i=0;x<=x1;x+=step,i++)bootPrint(x,y+(i%2?gap:-gap)*s,s,Math.PI/2);}
+function hoofWalk(y,x0,x1,{step=120,s=1,gap=34}={}){for(let x=x0,i=0;x<=x1;x+=step,i++)hoofPrint(x,y+(i%2?gap:-gap),s,Math.PI/2);}
+function snowAbove(words,draw){weave(()=>{
+  rect(0,0,W,H,DYE.bone);for(let i=0;i<9;i++){const y=160+i*100+hash(i)*30;wpoly([-40,y,W+40,y-16,W+40,y+6,-40,y+22],DYE.wool,{line:null});}
+  // trees at either side, their crowns seen from above as rosettes of palmettes
+  for(const [tx,ty,r] of [[160,230,100],[620,210,90],[1150,240,100],[1700,220,110],[300,900,110],[880,920,100],[1420,900,110],[1850,880,90]]){for(let k=0;k<7;k++){const a=k/7*TAU;wPalmette(tx+Math.cos(a)*r*.25,ty+Math.sin(a)*r*.25,r*.75,a,k%2?DYE.sky:DYE.bone);}wdisc(tx,ty,r*.22,DYE.indigo);}
+  // the trodden way, faintly
+  wpoly([-20,340,W+20,330,W+20,780,-20,790],DYE.wool,{line:null});
+  draw();borders(words);},{seed:12,flicker:.12});grade(0);}
+const HY=370,PY=760; // Havard's row, Pipe's row; both walking to the right
+const STOP_H=1160,STOP_P=960;
+// Both stop. Havard steps down off his line and turns round to face the horse; Riga gets down on the near side and
+// walks up to him; their pairs of prints stand toe to toe, his smaller.
+function stopped(){walkPrints(HY,-40,STOP_H,{s:1.35});bootPrint(1300,476,1.35,2.6);bootPrint(1340,566,1.35,-Math.PI/2);bootPrint(1340,632,1.35,-Math.PI/2);
+  hoofWalk(PY,-60,STOP_P);hoofPrint(STOP_P+70,PY-34,1,Math.PI/2);hoofPrint(STOP_P+70,PY+34,1,Math.PI/2);
+  bootPrint(960,690,.9,.8);bootPrint(1050,630,.9,1.1);bootPrint(1148,572,.9,Math.PI/2);bootPrint(1148,626,.9,Math.PI/2);}
+frame('12',()=>{snowAbove('HIC HAVARD ET RIGA PROFICISCVNTVR',()=>{walkPrints(HY,-40,1460,{s:1.35});hoofWalk(PY,-60,1200);});caption('10');});
+frame('14',()=>{snowAbove('HIC RIGA ET HAVARD VALEDICVNT',()=>stopped());caption('12');});
+frame('15a',()=>{snowAbove('HIC RIGA EQVITAT AD HELGARD',()=>{stopped();
+  // Riga goes back to the horse; then the run: hoof prints in fours, far apart, snow thrown up behind each group
+  bootPrint(1090,700,.9,-2.3);bootPrint(1020,750,.9,-2.3);
+  for(let g=0;g<4;g++){const x=STOP_P+220+g*250;for(const [dx,dy] of [[0,-34],[40,34],[110,-30],[150,36]])hoofPrint(x+dx,PY+dy,1,Math.PI/2-.05);for(let i=0;i<9;i++)wFlake(x-40-hash(g*7+i)*80,PY+(hash(g*9+i)-.5)*130,.6+hash(i)*.4,DYE.sky);}});caption('13');});
+
+// ================================================================ 13 · Havard's directions, a woven map
+frame('13',()=>{weave(()=>{rect(0,0,W,H,DYE.wool);
+  for(let i=0;i<10;i++){const x=150+i*66+(i%2)*18,y=300+(i%3)*22,h=90+hash(i)*30;wpoly([x-46,y,x,y-h,x+46,y],i%2?DYE.sky:DYE.woad,{lw:6});wpoly([x,y-h,x-16,y-h*.62,x+16,y-h*.62],DYE.bone,{line:null});}
+  wcurve([1220,900,1460,720,1380,520,1600,400,1760,310,1700,190,1860,140],22,DYE.woad,{lw:6});
+  [[640,640,5],[1000,600,4],[1260,280,3],[300,540,4],[1380,760,3]].forEach(([fx,fy,n],j)=>{for(let i=0;i<n;i++){const tx=fx+(i-(n-1)/2)*64,ty=fy+(i%2)*16;wline([tx,ty,tx,ty-56],DYE.indigo,9);wPalmette(tx,ty-50,44,-Math.PI/2,i%2?DYE.sky:DYE.bone);}});
+  ctx.save();ctx.setLineDash([24,16]);ctx.lineCap='round';ctx.strokeStyle=DYE.madder;ctx.lineWidth=14;const pts=PLACES.map(p=>[p[1],p[2]+40]);for(let i=1;i<pts.length;i++){const [ax,ay]=pts[i-1],[bx,by]=pts[i],mx=(ax+bx)/2+(i%2?-40:40),my=(ay+by)/2+(i%2?60:-50);ctx.beginPath();ctx.moveTo(ax,ay);ctx.quadraticCurveTo(mx,my,bx,by);ctx.stroke();}ctx.restore();
+  PLACES.forEach(([name,x,y])=>{y+=40;for(let k=0;k<3;k++){const hx=x-32+k*32,hy=y+(k===1?-10:0);wpoly([hx-14,hy,hx-14,hy-24,hx+14,hy-24,hx+14,hy],DYE.bone,{lw:5});wpoly([hx-18,hy-24,hx,hy-46,hx+18,hy-24],DYE.madder,{lw:5});}
+    text(name,x,y+70,{size:44,weight:700,color:DYE.black,font:SERIF,align:'center',spacing:4});});
+  ctx.save();ctx.translate(1720,300);for(let i=0;i<16;i++){const a=i/16*TAU;wpoly([Math.cos(a-.12)*50,Math.sin(a-.12)*50,Math.cos(a)*(i%4?72:110),Math.sin(a)*(i%4?72:110),Math.cos(a+.12)*50,Math.sin(a+.12)*50],i%2?DYE.madder:DYE.weld,{lw:5});}wdisc(0,0,50,DYE.weld);wspiral(0,0,32,DYE.madder,{lw:9});ctx.restore();
+  borders('HIC VIA AD HELGARD');},{seed:13,flicker:.1});grade(0);ui(()=>{mapToolbar(103);cursor(1176,410,1,.4);});caption('11');});
+
+// ================================================================ 15–18 · Pipe runs; the weaving runs out
+function rideDesign({x=860}={}){winterField({ground:812});
+  for(const [tx,th,sd] of [[120,600,41],[420,440,42],[1480,460,43],[1790,600,44]])wTree(tx,830,th,{seed:sd,...WINTER});
+  for(let i=0;i<60;i++){const fx=hash(i*3.3)*W,fy=150+hash(i*7.1)*560;if(Math.abs(fx-x)<420&&fy>300)continue;wFlake(fx,fy,1+hash(i)*.6,i%4?DYE.woad:DYE.sky);}
+  for(let i=0;i<9;i++)hoofPrint(x-560-i*120,890+(i%2)*16,.8,Math.PI/2);
+  pipe(x,840,1.25,{saddle:false,bridle:false});
+  borders('HIC RIGA EQVITAT AD HELGARD');}
+frame('15b',()=>{weave(()=>rideDesign(),{seed:17,flicker:.3});grade(0);});
+frame('16',()=>{weave(()=>rideDesign({x:620}),{seed:17,flicker:.3});grade(0);ui(()=>outlinePanel(150.4));});
+frame('17',()=>{
+  weave(()=>rideDesign({x:860}),{seed:17,flicker:.3});
+  const edge=y=>1440+Math.sin(y/90)*40+noise(y/26)*50;
+  ctx.save();ctx.beginPath();ctx.moveTo(W,0);for(let y=0;y<=H;y+=10)ctx.lineTo(edge(y),y);ctx.lineTo(W,H);ctx.closePath();ctx.fillStyle='#0f0b09';ctx.fill();ctx.clip();
+  for(let x=1300;x<W;x+=12){ctx.strokeStyle='rgba(222,207,174,.75)';ctx.lineWidth=2.4;ctx.beginPath();ctx.moveTo(x+Math.sin(x)*2,0);ctx.lineTo(x+Math.sin(x*1.7)*4,H);ctx.stroke();}ctx.restore();
+  for(let i=0;i<70;i++){const y=hash(i*2.3)*H,x0=edge(y),l=30+hash(i*5.1)*140;ctx.strokeStyle=[DYE.bone,DYE.sky,DYE.wool][i%3];ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x0,y);ctx.quadraticCurveTo(x0+l*.5,y+10,x0+l,y+l*.4);ctx.stroke();}
+  grade(0);caption('14');
+});
+frame('18',()=>{
+  weave(()=>{rect(0,0,W,H,DYE.black);for(let x=0;x<W;x+=12)wline([x,0,x,H],DYE.umber,3);pipe(760,840,1.25,{saddle:false,bridle:false});},{seed:18,light:.55,folds:0});
+  const g=ctx.createLinearGradient(200,0,1500,0);g.addColorStop(0,'rgba(5,4,3,.45)');g.addColorStop(.5,'rgba(5,4,3,.75)');g.addColorStop(1,'rgba(5,4,3,.98)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
 });

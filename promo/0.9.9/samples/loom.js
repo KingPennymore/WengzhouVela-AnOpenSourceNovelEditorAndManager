@@ -109,7 +109,7 @@ function wTree(x,y,h,{leaf=DYE.green,leaf2=DYE.weld,trunk=DYE.walnut,seed=0,bare
   const br=[[-1,.42,.95],[1,.5,.9],[-1,.66,.7],[1,.72,.66],[0,.86,.5]];
   const tips=br.map(([d,k,l],i)=>{const by=y-h*k,ex=x+d*h*.3*l+(d?0:(hash(seed)-.5)*20),ey=y-h*(k+.2*l)-(d?0:h*.08);
     wcurve([x,by+h*.1,x+d*h*.16*l,by-h*.02,x+d*h*.05*l,by-h*.12*l,ex,ey],16,trunk,{lw:7});return [ex,ey,d];});
-  wcurve([x,y+4,x+(hash(seed*3)-.5)*14,y-h*.3,x,top-h*.38],30,trunk);
+  wcurve([x,y+4,x+(hash(seed*3)-.5)*14,y-h*.3,x,top-h*.38],h<300?h*.08:Math.max(30,h*.05),trunk);
   tips.forEach(([ex,ey,d],i)=>{if(bare){if(frost)wdisc(ex,ey,9,DYE.bone,{lw:5});return;}const a=-Math.PI/2+d*.7;wPalmette(ex,ey,h*.16,a,i%2?leaf2:leaf);});
   wspiral(x,y-h*.24,h*.05,DYE.black,{lw:6,dir:hash(seed)>.5?1:-1});
 }
