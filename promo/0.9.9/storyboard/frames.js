@@ -99,37 +99,6 @@ frame('08',()=>{
   grade(0);caption('06');
 });
 
-// ================================================================ the bay horse Pipe, modelled
-// Facing right, ground at y 0. The gallop follows the photograph: near foreleg planted and slightly back, far foreleg
-// folded, near hind reaching under the belly, far hind pushing off behind. Black points, mane and tail.
-const PIPE={
-  barrel:[-200,-256,-186,-298,-144,-314,-60,-306,0,-304,60,-326,110,-350,160,-300,200,-250,210,-190,176,-160,100,-156,0,-156,-90,-168,-150,-180,-190,-214],
-  neck:[64,-330,116,-386,168,-430,218,-462,254,-470,270,-430,256,-378,240,-320,226,-262,214,-206,150,-244,96,-292],
-  head:[222,-458,246,-478,256,-502,266,-474,300,-450,334,-410,356,-372,352,-352,330,-350,300,-362,270,-372,246,-386,232,-420],
-  mane:[60,-330,110,-388,168,-432,222,-468,236,-458,196,-420,150,-380,100,-328],
-  tail:[-196,-282,-250,-282,-320,-250,-384,-200,-424,-150,-404,-138,-352,-168,-300,-200,-250,-232,-206,-250],
-};
-const GAITS={
-  gallop:{farF:[[188,-196,232,-122,212,-70,224,-52],[52,32,24,22]],farH:[[-150,-214,-192,-110,-158,-36,-142,-8],[74,38,26,24]],nearF:[[152,-186,164,-92,142,-40,118,-8],[58,34,26,24]],nearH:[[-96,-206,-124,-124,-86,-76,-62,-50],[84,40,26,24]]},
-  stand:{farF:[[124,-186,120,-92,124,-40,126,-6],[50,32,24,22]],farH:[[-148,-212,-178,-108,-156,-40,-152,-6],[72,38,26,24]],nearF:[[152,-186,158,-92,154,-40,152,-6],[58,34,26,24]],nearH:[[-110,-210,-150,-112,-130,-40,-126,-6],[84,40,26,24]]},
-};
-// Pipe in the manner of the bear: one bay silhouette (body, neck, head, mane, tail, near legs) edged in dark wool,
-// an ochre contour inside the edge, spirals at shoulder and haunch, the far legs a darker shape behind; black hooves.
-function hoofAt([p,w]){const n=p.length,x=p[n-2],y=p[n-1],dx=x-p[n-4],dy=y-p[n-3],l=Math.hypot(dx,dy),ux=dx/l,uy=dy/l,h=w[3]*.6;
-  wpoly([x-uy*h,y+ux*h,x+uy*h,y-ux*h,x+ux*20+uy*h*1.2,y+uy*20-ux*h*1.2,x+ux*20-uy*h*1.2,y+uy*20+ux*h*1.2],DYE.black,{lw:5});}
-function pipe(x,y,s,{face=1,gait='gallop',saddle=true,bridle=true}={}){
-  const G=GAITS[gait],T=f=>()=>at(x,y,s,face,f);
-  wFigure(T(()=>{for(const k of ['farF','farH'])shape(limbPts(G[k][0],G[k][1]),'#fff');}),{fill:DYE.bayD,inner:null});
-  T(()=>{hoofAt(G.farF);hoofAt(G.farH);})();
-  wFigure(T(()=>{for(const k of ['barrel','neck','head','mane','tail'])shape(PIPE[k],'#fff');for(const k of ['nearF','nearH'])shape(limbPts(G[k][0],G[k][1]),'#fff');}),{fill:DYE.bay,inner:DYE.ochre,band:[17*s,26*s]});
-  T(()=>{hoofAt(G.nearF);hoofAt(G.nearH);
-    for(const [cx,cy,r,d] of [[-136,-246,54,1],[146,-280,42,-1]]){wspiral(cx,cy,r,DYE.black,{lw:20,dir:d});wspiral(cx,cy,r,DYE.ochre,{lw:9,dir:d});}
-    for(let i=0;i<4;i++){const k=i/3;wline([lerp(96,214,k),lerp(-322,-452,k),lerp(70,190,k),lerp(-300,-430,k)],DYE.black,6);}
-    for(let i=0;i<3;i++)wline([-230-i*14,-262+i*8,-310-i*16,-214+i*12,-392-i*8,-158+i*10],DYE.black,6);
-    wdisc(330,-372,8,DYE.black,{line:null});wdisc(266,-428,7,DYE.bone,{line:null});
-    if(bridle){wline([254,-482,300,-404,348,-372],DYE.black,6);wline([286,-372,334,-376],DYE.black,6);}
-    if(saddle){wshape([-60,-312,70,-330,96,-250,-46,-236],DYE.weld,{lw:7});wline([-50,-262,86,-272],DYE.madder,10);}})();
-}
 // ================================================================ 19 · the end card, in the 0.9.8 manner
 frame('19',()=>{
   const g=ctx.createRadialGradient(W*.7,H*.3,0,W*.7,H*.3,1300);g.addColorStop(0,'#1b3a2b');g.addColorStop(.45,'#0f2219');g.addColorStop(1,'#08120d');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);glow(400,200,700,'#8ad0a8',.16);
@@ -236,39 +205,95 @@ frame('10',()=>{anvilAt(1.7);ui(()=>relationOverlay(76));caption('09');});
 // so close that the white of the iron fills the frame: then the white is snow
 frame('11',()=>{anvilAt(6.5);ctx.save();ctx.globalAlpha=.55;rect(0,0,W,H,'#f3eee2');ctx.restore();});
 
-// ================================================================ 12–15 · footprints, seen from straight above
-// Havard walks ahead, Pipe follows. At the fork both stop; Riga's smaller prints come down beside the horse and stand
-// toe to toe with Havard's, who has turned round. Then the hoof prints break into a run and are gone.
-// A boot print seen from above, toe pointing along +y rotated by a: the ball of the foot and the heel, apart.
-function bootPrint(x,y,s,a){ctx.save();ctx.translate(x,y);ctx.rotate(a);ctx.scale(s,s);
-  wshape([-20,-8,-24,-34,-14,-58,0,-64,14,-58,24,-34,20,-8,0,0],DYE.woad,{lw:6});wshape([-16,16,-18,36,0,46,18,36,16,16,0,10],DYE.woad,{lw:6});
-  wline([-10,-46,10,-46],DYE.sky,6);ctx.restore();}
-// A hoof print from above: round, the V of the frog at its heel.
-function hoofPrint(x,y,s,a=0){ctx.save();ctx.translate(x,y);ctx.rotate(a);ctx.scale(s,s);
-  wshape([-32,16,-36,-10,-24,-34,0,-42,24,-34,36,-10,32,16,16,34,-16,34],DYE.woad,{lw:6});wpoly([-12,30,0,-6,12,30],DYE.sky,{lw:4});ctx.restore();}
-// Walking to the right along a row y: boot prints left, right…; hoof prints in two tracks, one per step.
-function walkPrints(y,x0,x1,{step=150,s=1,gap=30}={}){for(let x=x0,i=0;x<=x1;x+=step,i++)bootPrint(x,y+(i%2?gap:-gap)*s,s,Math.PI/2);}
-function hoofWalk(y,x0,x1,{step=120,s=1,gap=34}={}){for(let x=x0,i=0;x<=x1;x+=step,i++)hoofPrint(x,y+(i%2?gap:-gap),s,Math.PI/2);}
-function snowAbove(words,draw){weave(()=>{
-  rect(0,0,W,H,DYE.bone);for(let i=0;i<9;i++){const y=160+i*100+hash(i)*30;wpoly([-40,y,W+40,y-16,W+40,y+6,-40,y+22],DYE.wool,{line:null});}
-  // trees at either side, their crowns seen from above as rosettes of palmettes
-  for(const [tx,ty,r] of [[160,230,100],[620,210,90],[1150,240,100],[1700,220,110],[300,900,110],[880,920,100],[1420,900,110],[1850,880,90]]){for(let k=0;k<7;k++){const a=k/7*TAU;wPalmette(tx+Math.cos(a)*r*.25,ty+Math.sin(a)*r*.25,r*.75,a,k%2?DYE.sky:DYE.bone);}wdisc(tx,ty,r*.22,DYE.indigo);}
-  // the trodden way, faintly
-  wpoly([-20,340,W+20,330,W+20,780,-20,790],DYE.wool,{line:null});
-  draw();borders(words);},{seed:12,flicker:.12});grade(0);}
-const HY=370,PY=760; // Havard's row, Pipe's row; both walking to the right
-const STOP_H=1160,STOP_P=960;
-// Both stop. Havard steps down off his line and turns round to face the horse; Riga gets down on the near side and
-// walks up to him; their pairs of prints stand toe to toe, his smaller.
-function stopped(){walkPrints(HY,-40,STOP_H,{s:1.35});bootPrint(1300,476,1.35,2.6);bootPrint(1340,566,1.35,-Math.PI/2);bootPrint(1340,632,1.35,-Math.PI/2);
-  hoofWalk(PY,-60,STOP_P);hoofPrint(STOP_P+70,PY-34,1,Math.PI/2);hoofPrint(STOP_P+70,PY+34,1,Math.PI/2);
-  bootPrint(960,690,.9,.8);bootPrint(1050,630,.9,1.1);bootPrint(1148,572,.9,Math.PI/2);bootPrint(1148,626,.9,Math.PI/2);}
-frame('12',()=>{snowAbove('HIC HAVARD ET RIGA PROFICISCVNTVR',()=>{walkPrints(HY,-40,1460,{s:1.35});hoofWalk(PY,-60,1200);});caption('10');});
-frame('14',()=>{snowAbove('HIC RIGA ET HAVARD VALEDICVNT',()=>stopped());caption('12');});
-frame('15a',()=>{snowAbove('HIC RIGA EQVITAT AD HELGARD',()=>{stopped();
-  // Riga goes back to the horse; then the run: hoof prints in fours, far apart, snow thrown up behind each group
-  bootPrint(1090,700,.9,-2.3);bootPrint(1020,750,.9,-2.3);
-  for(let g=0;g<4;g++){const x=STOP_P+220+g*250;for(const [dx,dy] of [[0,-34],[40,34],[110,-30],[150,36]])hoofPrint(x+dx,PY+dy,1,Math.PI/2-.05);for(let i=0;i<9;i++)wFlake(x-40-hash(g*7+i)*80,PY+(hash(g*9+i)-.5)*130,.6+hash(i)*.4,DYE.sky);}});caption('13');});
+// ================================================================ 12–18 · the trail, seen from straight above
+// One long woven strip of snow that the camera follows. Havard walks ahead, Pipe (with Riga on him) behind; at the
+// fork both stop, Riga gets down and walks up to Havard; then he goes back to the horse and the hoof prints break
+// into a gallop and run on, through the rest of the film, into the unwoven warp. World x is in frame px, 1 m = 480 px.
+const M=480,HY=390,PY=760,BS=1.36,HS=1.45,WALK_V=1.1*M,WALK_T0=87,STOP_T=114;
+const XH0=300,XP0=XH0-2*M;                             // Havard leads Pipe by two metres
+const trailWalk=(x0,t)=>x0+WALK_V*clamp(t-WALK_T0,0,STOP_T-WALK_T0);
+const XS=trailWalk(XH0,STOP_T),XPS=trailWalk(XP0,STOP_T);      // where each of them stops
+// the run: speed in px/s rising after "Hyah!", and the horse's position by integration
+const RUN_T0=132.4,runV=t=>t<RUN_T0?0:lerp(1.6*M,5.2*M,easeOut(clamp((t-RUN_T0)/5)));
+const RUN=(()=>{const a=[];let x=XPS;for(let t=RUN_T0;t<=162;t+=1/60){a.push(x);x+=runV(t)/60;}return a;})();
+const runX=t=>t<=RUN_T0?XPS:RUN[Math.min(RUN.length-1,Math.round((t-RUN_T0)*60))];
+const WARP_X=runX(153.6)+.2*M+340;                          // where the weaving stops
+// A boot print from above, toe along +x when a=0: sole with a wide ball, a waist and a heel, pressed into the snow —
+// the wall nearest the light (upper left) in shadow, the floor lit, the tread showing, the snow pushed up at the toe.
+const SOLE=[50,0,47,-12,38,-18,22,-19,6,-15,-8,-11,-24,-13,-40,-13,-50,-8,-53,0,-50,8,-40,13,-24,13,-8,11,6,15,22,19,38,18,47,12];
+function bootPrint(x,y,s,a,{left=false,age=1}={}){if(age<=0)return;ctx.save();ctx.translate(x,y);ctx.rotate(a);ctx.scale(s,left?-s:s);
+  wshape(SOLE.map((v,i)=>v*1.14),DYE.bone,{line:null,ten:.8});
+  smooth(SOLE,.8);ctx.fillStyle=DYE.woad;ctx.fill();ctx.save();smooth(SOLE,.8);ctx.clip();ctx.translate(5,6);smooth(SOLE,.8);ctx.fillStyle=DYE.sky;ctx.fill();
+  for(let tx=-46;tx<46;tx+=11){if(tx>-14&&tx<2)continue;wline([tx,-16,tx,16],DYE.woad,4);}ctx.restore();
+  smooth(SOLE,.8);ctx.strokeStyle=DYE.indigo;ctx.lineWidth=4;ctx.stroke();
+  wshape([50,-12,62,-6,64,6,52,13,58,0],DYE.bone,{line:DYE.skyL,lw:3});ctx.restore();}
+// A shod hoof from above, toe along +x: the round hoof, the horseshoe pressed deepest with its nail holes, the frog.
+function hoofPrint(x,y,s,a=0,{deep=0}={}){ctx.save();ctx.translate(x,y);ctx.rotate(a);ctx.scale(s,s);
+  const HOOF=[24,0,21,-14,10,-23,-6,-24,-18,-18,-24,-8,-24,8,-18,18,-6,24,10,23,21,14];
+  wshape(HOOF.map(v=>v*1.16),DYE.bone,{line:null});smooth(HOOF);ctx.fillStyle=DYE.sky;ctx.fill();
+  ctx.save();ctx.beginPath();ctx.arc(-2,0,17,-1.9,1.9);ctx.strokeStyle=deep?DYE.indigo:DYE.woad;ctx.lineWidth=9;ctx.stroke();ctx.restore();
+  for(const b of [-1.3,-.6,.6,1.3])wdisc(-2+Math.cos(b)*17,Math.sin(b)*17,2.2,DYE.bone,{line:null});
+  wline([-18,-7,6,0,-18,7],DYE.woad,4);smooth(HOOF);ctx.strokeStyle=DYE.indigo;ctx.lineWidth=4;ctx.stroke();
+  if(deep)wshape([24,-10,34,-4,36,6,26,10,30,0],DYE.bone,{line:DYE.skyL,lw:3});ctx.restore();}
+// Everything left in the snow by time t, as [time it appears, draw()].
+function trail(){const P=[];
+  // walking: Havard's steps, 0.75 m apart, alternating feet; Pipe's walk, hind print just behind each fore print
+  for(let k=0,x=XH0-12*M;x<=XS;k++,x+=.75*M)P.push([WALK_T0+(x-XH0)/WALK_V,()=>bootPrint(x,HY+(k%2?38:-38),BS,0,{left:k%2===0})]);
+  for(let k=0,x=XP0-12*M;x<=XPS;k++,x+=.8*M){const y=PY+(k%2?70:-70);P.push([WALK_T0+(x-XP0)/WALK_V,()=>{hoofPrint(x,y,HS);hoofPrint(x-40,y+(k%2?8:-8),HS*.95);}]);}
+  // the stop: Havard steps down off his line and turns to face the horse
+  P.push([116.4,()=>bootPrint(XS-.4*M,HY+130,BS,2.4,{left:true})]);
+  P.push([117.0,()=>{bootPrint(XS-.75*M,HY+190,BS,Math.PI);bootPrint(XS-.75*M,HY+270,BS,Math.PI,{left:true});}]);
+  P.push([116.2,()=>{hoofPrint(XPS+.3*M,PY-70,HS);hoofPrint(XPS+.3*M,PY+70,HS);}]);
+  // Riga gets down on the near side and walks up to him: smaller prints, toe to toe at the end
+  const RX=XS-.75*M-.62*M;
+  P.push([117.2,()=>bootPrint(XPS+.6*M,PY-190,BS*.85,-.5,{left:true})]);
+  P.push([117.8,()=>bootPrint(lerp(XPS+.6*M,RX,.5),HY+320,BS*.85,-.3)]);
+  P.push([118.5,()=>{bootPrint(RX,HY+190,BS*.85,0,{left:true});bootPrint(RX,HY+270,BS*.85,0);}]);
+  // after the parting: back to the horse, and the gallop, prints in fours, a stride apart, snow thrown up behind
+  P.push([128.8,()=>bootPrint(lerp(XPS+.6*M,RX,.45),HY+390,BS*.85,2.9,{left:true})]);
+  P.push([129.4,()=>bootPrint(XPS+.55*M,PY-110,BS*.85,2.7)]);
+  let g=0;for(let t=RUN_T0+.3;t<160.6;t+=.42,g++){const x=runX(t),gp=g;if(x+1.3*M>WARP_X)break;P.push([t,()=>{
+    for(const [dx,dy] of [[0,-56],[.3*M,56],[.9*M,-50],[1.2*M,60]])hoofPrint(x+dx,PY+dy,HS,0,{deep:1});
+    for(let i=0;i<12;i++)wFlake(x-40-hash(gp*7+i)*.7*M,PY+(hash(gp*9+i)-.5)*220,.5+hash(gp+i)*.5,i%3?DYE.bone:DYE.sky);}]);}
+  return P;}
+const TRAIL=trail();
+// Where the camera looks (world x of the frame centre) at time t.
+function trailCam(t){
+  const walk=(trailWalk(XH0,t)+trailWalk(XP0,t))/2-.2*M,stop=(XS+XPS)/2+.15*M;
+  if(t<STOP_T)return walk;if(t<RUN_T0+.6)return stop;
+  return lerp(stop,runX(t)+.2*M,easeInOut(clamp((t-RUN_T0-.6)/2.4)));}
+function trailDesign(t,{words}={}){
+  const cam=trailCam(t),ox=W/2-cam;rect(0,0,W,H,DYE.bone);
+  // the snow's own lie: long drifts, stones and dead grass poking through, all moving with the ground
+  const i0=Math.floor((cam-W)/280),i1=Math.ceil((cam+W)/280);
+  for(let i=i0;i<=i1;i++){const x=i*280+ox,h1=hash(i*1.7),h2=hash(i*2.3),h3=hash(i*3.1);
+    wpoly([x-200,180+h1*620,x+260,170+h1*620,x+300,190+h1*620,x-160,198+h1*620],DYE.wool,{line:null});
+    if(h2>.55){const sx=x+h3*200,sy=h2>.8?300+h1*100:860-h1*60;wshape(ell(sx,sy,16+h3*12,10+h3*6),DYE.grey,{lw:4});wshape(ell(sx-4,sy-4,10+h3*6,5),DYE.bone,{line:null});}
+    if(h3>.6){const gx=x+h1*220,gy=h3>.8?250:870;for(let k=-2;k<=2;k++)wline([gx+k*7,gy,gx+k*12,gy-26-hash(i+k)*14],DYE.ochre,5);}}
+  // tree crowns along both edges, nearer the eye than the ground and so sliding past faster
+  const px=W/2-cam*1.3,j0=Math.floor((cam*1.3-W)/520),j1=Math.ceil((cam*1.3+W)/520);
+  for(let j=j0;j<=j1;j++)for(const [ty,r] of [[190,110],[968,120]]){const tx=j*520+px+hash(j*5+ty)*200,rr=r*(.85+.3*hash(j*7+ty));if(hash(j*3+ty)<.25)continue;
+    for(let k=0;k<7;k++){const a=k/7*TAU+hash(j);wPalmette(tx+Math.cos(a)*rr*.25,ty+Math.sin(a)*rr*.25,rr*.75,a,k%2?DYE.sky:DYE.bone);}wdisc(tx,ty,rr*.22,DYE.indigo);}
+  // the prints laid so far
+  ctx.save();ctx.translate(ox,0);for(const [at,draw] of TRAIL)if(t>=at)draw();ctx.restore();
+  // past the end of the weaving: bare warp on the dark wall
+  const wx=WARP_X+ox;if(wx<W+40){rect(wx,0,W-wx+40,H,DYE.black);for(let x=Math.ceil((wx+6)/12)*12;x<W;x+=12)rect(x,0,6,H,DYE.linen);
+    for(let y=0;y<H;y+=34){const l=20+hash(y)*90;wline([wx,y,wx+l*.5,y+8,wx+l,y+l*.3],[DYE.bone,DYE.sky,DYE.wool][y%3],4);}}
+  borders(words||(t<116?'HIC HAVARD ET RIGA PROFICISCVNTVR':t<RUN_T0?'HIC RIGA ET HAVARD VALEDICVNT':'HIC RIGA EQVITAT AD HELGARD'));
+}
+// the frame at time t: woven, then darkened at the very end
+function trailFrame(t){weave(()=>trailDesign(t),{seed:12,flicker:.12+.1*Math.sin(t*3)});grade(0);
+  if(t>155.6){ctx.save();ctx.globalAlpha=clamp((t-155.6)/4.4)*.96;rect(0,0,W,H,'#050403');ctx.restore();}}
+window.trailFrame=trailFrame;
+frame('12a',()=>{trailFrame(89);caption('10');});
+frame('12b',()=>{trailFrame(96.5);caption('10');});
+frame('14a',()=>{trailFrame(117.9);});
+frame('14b',()=>{trailFrame(124);caption('12');});
+frame('15a',()=>{trailFrame(133.6);caption('13');});
+frame('15b',()=>{trailFrame(136.5);});
+frame('16',()=>{trailFrame(147);ui(()=>outlinePanel(150.4));});
+frame('17',()=>{trailFrame(153.6);caption('14');});
+frame('18',()=>{trailFrame(158.4);});
 
 // ================================================================ 13 · Havard's directions, a woven map
 frame('13',()=>{weave(()=>{rect(0,0,W,H,DYE.wool);
@@ -281,24 +306,3 @@ frame('13',()=>{weave(()=>{rect(0,0,W,H,DYE.wool);
   ctx.save();ctx.translate(1720,300);for(let i=0;i<16;i++){const a=i/16*TAU;wpoly([Math.cos(a-.12)*50,Math.sin(a-.12)*50,Math.cos(a)*(i%4?72:110),Math.sin(a)*(i%4?72:110),Math.cos(a+.12)*50,Math.sin(a+.12)*50],i%2?DYE.madder:DYE.weld,{lw:5});}wdisc(0,0,50,DYE.weld);wspiral(0,0,32,DYE.madder,{lw:9});ctx.restore();
   borders('HIC VIA AD HELGARD');},{seed:13,flicker:.1});grade(0);ui(()=>{mapToolbar(103);cursor(1176,410,1,.4);});caption('11');});
 
-// ================================================================ 15–18 · Pipe runs; the weaving runs out
-function rideDesign({x=860}={}){winterField({ground:812});
-  for(const [tx,th,sd] of [[120,600,41],[420,440,42],[1480,460,43],[1790,600,44]])wTree(tx,830,th,{seed:sd,...WINTER});
-  for(let i=0;i<60;i++){const fx=hash(i*3.3)*W,fy=150+hash(i*7.1)*560;if(Math.abs(fx-x)<420&&fy>300)continue;wFlake(fx,fy,1+hash(i)*.6,i%4?DYE.woad:DYE.sky);}
-  for(let i=0;i<9;i++)hoofPrint(x-560-i*120,890+(i%2)*16,.8,Math.PI/2);
-  pipe(x,840,1.25,{saddle:false,bridle:false});
-  borders('HIC RIGA EQVITAT AD HELGARD');}
-frame('15b',()=>{weave(()=>rideDesign(),{seed:17,flicker:.3});grade(0);});
-frame('16',()=>{weave(()=>rideDesign({x:620}),{seed:17,flicker:.3});grade(0);ui(()=>outlinePanel(150.4));});
-frame('17',()=>{
-  weave(()=>rideDesign({x:860}),{seed:17,flicker:.3});
-  const edge=y=>1440+Math.sin(y/90)*40+noise(y/26)*50;
-  ctx.save();ctx.beginPath();ctx.moveTo(W,0);for(let y=0;y<=H;y+=10)ctx.lineTo(edge(y),y);ctx.lineTo(W,H);ctx.closePath();ctx.fillStyle='#0f0b09';ctx.fill();ctx.clip();
-  for(let x=1300;x<W;x+=12){ctx.strokeStyle='rgba(222,207,174,.75)';ctx.lineWidth=2.4;ctx.beginPath();ctx.moveTo(x+Math.sin(x)*2,0);ctx.lineTo(x+Math.sin(x*1.7)*4,H);ctx.stroke();}ctx.restore();
-  for(let i=0;i<70;i++){const y=hash(i*2.3)*H,x0=edge(y),l=30+hash(i*5.1)*140;ctx.strokeStyle=[DYE.bone,DYE.sky,DYE.wool][i%3];ctx.lineWidth=3;ctx.beginPath();ctx.moveTo(x0,y);ctx.quadraticCurveTo(x0+l*.5,y+10,x0+l,y+l*.4);ctx.stroke();}
-  grade(0);caption('14');
-});
-frame('18',()=>{
-  weave(()=>{rect(0,0,W,H,DYE.black);for(let x=0;x<W;x+=12)wline([x,0,x,H],DYE.umber,3);pipe(760,840,1.25,{saddle:false,bridle:false});},{seed:18,light:.55,folds:0});
-  const g=ctx.createLinearGradient(200,0,1500,0);g.addColorStop(0,'rgba(5,4,3,.45)');g.addColorStop(.5,'rgba(5,4,3,.75)');g.addColorStop(1,'rgba(5,4,3,.98)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
-});
