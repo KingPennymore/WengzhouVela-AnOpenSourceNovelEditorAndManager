@@ -47,5 +47,5 @@ export function seed({gly=[],plan={},mapPlaces=4,settings={}}={}){
     make('plan','炉火祈愿.pcs',outlineText(outline(plan))),
     make('map','瑞达内.vlmp',mapText(map(mapPlaces))),
     make('config','.vela',velaText(config))],
-    openIds:['book'],activeId:'book',settings:{theme:'light',palette:'pine',...settings}};
+    openIds:['book'],activeId:'book',settings:{theme:'dark',palette:'pine',...settings}};
 }

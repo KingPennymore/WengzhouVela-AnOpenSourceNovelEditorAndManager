@@ -292,9 +292,9 @@ function appBlit(q,f,src,x,y,s,a){const img=APP_IMG[APP[q]?.frames[f]?.[1]];if(!
   ctx.drawImage(img,src[0]*APP_DPR,src[1]*APP_DPR,src[2]*APP_DPR,src[3]*APP_DPR,x,y,src[2]*s,src[3]*s);ctx.restore();}
 // a window of w × h CSS px at (x, y): shadow, rounded corners, the frames cross-fading in it; paint(f, alpha) draws a frame
 function appWindow(keys,t,{x,y,w,h,s,a=1,r=14,paint}){const at=appAt(keys,t);if(!at||a<=0)return;const fw=w*s,fh=h*s;
-  ctx.save();ctx.globalAlpha=a;ctx.shadowColor='rgba(24,14,6,.5)';ctx.shadowBlur=40;ctx.shadowOffsetY=16;fillRR(x,y,fw,fh,r,'#f3f6f3');ctx.restore();
+  ctx.save();ctx.globalAlpha=a;ctx.shadowColor='rgba(10,6,2,.6)';ctx.shadowBlur=40;ctx.shadowOffsetY=16;fillRR(x,y,fw,fh,r,'#18211c');ctx.restore();
   ctx.save();ctx.beginPath();ctx.roundRect(x,y,fw,fh,r);ctx.clip();if(at.g!==null&&at.k<1)paint(at.g,a);paint(at.f,at.g!==null?a*at.k:a);ctx.restore();
-  strokeRR(x+.5,y+.5,fw-1,fh-1,r,`rgba(30,50,40,${.22*a})`,1);}
+  strokeRR(x+.5,y+.5,fw-1,fh-1,r,`rgba(138,208,168,${.28*a})`,1);}
 // the pointer: path [[t, [x, y]], …] in film px, eased from point to point; a press shows at each time in presses
 function pointerAt(path,t){if(t<=path[0][0])return path[0][1];for(let i=1;i<path.length;i++)if(t<path[i][0]){const [t0,p0]=path[i-1],[t1,p1]=path[i],k=easeInOut((t-t0)/(t1-t0));return [lerp(p0[0],p1[0],k),lerp(p0[1],p1[1],k)];}return path[path.length-1][1];}
 function pointer(path,t,a,presses=[]){if(a<=0)return;const [x,y]=pointerAt(path,t),press=Math.max(0,...presses.map(c=>1-Math.min(1,Math.abs(t-c)/.15)));cursor(x,y,a,press);}
@@ -316,7 +316,7 @@ function relationsApp(t){if(t<71.6||t>81.8||!APP.relations)return;const A=APP.re
   appWindow([[71.6,0],[73.7,1],[74.3,2],[74.9,3],[75.15,4],[75.35,5],[75.55,6],[75.75,7],[75.95,8],[76.6,9],[76.95,10]],t,{...o,w,h,a,paint:(f,al)=>appBlit('relations',f,[0,0,w,h],o.x,o.y,o.s,al)});
   const path=[[72,inWin(o,[w*.6,h*.85])],[72.5,inWin(o,A.handle)],[72.62,inWin(o,A.handle)],[73.55,inWin(o,A.riga)],[73.85,inWin(o,A.riga)],[74.2,inWin(o,A.edge)],[74.75,inWin(o,A.label)],[76.2,inWin(o,A.label)],[76.6,inWin(o,A.save)]];
   // while the pointer drags, the new line follows it out of the handle
-  if(t>72.62&&t<73.7){const [hx,hy]=inWin(o,A.handle),[px,py]=pointerAt(path,t);ctx.save();ctx.globalAlpha=a;ctx.strokeStyle='#4c8a70';ctx.lineWidth=1.6;ctx.setLineDash([6,4]);ctx.beginPath();ctx.moveTo(hx,hy);ctx.lineTo(px,py);ctx.stroke();ctx.restore();}
+  if(t>72.62&&t<73.7){const [hx,hy]=inWin(o,A.handle),[px,py]=pointerAt(path,t);ctx.save();ctx.globalAlpha=a;ctx.strokeStyle='#8ad0a8';ctx.lineWidth=1.6;ctx.setLineDash([6,4]);ctx.beginPath();ctx.moveTo(hx,hy);ctx.lineTo(px,py);ctx.stroke();ctx.restore();}
   pointer(path,t,a*seg(t,71.9,72.2),[72.62,73.65,74.25,74.8,76.9]);
 }
 // 地图 · the 信息点 tool: the woven map is the canvas; the app's toolbar sits above it and its panel at the side

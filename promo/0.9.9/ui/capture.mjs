@@ -16,7 +16,7 @@ const browser=await chromium.launch({executablePath:process.env.WENZHOU_CHROME})
 const SEQ={},ONLY=process.env.ONLY?.split(','),want=n=>!ONLY||ONLY.includes(n);   // ONLY=relations,map … to redo some
 
 async function app(name,{width,height,state={}}){
-  const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:1.5,reducedMotion:'reduce'});
+  const context=await browser.newContext({viewport:{width,height},deviceScaleFactor:1.5,colorScheme:'dark',reducedMotion:'reduce'});
   await context.addInitScript(s=>{if(!localStorage.getItem('wenzhou.workspace'))localStorage.setItem('wenzhou.workspace',JSON.stringify(s));},seed(state));
   const p=await context.newPage();p.on('pageerror',e=>console.error(name,e.message));
   await p.goto(URL_+'/?ui=harmonyos');await p.waitForTimeout(800);
