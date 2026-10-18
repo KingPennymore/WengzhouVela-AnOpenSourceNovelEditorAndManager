@@ -205,96 +205,6 @@ frame('10',()=>{anvilAt(1.7);ui(()=>relationOverlay(76));caption('09');});
 // so close that the white of the iron fills the frame: then the white is snow
 frame('11',()=>{anvilAt(6.5);ctx.save();ctx.globalAlpha=.55;rect(0,0,W,H,'#f3eee2');ctx.restore();});
 
-// ================================================================ 12–18 · the trail, seen from straight above
-// One long woven strip of snow that the camera follows. Havard walks ahead, Pipe (with Riga on him) behind; at the
-// fork both stop, Riga gets down and walks up to Havard; then he goes back to the horse and the hoof prints break
-// into a gallop and run on, through the rest of the film, into the unwoven warp. World x is in frame px, 1 m = 480 px.
-const M=480,HY=390,PY=760,BS=1.36,HS=1.45,WALK_V=1.1*M,WALK_T0=87,STOP_T=114;
-const XH0=300,XP0=XH0-2*M;                             // Havard leads Pipe by two metres
-const trailWalk=(x0,t)=>x0+WALK_V*clamp(t-WALK_T0,0,STOP_T-WALK_T0);
-const XS=trailWalk(XH0,STOP_T),XPS=trailWalk(XP0,STOP_T);      // where each of them stops
-// the run: speed in px/s rising after "Hyah!", and the horse's position by integration
-const RUN_T0=132.4,runV=t=>t<RUN_T0?0:lerp(1.6*M,5.2*M,easeOut(clamp((t-RUN_T0)/5)));
-const RUN=(()=>{const a=[];let x=XPS;for(let t=RUN_T0;t<=162;t+=1/60){a.push(x);x+=runV(t)/60;}return a;})();
-const runX=t=>t<=RUN_T0?XPS:RUN[Math.min(RUN.length-1,Math.round((t-RUN_T0)*60))];
-const WARP_X=runX(153.6)+.2*M+340;                          // where the weaving stops
-// A boot print from above, toe along +x when a=0: sole with a wide ball, a waist and a heel, pressed into the snow —
-// the wall nearest the light (upper left) in shadow, the floor lit, the tread showing, the snow pushed up at the toe.
-const SOLE=[50,0,47,-12,38,-18,22,-19,6,-15,-8,-11,-24,-13,-40,-13,-50,-8,-53,0,-50,8,-40,13,-24,13,-8,11,6,15,22,19,38,18,47,12];
-function bootPrint(x,y,s,a,{left=false,age=1}={}){if(age<=0)return;ctx.save();ctx.translate(x,y);ctx.rotate(a);ctx.scale(s,left?-s:s);
-  wshape(SOLE.map((v,i)=>v*1.14),DYE.bone,{line:null,ten:.8});
-  smooth(SOLE,.8);ctx.fillStyle=DYE.woad;ctx.fill();ctx.save();smooth(SOLE,.8);ctx.clip();ctx.translate(5,6);smooth(SOLE,.8);ctx.fillStyle=DYE.sky;ctx.fill();
-  for(let tx=-46;tx<46;tx+=11){if(tx>-14&&tx<2)continue;wline([tx,-16,tx,16],DYE.woad,4);}ctx.restore();
-  smooth(SOLE,.8);ctx.strokeStyle=DYE.indigo;ctx.lineWidth=4;ctx.stroke();
-  wshape([50,-12,62,-6,64,6,52,13,58,0],DYE.bone,{line:DYE.skyL,lw:3});ctx.restore();}
-// A shod hoof from above, toe along +x: the round hoof, the horseshoe pressed deepest with its nail holes, the frog.
-function hoofPrint(x,y,s,a=0,{deep=0}={}){ctx.save();ctx.translate(x,y);ctx.rotate(a);ctx.scale(s,s);
-  const HOOF=[24,0,21,-14,10,-23,-6,-24,-18,-18,-24,-8,-24,8,-18,18,-6,24,10,23,21,14];
-  wshape(HOOF.map(v=>v*1.16),DYE.bone,{line:null});smooth(HOOF);ctx.fillStyle=DYE.sky;ctx.fill();
-  ctx.save();ctx.beginPath();ctx.arc(-2,0,17,-1.9,1.9);ctx.strokeStyle=deep?DYE.indigo:DYE.woad;ctx.lineWidth=9;ctx.stroke();ctx.restore();
-  for(const b of [-1.3,-.6,.6,1.3])wdisc(-2+Math.cos(b)*17,Math.sin(b)*17,2.2,DYE.bone,{line:null});
-  wline([-18,-7,6,0,-18,7],DYE.woad,4);smooth(HOOF);ctx.strokeStyle=DYE.indigo;ctx.lineWidth=4;ctx.stroke();
-  if(deep)wshape([24,-10,34,-4,36,6,26,10,30,0],DYE.bone,{line:DYE.skyL,lw:3});ctx.restore();}
-// Everything left in the snow by time t, as [time it appears, draw()].
-function trail(){const P=[];
-  // walking: Havard's steps, 0.75 m apart, alternating feet; Pipe's walk, hind print just behind each fore print
-  for(let k=0,x=XH0-12*M;x<=XS;k++,x+=.75*M)P.push([WALK_T0+(x-XH0)/WALK_V,()=>bootPrint(x,HY+(k%2?38:-38),BS,0,{left:k%2===0})]);
-  for(let k=0,x=XP0-12*M;x<=XPS;k++,x+=.8*M){const y=PY+(k%2?70:-70);P.push([WALK_T0+(x-XP0)/WALK_V,()=>{hoofPrint(x,y,HS);hoofPrint(x-40,y+(k%2?8:-8),HS*.95);}]);}
-  // the stop: Havard steps down off his line and turns to face the horse
-  P.push([116.4,()=>bootPrint(XS-.4*M,HY+130,BS,2.4,{left:true})]);
-  P.push([117.0,()=>{bootPrint(XS-.75*M,HY+190,BS,Math.PI);bootPrint(XS-.75*M,HY+270,BS,Math.PI,{left:true});}]);
-  P.push([116.2,()=>{hoofPrint(XPS+.3*M,PY-70,HS);hoofPrint(XPS+.3*M,PY+70,HS);}]);
-  // Riga gets down on the near side and walks up to him: smaller prints, toe to toe at the end
-  const RX=XS-.75*M-.62*M;
-  P.push([117.2,()=>bootPrint(XPS+.6*M,PY-190,BS*.85,-.5,{left:true})]);
-  P.push([117.8,()=>bootPrint(lerp(XPS+.6*M,RX,.5),HY+320,BS*.85,-.3)]);
-  P.push([118.5,()=>{bootPrint(RX,HY+190,BS*.85,0,{left:true});bootPrint(RX,HY+270,BS*.85,0);}]);
-  // after the parting: back to the horse, and the gallop, prints in fours, a stride apart, snow thrown up behind
-  P.push([128.8,()=>bootPrint(lerp(XPS+.6*M,RX,.45),HY+390,BS*.85,2.9,{left:true})]);
-  P.push([129.4,()=>bootPrint(XPS+.55*M,PY-110,BS*.85,2.7)]);
-  let g=0;for(let t=RUN_T0+.3;t<160.6;t+=.42,g++){const x=runX(t),gp=g;if(x+1.3*M>WARP_X)break;P.push([t,()=>{
-    for(const [dx,dy] of [[0,-56],[.3*M,56],[.9*M,-50],[1.2*M,60]])hoofPrint(x+dx,PY+dy,HS,0,{deep:1});
-    for(let i=0;i<12;i++)wFlake(x-40-hash(gp*7+i)*.7*M,PY+(hash(gp*9+i)-.5)*220,.5+hash(gp+i)*.5,i%3?DYE.bone:DYE.sky);}]);}
-  return P;}
-const TRAIL=trail();
-// Where the camera looks (world x of the frame centre) at time t.
-function trailCam(t){
-  const walk=(trailWalk(XH0,t)+trailWalk(XP0,t))/2-.2*M,stop=(XS+XPS)/2+.15*M;
-  if(t<STOP_T)return walk;if(t<RUN_T0+.6)return stop;
-  return lerp(stop,runX(t)+.2*M,easeInOut(clamp((t-RUN_T0-.6)/2.4)));}
-function trailDesign(t,{words}={}){
-  const cam=trailCam(t),ox=W/2-cam;rect(0,0,W,H,DYE.bone);
-  // the snow's own lie: long drifts, stones and dead grass poking through, all moving with the ground
-  const i0=Math.floor((cam-W)/280),i1=Math.ceil((cam+W)/280);
-  for(let i=i0;i<=i1;i++){const x=i*280+ox,h1=hash(i*1.7),h2=hash(i*2.3),h3=hash(i*3.1);
-    wpoly([x-200,180+h1*620,x+260,170+h1*620,x+300,190+h1*620,x-160,198+h1*620],DYE.wool,{line:null});
-    if(h2>.55){const sx=x+h3*200,sy=h2>.8?300+h1*100:860-h1*60;wshape(ell(sx,sy,16+h3*12,10+h3*6),DYE.grey,{lw:4});wshape(ell(sx-4,sy-4,10+h3*6,5),DYE.bone,{line:null});}
-    if(h3>.6){const gx=x+h1*220,gy=h3>.8?250:870;for(let k=-2;k<=2;k++)wline([gx+k*7,gy,gx+k*12,gy-26-hash(i+k)*14],DYE.ochre,5);}}
-  // tree crowns along both edges, nearer the eye than the ground and so sliding past faster
-  const px=W/2-cam*1.3,j0=Math.floor((cam*1.3-W)/520),j1=Math.ceil((cam*1.3+W)/520);
-  for(let j=j0;j<=j1;j++)for(const [ty,r] of [[190,110],[968,120]]){const tx=j*520+px+hash(j*5+ty)*200,rr=r*(.85+.3*hash(j*7+ty));if(hash(j*3+ty)<.25)continue;
-    for(let k=0;k<7;k++){const a=k/7*TAU+hash(j);wPalmette(tx+Math.cos(a)*rr*.25,ty+Math.sin(a)*rr*.25,rr*.75,a,k%2?DYE.sky:DYE.bone);}wdisc(tx,ty,rr*.22,DYE.indigo);}
-  // the prints laid so far
-  ctx.save();ctx.translate(ox,0);for(const [at,draw] of TRAIL)if(t>=at)draw();ctx.restore();
-  // past the end of the weaving: bare warp on the dark wall
-  const wx=WARP_X+ox;if(wx<W+40){rect(wx,0,W-wx+40,H,DYE.black);for(let x=Math.ceil((wx+6)/12)*12;x<W;x+=12)rect(x,0,6,H,DYE.linen);
-    for(let y=0;y<H;y+=34){const l=20+hash(y)*90;wline([wx,y,wx+l*.5,y+8,wx+l,y+l*.3],[DYE.bone,DYE.sky,DYE.wool][y%3],4);}}
-  borders(words||(t<116?'HIC HAVARD ET RIGA PROFICISCVNTVR':t<RUN_T0?'HIC RIGA ET HAVARD VALEDICVNT':'HIC RIGA EQVITAT AD HELGARD'));
-}
-// the frame at time t: woven, then darkened at the very end
-function trailFrame(t){weave(()=>trailDesign(t),{seed:12,flicker:.12+.1*Math.sin(t*3)});grade(0);
-  if(t>155.6){ctx.save();ctx.globalAlpha=clamp((t-155.6)/4.4)*.96;rect(0,0,W,H,'#050403');ctx.restore();}}
-window.trailFrame=trailFrame;
-frame('12a',()=>{trailFrame(89);caption('10');});
-frame('12b',()=>{trailFrame(96.5);caption('10');});
-frame('14a',()=>{trailFrame(117.9);});
-frame('14b',()=>{trailFrame(124);caption('12');});
-frame('15a',()=>{trailFrame(133.6);caption('13');});
-frame('15b',()=>{trailFrame(136.5);});
-frame('16',()=>{trailFrame(147);ui(()=>outlinePanel(150.4));});
-frame('17',()=>{trailFrame(153.6);caption('14');});
-frame('18',()=>{trailFrame(158.4);});
-
 // ================================================================ 13 · Havard's directions, a woven map
 frame('13',()=>{weave(()=>{rect(0,0,W,H,DYE.wool);
   for(let i=0;i<10;i++){const x=150+i*66+(i%2)*18,y=300+(i%3)*22,h=90+hash(i)*30;wpoly([x-46,y,x,y-h,x+46,y],i%2?DYE.sky:DYE.woad,{lw:6});wpoly([x,y-h,x-16,y-h*.62,x+16,y-h*.62],DYE.bone,{line:null});}
@@ -306,3 +216,85 @@ frame('13',()=>{weave(()=>{rect(0,0,W,H,DYE.wool);
   ctx.save();ctx.translate(1720,300);for(let i=0;i<16;i++){const a=i/16*TAU;wpoly([Math.cos(a-.12)*50,Math.sin(a-.12)*50,Math.cos(a)*(i%4?72:110),Math.sin(a)*(i%4?72:110),Math.cos(a+.12)*50,Math.sin(a+.12)*50],i%2?DYE.madder:DYE.weld,{lw:5});}wdisc(0,0,50,DYE.weld);wspiral(0,0,32,DYE.madder,{lw:9});ctx.restore();
   borders('HIC VIA AD HELGARD');},{seed:13,flicker:.1});grade(0);ui(()=>{mapToolbar(103);cursor(1176,410,1,.4);});caption('11');});
 
+
+// ================================================================ 12–18 · two threads, seen from straight above
+// Havard and Riga leave the village as two threads woven up the road: green ahead, woad blue behind. At the fork
+// they twine round each other for a few turns; on "Hyah!" the blue runs on straight and taut, the green stays where
+// it is; at the end the blue runs on up past the fell of the weaving into the bare warp, where nothing is woven.
+const TH={havard:[DYE.green,DYE.moss],riga:[DYE.woad,DYE.indigo]};
+// A woollen thread along a polyline: a band edged in dark wool with the slant of its twist.
+function yarn(pts,[col,dark],{w=24}={}){
+  ctx.save();ctx.lineCap='round';ctx.lineJoin='round';const trace=()=>{ctx.beginPath();ctx.moveTo(pts[0],pts[1]);for(let i=2;i<pts.length;i+=2)ctx.lineTo(pts[i],pts[i+1]);};
+  trace();ctx.strokeStyle=DYE.black;ctx.lineWidth=w+10;ctx.stroke();trace();ctx.strokeStyle=col;ctx.lineWidth=w;ctx.stroke();
+  let acc=0;ctx.strokeStyle=dark;ctx.lineWidth=5;for(let i=2;i<pts.length;i+=2){const x0=pts[i-2],y0=pts[i-1],x1=pts[i],y1=pts[i+1],l=Math.hypot(x1-x0,y1-y0);if(!l)continue;const ux=(x1-x0)/l,uy=(y1-y0)/l;
+    for(;acc<l;acc+=16){const x=x0+ux*acc,y=y0+uy*acc,h=w*.42;ctx.beginPath();ctx.moveTo(x-uy*h-ux*5,y+ux*h-uy*5);ctx.lineTo(x+uy*h+ux*5,y-ux*h+uy*5);ctx.stroke();}acc-=l;}
+  ctx.restore();}
+const sampleCurve=(f,a,b,n=60)=>{const p=[];for(let i=0;i<=n;i++){const [x,y]=f(lerp(a,b,i/n));p.push(x,y);}return p;};
+const ring=(cx,cy,r,a0=0,a1=TAU)=>sampleCurve(a=>[cx+Math.cos(a)*r,cy+Math.sin(a)*r*.82],a0,a1,48);
+// ---------------------------------------------------------------- seen from straight above, the road going up the frame
+// The weaving grows upward as on a loom; the camera rises with the threads, so the ground slides down past it.
+const roadX=(y,off=0)=>960+Math.sin((y-off)/300)*34+Math.sin((y-off)/111)*10;
+function topField(off,{village=false,warpAt=null}={}){
+  rect(0,0,W,H,DYE.bone);
+  // drifts, stones and dead grass, all fixed to the ground (world y = screen y − off)
+  const t0=Math.floor((-off-200)/240),t1=Math.ceil((H-off+200)/240);
+  for(let i=t0;i<=t1;i++){const y=i*240+off,h1=hash(i*1.7),h2=hash(i*2.3),h3=hash(i*3.1);
+    wpoly([80+h1*700,y,560+h1*700,y-14,600+h1*700,y+6,120+h1*700,y+18],DYE.wool,{line:null});wpoly([1100+h2*600,y+120,1500+h2*600,y+108,1530+h2*600,y+126,1130+h2*600,y+134],DYE.wool,{line:null});
+    if(h2>.5){const sx=h3>.5?520+h1*160:1240+h1*160,sy=y+h3*200;wshape(ell(sx,sy,18+h3*12,12+h3*6),DYE.grey,{lw:4});wshape(ell(sx-4,sy-4,10+h3*6,5),DYE.bone,{line:null});}
+    if(h3>.55){const gx=h1>.5?640+h2*60:1220+h2*60,gy=y+h1*200;for(let k=-2;k<=2;k++)wline([gx+k*8,gy,gx+k*13,gy-26-hash(i+k)*14],DYE.ochre,5);}}
+  // the trodden road
+  const p=[];for(let y=-40;y<=H+40;y+=40)p.push(roadX(y,off)-170,y);for(let y=H+40;y>=-40;y-=40)p.push(roadX(y,off)+170,y);wpoly(p,DYE.wool,{lw:6});
+  // tree crowns either side, nearer the eye and so sliding a little faster
+  const o2=off*1.25,j0=Math.floor((-o2-300)/360),j1=Math.ceil((H-o2+300)/360);
+  for(let j=j0;j<=j1;j++)for(const side of [-1,1]){const y=j*360+o2+hash(j*5+side)*120,x=960+side*(560+hash(j*7+side)*260),rr=110+hash(j*3+side)*50;if(hash(j*11+side)<.2)continue;
+    for(let k=0;k<7;k++){const a=k/7*TAU+hash(j);wPalmette(x+Math.cos(a)*rr*.25,y+Math.sin(a)*rr*.25,rr*.75,a,k%2?DYE.sky:DYE.bone);}wdisc(x,y,rr*.22,DYE.indigo);}
+  // Sakarlet behind them: roofs seen from above
+  if(village)for(const [hx,hy] of [[620,960],[760,1010],[1180,980],[1320,940]]){const y=hy+off-900;wpoly([hx-60,y-40,hx+60,y-40,hx+60,y+40,hx-60,y+40],DYE.madder,{lw:6});wline([hx-60,y,hx+60,y],DYE.madderD,8);}
+  // above the fell of the weaving, only the bare warp
+  if(warpAt!==null){rect(0,0,W,warpAt,DYE.black);for(let x=6;x<W;x+=12)rect(x,0,6,warpAt,DYE.linen);
+    for(let x=0;x<W;x+=34){const l=20+hash(x)*80;wline([x,warpAt,x+8,warpAt-l*.5,x+l*.3,warpAt-l],[DYE.bone,DYE.sky,DYE.wool][x%3],4);}}
+}
+const upPts=(y0,y1,dx,off=0)=>sampleCurve(y=>[roadX(y,off)+dx,y],y0,y1,Math.max(8,Math.round(Math.abs(y1-y0)/30)));
+const UP=-Math.PI/2,DOWN=Math.PI/2;
+// 12 · leaving together, going up the frame: green ahead, blue behind
+frame('12a',()=>{weave(()=>{topField(0);
+  yarn(upPts(H+40,300,-56),TH.havard);
+  yarn(upPts(H+40,640,56),TH.riga);
+  borders('HIC HAVARD ET RIGA PROFICISCVNTVR');},{seed:12,flicker:.15});grade(0);caption('10');});
+frame('12b',()=>{weave(()=>{topField(700);
+  yarn(upPts(H+40,300,-56,700),TH.havard);
+  yarn(upPts(H+40,640,56,700),TH.riga);
+  borders('HIC HAVARD ET RIGA PROFICISCVNTVR');},{seed:12,flicker:.15});grade(0);caption('10');});
+// 14 · at the fork they twine: for a short stretch the two threads twist round each other, as two strands of a cord
+const TW0=820,TW1=420,TWA=24,TWN=3; // twist from y TW0 up to TW1, half-width TWA, TWN crossings
+const OFF_K=1400;
+function twine(off){
+  const cx=y=>roadX(y,off),ph=y=>(TW0-y)/(TW0-TW1)*TWN*Math.PI;
+  // the run-in: each thread draws in from its side of the road to the twist
+  const lead=(side)=>sampleCurve(y=>[cx(y)+side*lerp(TWA,56,easeInOut(clamp((y-TW0)/160))),y],H+40,TW0,30);
+  yarn(lead(-1),TH.havard);yarn(lead(1),TH.riga);
+  // the twist, half a turn at a time: the thread in front is drawn last
+  for(let k=0;k<TWN;k++){const y0=TW0-(TW0-TW1)*k/TWN,y1=TW0-(TW0-TW1)*(k+1)/TWN,seg=s=>sampleCurve(y=>[cx(y)+s*TWA*Math.cos(ph(y)),y],y0+2,y1-2,14);
+    const front=k%2?TH.havard:TH.riga,back=k%2?TH.riga:TH.havard,fs=k%2?-1:1;yarn(seg(-fs),back);yarn(seg(fs),front);}
+  return {top:TW1,x:cx(TW1),endG:cx(TW1)+TWA*Math.cos(TWN*Math.PI)*-1,endB:cx(TW1)+TWA*Math.cos(TWN*Math.PI)};}
+frame('14',()=>{weave(()=>{topField(OFF_K);twine(OFF_K);
+  borders('HIC RIGA ET HAVARD VALEDICVNT');},{seed:14,flicker:.12});grade(0);caption('12');});
+// 15 · "Hyah!": out of the twist the blue runs straight on up, taut; the green stays where it is
+frame('15',()=>{weave(()=>{topField(OFF_K);const t=twine(OFF_K),bx=y=>roadX(y,OFF_K);
+  yarn([t.endB,t.top,...upPts(t.top-30,40,30,OFF_K)],TH.riga);
+  for(let k=0;k<5;k++){const y=80+k*64;wline([bx(y)+110,y+30,bx(y)+110,y+80],DYE.bone,6);wline([bx(y)-50,y+50,bx(y)-50,y+100],DYE.bone,6);}
+  borders('HIC RIGA EQVITAT AD HELGARD');},{seed:15,flicker:.15});grade(0);caption('13');});
+// 17 · the fell of the weaving: above it nothing is woven yet, not even the border; the blue thread runs on up into it
+frame('17',()=>{weave(()=>{const FELL=430;topField(5200,{warpAt:FELL});
+  yarn(upPts(H+40,FELL+10,56,5200),TH.riga);
+  const tx=roadX(FELL,5200)+56;for(let y=FELL;y>170;y-=8)if((y/8)%2<1)rect(tx-9,y-8,18,8,DYE.woad);
+  
+  wBorderBottom();},{seed:17,flicker:.2});grade(0);caption('14');});
+// 16 · the blue thread racing on up the road; the camera can hardly keep up
+frame('16',()=>{weave(()=>{topField(3100);const bx=y=>roadX(y,3100)+56;
+  yarn(upPts(H+40,200,56,3100),TH.riga);
+  for(let k=0;k<7;k++){const y=230+k*110;wline([bx(y)+80,y,bx(y)+80,y+60],DYE.bone,6);wline([bx(y)-80,y+40,bx(y)-80,y+100],DYE.bone,6);}
+  borders('HIC RIGA EQVITAT AD HELGARD');},{seed:16,flicker:.2});grade(0);ui(()=>outlinePanel(150.4));});
+// 18 · past the fell the camera rises into the bare warp; the blue thread goes on into the dark and is lost
+frame('18',()=>{weave(()=>{const FELL=980;topField(6000,{warpAt:FELL});const tx=roadX(FELL,6000)+56;for(let y=FELL;y>0;y-=8)if((y/8)%2<1)rect(tx-9,y-8,18,8,DYE.woad);},{seed:18,flicker:.1,light:.7});
+  const g=ctx.createLinearGradient(0,H,0,0);g.addColorStop(0,'rgba(5,4,3,.55)');g.addColorStop(1,'rgba(5,4,3,.97)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);});
