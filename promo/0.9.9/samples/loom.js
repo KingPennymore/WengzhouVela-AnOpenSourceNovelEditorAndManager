@@ -7,22 +7,25 @@
 const DYE={
   wool:'#ddcfae',     // undyed ground
   bone:'#efe6d0',     // bleached: snow, claws, letters
-  madder:'#a5412d',   // madder red
-  rust:'#7a2f22',     // madder on brown
-  weld:'#cf9f3e',     // weld yellow
-  ochre:'#a77436',    // weld with tannin
-  green:'#62724a',    // woad over weld
-  moss:'#3f4b31',
-  woad:'#43607f',     // woad blue
-  sky:'#8ea2b3',      // pale woad
-  indigo:'#25324a',
-  walnut:'#5b3d2c',   // walnut hulls
-  umber:'#3a2a22',
+  linen:'#c4b590',    // undyed, in shadow
+  madderL:'#c46a4a',madder:'#a5412d',madderD:'#6e2a20',   // madder reds
+  rust:'#7a2f22',
+  bayL:'#a8613a',bay:'#7f3f26',bayD:'#4f2619',            // madder on walnut: a bay coat
+  weldL:'#e3c36e',weld:'#cf9f3e',ochre:'#a77436',         // weld yellows
+  greenL:'#97a066',green:'#62724a',moss:'#3f4b31',mossD:'#28301f', // woad over weld
+  skyL:'#bcc7cc',sky:'#8ea2b3',woad:'#43607f',indigo:'#25324a',     // woad blues
+  walnutL:'#8a6447',walnut:'#5b3d2c',umber:'#3a2a22',              // walnut hulls
+  skinL:'#e6c3a2',skin:'#d6a685',skinD:'#a8765a',
+  grey:'#9c9a90',
   black:'#1f1b1a',    // iron-black outline wool
-  skin:'#d6a685',
 };
+// Tonal ramps (light, mid, dark) for modelled shapes: drawn as gradients, the loom turns them into hatched steps.
+const RAMP={madder:[DYE.madderL,DYE.madder,DYE.madderD],bay:[DYE.bayL,DYE.bay,DYE.bayD],weld:[DYE.weldL,DYE.weld,DYE.ochre],
+  green:[DYE.greenL,DYE.green,DYE.moss],moss:[DYE.green,DYE.moss,DYE.mossD],woad:[DYE.sky,DYE.woad,DYE.indigo],sky:[DYE.skyL,DYE.sky,DYE.woad],
+  walnut:[DYE.walnutL,DYE.walnut,DYE.umber],skin:[DYE.skinL,DYE.skin,DYE.skinD],snow:[DYE.bone,DYE.skyL,DYE.sky],wool:[DYE.bone,DYE.wool,DYE.linen],
+  iron:[DYE.grey,DYE.indigo,DYE.black],black:[DYE.indigo,DYE.black,DYE.black]};
 const DYE_RGB=Object.values(DYE).map(rgbOf);
-const PW=6,PH=4;
+let PW=6,PH=4;
 
 const WEAVE_TEX=new Map();
 // Shading of the cloth itself: warp ribs running down, each pick a bump of twisted wool, picks offset half a row on
@@ -44,7 +47,8 @@ function weaveTexture(w,h,pw=PW,ph=PH){
 
 // Weave whatever draw() paints (in frame coordinates) and leave the cloth on the canvas.
 // light: hearth glow from the lower left, flicker 0..1; folds: depth of the hanging folds.
-function weave(draw,{seed=0,light=1,flicker=0,folds=1,pw=PW,ph=PH}={}){
+function weave(draw,{seed=0,light=1,flicker=0,folds=1,pw=6,ph=4}={}){
+  PW=pw;PH=ph;
   const gw=Math.ceil(W/pw),gh=Math.ceil(H/ph);
   ctx.save();ctx.setTransform(1/pw,0,0,1/ph,0,0);ctx.clearRect(0,0,W,H);draw();ctx.restore();
   const src=ctx.getImageData(0,0,gw,gh),s=src.data,out=new ImageData(gw,gh),o=out.data;
@@ -132,3 +136,15 @@ function wFigure(parts,{fill=DYE.walnut,inner=DYE.ochre,line=DYE.black,band=[17,
     if(c){o[i*4]=c[0];o[i*4+1]=c[1];o[i*4+2]=c[2];o[i*4+3]=255;}}
   ctx.putImageData(bg,0,0);
 }
+
+// ---------------------------------------------------------------- modelled drawing (the Flemish manner)
+// A shape filled with a gradient across its ramp, light coming from the upper left (ang), edged in dark brown.
+const OUT=DYE.umber;
+function bbox(p){let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;for(let i=0;i<p.length;i+=2){x0=Math.min(x0,p[i]);x1=Math.max(x1,p[i]);y0=Math.min(y0,p[i+1]);y1=Math.max(y1,p[i+1]);}return [x0,y0,x1,y1];}
+function rampFill(p,ramp,ang=.9,bias=0){const [x0,y0,x1,y1]=bbox(p),cx=(x0+x1)/2,cy=(y0+y1)/2,r=Math.max(x1-x0,y1-y0)/2,dx=Math.cos(ang)*r,dy=Math.sin(ang)*r;
+  const g=ctx.createLinearGradient(cx-dx,cy-dy,cx+dx,cy+dy);g.addColorStop(0,ramp[0]);g.addColorStop(clamp(.42+bias,.05,.95),ramp[1]);g.addColorStop(1,ramp[2]);return g;}
+function mshape(p,ramp,{ang=.15,bias=0,line=OUT,lw=6,ten=1,poly=false}={}){if(poly)path(p);else smooth(p,ten);ctx.fillStyle=typeof ramp==='string'?ramp:rampFill(p,ramp,ang,bias);ctx.fill();if(line){ctx.strokeStyle=line;ctx.lineWidth=lw;ctx.lineJoin='round';ctx.stroke();}}
+// Fold lines: open curves in the dark of the ramp, with a lit edge beside them.
+function mfold(pts,dark,lit=null,lw=6){wline(pts,dark,lw);if(lit){ctx.save();ctx.translate(-5,-2);wline(pts,lit,lw*.6);ctx.restore();}}
+// The narrow border of a Flemish tapestry: madder selvage, a woad line inside it.
+function wFrame(){ctx.save();ctx.lineJoin='miter';ctx.strokeStyle=DYE.madderD;ctx.lineWidth=52;ctx.strokeRect(0,0,W,H);ctx.strokeStyle=DYE.madder;ctx.lineWidth=36;ctx.strokeRect(0,0,W,H);ctx.strokeStyle=DYE.woad;ctx.lineWidth=8;ctx.strokeRect(30,30,W-60,H-60);ctx.restore();}
