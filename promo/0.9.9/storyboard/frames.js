@@ -232,20 +232,23 @@ const GAITS={
   gallop:{farF:[[188,-196,232,-122,212,-70,224,-52],[52,32,24,22]],farH:[[-150,-214,-192,-110,-158,-36,-142,-8],[74,38,26,24]],nearF:[[152,-186,164,-92,142,-40,118,-8],[58,34,26,24]],nearH:[[-96,-206,-124,-124,-86,-76,-62,-50],[84,40,26,24]]},
   stand:{farF:[[124,-186,120,-92,124,-40,126,-6],[50,32,24,22]],farH:[[-148,-212,-178,-108,-156,-40,-152,-6],[72,38,26,24]],nearF:[[152,-186,158,-92,154,-40,152,-6],[58,34,26,24]],nearH:[[-110,-210,-150,-112,-130,-40,-126,-6],[84,40,26,24]]},
 };
-function pipeLeg([p,w],far){const ramp=far?[DYE.bay,DYE.bayD,DYE.umber]:R.bay;mshape(limbPts(p.slice(0,4),w.slice(0,2)),ramp,{ang:.2});mshape(limbPts(p.slice(2),w.slice(1)),R.black,{ang:.2});
-  const n=p.length,x=p[n-2],y=p[n-1],dx=x-p[n-4],dy=y-p[n-3],l=Math.hypot(dx,dy),ux=dx/l,uy=dy/l,h=w[3]*.6;mshape([x-uy*h,y+ux*h,x+uy*h,y-ux*h,x+ux*18+uy*h*1.2,y+uy*18-ux*h*1.2,x+ux*18-uy*h*1.2,y+uy*18+ux*h*1.2],R.black,{poly:true,lw:4});}
-function pipe(x,y,s,{face=1,gait='gallop',saddle=true,bridle=true}={}){at(x,y,s,face,()=>{const G=GAITS[gait];
-  pipeLeg(G.farF,1);pipeLeg(G.farH,1);
-  mshape(PIPE.tail,R.black,{ang:.6});for(let i=0;i<4;i++)wline([-210-i*10,-262+i*6,-300-i*14,-214+i*10,-390-i*6,-160+i*8],DYE.indigo,4);
-  mshape(PIPE.neck,R.bay,{ang:.5});mshape(PIPE.head,R.bay,{ang:.3});mshape(PIPE.barrel,R.bay,{ang:1.2,bias:-.05});
-  mfold([-150,-280,-120,-240,-150,-196],DYE.bayD,DYE.bayL);mfold([120,-320,150,-260,140,-200],DYE.bayD,DYE.bayL);mfold([30,-300,40,-230,20,-170],DYE.bayD);
-  mshape(PIPE.mane,R.black,{ang:.6});for(let i=0;i<5;i++){const k=i/4,mx=lerp(80,224,k),my=lerp(-340,-466,k);mshape([mx,my,mx-40,my+10,mx-22,my-10],R.black,{poly:true,lw:4});}
-  mshape(ell(330,-372,9,7),DYE.black,{line:null});mshape(ell(268,-428,8,6),DYE.umber,{line:null});
-  if(bridle){wline([254,-482,300,-404,348,-372],DYE.umber,5);wline([286,-372,334,-376],DYE.umber,5);}
-  if(saddle){mshape([-60,-312,70,-330,96,-250,-46,-236],R.madder,{ang:1.2});mshape([-40,-330,60,-344,64,-312,-30,-302],R.walnut,{ang:1});}
-  pipeLeg(G.nearH,0);pipeLeg(G.nearF,0);
-});}
-// Riga on horseback: crouched along the neck at the gallop, or upright at rest; hood up, his red cloak behind him.
+// Pipe in the manner of the bear: one bay silhouette (body, neck, head, mane, tail, near legs) edged in dark wool,
+// an ochre contour inside the edge, spirals at shoulder and haunch, the far legs a darker shape behind; black hooves.
+function hoofAt([p,w]){const n=p.length,x=p[n-2],y=p[n-1],dx=x-p[n-4],dy=y-p[n-3],l=Math.hypot(dx,dy),ux=dx/l,uy=dy/l,h=w[3]*.6;
+  wpoly([x-uy*h,y+ux*h,x+uy*h,y-ux*h,x+ux*20+uy*h*1.2,y+uy*20-ux*h*1.2,x+ux*20-uy*h*1.2,y+uy*20+ux*h*1.2],DYE.black,{lw:5});}
+function pipe(x,y,s,{face=1,gait='gallop',saddle=true,bridle=true}={}){
+  const G=GAITS[gait],T=f=>()=>at(x,y,s,face,f);
+  wFigure(T(()=>{for(const k of ['farF','farH'])shape(limbPts(G[k][0],G[k][1]),'#fff');}),{fill:DYE.bayD,inner:null});
+  T(()=>{hoofAt(G.farF);hoofAt(G.farH);})();
+  wFigure(T(()=>{for(const k of ['barrel','neck','head','mane','tail'])shape(PIPE[k],'#fff');for(const k of ['nearF','nearH'])shape(limbPts(G[k][0],G[k][1]),'#fff');}),{fill:DYE.bay,inner:DYE.ochre,band:[17*s,26*s]});
+  T(()=>{hoofAt(G.nearF);hoofAt(G.nearH);
+    for(const [cx,cy,r,d] of [[-136,-246,54,1],[146,-280,42,-1]]){wspiral(cx,cy,r,DYE.black,{lw:20,dir:d});wspiral(cx,cy,r,DYE.ochre,{lw:9,dir:d});}
+    for(let i=0;i<4;i++){const k=i/3;wline([lerp(96,214,k),lerp(-322,-452,k),lerp(70,190,k),lerp(-300,-430,k)],DYE.black,6);}
+    for(let i=0;i<3;i++)wline([-230-i*14,-262+i*8,-310-i*16,-214+i*12,-392-i*8,-158+i*10],DYE.black,6);
+    wdisc(330,-372,8,DYE.black,{line:null});wdisc(266,-428,7,DYE.bone,{line:null});
+    if(bridle){wline([254,-482,300,-404,348,-372],DYE.black,6);wline([286,-372,334,-376],DYE.black,6);}
+    if(saddle){wshape([-60,-312,70,-330,96,-250,-46,-236],DYE.weld,{lw:7});wline([-50,-262,86,-272],DYE.madder,10);}})();
+}
 // ================================================================ 12 · the road out of the village, from behind them
 function winterVerdure({horizon=430}={}){
   mshape([-20,-20,W+20,-20,W+20,horizon+20,-20,horizon+20],[DYE.bone,DYE.skyL,DYE.sky],{poly:true,line:null,ang:-1.57});for(const [y,w] of [[90,900],[170,1300],[250,700]]){const x=hash(y)*W*.6;mshape([x,y,x+w,y-10,x+w+60,y+6,x+40,y+14],DYE.skyL,{poly:true,line:null});}
