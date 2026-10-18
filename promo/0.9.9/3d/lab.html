@@ -1,0 +1,32 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>3D model lab</title>
+<style>html,body{margin:0;background:#000}canvas{display:block}</style>
+<script type="importmap">{"imports":{"three":"./vendor/three/three.module.js","three/addons/":"./vendor/three/addons/"}}</script>
+</head><body>
+<script type="module">
+// Review aid for the 3D models: the given model in a row of views, lit in two flat tones as in the film.
+import * as THREE from 'three';
+import {GLTFLoader} from 'three/addons/loaders/GLTFLoader.js';
+import {clone} from 'three/addons/utils/SkeletonUtils.js';
+const W=1920,H=1080,renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});renderer.setSize(W,H);renderer.outputColorSpace=THREE.SRGBColorSpace;document.body.appendChild(renderer.domElement);
+const grad=new THREE.DataTexture(new Uint8Array([140,140,140,255,255,255,255,255]),2,1);grad.minFilter=grad.magFilter=THREE.NearestFilter;grad.needsUpdate=true;
+window.toon=(m)=>{m.traverse(o=>{if(o.isMesh){o.material=new THREE.MeshToonMaterial({color:o.material.color,gradientMap:grad});o.material.flatShading=true;o.frustumCulled=false;}});return m;};
+window.lab=async({model='soldier',views=[0,90,35,180],bg='#e8ecef'}={})=>{
+  const scene=new THREE.Scene();scene.background=new THREE.Color(bg);
+  const sun=new THREE.DirectionalLight(0xffffff,2.4);sun.position.set(-2,4,3);scene.add(sun);scene.add(new THREE.AmbientLight(0xffffff,.9));
+  const gltf=await new GLTFLoader().loadAsync(`models/${model}.glb`);
+  const box=new THREE.Box3().setFromObject(gltf.scene);
+  views.forEach((deg,i)=>{const m=toon(clone(gltf.scene));m.position.y=-box.min.y;m.rotation.y=deg*Math.PI/180;m.position.x=(i-(views.length-1)/2)*.75;scene.add(m);});
+  const cam=new THREE.PerspectiveCamera(22,W/H,.1,100);cam.position.set(0,.95,7.4);cam.lookAt(0,.9,0);renderer.render(scene,cam);
+};
+// Pose: {bone: [x, y, z] degrees} applied on top of the rest pose in each bone's local frame.
+window.pose=(root,spec0)=>{const spec={};for(const k in spec0)spec[THREE.PropertyBinding.sanitizeNodeName(k)]=spec0[k];root.traverse(o=>{if(!o.isBone)return;if(!o.userData.rest)o.userData.rest=o.quaternion.clone();const r=spec[o.name];o.quaternion.copy(o.userData.rest);if(r)o.quaternion.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(...r.map(d=>d*Math.PI/180),'XYZ')));});};
+window.labPoses=async({model='soldier',poses=[{}],yaw=90,bg='#e8ecef'})=>{
+  const scene=new THREE.Scene();scene.background=new THREE.Color(bg);
+  const sun=new THREE.DirectionalLight(0xffffff,2.4);sun.position.set(-2,4,3);scene.add(sun);scene.add(new THREE.AmbientLight(0xffffff,.9));
+  const gltf=await new GLTFLoader().loadAsync(`models/${model}.glb`);const box=new THREE.Box3().setFromObject(gltf.scene);
+  poses.forEach((ps,i)=>{const m=toon(clone(gltf.scene));m.position.set((i-(poses.length-1)/2)*.8,-box.min.y,0);m.rotation.y=yaw*Math.PI/180;pose(m,ps);scene.add(m);});
+  const cam=new THREE.PerspectiveCamera(22,W/H,.1,100);cam.position.set(0,.95,7.4);cam.lookAt(0,.9,0);renderer.render(scene,cam);
+};
+window.labReady=true;
+</script></body></html>

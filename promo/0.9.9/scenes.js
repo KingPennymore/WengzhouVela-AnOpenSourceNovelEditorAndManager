@@ -1,5 +1,6 @@
 // The nineteen shots of the storyboard (see storyboard.md), drawn with the primitives in scene.html.
-const SHOTS=[];const shot=(a,b,fn)=>SHOTS.push({a,b,fn});
+// Interface overlays are queued in UI_LAYER and drawn after the colour grade, so they keep the app's own colours.
+const SHOTS=[],UI_LAYER=[],ui=f=>UI_LAYER.push(f);const shot=(a,b,fn)=>SHOTS.push({a,b,fn});
 const fogBand=(y0,y1,color,a)=>{const g=ctx.createLinearGradient(0,y0,0,y1);g.addColorStop(0,rgba(color,0));g.addColorStop(.5,rgba(tint(color),a));g.addColorStop(1,rgba(color,0));ctx.fillStyle=g;ctx.fillRect(0,y0,W,y1-y0);};
 const shake=(t,at,amount,decay=6)=>{if(t<at)return [0,0];const k=Math.exp(-(t-at)*decay)*amount;return [Math.sin(t*83)*k,Math.cos(t*71)*k];};
 function walkPose(phase,amp=1){const a=TAU*phase;return {fF:[6+Math.sin(a)*20*amp,82-Math.max(0,Math.cos(a))*9*amp],fB:[2+Math.sin(a+Math.PI)*20*amp,82-Math.max(0,Math.cos(a+Math.PI))*9*amp],hF:[10-Math.sin(a)*12*amp,-14],hB:[4+Math.sin(a)*12*amp,-14],tor:.06};}
@@ -112,7 +113,7 @@ function battlefield(t,{camX=0}={}){
   shafts(t,1,{x:-200-camX*.2});
   snowfall(t,60,{seed:5,speed:26,wind:-18,size:3,alpha:.6});
 }
-const KNEEL={tor:.46,hd:.32,hF:[46,-84],hB:[42,-34],fF:[40,48],fB:[-40,46],ftF:0,ftB:-1.25};
+const KNEEL={tor:.46,hd:.32,hF:[43,-66],hB:[41,-28],fF:[40,48],fB:[-40,46],ftF:0,ftB:-1.25,gF:1,gB:1};
 function kneelingRiga(t,x,gy,s){
   const breath=Math.sin(t*1.7)*.018,p={...POSE,...KNEEL,x,y:gy-55*s,s,face:-1,tor:KNEEL.tor+breath};
   human(p,STYLE.soldier,{hold:(stage)=>{if(stage==='front')spear(47,52,-250);}});
@@ -121,23 +122,21 @@ shot(9,17,t=>{const lt=t-9,k=easeInOut(seg(lt,0,7.6)),camX=700*k,z=1+.16*k;ctx.s
 function bigHead(t){
   // Riga's profile at close-up scale, facing left: the same head outline as the figures, flat skin in two tones.
   const k=15;ctx.save();ctx.translate(1240,610);ctx.scale(-k,k);
-  shape([-20,40,-17,14,-12,5,-8,1,7,1,12,5,17,13,22,40],SHADE('#2a2620'));shape([-10,0,7,0,12,5,8,10,-12,9],'#4f4237');shape([7,1,12,5,17,13,22,40,8,40],LIT('#2a2620'));
-  shape(HEAD,SHADE(STYLE.soldier.skin));ctx.save();smooth(HEAD);ctx.clip();poly([1,4,20,4,20,-40,1,-40,-1,-20],LIT(STYLE.soldier.skin));ctx.restore();
-  shape(HAT,SHADE(STYLE.soldier.hat));ctx.save();smooth(HAT);ctx.clip();poly([-2,-40,20,-40,20,-22,-2,-26],LIT(STYLE.soldier.hat));ctx.restore();shape(FLAP,STYLE.soldier.flap);
-  // sweat on the tip of the nose, trembling in the wind
-  const tr=seg(t,19.6,21.4)*Math.sin(t*41)*.14;shape([13+tr,-16.6,13.6+tr,-15.2,13+tr,-14.4,12.4+tr,-15.2],'#e7f2fb');
+  poly([-20,40,-17,14,-12,5,-8,1,7,1,12,5,17,13,22,40],SHADE('#2a2620'));poly([-10,0,7,0,12,5,8,10,-12,9],'#4f4237');poly([7,1,12,5,17,13,22,40,8,40],LIT('#2a2620'));
+  poly(HEAD,SHADE(STYLE.soldier.skin));ctx.save();path(HEAD);ctx.clip();poly([1,4,20,4,20,-40,1,-40,-1,-20],LIT(STYLE.soldier.skin));ctx.restore();
+  poly(HAT,SHADE(STYLE.soldier.hat));ctx.save();path(HAT);ctx.clip();poly([-2,-40,20,-40,20,-22,-2,-26],LIT(STYLE.soldier.hat));ctx.restore();poly(FLAP,STYLE.soldier.flap);
   ctx.restore();
   // breath leaving the mouth, blown away to the left
   for(let i=0;i<8;i++){const period=1.9,age=((t-17+i*period/3)%period)/period,kk=Math.floor((t-17+i*period/3)/period);if(t<17.2+i*.2)continue;
     const x=1240-10.5*k-age*380-hash(kk+i)*20,y=610-13.5*k-age*30+Math.sin(age*5+i)*8,r=14+age*70;ctx.save();ctx.globalAlpha=(1-age)*.4*(age<.12?age/.12:1);blob(x,y,r,'#f2f7fb',7,i,.6);ctx.restore();}
 }
 // A fist closed round a pole, in two flat tones (local units; the pole runs vertically through the origin).
-function fist(skin,lit=.5){shape([-15,-10,-8,-15,9,-15,16,-11,17,4,13,12,-2,15,-14,12,-17,2],SHADE(skin));ctx.save();smooth([-15,-10,-8,-15,9,-15,16,-11,17,4,13,12,-2,15,-14,12,-17,2]);ctx.clip();poly([-20,-20,20,-20,20,-20+40*lit,-20,-24+40*lit],LIT(skin));ctx.restore();shape([-6,-15,6,-17,12,-14,4,-11,-6,-11],LIT(skin));}
+function fist(skin,lit=.5){const F=[-15,-10,-8,-15,9,-15,16,-11,17,4,13,12,-2,15,-14,12,-17,2];poly(F,SHADE(skin));ctx.save();path(F);ctx.clip();poly([-20,-20,20,-20,20,-20+40*lit,-20,-24+40*lit],LIT(skin));ctx.restore();poly([-6,-15,6,-17,12,-14,4,-11,-6,-11],LIT(skin));}
 function fists(t){
   // the spear, and the fist closing on it at chin height; the grip tightens as the hooves come near
   const grip=seg(t,19.3,19.9),sq=1-.05*grip;
   limb([830,-20],[830,H+40],30,32,'#232c3d');
-  part([900,780],[1080,1200],[[0,46,-46],[.3,54,-50],[1,62,-58]],'#3e4a3c',.5);
+  bone([900,780],[1080,1200],()=>twoTone([46,-6,54,90,62,460,-58,460,-50,120,-46,-6],'#3e4a3c',-4));
   ctx.save();ctx.translate(838,720);ctx.scale(6.2*sq,6.2);fist(STYLE.soldier.skin);ctx.restore();
 }
 shot(17,23,t=>{
@@ -190,7 +189,7 @@ shot(23,36,t=>{
   if(roar>0){ctx.save();ctx.globalAlpha=roar*.25;for(let i=0;i<5;i++){const r=((t-30.2)*700+i*220)%1100;ctx.strokeStyle='#fff8e0';ctx.lineWidth=4;ctx.beginPath();ctx.arc(bs.x-camX+300,560+camY*.4,r,-1.2,1.2);ctx.stroke();}ctx.restore();}
   // the wind carries winter away: the snow frame slides off to the right
   const wipe=easeInOut(seg(t,23,23.9));if(wipe<1){const x=wipe*(W+300);ctx.save();rect(x,0,W+300,H,'#e9f0f6');for(let i=0;i<60;i++){const y=hash(i)*H,l=80+hash(i*3)*300;ctx.globalAlpha=.6;poly([x-l,y,x+20,y-4,x+20,y+3],'#f6f9fb');}ctx.restore();}
-  glossaryOverlay(t,{t0:24.9,t1:35.4,x:W-620,y:80,sentence:'大熊阿瑟用它温暖的鼻息融化积雪，',term:'阿瑟',cat:'精魂',def:'大熊精魂'});
+  ui(()=>glossaryOverlay(t,{t0:24.9,t1:35.4,x:W-620,y:80,sentence:'大熊阿瑟用它温暖的鼻息融化积雪，',term:'阿瑟',cat:'精魂',def:'大熊精魂'}));
 });
 const CANOPY=(()=>{const a=[];for(let i=0;i<150;i++)a.push({x:hash(i*1.3)*(W+300)-150,y:-120-hash(i*2.9)*2500,r:70+hash(i*4.1)*130,rot:hash(i)*3});return a.sort((p,q)=>q.y-p.y);})();
 shot(36,40,t=>{
@@ -243,7 +242,7 @@ shot(40,55,t=>{
   // after the wing has passed: dark, blowing snow
   const after=seg(t,52.6,53.4);if(after>0){ctx.save();ctx.globalAlpha=after;rect(0,0,W,H,'#151d29');ctx.restore();snowfall(t,220*after,{seed:14,speed:140,wind:-120,size:3.5,alpha:.85*after});}
   if(t>52.2&&t<53.6){const cover=Math.sin(Math.PI*seg(t,52.2,53.6));ctx.save();ctx.globalAlpha=cover;rect(0,0,W,H,'#05070a');ctx.restore();}
-  glossaryOverlay(t,{t0:41.2,t1:48.2,x:60,y:80,sentence:'辛弗兰就用它的翅膀扇起寒风，',term:'辛弗兰',cat:'精魂',def:'寒鸦精魂',q:.82,keepTag:false});
+  ui(()=>glossaryOverlay(t,{t0:41.2,t1:48.2,x:60,y:80,sentence:'辛弗兰就用它的翅膀扇起寒风，',term:'辛弗兰',cat:'精魂',def:'寒鸦精魂',q:.82,keepTag:false}));
 });
 shot(55,59,t=>{
   const lt=t-55,warm=easeInOut(seg(lt,.3,1.6));
@@ -342,7 +341,7 @@ function relationOverlay(t){
 }
 shot(71,82,t=>{
   const k=easeInOut(seg(t,71,82));withCam(lerp(970,1010,k),lerp(690,575,easeInOut(seg(t,71,73.5))),lerp(1.45,1.5,k),()=>forgeWorld(t));
-  relationOverlay(t);
+  ui(()=>relationOverlay(t));
 });
 shot(82,87,t=>{
   const lt=t-82,winter=easeInOut(seg(t,85,86.8));
@@ -485,7 +484,7 @@ shot(98,116,t=>{
     human({...POSE,x,y,s,face:Math.abs(face)<.05?.05:face,tor:.02,hd:-.2*pt,hF:[lerp(10,62,pt),lerp(-10,-84,pt)],hB:[-2,-14],fF:[8,85],fB:[-6,85]},STYLE.smithCoat);
     ctx.strokeStyle=tint('#2a1d16');ctx.lineWidth=2.2;ctx.beginPath();ctx.moveTo(seat.mouth[0],seat.mouth[1]);ctx.quadraticCurveTo(seat.mouth[0]-50,seat.mouth[1]+60,seat.x+38,seat.y-14);ctx.stroke();
   }));
-  mapToolbar(t);mapCursor(t);
+  ui(()=>{mapToolbar(t);mapCursor(t);});
 });
 // 14 · the embrace
 function hugCast(t){
@@ -563,7 +562,7 @@ function rideShot(t){
   }));
   // the great shadow the riders run into
   if(t>155.4){const edge=lerp(W+400,-600,easeIn(seg(t,155.4,160.6))),p=[edge,-20];for(let k=0;k<=12;k++){const y=k/12*(H+40)-20;p.push(edge-(k%2?60+hash(k)*120:0)-Math.sin(k*1.3)*40,y);}p.push(edge,H+20,W+800,H+20,W+800,-20);poly(p,'#000000');}
-  outlinePanel(t);
+  ui(()=>outlinePanel(t));
 }
 shot(128,161,t=>{rideShot(t);if(t>160.4){ctx.save();ctx.globalAlpha=seg(t,160.4,160.65);rect(0,0,W,H,'#000000');ctx.restore();}});
 
@@ -585,7 +584,8 @@ shot(161,169.01,t=>{
 // ================================================================ frame
 function renderAt(t){
   ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;ctx.globalCompositeOperation='source-over';TINT.k=0;
-  const s=SHOTS.find(x=>t>=x.a&&t<x.b)||SHOTS[SHOTS.length-1];ctx.save();s.fn(t);ctx.restore();
+  const s=SHOTS.find(x=>t>=x.a&&t<x.b)||SHOTS[SHOTS.length-1];UI_LAYER.length=0;ctx.save();s.fn(t);ctx.restore();
+  ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;TINT.k=0;grade(t);UI_LAYER.forEach(f=>{ctx.save();f();ctx.restore();});
   ctx.setTransform(1,0,0,1,0,0);ctx.globalAlpha=1;TINT.k=0;subtitles(t);
 }
 window.renderAt=renderAt;
@@ -601,9 +601,9 @@ document.fonts.load(`40px ${SERIF}`,'文舟').catch(()=>{}).then(()=>document.fo
 window.characterSheet=()=>{
   ctx.setTransform(1,0,0,1,0,0);rect(0,0,W,H,'#e8ecef');TINT.k=0;
   const g=880;ctx.fillStyle='#c9d0d6';ctx.fillRect(0,g,W,4);ctx.fillRect(0,430,W,3);
-  human({...POSE,x:120,y:430-91*2.2,s:2.2,hF:[8,4],hB:[-6,4]},STYLE.smith);
-  human({...POSE,x:290,y:430-91*2.1,s:2.1,face:-1,hF:[8,4],hB:[-6,4],fF:[16,85],fB:[-12,85]},STYLE.boy);
-  human({...POSE,...KNEEL,x:470,y:430-55*1.6,s:1.6,face:-1},STYLE.soldier,{hold:(st)=>{if(st==='front')spear(47,52,-200);}});
+  human({...POSE,x:110,y:430-91*2.2,s:2.2},STYLE.smith);
+  human({...POSE,x:250,y:430-91*2.1,s:2.1,face:-1,fF:[16,85],fB:[-12,85],hF:[16,0],hB:[-10,2]},STYLE.boy);
+  human({...POSE,...KNEEL,x:470,y:430-55*2,s:2,face:-1},STYLE.soldier,{hold:(st)=>{if(st==='front')spear(47,52,-200);}});
   ctx.save();ctx.translate(560,0);for(let i=0;i<3;i++){const ph=i*.33;horse({x:260+i*480,y:430,s:1.2,gait:i?2:1,phase:i?ph:.2});}
   const seat=horse({x:-2000,y:0});ctx.restore();
   const b=[{x:200},{x:760,head:1},{x:1350,rear:1,jaw:1}];b.forEach(o=>bear({y:g,s:1.9,phase:.3,walk:o.head||o.rear?0:1,...o}));

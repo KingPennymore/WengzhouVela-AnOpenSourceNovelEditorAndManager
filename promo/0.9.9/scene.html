@@ -130,7 +130,6 @@ function segPts(a,b,prof){
   cap(prof[0],-1);return out;
 }
 // Lit in the manner of Another World: each part is its shadow tone with a lit block along the front.
-const LIT=c=>mix(c,'#fff1dc',.16),SHADE=c=>mix(c,'#000000',.14);
 function part(a,b,prof,fill,lit=.55){shape(segPts(a,b,prof),SHADE(fill));if(lit>0)shape(segPts(a,b,prof.map(([t,f,bk])=>[t,f,f-(f-bk)*lit])),LIT(fill));}
 function disc(p,r,fill){ctx.beginPath();ctx.arc(p[0],p[1],r,0,TAU);ctx.fillStyle=tint(fill);ctx.fill();}
 function capsule(a,b,r1,r2,fill){limb(a,b,r1*2,r2*2,fill);disc(a,r1,fill);disc(b,r2,fill);}
@@ -138,29 +137,33 @@ const rot=(q,a)=>[q[0]*Math.cos(a)-q[1]*Math.sin(a),q[0]*Math.sin(a)+q[1]*Math.c
 const along=(a,b,k)=>[lerp(a[0],b[0],k),lerp(a[1],b[1],k)];
 
 // ---------------------------------------------------------------- people
-// An adult in profile, facing +x (`face` -1 mirrors): 180 units tall, the head a little under a ninth of that, the
-// hip joint at half height. The torso follows the rib cage, waist, sacrum and buttocks; limbs carry the deltoid,
-// biceps and forearm, quadriceps, hamstring and calf. Limbs are solved with two-bone IK from hand (wrist) and foot
-// (ankle) targets relative to the hip joint, so poses read like puppet keys. Faces are a flat skin silhouette.
-const HUM={thigh:44,shin:42,ua:31,fa:26,sole:7};
-const POSE={x:0,y:0,s:1,face:1,tor:0,hd:0,hF:[14,-20],hB:[-6,-18],fF:[5,85],fB:[-5,85],ftF:0,ftB:0,cape:0};
-const PROFILE={
-  thigh:[[0,9,-10],[.2,9.6,-9.2],[.5,8.4,-7.8],[.8,6.8,-6],[1,5.6,-5.2]],
-  shin:[[0,5.4,-5.6],[.22,4.6,-8.4],[.42,4.2,-7.6],[.75,3.2,-4.2],[1,3,-3.4]],
-  boot:[[0,5,-7.2],[.5,4.2,-5.2],[1,4,-4.4]],
-  ua:[[0,6.6,-7],[.18,6.4,-6.4],[.5,5.2,-5.4],[.85,4.3,-4.4],[1,4,-4]],
-  fa:[[0,4.2,-4.3],[.25,5,-4.6],[.7,3.4,-3.3],[1,2.9,-2.9]],
-  hand:[[0,2.9,-2.9],[.45,3.6,-3.3],[.8,3.1,-2.3],[1,1.4,-1]],
+// An adult in profile, facing +x (`face` -1 mirrors): 180 units tall, eight heads, the hip joint at half height.
+// In the manner of Another World every part is a straight-edged polygon traced over the anatomy (rib cage, waist,
+// sacrum and buttocks; deltoid, biceps, triceps and forearm; quadriceps, kneecap, hamstring, calf and Achilles),
+// filled flat in a lit and a shadow tone. Each limb polygon is drawn in its bone's frame (x forward, y along the
+// bone), and limbs are solved with two-bone IK from wrist and ankle targets relative to the hip joint. Hands close
+// into fists where gF / gB are set. Faces are a flat skin silhouette.
+const HUM={thigh:44,shin:42,ua:31,fa:26};
+const POSE={x:0,y:0,s:1,face:1,tor:0,hd:0,hF:[12,4],hB:[-4,4],fF:[5,85],fB:[-5,85],ftF:0,ftB:0,gF:0,gB:0,bF:-1,bB:-1,cape:0};
+const LIMB={
+  thigh:[-9.6,-5,8,-7,9.6,5,9.4,17,7.8,29,6.6,38,7,44,4.2,48.5,-5,47.5,-6.2,39,-7.8,27,-9.4,12],
+  shin:[5.2,-2,4.4,8,3.8,22,3.2,34,3,40.5,-3.4,42,-3.6,35,-5.6,25,-8.2,12,-7.8,4,-5.2,-3],
+  boot:[4.4,18,3.6,30,3.4,41,-3.8,42.5,-4.2,33,-6.6,22,-7.2,17],
+  ua:[6,-5.5,7.2,3,5.6,11,6,19,4.8,27.5,4.4,31,-1,33.6,-4.6,32.6,-5.2,25,-6.2,14,-6.6,4,-4.4,-5.8],
+  fa:[4.4,-1.2,5.4,5,4.8,12,3.4,22,2.8,26.4,-2.8,26.8,-3.2,20,-4.6,9,-4.4,-1.2],
+  hand:[2.8,0,3.6,5.6,3.2,10,2,15.4,.2,17.2,-1.6,15.6,-2.8,11,-2.8,5,-2.6,0],
+  fist:[2.8,0,4.2,4.6,4.6,9,3.6,12.4,-1.8,12.8,-3.2,8.6,-2.8,0],
 };
-// torso, hip joint at the origin: pubis, abdomen, rib cage and chest in front; buttocks, sacrum, lumbar curve,
+const FOOT=[-3.6,-2,-5.6,2.4,-5.2,6.4,17.6,6.4,20.6,5.4,19,3.4,9,.6,3.4,-3.2];
+// torso about the hip joint: pubis, abdomen, rib cage and chest in front; buttocks, sacrum, lumbar curve,
 // shoulder blades and trapezius behind
-const TORSO=[4,10,9,4,10.5,-6,10.8,-17,10.2,-26,11.6,-33,14,-41,13.2,-48,10.2,-54,7,-58,5,-61,-6,-63,-9.4,-58,-12.6,-50,-12.6,-40,-11,-30,-9,-20,-10.6,-8,-13.2,-2,-14,4,-11.4,12,-3,13];
+const TORSO=[3,11,8.6,4.6,10.2,-5,10.8,-15,10.2,-24,11.2,-31,13.4,-38,14.4,-44,13,-50,9.8,-55,6.6,-58.4,4.4,-61,-7.4,-63.4,-9.6,-59,-12.2,-52,-13,-44,-12.4,-36,-10.6,-28,-9,-20,-9.8,-11,-12.6,-4,-14.2,2,-13.6,8,-10.8,12.6,-4,13.6];
 // head and neck about the base of the neck: throat, chin, lips, nose, brow, crown, occiput, nape
-const HEAD=[6.4,2,5.6,-3.4,4,-7.2,7.8,-8.6,10.2,-10,9.7,-11.6,10.5,-12.7,10,-13.5,10.7,-14.5,10.3,-15.8,12.6,-17.2,9.8,-20.6,10.2,-22,9.4,-25.6,6.2,-29.4,0,-31.4,-6.2,-30,-9.6,-25.4,-10,-19.6,-8.2,-14.6,-6.6,-10.6,-7,-4,-8,2];
-const HAIR=[-5.8,-11.2,-9,-14.5,-10.4,-20,-10,-25.8,-6.6,-30.6,0,-32.2,6.6,-30.2,9.8,-26,7.4,-26.6,3,-27.4,-1,-25.2,-3.6,-20,-4.4,-14];
-const BEARD=[3.2,-7.2,7.8,-8.6,10.6,-10.2,10.8,-12.6,9.2,-13.4,5.4,-12.4,1.6,-15.2,-1.4,-12,0,-8.4];
-const HAT=[-11,-16.5,-10.8,-25,-7,-31.6,0,-33.8,7,-31.8,10.8,-26.6,11.2,-23.6,4,-24.8,-4,-23,-8,-19.8];
-const FLAP=[-6.8,-22,.4,-23,.2,-12.6,-2.4,-10.6,-5.4,-12.4];
+const HEAD=[6.8,2,6.2,-3.2,4.6,-7.4,8,-8.8,10.6,-10.2,10.1,-11.8,10.9,-12.9,10.4,-13.8,11.1,-14.8,10.7,-16.2,13.1,-17.7,10.2,-21.2,10.6,-22.7,9.8,-26.4,6.4,-30.4,0,-32.4,-6.4,-31,-9.9,-26.2,-10.4,-20.2,-8.6,-15,-7.6,-10.2,-7.8,-4,-8.6,2];
+const HAIR=[-7.8,-11,-9.4,-15,-10.8,-20.6,-10.4,-26.6,-6.8,-31.6,0,-33.2,6.8,-31.2,10.2,-26.8,7.6,-27.4,3,-28.2,-1,-26,-3.8,-20.6,-4.8,-14.4];
+const BEARD=[3.4,-7.2,8,-8.8,10.9,-10.4,11.1,-13,9.4,-13.8,5.6,-12.8,1.6,-15.6,-1.6,-12.4,0,-8.6];
+const HAT=[-11.4,-17,-11.2,-25.8,-7.2,-32.6,0,-34.8,7.2,-32.8,11.2,-27.4,11.6,-24.4,4,-25.6,-4,-23.8,-8.2,-20.4];
+const FLAP=[-7,-22.6,.4,-23.6,.2,-13,-2.4,-11,-5.6,-12.8];
 function lerpPose(a,b,k){const o={...a};for(const key in b){const v=a[key]??POSE[key],w=b[key];o[key]=Array.isArray(w)?w.map((x,i)=>lerp(v[i],x,k)):typeof w==='number'&&typeof v==='number'?lerp(v,w,k):w;}return o;}
 function keyed(t,keys,ease=easeInOut){
   const full=keys.map(([kt,p])=>[kt,{...POSE,...p}]);
@@ -180,39 +183,44 @@ const STYLE={
   smith:{skin:'#b98a6a',shirt:'#5d4433',vest:'#3a2a20',pants:'#33302d',boot:'#211b17',hair:'#4b3a2c',beard:'#5a4332'},
   smithCoat:{skin:'#b98a6a',shirt:'#4a4440',vest:'#5a4636',pants:'#33302d',boot:'#211b17',hair:'#4b3a2c',beard:'#5a4332'},
 };
-function foot(a,ft,fill){ctx.save();ctx.translate(a[0],a[1]);ctx.rotate(ft);shape([-4,-4,-6.6,1.4,-5.8,7,6,7,18,7,20.6,5.2,17.4,1.6,8,-1.2,3.6,-5],fill);ctx.restore();}
+const LIT=c=>mix(c,'#fff1dc',.15),SHADE=c=>mix(c,'#000000',.16);
+// Draw a part in the frame of the bone from a to b, its shadow tone with the front `lit` of its depth lit.
+function bone(a,b,draw){const dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy)||1,ux=dx/L,uy=dy/L;ctx.save();ctx.transform(uy,-ux,ux,uy,a[0],a[1]);draw();ctx.restore();}
+function twoTone(pts,fill,split=-.5){poly(pts,SHADE(fill));ctx.save();path(pts);ctx.clip();rect(split,-80,80,200,LIT(fill));ctx.restore();}
 function human(p,st,{parts='all',hold=null,sil=0,silCol='#11161d'}={}){
-  const C=c=>mix(c,silCol,sil),D=c=>mix(C(c),'#000000',.22);
+  const C=c=>mix(c,silCol,sil),D=c=>mix(C(c),'#000000',.24);
   ctx.save();ctx.translate(p.x,p.y);ctx.scale(p.s*p.face,p.s);
-  const shF=rot([1,-53],p.tor),shB=[shF[0]-3,shF[1]+1];
-  const [eF,wF]=ik(shF,p.hF,HUM.ua,HUM.fa,-1),[eB,wB]=ik(shB,p.hB,HUM.ua,HUM.fa,-1);
+  const shF=rot([1,-52.5],p.tor),shB=[shF[0]-3,shF[1]+1];
+  const [eF,wF]=ik(shF,p.hF,HUM.ua,HUM.fa,p.bF),[eB,wB]=ik(shB,p.hB,HUM.ua,HUM.fa,p.bB);
   const [kF,aF]=ik([2,0],p.fF,HUM.thigh,HUM.shin,1),[kB,aB]=ik([-2,0],p.fB,HUM.thigh,HUM.shin,1);
   const J={shF,shB,eF,wF,eB,wB,kF,aF,kB,aB};
-  const arm=(sh,e,w,shirt,skin)=>{part(sh,e,PROFILE.ua,shirt);part(e,w,PROFILE.fa,shirt);const d=[w[0]-e[0],w[1]-e[1]],l=Math.hypot(d[0],d[1])||1;part(along(w,e,.06),[w[0]+d[0]/l*16,w[1]+d[1]/l*16],PROFILE.hand,skin);};
-  const leg=(hip,k,a,ft,pants,boot)=>{part(hip,k,PROFILE.thigh,pants);part(k,a,PROFILE.shin,pants);part(along(k,a,.5),a,PROFILE.boot,boot);foot(a,ft,boot);};
+  const arm=(sh,e,w,grip,shirt,skin)=>{const d=[w[0]-e[0],w[1]-e[1]];
+    bone(e,w,()=>twoTone(LIMB.fa,shirt,-.8));bone(w,[w[0]+d[0],w[1]+d[1]],()=>twoTone(grip?LIMB.fist:LIMB.hand,skin,0));bone(sh,e,()=>twoTone(LIMB.ua,shirt,-.6));};
+  const leg=(hip,k,a,ft,pants,boot)=>{bone(k,a,()=>{twoTone(LIMB.shin,pants,-1.2);twoTone(LIMB.boot,boot,-1.2);});
+    ctx.save();ctx.translate(a[0],a[1]);ctx.rotate(ft);twoTone(FOOT,boot,-2);ctx.restore();bone(hip,k,()=>twoTone(LIMB.thigh,pants,-1.6));};
   if(parts!=='arm'){
     hold?.('back',J);
-    arm(shB,eB,wB,D(st.shirt),D(st.skin));
+    arm(shB,eB,wB,p.gB,D(st.shirt),D(st.skin));
     leg([-2,0],kB,aB,p.ftB,D(st.pants),D(st.boot));
     ctx.save();ctx.rotate(p.tor);
-    shape(TORSO,SHADE(C(st.shirt)));
-    ctx.save();smooth(TORSO);ctx.clip();
-    poly([-1,-64,30,-64,30,-40,-3,-40],LIT(C(st.shirt)));
-    poly([-20,2,20,2,20,-44,9,-55,-1,-58,-20,-53],SHADE(C(st.vest)));poly([-2,2,20,2,20,-44,9,-55,-1,-58,-4,-40],LIT(C(st.vest)));
+    poly(TORSO,SHADE(C(st.shirt)));
+    ctx.save();path(TORSO);ctx.clip();
+    poly([-1,-66,30,-66,30,-40,-3,-40],LIT(C(st.shirt)));
+    poly([-20,2,20,2,20,-44,9,-56,-1,-59,-20,-54],SHADE(C(st.vest)));poly([-2,2,20,2,20,-44,9,-56,-1,-59,-4,-40],LIT(C(st.vest)));
     rect(-20,2,40,20,SHADE(C(st.pants)));rect(-1,2,30,20,LIT(C(st.pants)));rect(-20,-3.6,40,5.6,C('#1d1915'));
     ctx.restore();
-    ctx.translate(0,-59.5);ctx.rotate(p.hd);
-    shape(HEAD,SHADE(C(st.skin)));ctx.save();smooth(HEAD);ctx.clip();poly([1,4,20,4,20,-40,1,-40,-1,-20],LIT(C(st.skin)));ctx.restore();
-    if(st.beard)shape(BEARD,C(st.beard));
-    if(st.hat){shape(HAT,C(st.hat));shape(FLAP,C(st.flap));}else shape(HAIR,C(st.hair));
+    ctx.translate(0,-59);ctx.rotate(p.hd);
+    poly(HEAD,SHADE(C(st.skin)));ctx.save();path(HEAD);ctx.clip();poly([1,4,20,4,20,-40,1,-40,-1.5,-20],LIT(C(st.skin)));ctx.restore();
+    if(st.beard)poly(BEARD,C(st.beard));
+    if(st.hat){twoTone(HAT,C(st.hat),0);poly(FLAP,C(st.flap));}else twoTone(HAIR,C(st.hair),1);
     ctx.restore();
     leg([2,0],kF,aF,p.ftF,C(st.pants),C(st.boot));
   }
-  if(parts!=='body'){hold?.('front',J);arm(shF,eF,wF,C(st.shirt),C(st.skin));hold?.('hand',J);}
+  if(parts!=='body'){hold?.('front',J);arm(shF,eF,wF,p.gF,C(st.shirt),C(st.skin));hold?.('hand',J);}
   ctx.restore();return J;
 }
 // Riga's spear, held in both hands (local figure coordinates).
-function spear(x,y0,y1,col='#1d2433',head='#2a3550'){limb([x,y0],[x,y1],3.6,3,col);shape([x,y1-38,x+5.5,y1-14,x+2,y1-2,x-2,y1-2,x-5.5,y1-14],head);}
+function spear(x,y0,y1,col='#1d2433',head='#2a3550'){limb([x,y0],[x,y1],3.4,3,col);poly([x,y1-36,x+5,y1-14,x+2,y1-2,x-2,y1-2,x-5,y1-14],head);}
 
 // ---------------------------------------------------------------- the horse, Pipe
 // A bay horse in profile, facing +x, hooves at y=0: 150 units at the withers, body as long as it is tall, belly at
@@ -222,10 +230,13 @@ function spear(x,y0,y1,col='#1d2433',head='#2a3550'){limb([x,y0],[x,y1],3.6,3,co
 // black, as on a bay. gait: 0 stand, 1 walk, 2 gallop; phase in strides. Returns the saddle seat and the bit.
 const HORSE={body:'#6a4a34',dark:'#2a1e18',hoof:'#18120e'},HORSE_SEAT=[-4,-144];
 const GAIT_OFF={1:[0,.5,.25,.75],2:[0,.1,.42,.52]}; // hind near, hind far, fore near, fore far
-const HORSE_OUT=[-86,-136,-70,-147,-42,-144,-10,-139,18,-142,40,-153,56,-167,74,-186,90,-202,100,-209,112,-210,121,-201,132,-183,141,-167,146,-159,145,-151,139,-148,132,-151,121,-158,109,-166,103,-175,99,-181,93,-160,86,-138,84,-120,87,-109,84,-97,72,-86,58,-83,44,-78,10,-75,-20,-78,-44,-84,-56,-90,-66,-88,-80,-89,-90,-102,-92,-116,-90,-128];
-const HORSE_MANE=[38,-152,55,-168,73,-187,89,-203,100,-211,104,-206,96,-199,82,-186,64,-168,50,-153];
-const HLEG={forearm:[[0,11,-13],[.3,8.8,-8],[.75,6.2,-5.6],[1,6,-6]],cannon:[[0,5,-5.4],[.3,4.2,-4.8],[.8,4.4,-5.4],[1,5.2,-6.6]],pastern:[[0,5.2,-6.2],[.6,4.2,-4.2],[1,4.6,-4]],
-  gaskin:[[0,15,-17],[.4,9.4,-9.4],[.85,6,-7.4],[1,6,-8.4]],hcannon:[[0,5.4,-6.4],[.3,4.4,-5],[.8,4.4,-5.4],[1,5.2,-6.6]]};
+const HORSE_OUT=[-86,-136,-70,-147,-42,-144,-10,-139,18,-142,40,-153,54,-171,70,-191,87,-205,100,-210,112,-210,121,-201,132,-183,141,-167,146,-159,145,-151,139,-148,132,-151,121,-158,109,-166,103,-175,100,-182,95,-162,89,-140,86,-122,89,-108,84,-97,72,-86,58,-83,44,-78,10,-75,-20,-78,-44,-84,-56,-90,-66,-88,-80,-89,-90,-102,-92,-116,-90,-128];
+const HORSE_MANE=[38,-152,53,-172,69,-192,86,-206,100,-212,104,-206,95,-200,80,-188,62,-170,49,-154];
+const HLEG={forearm:[10,-8,11.4,4,8.4,16,6.2,30,6.6,36,5.8,41,-5.6,41,-6.8,36,-5.4,30,-6.4,14,-9,4,-12.4,-7],
+  cannon:[4.8,-2,4,8,3.8,26,4.8,32.6,3.2,37,-5,38,-7.6,33,-5.4,26,-4.6,8,-5,-2],
+  pastern:[4.4,-2,3.6,8,4.6,14,-3.6,15,-5.2,8,-6.2,-2],
+  gaskin:[14,-14,12.4,-2,8.4,10,6,22,5,34,5.6,40,4,44,-6,44,-9.4,39.6,-7.2,32,-8,20,-12.4,8,-18,-6,-16,-16],
+  hcannon:[4.8,-2,4.2,10,4,26,4.8,30.6,3,35,-5,35.6,-7.4,30,-5.6,24,-5,10,-6,-2]};
 function legSwing(gait,p,hind){
   if(gait===1){if(p<.6)return [lerp(.22,-.22,p/.6),0];const q=(p-.6)/.4;return [lerp(-.22,.22,sm(q)),Math.sin(Math.PI*q)*.7];}
   const reach=hind?.45:.7;if(p<.38)return [lerp(reach,-.6,p/.38),0];const q=(p-.38)/.62;return [lerp(-.6,reach,sm(q)),Math.sin(Math.PI*q)*1.05];
@@ -243,16 +254,16 @@ function horse(o){
     const d=a=>[Math.sin(a),Math.cos(a)];ctx.save();ctx.translate(0,bob);ctx.rotate(pitch);
     const p0=[lx,ly],p1=[p0[0]+d(a1)[0]*L[0],p0[1]+d(a1)[1]*L[0]],p2=[p1[0]+d(a2)[0]*L[1],p1[1]+d(a2)[1]*L[1]],p3=[p2[0]+d(a3)[0]*L[2],p2[1]+d(a3)[1]*L[2]];
     const up=far?D(HORSE.body):C(HORSE.body),pt=far?D(HORSE.dark):C(HORSE.dark);
-    part(p0,p1,hind?HLEG.gaskin:HLEG.forearm,up);part(p1,p2,hind?HLEG.hcannon:HLEG.cannon,pt);part(p2,p3,HLEG.pastern,pt);
+    bone(p0,p1,()=>twoTone(hind?HLEG.gaskin:HLEG.forearm,up,-1.5));bone(p1,p2,()=>poly(hind?HLEG.hcannon:HLEG.cannon,pt));bone(p2,p3,()=>poly(HLEG.pastern,pt));
     ctx.save();ctx.translate(p3[0],p3[1]);ctx.rotate(-a3*.5);poly([-5.5,-3,5.2,-3.4,9,4.5,-6.5,4.5],C(HORSE.hoof));ctx.restore();ctx.restore();};
   drawLeg(1,true);drawLeg(3,true);
   ctx.save();ctx.translate(0,bob);ctx.rotate(pitch);
-  const sw=Math.sin(tail)*.16+(gait===2?.8*blend:.04);ctx.save();ctx.translate(-86,-133);ctx.rotate(sw);shape([5,-5,-6,-1,-14,24,-19,56,-16,86,-8,84,-1,58,4,26,8,6],C(HORSE.dark));ctx.restore();
+  const sw=Math.sin(tail)*.16+(gait===2?.8*blend:.04);ctx.save();ctx.translate(-86,-133);ctx.rotate(sw);poly([5,-5,-6,-1,-14,24,-19,56,-16,86,-8,84,-1,58,4,26,8,6],C(HORSE.dark));ctx.restore();
   // neck and head bend about the base of the neck
   const bend=(a)=>{const o=[];for(let i=0;i<a.length;i+=2){const k=clamp((a[i]-40)/40),q=rot([a[i]-72,a[i+1]+128],neck*k);o.push(q[0]+72,q[1]-128);}return o;};
   ctx.save();ctx.translate(...rot([0,0],0));const ear=bend([100,-209,102,-225,107,-210]),ear2=bend([104,-209,107,-223,110,-208]);poly(ear2,D(HORSE.body));ctx.restore();
-  shape(bend(HORSE_OUT),SHADE(C(HORSE.body)));ctx.save();smooth(bend(HORSE_OUT));ctx.clip();poly(bend([-110,-180,40,-180,180,-260,180,-150,96,-128,74,-110,-10,-118,-110,-114]),LIT(C(HORSE.body)));ctx.restore();poly(ear,C(HORSE.body));shape(bend(HORSE_MANE),C(HORSE.dark));
-  shape([-28,-139,-18,-148,12,-149,24,-139,19,-120,-24,-119],C('#3a2419'));
+  poly(bend(HORSE_OUT),SHADE(C(HORSE.body)));ctx.save();path(bend(HORSE_OUT));ctx.clip();poly(bend([-110,-180,40,-180,180,-260,180,-150,96,-128,74,-110,-10,-118,-110,-114]),LIT(C(HORSE.body)));ctx.restore();poly(ear,C(HORSE.body));poly(bend(HORSE_MANE),C(HORSE.dark));
+  poly([-28,-139,-18,-148,12,-149,24,-139,19,-120,-24,-119],C('#3a2419'));
   ctx.restore();
   drawLeg(0,false);drawLeg(2,false);
   ctx.restore();
@@ -266,29 +277,29 @@ function horse(o){
 // hind legs; head 0 forward, 1 sniffing; jaw 0..1 opens the mouth.
 const BEAR_OUT=[-106,-80,-102,-98,-86,-108,-58,-112,-24,-114,8,-122,32,-134,50,-134,68,-124,84,-110,92,-96,92,-80,84,-66,66,-58,40,-52,10,-49,-24,-50,-52,-54,-74,-56,-94,-64];
 const BEAR_HEAD=[-12,-20,0,-28,10,-33,22,-30,32,-22,40,-15,50,-11,57,-8,61,-4,60,2,52,6,40,9,26,13,10,18,-6,16,-14,6];
-const BLEG={upper:[[0,18,-19],[.5,14,-13],[1,11.5,-11]],lower:[[0,11.5,-11],[.6,10,-10],[1,10.5,-10]],thigh:[[0,22,-24],[.5,16,-17],[1,13,-13]],shank:[[0,13,-13],[.6,11,-10],[1,10.5,-9.5]]};
+const BLEG={upper:[18,-14,18,10,14,26,12.4,42,-11.4,42,-13,26,-17,8,-18.6,-14],lower:[12,-2,11,14,11.4,31,-10.4,31,-10,14,-11,-2],thigh:[22,-18,20,6,15,22,13.4,34,-13,34,-18,18,-24,0,-24,-18],shank:[13,-2,11,14,10.6,31,-9.6,31,-10,14,-13,-2]};
 const BEAR_UP=[-100,-60,-104,-84,-103,-110,-99,-140,-93,-170,-85,-196,-75,-216,-60,-230,-44,-234,-32,-226,-26,-212,-22,-196,-20,-178,-20,-158,-18,-138,-22,-116,-28,-98,-38,-82,-52,-70,-86,-58];
 function bear(o){
   const {x,y,s=1,phase=0,walk=0,rear=0,head=0,jaw=0}=o,B='#6b4a2e',Dk='#4c3421',M='#5e2420',r=sm(rear);
   ctx.save();ctx.translate(x,y);ctx.scale(s,s);
   const out=BEAR_OUT.map((v,i)=>lerp(v,BEAR_UP[i],r));
   const sway=i=>walk?Math.sin(TAU*(phase-[0,.5,.25,.75][i]))*.3*walk:0,d=a=>[Math.sin(a),Math.cos(a)];
-  const paw=(f,col,ang=0)=>{ctx.save();ctx.translate(f[0],f[1]);ctx.rotate(ang);shape([-13,-9,4,-12,16,-8,24,-2,25,4,-14,4],col);ctx.restore();};
-  const leg=(i,far)=>{const fore=i>=2,col=far?Dk:B;
+  const paw=(f,col,ang=0)=>{ctx.save();ctx.translate(f[0],f[1]);ctx.rotate(ang);poly([-13,-9,4,-12,16,-8,24,-2,25,4,-14,4],col);ctx.restore();};
+  const leg=(i,far)=>{const fore=i>=2,col=far?mix(SHADE(B),'#000000',.25):SHADE(B);
     if(fore){const base=along([62+(far?-8:0),-80],[-30+(far?-8:0),-196],r);let u=sway(i),l=u*.4;u=lerp(u,(far?1.2:.95)+jaw*.5,r);l=lerp(l,(far?.6:.35)+jaw*.7,r);
-      const k=[base[0]+d(u)[0]*40,base[1]+d(u)[1]*40],f=[k[0]+d(l)[0]*30,k[1]+d(l)[1]*30];part(base,k,BLEG.upper,col,0);part(k,f,BLEG.lower,col,0);
-      if(r<.5)paw([f[0],f[1]+6],col);else{ctx.save();ctx.translate(f[0],f[1]);ctx.rotate(-l+.3);shape([-11,-4,11,-4,13,10,6,20,-6,20,-12,10],col);for(const c of [-6,0,6])poly([c-2,19,c+2,19,c+1,26],'#d9cbb0');ctx.restore();}}
+      const k=[base[0]+d(u)[0]*40,base[1]+d(u)[1]*40],f=[k[0]+d(l)[0]*30,k[1]+d(l)[1]*30];bone(base,k,()=>poly(BLEG.upper,col));bone(k,f,()=>poly(BLEG.lower,col));
+      if(r<.5)paw([f[0],f[1]+6],col);else{ctx.save();ctx.translate(f[0],f[1]);ctx.rotate(-l+.3);poly([-11,-4,11,-4,13,10,6,20,-6,20,-12,10],col);for(const c of [-6,0,6])poly([c-2,19,c+2,19,c+1,26],'#d9cbb0');ctx.restore();}}
     else{const base=along([-74+(far?6:0),-60],[-66+(far?6:0),-70],r),u=sway(i)*(1-r)+r*.28,k=[base[0]+d(u)[0]*32,base[1]+d(u)[1]*32],an=[k[0]-6-r*6,-10];
-      part(base,k,BLEG.thigh,col,0);part(k,an,BLEG.shank,col,0);paw([an[0]+2,6],col);}
+      bone(base,k,()=>poly(BLEG.thigh,col));bone(k,an,()=>poly(BLEG.shank,col));paw([an[0]+2,6],col);}
   };
   leg(1,true);leg(3,true);
-  shape(out,SHADE(B));ctx.save();smooth(out);ctx.clip();
+  poly(out,SHADE(B));ctx.save();path(out);ctx.clip();
   poly(r<.5?[-130,-160,140,-160,140,-96,60,-90,-20,-86,-130,-80]:[-40,-260,40,-260,40,-40,-30,-40,-40,-140],LIT(B));ctx.restore();
   const nk=along([86,-92],[-38,-222],r),ha=lerp(lerp(.22,.95,head),-.2,r)-jaw*.45;
   ctx.save();ctx.translate(nk[0],nk[1]);ctx.rotate(ha);
-  shape([-16,-24,6,-22,12,22,-12,28],B);
-  ctx.save();ctx.translate(26,10);ctx.rotate(jaw*.6);if(jaw>.15)shape([0,-6,30,-9,32,0,6,4],M);shape([-2,-1,30,-3,33,2,24,8,2,8],B);ctx.restore();
-  shape(BEAR_HEAD,SHADE(B));ctx.save();smooth(BEAR_HEAD);ctx.clip();poly([-20,-40,80,-40,80,-12,-20,-6],LIT(B));ctx.restore();disc([8,-31],5.5,B);
+  poly([-16,-24,6,-22,12,22,-12,28],B);
+  ctx.save();ctx.translate(26,10);ctx.rotate(jaw*.6);if(jaw>.15)poly([0,-6,30,-9,32,0,6,4],M);poly([-2,-1,30,-3,33,2,24,8,2,8],B);ctx.restore();
+  poly(BEAR_HEAD,SHADE(B));ctx.save();path(BEAR_HEAD);ctx.clip();poly([-20,-40,80,-40,80,-12,-20,-6],LIT(B));ctx.restore();poly([2,-30,6,-37,12,-36,14,-30],B);
   ctx.restore();
   leg(0,false);leg(2,false);
   ctx.restore();
@@ -307,11 +318,11 @@ function raven(o){
   ctx.rotate(body-perch*.42);
   const wing=(far)=>{const k=clamp(-(flap+(far?.15:0)),-1,1),sy=Math.sign(k||1)*Math.max(Math.abs(k),.1),L=lerp(26,150,1-fold);
     ctx.save();ctx.translate(-4,-10);ctx.scale(1,sy);
-    poly([28,0,24,-L*.35,14,-L*.7,6,-L*.86,-2,-L*.98,-6,-L,-12,-L*.94,-14,-L*.86,-20,-L*.8,-22,-L*.7,-28,-L*.62,-30,-L*.5,-34,-L*.3,-30,0],far?Dk:K);ctx.restore();};
+    poly([26,0,22,-L*.3,14,-L*.6,8,-L*.78,4,-L*.9,2,-L,-1,-L*.86,-3,-L*.98,-5,-L*.84,-8,-L*.95,-9,-L*.8,-13,-L*.9,-13,-L*.74,-18,-L*.82,-17,-L*.66,-24,-L*.5,-22,-L*.4,-27,-L*.3,-25,-L*.2,-30,-L*.1,-30,0],far?Dk:K);ctx.restore();};
   if(fold<1)wing(true);
-  shape(RAVEN_BODY,K);
-  if(fold>0){ctx.save();ctx.globalAlpha*=fold;shape([22,-12,-36,-8,-50,-2,-8,6,18,2],Dk);ctx.restore();}
-  ctx.save();ctx.translate(28,-12);ctx.rotate(look);ctx.translate(-28,12);shape([20,-15,26,-17,34,-20,41,-18,45,-15,55,-12,62,-8,56,-6,45,-5,40,-1,28,2],K);ctx.restore();
+  poly(RAVEN_BODY,K);
+  if(fold>0){ctx.save();ctx.globalAlpha*=fold;poly([22,-12,-36,-8,-50,-2,-8,6,18,2],Dk);ctx.restore();}
+  ctx.save();ctx.translate(28,-12);ctx.rotate(look);ctx.translate(-28,12);poly([20,-15,26,-17,34,-20,41,-18,45,-15,55,-12,62,-8,56,-6,45,-5,40,-1,28,2],K);ctx.restore();
   if(!perch&&fold<1){limb([2,9],[-10,16],2.6,2,K);limb([8,8],[-4,16],2.6,2,K);}
   if(fold<1)wing(false);
   ctx.restore();
@@ -359,6 +370,10 @@ function glossaryOverlay(t,{t0,t1,x,y,sentence,term,cat,def,q=1,keepTag=true}){
 }
 
 // ---------------------------------------------------------------- subtitles
+function grade(t){
+  if(t>161)return;ctx.save();ctx.filter='saturate(.84) contrast(1.06) brightness(.95)';ctx.drawImage(canvas,0,0);ctx.restore();
+  const g=ctx.createRadialGradient(W/2,H*.48,H*.35,W/2,H*.5,H*1.05);g.addColorStop(0,'rgba(0,0,0,0)');g.addColorStop(1,'rgba(0,0,0,.42)');ctx.fillStyle=g;ctx.fillRect(0,0,W,H);
+}
 function subtitles(t){
   for(const l of P.lines){const dur=VT[l.id]??(l.end-l.at-.4),a0=l.at-.15,a1=Math.max(l.at+dur+.5,l.at+1.6);if(t<a0||t>a1+.3)continue;
     const a=seg(t,a0,a0+.25)*(1-seg(t,a1,a1+.3)),zh=wrapZh(l.zh,36,1500),en=wrapEn(l.en,21,1560),y=H-70-en.length*30-(zh.length-1)*50;
