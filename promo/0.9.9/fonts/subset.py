@@ -14,7 +14,7 @@ if not (CACHE / 'package').exists():
     with tarfile.open(CACHE / name) as tar:
         tar.extractall(CACHE, filter='data')
 pkg = CACHE / 'package'
-text = ''.join((HERE.parent / f).read_text('utf-8') for f in ('scene.html', 'scenes.js', 'lines.js', 'samples/samples.js'))
+text = ''.join((HERE.parent / f).read_text('utf-8') for f in ('scene.html', 'scenes.js', 'lines.js', 'samples/samples.js', 'storyboard/frames.js', 'film.js'))
 chars = sorted({c for c in text if ord(c) > 0x2000} | set('0123456789.·，。！？…：；、“”（）'))
 
 

@@ -25,7 +25,7 @@ const RAMP={madder:[DYE.madderL,DYE.madder,DYE.madderD],bay:[DYE.bayL,DYE.bay,DY
   walnut:[DYE.walnutL,DYE.walnut,DYE.umber],skin:[DYE.skinL,DYE.skin,DYE.skinD],snow:[DYE.bone,DYE.skyL,DYE.sky],wool:[DYE.bone,DYE.wool,DYE.linen],
   iron:[DYE.grey,DYE.indigo,DYE.black],black:[DYE.indigo,DYE.black,DYE.black]};
 const DYE_RGB=Object.values(DYE).map(rgbOf);
-let PW=6,PH=4;
+let PW=6,PH=4,GW=320,GH=270,ZOOM=1;
 
 const WEAVE_TEX=new Map();
 // Shading of the cloth itself: warp ribs running down, each pick a bump of twisted wool, picks offset half a row on
@@ -42,15 +42,17 @@ function weaveTexture(w,h,pw=PW,ph=PH){
   g.putImageData(img,0,0);
   g.globalCompositeOperation='screen';g.lineCap='round';
   for(let i=0;i<w*h/900;i++){const x=hash(i*1.7)*w,y=hash(i*3.1)*h,a=hash(i*5.3)*TAU,l=3+hash(i*7.9)*9;g.strokeStyle=`rgba(255,255,255,${.05+.08*hash(i)})`;g.lineWidth=.7;g.beginPath();g.moveTo(x,y);g.quadraticCurveTo(x+Math.cos(a)*l*.6+2,y+Math.sin(a)*l*.6,x+Math.cos(a)*l,y+Math.sin(a)*l);g.stroke();}
-  WEAVE_TEX.set(key,c);return c;
+  if(WEAVE_TEX.size>6)WEAVE_TEX.delete(WEAVE_TEX.keys().next().value);WEAVE_TEX.set(key,c);return c;
 }
 
 // Weave whatever draw() paints (in frame coordinates) and leave the cloth on the canvas.
 // light: hearth glow from the lower left, flicker 0..1; folds: depth of the hanging folds.
-function weave(draw,{seed=0,light=1,flicker=0,folds=1,pw=6,ph=4}={}){
-  PW=pw;PH=ph;
-  const gw=Math.ceil(W/pw),gh=Math.ceil(H/ph);
-  ctx.save();ctx.setTransform(1/pw,0,0,1/ph,0,0);ctx.clearRect(0,0,W,H);draw();ctx.restore();
+// zoom: the camera is that much closer to the cloth, so every pick is that much larger; (x0, y0) is where a pick
+// boundary falls on the screen, so that when the camera moves the picks stay fixed to the design instead of crawling.
+function weave(draw,{seed=0,light=1,flicker=0,folds=1,pw=6,ph=4,zoom=1,x0=0,y0=0}={}){
+  pw*=zoom;ph*=zoom;PW=pw;PH=ph;ZOOM=zoom;x0=((x0%pw)+pw)%pw-pw;y0=((y0%ph)+ph)%ph-ph;
+  const gw=Math.ceil((W-x0)/pw),gh=Math.ceil((H-y0)/ph);GW=gw;GH=gh;
+  ctx.save();ctx.setTransform(1/pw,0,0,1/ph,-x0/pw,-y0/ph);ctx.clearRect(x0,y0,W-x0,H-y0);draw();ctx.restore();
   const src=ctx.getImageData(0,0,gw,gh),s=src.data,out=new ImageData(gw,gh),o=out.data;
   for(let y=0;y<gh;y++)for(let x=0;x<gw;x++){
     const i=(y*gw+x)*4,r=s[i],g=s[i+1],b=s[i+2];let b1=1e9,b2=1e9,c1=0,c2=0;
@@ -59,9 +61,17 @@ function weave(draw,{seed=0,light=1,flicker=0,folds=1,pw=6,ph=4}={}){
     const t=Math.sqrt(b1)/(Math.sqrt(b1)+Math.sqrt(b2)+1e-6),ci=t>((y%2)?.2:.4)?c2:c1,p=DYE_RGB[ci];
     const lot=1+.075*(noise(y*.11+ci*13.7+seed)-.5)*2+.03*(noise(x*.05+y*.9+ci)-.5)+(hash(x*3.7+y*11.3+seed)-.5)*.05;
     o[i]=p[0]*lot;o[i+1]=p[1]*lot;o[i+2]=p[2]*lot;o[i+3]=255;}
-  const small=document.createElement('canvas');small.width=gw;small.height=gh;small.getContext('2d').putImageData(out,0,0);
-  ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,W,H);ctx.imageSmoothingEnabled=false;ctx.drawImage(small,0,0,gw*pw,gh*ph);ctx.imageSmoothingEnabled=true;
-  ctx.globalCompositeOperation='multiply';ctx.drawImage(weaveTexture(W,H,pw,ph),0,0);
+  ctx.save();ctx.setTransform(1,0,0,1,0,0);
+  if(zoom===1){const small=document.createElement('canvas');small.width=gw;small.height=gh;small.getContext('2d').putImageData(out,0,0);
+    ctx.clearRect(0,0,W,H);ctx.imageSmoothingEnabled=false;ctx.drawImage(small,x0,y0,gw*pw,gh*ph);ctx.imageSmoothingEnabled=true;
+    ctx.globalCompositeOperation='multiply';ctx.drawImage(weaveTexture(W+12,H+8,pw,ph),x0,y0);}
+  else{ // picks of a fractional size: each pixel finds its pick and its place in the pick, so colour and wool line up
+    const img=ctx.createImageData(W,H),d=img.data,col=new Int32Array(W),A=new Float32Array(W),V=[new Int32Array(H),new Int32Array(H)],D=[new Float32Array(H),new Float32Array(H)];
+    for(let x=0;x<W;x++){const c=Math.floor((x-x0)/pw),u=((x-x0)-c*pw+.5)/pw;col[x]=c;A[x]=Math.pow(Math.sin(Math.PI*clamp(u,0,1)),.7);}
+    for(let p=0;p<2;p++)for(let y=0;y<H;y++){const yo=(y-y0)+p*ph/2,r=Math.floor(yo/ph),v=(yo-r*ph+.5)/ph;V[p][y]=r;D[p][y]=Math.pow(Math.sin(Math.PI*clamp(v,0,1)),.9);}
+    for(let y=0;y<H;y++){const cr=Math.min(gh-1,Math.max(0,Math.floor((y-y0)/ph)));for(let x=0;x<W;x++){const c=Math.min(gw-1,Math.max(0,col[x])),p=c&1,i=(cr*gw+c)*4,j=(y*W+x)*4;
+      const sh=clamp(.56+.4*A[x]*(.62+.38*D[p][y])+(hash(c*7.3+V[p][y]*1.9)-.5)*.1,0,1.06)*1.027;d[j]=o[i]*sh;d[j+1]=o[i+1]*sh;d[j+2]=o[i+2]*sh;d[j+3]=255;}}
+    ctx.putImageData(img,0,0);}
   // the hanging's soft folds, then the hearth light raking across from the lower left
   if(folds>0){const g=ctx.createLinearGradient(0,0,W,0);for(let k=0;k<=24;k++){const v=Math.sin(k/24*TAU*3.4+seed)*.5+Math.sin(k/24*TAU*7.1+seed*2)*.2;g.addColorStop(k/24,`rgba(${v>0?'255,255,255':'60,40,30'},${Math.abs(v)*.12*folds})`);}ctx.globalCompositeOperation='soft-light';ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}
   ctx.globalCompositeOperation='multiply';const f=1-flicker*.12,lg=ctx.createRadialGradient(W*.12,H*1.05,H*.2,W*.3,H*.7,H*1.7);lg.addColorStop(0,`rgba(255,240,214,${f})`);lg.addColorStop(.5,`rgba(244,226,200,${f})`);lg.addColorStop(1,`rgba(160,128,108,${f})`);ctx.fillStyle=lg;ctx.globalAlpha=light;ctx.fillRect(0,0,W,H);
@@ -126,9 +136,9 @@ function chamfer(m,v,gw,gh){const n=gw*gh,d=new Float32Array(n);for(let i=0;i<n;
   for(let y=0;y<gh;y++)for(let x=0;x<gw;x++){const i=y*gw+x;if(d[i])d[i]=Math.min(d[i],at(x-1,y)+X,at(x,y-1)+Y,at(x-1,y-1)+D,at(x+1,y-1)+D);}
   for(let y=gh-1;y>=0;y--)for(let x=gw-1;x>=0;x--){const i=y*gw+x;if(d[i])d[i]=Math.min(d[i],at(x+1,y)+X,at(x,y+1)+Y,at(x+1,y+1)+D,at(x-1,y+1)+D);}
   return d;}
-function wFigure(parts,{fill=DYE.walnut,inner=DYE.ochre,line=DYE.black,band=[17,26],edge=[6,4]}={}){
-  const gw=Math.ceil(W/PW),gh=Math.ceil(H/PH),bg=ctx.getImageData(0,0,gw,gh);
-  ctx.save();ctx.clearRect(0,0,W,H);ctx.fillStyle='#fff';ctx.strokeStyle='#fff';parts();ctx.restore();
+function wFigure(parts,{fill=DYE.walnut,inner=DYE.ochre,line=DYE.black,band=[17,26],edge=null}={}){
+  const gw=GW,gh=GH,bg=ctx.getImageData(0,0,gw,gh);edge=edge||[PW,PH];band=band.map(v=>v*ZOOM);
+  ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.clearRect(0,0,gw,gh);ctx.restore();ctx.save();ctx.fillStyle='#fff';ctx.strokeStyle='#fff';parts();ctx.restore();
   const mk=ctx.getImageData(0,0,gw,gh).data,n=gw*gh,m=new Uint8Array(n);for(let i=0;i<n;i++)m[i]=mk[i*4+3]>110?1:0;
   const din=chamfer(m,1,gw,gh),dout=chamfer(m,0,gw,gh),F=rgbOf(fill),I=inner?rgbOf(inner):null,L=rgbOf(line),o=bg.data;
   for(let i=0;i<n;i++){let c=null;

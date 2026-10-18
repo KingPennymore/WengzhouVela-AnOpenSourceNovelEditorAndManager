@@ -245,7 +245,7 @@ function topField(off,{village=false,warpAt=null}={}){
   // the trodden road
   const p=[];for(let y=-40;y<=H+40;y+=40)p.push(roadX(y,off)-170,y);for(let y=H+40;y>=-40;y-=40)p.push(roadX(y,off)+170,y);wpoly(p,DYE.wool,{lw:6});
   // tree crowns either side, nearer the eye and so sliding a little faster
-  const o2=off*1.25,j0=Math.floor((-o2-300)/360),j1=Math.ceil((H-o2+300)/360);
+  const o2=Math.round(off*1.25/4)*4,j0=Math.floor((-o2-300)/360),j1=Math.ceil((H-o2+300)/360);
   for(let j=j0;j<=j1;j++)for(const side of [-1,1]){const y=j*360+o2+hash(j*5+side)*120,x=960+side*(560+hash(j*7+side)*260),rr=110+hash(j*3+side)*50;if(hash(j*11+side)<.2)continue;
     for(let k=0;k<7;k++){const a=k/7*TAU+hash(j);wPalmette(x+Math.cos(a)*rr*.25,y+Math.sin(a)*rr*.25,rr*.75,a,k%2?DYE.sky:DYE.bone);}wdisc(x,y,rr*.22,DYE.indigo);}
   // Sakarlet behind them: roofs seen from above

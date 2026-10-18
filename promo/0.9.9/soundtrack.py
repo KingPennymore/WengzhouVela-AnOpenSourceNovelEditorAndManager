@@ -214,11 +214,11 @@ HAMMER = PROMO['hammer']
 WALK = PROMO['walk']
 
 # ---------------------------------------------------------------- score
-# 0–9: a low drone under the title, a soft bloom when it appears, the page crackling as it burns.
+# 0–9: a low drone under the title, a soft bloom when the logo appears, the frame crackling as it burns from the corners.
 place('strings', bowed(38, 9.5, .16, att=2.5, rel=2.5, bright=.82), 0, pan=-.1, send=.5)
 for m in (50, 57, 62, 69):
-    place('strings', bowed(m, 2.4, .045, att=.6, rel=2.2, bright=.75), 2.0, pan=(m - 58) / 30, send=.7)
-place('tone', glass(86, 3.2, .02), 2.0, pan=.2, send=.8)
+    place('strings', bowed(m, 2.4, .045, att=.6, rel=2.2, bright=.75), .7, pan=(m - 58) / 30, send=.7)
+place('tone', glass(86, 3.2, .02), .7, pan=.2, send=.8)
 for i in range(30):
     place('sfx', band(noise(.06), 2500, 9000) * np.hanning(int(.06 * SR)) * .05, .4 + i * .12 + rng.uniform(0, .08), pan=rng.uniform(-.4, .4), send=.1)
 place('sfx', crackle(5.0, 70, .12) * np.minimum(axis(5.0) / .8, 1) * np.clip((5.0 - axis(5.0)) / 1.2, 0, 1), 4.3, pan=.3, send=.2)
@@ -256,19 +256,20 @@ place('tone', glass(89, 5.0, .03), 47.8, pan=0, send=.9)
 for at, m in ((44.0, 86), (46.0, 88), (48.0, 93)):
     place('tone', bell(m, .07), at, pan=-.1, send=.8)
 
-# 55–59: warmth gathers and lands on the first hammer blow.
+# 55–59: warmth gathers and lands with the last spark on the white-hot iron.
 for j, m in enumerate((38, 45, 50, 54, 57)):
     place('strings', bowed(m, 3.6, .07, att=3.2, rel=.08, bright=.86), 55.4, pan=-.3 + j * .15, send=.5)
 
-# 59–87: the forge: restrained major chords, a small kantele tune, drum under every blow.
+# 59–87: the forge: restrained major chords, a small kantele tune, a slow drum under the hissing iron.
 for at, ch in ((59.0, (50, 54, 57)), (63.0, (43, 55, 59)), (67.0, (50, 57, 62)), (71.0, (45, 52, 61)), (75.0, (47, 54, 62)), (79.0, (43, 55, 62))):
     for j, m in enumerate(ch):
         place('strings', bowed(m, 4.3, .045, att=1.2, rel=1.6, bright=.8), at, pan=-.3 + j * .3, send=.55)
 tune = (74, 78, 81, 78, 76, 74, 73, 74, 76, 78, 76, 74)
 for k, m in enumerate(tune):
     place('pluck', pluck(m, .06, decay=.8), 67.2 + k * .62, pan=.3, send=.45)
-for at in HAMMER:
-    place('drums', drum(.5, f0=50, decay=3.5), at, send=.35)
+place('drums', drum(.55, f0=50, decay=3.2), 59.0, send=.4)
+for at in np.arange(63.0, 83, 4.0):
+    place('drums', drum(.22, f0=50, decay=4.5), at, send=.35)
 
 # 87–116: the road: a fiddle tune over the drone, quiet under Havard's words.
 BEAT = 60 / 72
@@ -341,13 +342,15 @@ for at in (44.0, 46.0, 48.0):
     place('sfx', whoosh(.7, 200, 1600, .35), at - .3, pan=.1, send=.3)
 place('sfx', caw(.12), 49.2, pan=-.2, send=.7)
 place('sfx', whoosh(1.4, 80, 900, .75), 51.9, pan=0, send=.3)
-# snow lit into sparks, the anvil, sparks hissing out
+# snow lit into sparks; the spark lands on the iron, which lies on the anvil burning white and hissing all through the forge
 place('sfx', sizzle(3.0, .03), 55.6, pan=.1, send=.4)
-for at in HAMMER:
-    place('sfx', anvil(.32 if at < 66.3 else .22), at, pan=-.1, send=.45)
-    place('sfx', sizzle(.9, .05), at + .02, pan=.2)
-place('sfx', sizzle(1.6, .04), 82.35, pan=0, send=.3)
-place('sfx', anvil(.12), 81.9, send=.9)
+place('sfx', sizzle(1.2, .07), 59.0, pan=0, send=.4)
+for k, at in enumerate(np.arange(59.4, 86.4, .7)):
+    swell = .03 + .02 * np.sin(k * .9) ** 2 + .025 * max(0, (at - 80) / 6)
+    place('sfx', sizzle(1.4, swell), at + rng.uniform(0, .2), pan=rng.uniform(-.2, .2), send=.25)
+for at in (64.2, 69.5, 75.3, 80.8):
+    place('sfx', sizzle(.5, .07), at, pan=.15, send=.3)
+place('sfx', high(noise(2.0), 2000) * np.sin(np.pi * axis(2.0) / 2.0) * .06, 84.6, send=.5)
 # the walk out of Sakalet: hooves and boots in snow, Pipe snorting
 for t, i in contacts(WALK[0], WALK[1], lambda t: (min(t, WALK[1]) - WALK[0]) * WALK[2], lambda t: [0, .5, .25, .75]):
     place('sfx', hoof(.1), t, pan=-.2 + .1 * i, send=.15)

@@ -9,7 +9,7 @@ window.PROMO={
   "havard":{"name":"哈沃德","voice":"bm_george","lang":"en-gb","speed":0.86}
 },
 "lines":[
- {"id":"01","who":"adult","at":10.4,"end":16.6,"zh":"我死死地攥着手里的长枪，弓着身子，跪在牲畜和人的尸体中……","en":"I gripped my spear for dear life, hunched over, kneeling among the bodies of beasts and men..."},
+ {"id":"01","who":"adult","at":4.6,"end":10.8,"zh":"我死死地攥着手里的长枪，弓着身子，跪在牲畜和人的尸体中……","en":"I gripped my spear for dear life, hunched over, kneeling among the bodies of beasts and men..."},
  {"id":"02","who":"adult","at":17.6,"end":22.8,"zh":"麦依尔曾对我说过，冬天是辛弗兰给予战士的怜悯。","en":"Mayir once told me that winter is the mercy Sinfran shows to warriors."},
  {"id":"03","who":"adult","at":25.4,"end":34.6,"zh":"大熊阿瑟用它温暖的鼻息融化积雪，将露出的大地作为战场，吼叫着呼喊战争。","en":"The great bear Arthur melts the snow with his warm breath, takes the bare earth for a battlefield, and roars out his call to war."},
  {"id":"04","who":"adult","at":36.3,"end":39.9,"zh":"而当战士们的血浸染大地时……","en":"And when the blood of warriors soaks the earth..."},
@@ -24,7 +24,7 @@ window.PROMO={
  {"id":"13","who":"young","at":132.2,"end":133.6,"zh":"驾！","en":"Hyah!"},
  {"id":"14","who":"adult","at":151.8,"end":155.8,"zh":"而在这之后，我也再没见过哈沃德。","en":"And after that, I never saw Havard again."}
 ],
-"gallop":[[128,0],[129.6,0],[130.2,1.2],[132.4,1.5],[133.4,2.1],[137,2.3],[151,2.4],[156,2.5],[160.6,2.6],[160.7,0]],
-"walk":[84.0,92.0,0.8],
-"hammer":[59.0,62.6,66.2,68.8,71.4,74.0,81.9]
+"gallop":[[128,0],[132.3,0],[132.7,1.5],[134.4,2.0],[137,2.3],[151,2.4],[156,2.5],[160.6,2.6],[160.7,0]],
+"walk":[86.6,97.8,0.8],
+"hammer":[]
 };
