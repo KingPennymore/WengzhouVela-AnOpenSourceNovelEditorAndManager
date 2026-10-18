@@ -245,7 +245,7 @@ function topField(off,{village=false,warpAt=null}={}){
   // the trodden road
   const p=[];for(let y=-40;y<=H+40;y+=40)p.push(roadX(y,off)-170,y);for(let y=H+40;y>=-40;y-=40)p.push(roadX(y,off)+170,y);wpoly(p,DYE.wool,{lw:6});
   // tree crowns either side, nearer the eye and so sliding a little faster
-  const o2=Math.round(off*1.25/4)*4,j0=Math.floor((-o2-300)/360),j1=Math.ceil((H-o2+300)/360);
+  const o2=off+Math.round(off*.25/4)*4,j0=Math.floor((-o2-300)/360),j1=Math.ceil((H-o2+300)/360);
   for(let j=j0;j<=j1;j++)for(const side of [-1,1]){const y=j*360+o2+hash(j*5+side)*120,x=960+side*(560+hash(j*7+side)*260),rr=110+hash(j*3+side)*50;if(hash(j*11+side)<.2)continue;
     for(let k=0;k<7;k++){const a=k/7*TAU+hash(j);wPalmette(x+Math.cos(a)*rr*.25,y+Math.sin(a)*rr*.25,rr*.75,a,k%2?DYE.sky:DYE.bone);}wdisc(x,y,rr*.22,DYE.indigo);}
   // Sakarlet behind them: roofs seen from above
@@ -283,7 +283,7 @@ frame('14',()=>{weave(()=>{topField(OFF_K);twine(OFF_K);
 frame('15',()=>{weave(()=>{topField(OFF_K);const t=twine(OFF_K),bx=y=>roadX(y,OFF_K);
   yarn([t.endB,t.top,...upPts(t.top-30,40,30,OFF_K)],TH.riga);
   for(let k=0;k<5;k++){const y=80+k*64;wline([bx(y)+110,y+30,bx(y)+110,y+80],DYE.bone,6);wline([bx(y)-50,y+50,bx(y)-50,y+100],DYE.bone,6);}
-  borders('HIC RIGA EQVITAT AD HELGARD');},{seed:15,flicker:.15});grade(0);caption('13');});
+  borders('HIC RIGA EQVITAT AD HELGARD');},{seed:15,flicker:.15});grade(0);});
 // 17 · the fell of the weaving: above it nothing is woven yet, not even the border; the blue thread runs on up into it
 frame('17',()=>{weave(()=>{const FELL=430;topField(5200,{warpAt:FELL});
   yarn(upPts(H+40,FELL+10,56,5200),TH.riga);

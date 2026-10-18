@@ -256,7 +256,7 @@ place('tone', glass(89, 5.0, .03), 47.8, pan=0, send=.9)
 for at, m in ((44.0, 86), (46.0, 88), (48.0, 93)):
     place('tone', bell(m, .07), at, pan=-.1, send=.8)
 
-# 55–59: warmth gathers and lands with the last spark on the white-hot iron.
+# 55–59: warmth gathers under the whiteout, and the forge comes through as the wind opens.
 for j, m in enumerate((38, 45, 50, 54, 57)):
     place('strings', bowed(m, 3.6, .07, att=3.2, rel=.08, bright=.86), 55.4, pan=-.3 + j * .15, send=.5)
 
@@ -335,15 +335,15 @@ for k, at in enumerate(np.arange(6.5, 23, .5)):
 for at in np.arange(26.8, 28.4, .45):
     place('sfx', band(noise(.35), 300, 1500) * np.sin(np.pi * axis(.35) / .35) * .12, at, pan=-.1)
 place('sfx', roar(2.8, .55), 30.15, pan=-.1, send=.5)
-# Sinfran: a call, three wing beats, the whiteout and the pass in front of the lens
+# Sinfran: a call, three wing beats (the wind rising with each), the pass in front of the lens and the whiteout
 place('sfx', caw(.16), 42.5, pan=.1, send=.6)
 place('sfx', caw(.13), 42.95, pan=.1, send=.6)
 for at in (44.0, 46.0, 48.0):
     place('sfx', whoosh(.7, 200, 1600, .35), at - .3, pan=.1, send=.3)
 place('sfx', caw(.12), 49.2, pan=-.2, send=.7)
 place('sfx', whoosh(1.4, 80, 900, .75), 51.9, pan=0, send=.3)
-# snow lit into sparks; the spark lands on the iron, which lies on the anvil burning white and hissing all through the forge
-place('sfx', sizzle(3.0, .03), 55.6, pan=.1, send=.4)
+# the wind blowing on past to the left as it opens on the forge; the iron lies on the anvil burning white and hisses
+place('sfx', whoosh(2.6, 120, 1400, .4), 57.0, pan=-.3, send=.4)
 place('sfx', sizzle(1.2, .07), 59.0, pan=0, send=.4)
 for k, at in enumerate(np.arange(59.4, 86.4, .7)):
     swell = .03 + .02 * np.sin(k * .9) ** 2 + .025 * max(0, (at - 80) / 6)
@@ -376,8 +376,9 @@ for t, i in contacts(129.6, 160.6, gallop_phase, lambda t: WALK_OFF if gallop_ra
         place('sfx', crunch(.05), t + .01, pan=.1)
 
 # wind: a bed under the winter shots, gusting where the storyboard asks for it
-wind_pts = [(0, 0), (6, .05), (9, .35), (17, .4), (21.2, .9), (23, 1.0), (24, .25), (26, .08), (36, .1), (38, .3), (40, .4), (44, .55),
-            (46, .8), (48, 1.0), (52, .9), (53.5, .5), (55, .35), (57, .1), (59, 0), (83, 0), (86, .25), (98, .3), (116, .3), (120, .45),
+wind_pts = [(0, 0), (6, .05), (9, .35), (17, .4), (20.4, .45), (23, .3), (25, .08), (36, .1), (38.5, .3), (40.6, .35), (43.9, .4),
+            (44.8, .6), (45.9, .6), (46.8, .8), (47.9, .8), (48.8, 1.0), (51.4, 1.0), (52.8, 1.35), (56.8, 1.3), (58.4, .6),
+            (59.8, .08), (61, 0), (83, 0), (86, .25), (98, .3), (116, .3), (120, .45),
             (127.6, .5), (129, .35), (137, .5), (151, .45), (156, .6), (160.6, .55), (161.6, .15), (163, 0), (TOTAL, 0)]
 tt = np.arange(N) / SR
 wenv = np.interp(tt, *zip(*wind_pts))
