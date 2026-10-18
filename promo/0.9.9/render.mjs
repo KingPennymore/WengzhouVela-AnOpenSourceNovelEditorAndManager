@@ -1,7 +1,8 @@
 import {chromium} from 'playwright';
 import {spawn} from 'node:child_process';
-import {mkdir,access} from 'node:fs/promises';
-import {pathToFileURL,fileURLToPath} from 'node:url';
+import {mkdir,access,readFile} from 'node:fs/promises';
+import http from 'node:http';
+import {fileURLToPath} from 'node:url';
 import path from 'node:path';
 
 // Renders scene.html frame by frame (canvas → JPEG → ffmpeg) and muxes soundtrack.wav into an H.264/AAC MP4.
@@ -15,12 +16,20 @@ import path from 'node:path';
 const dir=path.dirname(fileURLToPath(import.meta.url)),FPS=30,[mode='video',list='']=process.argv.slice(2);
 const out=path.resolve('dist/promo/0.9.9'),video=path.join(dir,'炉火祈愿-文舟0.9.9宣传片.mp4');
 const exists=p=>access(p).then(()=>true,()=>false);
+// a static server for the promo folder on a free local port
+function serve(root){const types={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8','.css':'text/css','.jpg':'image/jpeg','.png':'image/png','.wav':'audio/wav','.woff2':'font/woff2','.ttf':'font/ttf','.otf':'font/otf'};
+  const server=http.createServer(async(req,res)=>{const file=path.resolve(root,'.'+decodeURIComponent(new URL(req.url,'http://x').pathname));
+    if(!file.startsWith(root+path.sep)){res.writeHead(403).end();return;}try{res.writeHead(200,{'Content-Type':types[path.extname(file)]||'application/octet-stream'}).end(await readFile(file));}catch{res.writeHead(404).end();}});
+  return new Promise(r=>server.listen(0,'127.0.0.1',()=>{server.url='http://127.0.0.1:'+server.address().port;r(server);}));}
 const winChrome='C:/Program Files/Google/Chrome/Application/chrome.exe';
 const executablePath=process.env.WENZHOU_CHROME||(await exists(winChrome)?winChrome:undefined);
+const server=await serve(dir);
 const browser=await chromium.launch({executablePath});
 try{
   const page=await browser.newPage({viewport:{width:1920,height:1080}});const errors=[];page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>m.type()==='error'&&errors.push(m.text()));
-  await page.goto(pathToFileURL(path.join(dir,'scene.html')).href+'?record=1');await page.waitForFunction(()=>window.promoReady);
+  // served over http rather than opened as a file, so that the captured app frames (ui/shots) can be drawn on the canvas
+  // without tainting it for toDataURL
+  await page.goto(server.url+'/scene.html?record=1');await page.waitForFunction(()=>window.promoReady);await page.evaluate(()=>window.uiReady);
   const frame=(t,type)=>page.evaluate(([t,type])=>{renderAt(t);return document.getElementById('stage').toDataURL(type,.93);},[t,type]).then(d=>Buffer.from(d.slice(d.indexOf(',')+1),'base64'));
   await mkdir(out,{recursive:true});
   if(mode==='stills'){
@@ -43,4 +52,4 @@ try{
     ff.stdin.end();const code=await new Promise(r=>ff.on('close',r));if(code)throw Error('ffmpeg exited with '+code);console.log(video);
   }
   if(errors.length)console.error('page errors:',[...new Set(errors)].slice(0,10));
-}finally{await browser.close();}
+}finally{await browser.close();server.close();}

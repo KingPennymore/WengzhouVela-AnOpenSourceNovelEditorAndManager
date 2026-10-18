@@ -34,7 +34,11 @@
   - 铁匠铺是铁砧上一块白热的铁；
   - 离乡的一段是两根线：哈沃德是草绿色，里加是菘蓝色。两根线沿雪路向上织，在岔路口缠绕；之后蓝线向上跑去，绿线留在原地；蓝线一直留在画面里，天色越来越暗，直到全黑。
 
-文舟界面层（术语库、人物关系 `.pcs`、地图 `.vlmp`、大纲 `.pcs`）保持应用本身的配色，叠在织锦上方。
+文舟界面层用的是真实应用的画面：术语库、人物关系（`.pcs` 的关系视图）、地图（`.vlmp` 的工具栏和信息点面板）、大纲（`.pcs` 的大纲视图）。
+
+- `ui/capture.mjs` 在文舟 Web 版里一步步完成操作，逐步截图，存为 `ui/shots/*.jpg`；
+- 每一步按钮的位置记入 `ui/shots.js`；
+- 片中把这些截图放进浮动窗口按时间切换，光标落在记录下的真实按钮位置上。
 
 ## 声音
 
@@ -56,7 +60,9 @@
 | --- | --- |
 | `lines.js` | 时间线：19 个镜头、台词与字幕、配音演员、马的步速曲线、步行时刻；所有脚本共用（少年里加的声音设定保留，但“驾！”一句已删去） |
 | `scene.html` | 画布与绘图基础、字幕；依次载入下列脚本；可直接在浏览器中打开预览（含声音） |
-| `scenes.js` | 文舟界面层（术语库、人物关系、地图工具栏、大纲）与第一版成片的镜头（已不再使用） |
+| `scenes.js` | 第一版成片的镜头与旧的自绘界面层（已不再用于成片；分镜关键帧仍在用） |
+| `ui/seed.mjs` | 截图用的《炉火祈愿》工作区：正文、术语库、大纲与关系、地图 |
+| `ui/capture.mjs` | 在文舟 Web 版里逐步操作并截图 → `ui/shots/*.jpg` 与 `ui/shots.js` |
 | `samples/loom.js` | 织机：织造网格、染料色板量化、交错与染色条纹、毛线肌理、炉火光；`wFigure` 剪影 |
 | `samples/samples.js` | 美术风格样图及其中的大熊等造型 |
 | `storyboard/frames.js` | 第七版分镜的各幅图案与关键帧 |
@@ -75,6 +81,7 @@ pip install kokoro-onnx soundfile numpy scipy fonttools brotli
 python3 promo/0.9.9/voice.py               # 配音（模型与声音从 npm 下载，缓存在 dist/promo）
 python3 promo/0.9.9/soundtrack.py          # 配乐 + 音效 + 配音 → soundtrack.wav
 python3 promo/0.9.9/fonts/subset.py        # 只在改动文字后需要
+node promo/0.9.9/ui/capture.mjs            # 真实界面截图 → ui/shots/、ui/shots.js（只在界面变化后需要；需 npm install）
 node promo/0.9.9/render.mjs                # → 炉火祈愿-文舟0.9.9宣传片.mp4
 node promo/0.9.9/storyboard/render.mjs     # 分镜关键帧 → storyboard/frames/*.jpg
 python3 promo/0.9.9/storyboard/sheet.py    # → storyboard/contact-sheet.jpg
@@ -90,7 +97,7 @@ python3 promo/0.9.9/storyboard/sheet.py    # → storyboard/contact-sheet.jpg
 ## 与小说和分镜的出入
 
 - 配音为英语（按制作时的要求），字幕保留中文原文并附英文。
-- 分镜中的“加入词条”在画面中写作应用里的实际菜单项“更多 → 加入术语库”。
+- 分镜中的“加入词条”按应用里的实际操作呈现：更多 → 加入词库 → 对话框“选中词加入术语库”→ 添加词条。
 - 镜头 17 保留了“而在这之后，我也再没见过哈沃德。”这句独白。
 - 删去了少年里加的“驾！”；蓝线起跑改由鼓点带出。
 - 拉丁铭文为本片所加，用以模仿贝叶挂毯的“HIC……”题记。

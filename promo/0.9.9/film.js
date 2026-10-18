@@ -258,15 +258,18 @@ function nightAt(t){const d=seg(t,145,158.6);if(d<=0)return;const off=offRun(t),
   g=ctx.createRadialGradient(hx,hy,0,hx,hy,R);g.addColorStop(0,`rgba(0,0,0,${Math.pow(d,2.4)})`);g.addColorStop(1,`rgba(0,0,0,${Math.min(1,1.3*easeIn(d)+.25*d)})`);ctx.fillStyle=g;ctx.fillRect(0,TOP,W,BOT-TOP);}
 
 // ================================================================ 13 · the map, drawn in as Havard names the places
+// Each place is put in with 文舟's 信息点 tool (mapApp below): the houses are woven where the pointer clicks, the name
+// once it has been typed into the panel and saved.
+const MAP_PTS=PLACES.map(([name,x,y,at],i)=>{const click=i?at()-.6:100.2,save=click+.85+name.length*.12;return {name,x,y:y+40,click,save};});
 function mapAt(t){rect(0,0,W,H,DYE.wool);
   for(let i=0;i<10;i++){const p=easeOut(seg(t,99.6+i*.1,100.3+i*.1));if(p<=0)continue;const x=150+i*66+(i%2)*18,y=300+(i%3)*22,h=(90+hash(i)*30)*p;wpoly([x-46,y,x,y-h,x+46,y],i%2?DYE.sky:DYE.woad,{lw:6});wpoly([x,y-h,x-16,y-h*.62,x+16,y-h*.62],DYE.bone,{line:null});}
   const rv=easeInOut(seg(t,99.2,101.4));if(rv>0){const R=[1220,900,1460,720,1380,520,1600,400,1760,310,1700,190,1860,140],n=Math.max(2,Math.round(R.length/2*rv));wcurve(R.slice(0,n*2),22,DYE.woad,{lw:6});}
   [[640,640,5],[1000,600,4],[1260,280,3],[300,540,4],[1380,760,3]].forEach(([fx,fy,n],j)=>{for(let i=0;i<n;i++){const p=easeOut(seg(t,100.2+j*.3+i*.06,100.6+j*.3+i*.06));if(p<=0)continue;const tx=fx+(i-(n-1)/2)*64,ty=fy+(i%2)*16;wline([tx,ty,tx,ty-56*p],DYE.indigo,9);wPalmette(tx,ty-50*p,44*p,-Math.PI/2,i%2?DYE.sky:DYE.bone);}});
   const pts=PLACES.map(p=>[p[1],p[2]+40]);ctx.save();ctx.setLineDash([24,16]);ctx.lineCap='round';ctx.strokeStyle=DYE.madder;ctx.lineWidth=14;
-  for(let i=1;i<pts.length;i++){const p=easeInOut(seg(t,PLACES[i][3]()-1.1,PLACES[i][3]()-.1));if(p<=0)continue;const [ax,ay]=pts[i-1],[bx,by]=pts[i],mx=(ax+bx)/2+(i%2?-40:40),my=(ay+by)/2+(i%2?60:-50);ctx.beginPath();for(let k=0;k<=30*p;k++){const u=k/30,x=(1-u)*(1-u)*ax+2*(1-u)*u*mx+u*u*bx,y=(1-u)*(1-u)*ay+2*(1-u)*u*my+u*u*by;k?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();}ctx.restore();
-  PLACES.forEach(([name,x,y,at])=>{const p=seg(t,at(),at()+.45);if(p<=0)return;y+=40;const s=back(p);for(let k=0;k<3;k++){const hx=x+(-32+k*32)*s,hy=y+(k===1?-10:0)*s;wpoly([hx-14*s,hy,hx-14*s,hy-24*s,hx+14*s,hy-24*s,hx+14*s,hy],DYE.bone,{lw:5});wpoly([hx-18*s,hy-24*s,hx,hy-46*s,hx+18*s,hy-24*s],DYE.madder,{lw:5});}
-    if(p>.4)text(name,x,y+70,{size:44,weight:700,color:DYE.black,font:SERIF,align:'center',spacing:4});});
-  const cp=easeOut(seg(t,100.5,101.5));if(cp>0){ctx.save();ctx.translate(1720,300);ctx.scale(cp,cp);ctx.rotate(t*.1);for(let i=0;i<16;i++){const a=i/16*TAU;wpoly([Math.cos(a-.12)*50,Math.sin(a-.12)*50,Math.cos(a)*(i%4?72:110),Math.sin(a)*(i%4?72:110),Math.cos(a+.12)*50,Math.sin(a+.12)*50],i%2?DYE.madder:DYE.weld,{lw:5});}wdisc(0,0,50,DYE.weld);wspiral(0,0,32,DYE.madder,{lw:9});ctx.restore();}
+  for(let i=1;i<pts.length;i++){const p=easeInOut(seg(t,MAP_PTS[i].click-1.1,MAP_PTS[i].click-.1));if(p<=0)continue;const [ax,ay]=pts[i-1],[bx,by]=pts[i],mx=(ax+bx)/2+(i%2?-40:40),my=(ay+by)/2+(i%2?60:-50);ctx.beginPath();for(let k=0;k<=30*p;k++){const u=k/30,x=(1-u)*(1-u)*ax+2*(1-u)*u*mx+u*u*bx,y=(1-u)*(1-u)*ay+2*(1-u)*u*my+u*u*by;k?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.stroke();}ctx.restore();
+  MAP_PTS.forEach(({name,x,y,click,save})=>{const p=seg(t,click,click+.45);if(p<=0)return;const s=back(p);for(let k=0;k<3;k++){const hx=x+(-32+k*32)*s,hy=y+(k===1?-10:0)*s;wpoly([hx-14*s,hy,hx-14*s,hy-24*s,hx+14*s,hy-24*s,hx+14*s,hy],DYE.bone,{lw:5});wpoly([hx-18*s,hy-24*s,hx,hy-46*s,hx+18*s,hy-24*s],DYE.madder,{lw:5});}
+    if(t>=save)text(name,x,y+70,{size:44,weight:700,color:DYE.black,font:SERIF,align:'center',spacing:4});});
+  const cp=easeOut(seg(t,100.5,101.5));if(cp>0){ctx.save();ctx.translate(1740,790);ctx.scale(cp,cp);ctx.rotate(t*.1);for(let i=0;i<16;i++){const a=i/16*TAU;wpoly([Math.cos(a-.12)*50,Math.sin(a-.12)*50,Math.cos(a)*(i%4?72:110),Math.sin(a)*(i%4?72:110),Math.cos(a+.12)*50,Math.sin(a+.12)*50],i%2?DYE.madder:DYE.weld,{lw:5});}wdisc(0,0,50,DYE.weld);wspiral(0,0,32,DYE.madder,{lw:9});ctx.restore();}
 }
 // The road seen from higher and higher up until it is a spot on the map at Sakarlet, and later the other way: the
 // road picture drawn into the map at scale k (1: the whole picture, as the road shot has it), framed in dark wool.
@@ -275,6 +278,76 @@ function insetAt(k,draw){if(k<=0)return;const cx=lerp(HOME[0],W2,k),cy=lerp(HOME
   ctx.save();ctx.translate(cx,cy);ctx.scale(k,k);ctx.translate(-W2,-H2);ctx.beginPath();ctx.rect(0,TOP,W,BOT-TOP);ctx.clip();draw();ctx.restore();
   const lw=9*clamp((1-k)*12);if(lw>.5){ctx.save();ctx.strokeStyle=DYE.black;ctx.lineWidth=lw;ctx.strokeRect(cx-k*W2,cy+k*(TOP-H2),k*W,k*(BOT-TOP));ctx.restore();}}
 const outOf=t=>1-easeIn(seg(t,WSTOP,99.4)),into=t=>easeIn(seg(t,115,116.6));
+
+// ================================================================ 文舟 itself: the real app, as ui/capture.mjs captured it
+// Each interface moment replays one captured sequence of the web app in a window over the cloth: its frames keyed in
+// time and cross-faded, with a pointer drawn going to the points the capture recorded (in CSS px of the capture).
+const APP=window.UI_SHOTS||{},APP_IMG={},APP_DPR=1.5;
+for(const q of Object.values(APP))for(const [,f] of q.frames)if(!APP_IMG[f]){const i=new Image();i.src='ui/shots/'+f;APP_IMG[f]=i;}
+window.uiReady=Promise.all(Object.values(APP_IMG).map(i=>i.decode().catch(()=>{})));
+// keys [[t, frame], …] → the frame showing at t, the one before it and how far the new one has faded in (.12 s)
+function appAt(keys,t){let i=-1;for(let j=0;j<keys.length;j++)if(t>=keys[j][0])i=j;if(i<0)return null;return {f:keys[i][1],g:i?keys[i-1][1]:null,k:seg(t,keys[i][0],keys[i][0]+.12)};}
+// part src [x, y, w, h] (CSS px) of a frame of sequence q, put at (x, y) on the film at s film px per CSS px
+function appBlit(q,f,src,x,y,s,a){const img=APP_IMG[APP[q]?.frames[f]?.[1]];if(!img?.complete||!img.naturalWidth)return;ctx.save();ctx.globalAlpha=a;ctx.imageSmoothingQuality='high';
+  ctx.drawImage(img,src[0]*APP_DPR,src[1]*APP_DPR,src[2]*APP_DPR,src[3]*APP_DPR,x,y,src[2]*s,src[3]*s);ctx.restore();}
+// a window of w × h CSS px at (x, y): shadow, rounded corners, the frames cross-fading in it; paint(f, alpha) draws a frame
+function appWindow(keys,t,{x,y,w,h,s,a=1,r=14,paint}){const at=appAt(keys,t);if(!at||a<=0)return;const fw=w*s,fh=h*s;
+  ctx.save();ctx.globalAlpha=a;ctx.shadowColor='rgba(24,14,6,.5)';ctx.shadowBlur=40;ctx.shadowOffsetY=16;fillRR(x,y,fw,fh,r,'#f3f6f3');ctx.restore();
+  ctx.save();ctx.beginPath();ctx.roundRect(x,y,fw,fh,r);ctx.clip();if(at.g!==null&&at.k<1)paint(at.g,a);paint(at.f,at.g!==null?a*at.k:a);ctx.restore();
+  strokeRR(x+.5,y+.5,fw-1,fh-1,r,`rgba(30,50,40,${.22*a})`,1);}
+// the pointer: path [[t, [x, y]], …] in film px, eased from point to point; a press shows at each time in presses
+function pointerAt(path,t){if(t<=path[0][0])return path[0][1];for(let i=1;i<path.length;i++)if(t<path[i][0]){const [t0,p0]=path[i-1],[t1,p1]=path[i],k=easeInOut((t-t0)/(t1-t0));return [lerp(p0[0],p1[0],k),lerp(p0[1],p1[1],k)];}return path[path.length-1][1];}
+function pointer(path,t,a,presses=[]){if(a<=0)return;const [x,y]=pointerAt(path,t),press=Math.max(0,...presses.map(c=>1-Math.min(1,Math.abs(t-c)/.15)));cursor(x,y,a,press);}
+const inWin=(o,[cx,cy])=>[o.x+cx*o.s,o.y+cy*o.s];
+
+// 术语库 · select the name in the manuscript, 更多 → 加入词库, type the definition, 添加词条; q stretches the timing
+function glossaryApp(t,q,t0,{x,y,s=.86,stretch=1}){
+  const lt=(t-t0)/stretch;if(lt<0||lt>5.6||!APP[q])return;const A=APP[q].at,[w,h]=APP[q].size,T=v=>t0+v*stretch;
+  const open=easeOut(seg(lt,0,.4)),a=open*(1-seg(lt,5.1,5.5)),o={x,y:y+(1-open)*16,s};
+  const keys=[[0,0],[1.0,1],[1.2,2],[1.5,3],[1.95,4],[2.3,5],[2.5,6],[2.95,7],[3.15,8],[3.35,9],[3.55,10],[3.75,11],[4.2,12],[4.4,13]].map(([v,f])=>[T(v),f]);
+  appWindow(keys,t,{...o,w,h,a,paint:(f,al)=>appBlit(q,f,[0,0,w,h],o.x,o.y,s,al)});
+  const P=k=>inWin(o,A[k]),mid=inWin(o,[(A.from[0]+A.to[0])/2,A.from[1]]);
+  pointer([[T(.3),inWin(o,[w*.72,h*.8])],[T(.9),P('from')],[T(1.05),mid],[T(1.25),P('to')],[T(1.55),P('to')],[T(1.9),P('more')],[T(2.25),P('add')],[T(2.9),P('field')],[T(3.8),P('field')],[T(4.2),P('submit')]],t,a*seg(lt,.25,.55),[.9,1.95,2.45,2.95,4.35].map(T));
+}
+// 关系 · drag from Havard's handle to Riga, open the relation, label it 抚养与照料, save
+const REL_WIN={x:1236,y:150,s:.8};
+function relationsApp(t){if(t<71.6||t>81.8||!APP.relations)return;const A=APP.relations.at,[w,h]=APP.relations.size;
+  const open=easeOut(seg(t,71.6,72)),a=open*(1-seg(t,81.3,81.8)),o={...REL_WIN,y:REL_WIN.y+(1-open)*16};
+  appWindow([[71.6,0],[73.7,1],[74.3,2],[74.9,3],[75.15,4],[75.35,5],[75.55,6],[75.75,7],[75.95,8],[76.6,9],[76.95,10]],t,{...o,w,h,a,paint:(f,al)=>appBlit('relations',f,[0,0,w,h],o.x,o.y,o.s,al)});
+  const path=[[72,inWin(o,[w*.6,h*.85])],[72.5,inWin(o,A.handle)],[72.62,inWin(o,A.handle)],[73.55,inWin(o,A.riga)],[73.85,inWin(o,A.riga)],[74.2,inWin(o,A.edge)],[74.75,inWin(o,A.label)],[76.2,inWin(o,A.label)],[76.6,inWin(o,A.save)]];
+  // while the pointer drags, the new line follows it out of the handle
+  if(t>72.62&&t<73.7){const [hx,hy]=inWin(o,A.handle),[px,py]=pointerAt(path,t);ctx.save();ctx.globalAlpha=a;ctx.strokeStyle='#4c8a70';ctx.lineWidth=1.6;ctx.setLineDash([6,4]);ctx.beginPath();ctx.moveTo(hx,hy);ctx.lineTo(px,py);ctx.stroke();ctx.restore();}
+  pointer(path,t,a*seg(t,71.9,72.2),[72.62,73.65,74.25,74.8,76.9]);
+}
+// 地图 · the 信息点 tool: the woven map is the canvas; the app's toolbar sits above it and its panel at the side
+// (both captured as crops: strip and panel give where they were on the app's page)
+const MAP_BAR={x:690,y:142,s:.86},MAP_PANEL={x:1586,y:150,s:.78};
+function mapApp(t){const M=APP.map;if(!M||t<99.2||t>112.6)return;const bar=M.strip,pan=M.panel,a=easeOut(seg(t,99.2,99.6))*(1-seg(t,112.1,112.6));
+  const bo={...MAP_BAR,y:MAP_BAR.y-(1-easeOut(seg(t,99.2,99.6)))*20},bw=bar.width,bh=bar.height;
+  appWindow([[99.2,0],[99.9,1]],t,{...bo,w:bw,h:bh,a,r:12,paint:(f,al)=>appBlit('map',f,[0,0,bw,bh],bo.x,bo.y,bo.s,al)});
+  // the panel: a new point at each click, its name typed letter by letter
+  const keys=[];let f=2;MAP_PTS.forEach(({name,click,save})=>{keys.push([click+.05,f++]);for(let j=0;j<name.length;j++)keys.push([click+.6+j*.12,f++]);});
+  const pa=easeOut(seg(t,MAP_PTS[0].click,MAP_PTS[0].click+.3))*(1-seg(t,111.4,111.9)),po={...MAP_PANEL,x:MAP_PANEL.x+(1-pa)*30};
+  if(t>MAP_PTS[0].click)appWindow(keys,t,{...po,w:pan.width,h:pan.height,a:pa,r:12,paint:(g,al)=>appBlit('map',g,[0,0,pan.width,pan.height],po.x,po.y,po.s,al)});
+  const tool=[bo.x+(M.at.tool[0]-bar.x)*bo.s,bo.y+(M.at.tool[1]-bar.y)*bo.s],name=[po.x+(M.at.name[0]-pan.x)*po.s,po.y+(M.at.name[1]-pan.y)*po.s],save=[po.x+(M.at.save[0]-pan.x)*po.s,po.y+(M.at.save[1]-pan.y)*po.s];
+  const path=[[99.4,[W*.52,H*.62]],[99.85,tool]],presses=[99.9];
+  MAP_PTS.forEach(({x,y,click,save:sv})=>{path.push([click-.05,[x,y-24]],[click+.4,name],[sv-.25,name],[sv-.05,save]);presses.push(click,click+.45,sv);});
+  path.push([111.6,save]);pointer(path,t,a*seg(t,99.3,99.6)*(1-seg(t,111.2,111.6)),presses);
+}
+// 大纲 · the plot tree growing a node to each third stride, the window scrolling to keep the newest in view; at the
+// end the Sakarlet branch is folded. The window is the top and bottom of the capture with the canvas scrolled between.
+const OUT_WIN={x:1150,y:140,w:860,h:934,s:700/860};
+function outlineApp(t){const o0=APP['outline-1'];if(!o0)return;const inA=easeOut(seg(t,137,137.8)),gone=easeIn(seg(t,152.1,153.2));if(inA<=0||gone>=1)return;
+  const o={...OUT_WIN,x:OUT_WIN.x+(1-inA)*120+gone*260},a=inA*(1-gone),[p0,p1]=o0.plane,full=o0.size[1],vis=o.h-p0-(full-p1);
+  const keys=OUTLINE_AT.map((at,i)=>[at,i+1]);keys.push([151.35,10]);
+  // (folding leaves the canvas where it was, as the app does)
+  const want=k=>{const c=APP['outline-'+Math.min(k,9)].cards;return clamp(Math.max(...c.map(v=>v[1]))+36-p0-vis,0,p1-p0-vis);};
+  let scroll=0;for(let i=0;i<keys.length;i++){const [at,k]=keys[i];if(t<at)break;scroll=lerp(i?want(keys[i-1][1]):0,want(k),easeInOut(seg(t,at,at+.7)));}
+  const paint=(k,al)=>{const q='outline-'+k;appBlit(q,0,[0,0,o.w,p0],o.x,o.y,o.s,al);appBlit(q,0,[0,p0+scroll,o.w,vis],o.x,o.y+p0*o.s,o.s,al);appBlit(q,0,[0,p1,o.w,full-p1],o.x,o.y+(p0+vis)*o.s,o.s,al);};
+  appWindow(keys,t,{...o,a,paint});
+  const fold=APP['outline-10'].at.fold,fp=[o.x+fold[0]*o.s,o.y+(fold[1]-scroll)*o.s];
+  pointer([[150.3,[o.x+o.w*o.s+60,o.y+500]],[151.15,fp],[151.9,fp],[152.6,[o.x+o.w*o.s+80,fp[1]+60]]],t,a*seg(t,150.3,150.7),[151.3]);
+}
 
 // ================================================================ the opening burn: from the four corners to the middle
 // A burn field over the frame: 0 at each corner, 1 in the middle, roughened by noise so the fronts eat in unevenly.
@@ -310,19 +383,19 @@ const SCENES={
       if(nb&&t<b+.4)reweave(t,b,.4,()=>stripFrame(t,'roar',nb-1),()=>stripFrame(t,'roar',nb));
       else stripFrame(t,t<30.15?'breath':'roar',nb);}
     else reweave(t,30.15,.5,()=>stripFrame(t,'breath',0),()=>stripFrame(t,'roar',0));
-    ui(()=>glossaryOverlay(t,GLOSS_A));ui(()=>glossaryOverlay(t,GLOSS_S));},
+    ui(()=>glossaryApp(t,'arthur',24.7,{x:1188,y:148}));ui(()=>glossaryApp(t,'sinfran',41.3,{x:44,y:148,stretch:1.15}));},
   anvil:t=>{const w=windState(t);
     woven(t,()=>anvilAt(t),{...about(anvilZoom(t),1000,486),cover:w.L>0||w.C>0?()=>windAt(t,w):null,post:()=>whiteIn(seg(t,84.6,86.4)),
       words:t<70?change(t,'HIC SINFRAN VENTVM MOVET','HIC FERRVM HAVARDI CANDET',55.6):change(t,'HIC FERRVM HAVARDI CANDET',ROAD_WORDS,85.8,1.2)});
-    ui(()=>relationOverlay(t));},
+    ui(()=>relationsApp(t));},
   walk:t=>{woven(t,()=>roadWalkAt(t),{gy:offWalk(t),post:()=>whiteIn(1-seg(t,86.6,88.6)),
       words:t<92?change(t,'HIC FERRVM HAVARDI CANDET',ROAD_WORDS,85.8,1.2):change(t,ROAD_WORDS,'HIC VIA AD HELGARD',98)});},
   map:t=>{woven(t,()=>{mapAt(t);insetAt(outOf(t),()=>roadWalkAt(WSTOP));insetAt(into(t),()=>roadRunAt(t));},{gy:t<99.2?offWalk(WSTOP):0,
       words:t<108?change(t,ROAD_WORDS,'HIC VIA AD HELGARD',98):change(t,'HIC VIA AD HELGARD','HIC RIGA ET HAVARD VALEDICVNT',115.4)});
-    ui(()=>{mapToolbar(t);mapCursor(t);});},
+    ui(()=>mapApp(t));},
   run:t=>{woven(t,()=>roadRunAt(t),{gy:offRun(t),post:()=>nightAt(t),
       words:t<124?change(t,'HIC VIA AD HELGARD','HIC RIGA ET HAVARD VALEDICVNT',115.4):change(t,'HIC RIGA ET HAVARD VALEDICVNT','HIC RIGA EQVITAT AD HELGARD',RUN0-.3)});
-    if(t<156.2)ui(()=>outlinePanel(t));black(seg(t,158.6,160.6));},
+    if(t<153.3)ui(()=>outlineApp(t));black(seg(t,158.6,160.6));},
   end:t=>{logoScene(t,{end:true});black(1-seg(t,161,161.9));black(seg(t,167.4,169));},
 };
 // [start, scene, dissolve into it (s)]: the one dissolve is under the whiteout, where both pictures are covered
