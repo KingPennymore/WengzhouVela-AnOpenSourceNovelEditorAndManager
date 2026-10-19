@@ -54,7 +54,48 @@ export function workspaceDelta(value,base,id=newSaveId()){
   return {format:2,id,base:base.saveId,workspace:{...rest,documents},texts,histories};
 }
 export const workspaceSaveStats={mode:'',bytes:0,milliseconds:0};
+let saveEpoch=0,saveWorker=null,workerSequence=0,browserSerial=Date.now(),browserBaseline=null;
+const workerRequests=new Map();
+function serializer(payload,mode,serial){
+  if(!saveWorker){saveWorker=new Worker('./workspace-save-worker.js');saveWorker.onmessage=({data})=>{const task=workerRequests.get(data.id);if(!task)return;workerRequests.delete(data.id);clearTimeout(task.timer);data.error?task.reject(Error(data.error)):task.resolve(data);};saveWorker.onerror=()=>{saveWorker.terminate();saveWorker=null;for(const task of workerRequests.values()){clearTimeout(task.timer);task.reject(Error('后台保存线程异常，请手动保存。'));}workerRequests.clear();};}
+  return new Promise((resolve,reject)=>{const id=++workerSequence,timer=setTimeout(()=>{workerRequests.delete(id);reject(Error('后台保存超时，请手动保存。'));},30000);workerRequests.set(id,{resolve,reject,timer});try{saveWorker.postMessage({id,payload,mode,serial});}catch(error){clearTimeout(timer);workerRequests.delete(id);reject(error);}});
+}
+export async function readWorkspaceAsync(){
+  if(native)return readWorkspace();
+  const sync=readWorkspace();
+  try{return await new Promise(resolve=>{const request=indexedDB.open('wenzhou-autosave',1);request.onupgradeneeded=()=>request.result.createObjectStore('workspace');request.onerror=()=>resolve(sync);request.onsuccess=()=>{const db=request.result,tx=db.transaction('workspace','readwrite'),table=tx.objectStore('workspace'),get=table.get('latest');get.onsuccess=()=>{const record=get.result,marker=Number(localStorage.getItem('wenzhou.workspace.syncSerial'))||0,data=record?.serial>marker?record.data:sync,serial=record?.serial>marker?record.serial:Math.max(marker,1);browserSerial=Math.max(browserSerial,serial);if(data&&(!record||record.serial<serial))table.put({serial,data},'latest');try{const value=JSON.parse(data);browserBaseline={serial,texts:new Map(value.documents.map(doc=>[doc.id,doc.text])),histories:new Map(Object.entries(value.localHistory||{}).map(([id,list])=>[id,{list,length:list?.length}]))};}catch{browserBaseline=null;}resolve(data);};get.onerror=()=>resolve(sync);tx.oncomplete=()=>db.close();};});}catch{return sync;}
+}
+function browserDelta(value,base,serial){
+  const texts={},histories={},current=value.localHistory||{};
+  const documents=value.documents.map(doc=>{const {text,...rest}=doc;if(base.texts.get(doc.id)!==text)texts[doc.id]=text;return rest;});
+  for(const [docId,list] of Object.entries(current)){const old=base.histories.get(docId);if(!old||old.list!==list||old.length!==list?.length)histories[docId]=list;}
+  for(const docId of base.histories.keys())if(!(docId in current))histories[docId]=null;
+  const {localHistory,documents:_,...rest}=value;
+  return {baseSerial:base.serial,serial,workspace:{...rest,documents},texts,histories};
+}
+function rememberBrowser(value,serial){browserBaseline={serial,texts:new Map(value.documents.map(doc=>[doc.id,doc.text])),histories:new Map(Object.entries(value.localHistory||{}).map(([id,list])=>[id,{list,length:list?.length}]))};}
+export async function saveWorkspaceAsync(value){
+  const epoch=++saveEpoch,start=performance.now(),serial=browserSerial=Math.max(Date.now(),browserSerial+1);
+  // Capture strings/references before yielding. A later edit must never advance this save's baseline.
+  const snapshot={...value,documents:value.documents.map(doc=>{const {text,...rest}=doc;return {...rest,text:doc.text};}),localHistory:{...value.localHistory}};
+  let id=newSaveId(),mode=native&&baseline&&baseline.storage===(snapshot.storage?.id||'')&&typeof window.WenzhouNative.writeWorkspaceDelta==='function'?'delta':native?'full':browserBaseline?'browser-delta':'browser';
+  let payload=mode==='delta'?workspaceDelta(snapshot,baseline,id):mode==='browser-delta'?browserDelta(snapshot,browserBaseline,serial):native?{...snapshot,saveId:id}:snapshot;
+  let encoded;
+  try{encoded=await serializer(payload,mode,serial);}catch(error){if(mode!=='browser-delta'||!String(error.message).includes('E_BROWSER_BASE'))throw error;mode='browser';payload=snapshot;encoded=await serializer(payload,mode,serial);}
+  if(epoch!==saveEpoch)return false;
+  if(native){
+    const apply=async json=>{const raw=await window.WenzhouNative.call('saveWorkspace',json);const result=JSON.parse(raw);if(!result.ok)throw Object.assign(Error(result.error||'后台保存失败。'),{code:result.code});return result.value;};
+    let result;try{result=await apply(encoded.json);}catch(error){if(epoch!==saveEpoch)return false;if(!String(error.message).includes('E_DELTA_BASE'))throw error;mode='full';id=newSaveId();encoded=await serializer({...snapshot,saveId:id},mode,serial);if(epoch!==saveEpoch)return false;result=await apply(encoded.json);}
+    if(epoch!==saveEpoch||result?.superseded)return false;
+    remember(snapshot,id);
+  }
+  if(mode==='browser')rememberBrowser(snapshot,serial);
+  if(mode==='browser-delta')rememberBrowser(snapshot,serial);
+  if(epoch!==saveEpoch)return false;
+  Object.assign(workspaceSaveStats,{mode:'background-'+mode,bytes:encoded.bytes,milliseconds:performance.now()-start});return true;
+}
 export function saveWorkspace(value) {
+  saveEpoch++;
   const start=performance.now();
   if(native) {
     if(baseline&&typeof window.WenzhouNative.writeWorkspaceDelta==='function'&&baseline.storage===(value.storage?.id||'')){
@@ -72,6 +113,8 @@ export function saveWorkspace(value) {
     // Evict recoverable snapshots only; current documents must never be omitted.
     localStorage.setItem('wenzhou.workspace',JSON.stringify({...value,localHistory:{}}));value.localHistory={};
   }
+  localStorage.setItem('wenzhou.workspace.syncSerial',String(browserSerial=Math.max(Date.now(),browserSerial+1)));
+  if(!native)rememberBrowser(value,browserSerial);
 }
 export function readPluginStore(){return native?window.WenzhouNative.readPlugins():localStorage.getItem('wenzhou.plugins');}
 export function writePluginStore(value){const data=JSON.stringify(value);if(native){const result=window.WenzhouNative.writePlugins(data);if(result!=='ok')throw new Error(result);}else localStorage.setItem('wenzhou.plugins',data);}

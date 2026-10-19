@@ -29,6 +29,8 @@ final class NativeBridge {
     private final ExecutorService workers = Executors.newFixedThreadPool(4);
     private final AtomicLong authGeneration = new AtomicLong();
     private final Object authLock = new Object();
+    private final Object workspaceSaveLock = new Object();
+    private final AtomicLong workspaceGeneration = new AtomicLong();
 
     NativeBridge(MainActivity activity, String capability) throws Exception {
         this.activity = activity; this.capability = capability.getBytes(StandardCharsets.UTF_8);
@@ -45,13 +47,13 @@ final class NativeBridge {
     }
     @JavascriptInterface public String writeWorkspace(String secret, String data) {
         authorize(secret);
-        try { if (projects.busy) throw ProjectFiles.fail("E_CONFLICT", "项目正在提交，请稍后保存。"); files.saveWorkspace(data); return "ok"; } catch (Exception error) { return message(error); }
+        synchronized (workspaceSaveLock) { workspaceGeneration.incrementAndGet(); try { if (projects.busy) throw ProjectFiles.fail("E_CONFLICT", "项目正在提交，请稍后保存。"); files.saveWorkspace(data); return "ok"; } catch (Exception error) { return message(error); } }
     }
     /** Incremental save; a message starting with E_DELTA_BASE makes the page fall back to writeWorkspace. */
     @JavascriptInterface public String writeWorkspaceDelta(String secret, String data) {
         authorize(secret);
-        try { if (projects.busy) throw ProjectFiles.fail("E_CONFLICT", "项目正在提交，请稍后保存。"); files.saveWorkspaceDelta(data); return "ok"; }
-        catch (Exception error) { String text = error.getMessage(); return text != null && text.startsWith("E_DELTA_BASE") ? text : message(error); }
+        synchronized (workspaceSaveLock) { workspaceGeneration.incrementAndGet(); try { if (projects.busy) throw ProjectFiles.fail("E_CONFLICT", "项目正在提交，请稍后保存。"); files.saveWorkspaceDelta(data); return "ok"; }
+        catch (Exception error) { String text = error.getMessage(); return text != null && text.startsWith("E_DELTA_BASE") ? text : message(error); } }
     }
     @JavascriptInterface public String readPlugins(String secret) {
         authorize(secret);
@@ -65,10 +67,19 @@ final class NativeBridge {
         authorize(secret);
         if (requestId == null || !requestId.matches("[A-Za-z0-9_-]{1,80}")) throw new SecurityException("请求标识无效。");
         long generation = operation.equals("login") || operation.equals("logout") ? authGeneration.incrementAndGet() : authGeneration.get();
+        long saveGeneration = operation.equals("saveWorkspace") ? workspaceGeneration.incrementAndGet() : 0;
         workers.execute(() -> {
             try {
                 if (json == null || json.length() > 100 * 1024 * 1024) throw new IOException("请求数据过大。");
                 JSONObject data = new JSONObject(json);
+                if (operation.equals("saveWorkspace")) {
+                    synchronized (workspaceSaveLock) {
+                        if (saveGeneration != workspaceGeneration.get()) { activity.deliver(requestId, success(new JSONObject().put("superseded", true))); return; }
+                        if (projects.busy) throw ProjectFiles.fail("E_CONFLICT", "项目正在提交，请稍后保存。");
+                        if (data.optBoolean("delta")) files.saveWorkspaceDelta(data.getString("data")); else files.saveWorkspace(data.getString("data"));
+                    }
+                    activity.deliver(requestId, success(new JSONObject().put("saved", true))); return;
+                }
                 if (operation.equals("project")) {
                     String action = data.optString("action"), owner = data.optString("owner"); JSONObject args = new JSONObject(data.optString("request", "{}"));
                     if (action.equals("pick")) { activity.pick(requestId, "project-pick", new JSONObject().put("owner", owner).put("args", args)); return; }

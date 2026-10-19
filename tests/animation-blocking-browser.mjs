@@ -37,7 +37,7 @@ try{
     const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));
     const client=await context.newCDPSession(page);await client.send('Emulation.setCPUThrottlingRate',{rate:cpu});
     await page.goto(server.url);await openRecentFile(page,page.locator('[data-recent=a]'));
-    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')).activeId==='a');
+    await page.waitForFunction(async()=>JSON.parse(await (await import('/platform.mjs')).readWorkspaceAsync()).activeId==='a');
     await page.evaluate(async()=>{
       for(const id of ['b','c','a']){document.querySelector(`[data-tab=${id}]`).click();await new Promise(requestAnimationFrame);}
       window.wenzhouSave();await new Promise(resolve=>setTimeout(resolve,500));
@@ -74,7 +74,8 @@ try{
       await new Promise(resolve=>setTimeout(resolve,200));
       const metrics=await sampleAnimation(async()=>{document.querySelector('#outline-toggle').click();});
       await new Promise(resolve=>setTimeout(resolve,700));animationProbe.delay=0;
-      return {metrics,writes:animationProbe.writes};
+      const saved=JSON.parse(await (await import('/platform.mjs')).readWorkspaceAsync());
+      return {metrics,writes:animationProbe.writes,saved:saved.activeId==='b'};
     });
     const contentSave=await page.evaluate(async()=>{
       animationProbe.writes=[];animationProbe.delay=90;
@@ -82,7 +83,7 @@ try{
       await new Promise(resolve=>setTimeout(resolve,1100));
       const metrics=await sampleAnimation(async()=>{document.querySelector('#outline-toggle').click();});
       await new Promise(resolve=>setTimeout(resolve,700));animationProbe.delay=0;
-      const saved=JSON.parse(localStorage.getItem('wenzhou.workspace'));
+      const saved=JSON.parse(await (await import('/platform.mjs')).readWorkspaceAsync());
       return {metrics,writes:animationProbe.writes,saved:saved.documents.find(doc=>doc.id==='b').text.startsWith('自动保存验证')};
     });
     reports.push({width,cpu,sidebar,switching,withoutMotion,storage,contentSave});
@@ -95,7 +96,8 @@ try{
   for(const report of reports){
     assert.ok(report.sidebar.frames>=3,'sidebar must paint intermediate frames');
     assert.equal(report.storage.writes.filter(write=>write.animating).length,0,'deferred navigation save must not run during an animation');
-    assert.ok(report.storage.writes.length>0,'deferred navigation must eventually be saved');
+    assert.equal(report.storage.writes.length,0,'deferred navigation must not synchronously write localStorage');
+    assert.equal(report.storage.saved,true,'deferred navigation must eventually be saved');
     assert.equal(report.contentSave.writes.filter(write=>write.animating).length,0,'background content save must not run during an animation');
     assert.equal(report.contentSave.saved,true,'edited content must eventually be saved');
   }

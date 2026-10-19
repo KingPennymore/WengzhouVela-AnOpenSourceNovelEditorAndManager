@@ -24,6 +24,10 @@ export class WorkspaceFiles {
   context: common.UIAbilityContext | undefined = undefined;
   private config: FolderConfig = { current: '', default: '', roots: [] };
   private ready: boolean = false;
+  private backgroundDirectory: string = '';
+  private filesDirectory(): string { return this.backgroundDirectory || this.contextValue().filesDir; }
+  prepareBackground(filesDir: string): void { this.backgroundDirectory = filesDir; if (fs.accessSync(this.configPath())) this.config = JSON.parse(fs.readTextSync(this.configPath())) as FolderConfig; }
+
   private lazyPaths: string[] = [];
   private lazyTexts: string[] = [];
 
@@ -32,13 +36,13 @@ export class WorkspaceFiles {
     return this.context;
   }
   private getRoot(): FolderRoot | undefined { return this.config.roots.find(root => root.id === this.config.current); }
-  private configPath(): string { return this.contextValue().filesDir + '/folders.json'; }
-  private cachePath(id: string): string { return this.contextValue().filesDir + '/folder-' + id + '.json'; }
+  private configPath(): string { return this.filesDirectory() + '/folders.json'; }
+  private cachePath(id: string): string { return this.filesDirectory() + '/folder-' + id + '.json'; }
   private info(): StorageInfo {
     const root = this.getRoot();
     return { id: root?.id || '', label: root?.label || '内部文件夹', root: root?.path || '', needsSetup: !root, internal: root?.path === this.internalPath() };
   }
-  private internalPath(): string { return this.contextValue().filesDir + '/workspaces/文舟'; }
+  private internalPath(): string { return this.filesDirectory() + '/workspaces/文舟'; }
   private ensureInternal(): FolderRoot {
     const path = this.internalPath();
     if (!fs.accessSync(path)) fs.mkdirSync(path, true);
@@ -176,18 +180,18 @@ export class WorkspaceFiles {
       const relative = doc.path || doc.name, path = this.target(relative);
       if (fs.accessSync(path) && this.readText(path) === doc.text) continue;
       const before = previous.find(item => (item.path || item.name) === relative);
-      if (before) this.text(this.contextValue().filesDir + '/previous-' + doc.id + '.txt', before.text);
+      if (before) this.text(this.filesDirectory() + '/previous-' + doc.id + '.txt', before.text);
       this.parent(path); this.text(path, doc.text);
     }
     for (const doc of previous) { const relative = doc.path || doc.name; if (!paths.includes(relative) && fs.accessSync(this.target(relative))) fs.unlinkSync(this.target(relative)); }
     this.text(this.cachePath(root.id), data);
   }
-  private readCache(id: string): SavedWorkspace { return JSON.parse(hydrateWorkspace(this.contextValue().filesDir, fs.readTextSync(this.cachePath(id)))) as SavedWorkspace; }
+  private readCache(id: string): SavedWorkspace { return JSON.parse(hydrateWorkspace(this.filesDirectory(), fs.readTextSync(this.cachePath(id)))) as SavedWorkspace; }
   // Incremental save (WorkspaceStore.ets, docs/WORKSPACE-STORAGE.md): the same checks as mirror() and the Windows and
   // Android shells, but only changed texts are compared, mirrored and stored; the skeleton goes last, with .bak.
   saveDelta(data: string): void {
     if (encodeFileText(data).byteLength > 64 * 1024 * 1024) throw new Error('工作区数据过大。');
-    const message = JSON.parse(data) as DeltaMessage, value = message.workspace, filesDir = this.contextValue().filesDir, statePath = filesDir + '/workspace.json';
+    const message = JSON.parse(data) as DeltaMessage, value = message.workspace, filesDir = this.filesDirectory(), statePath = filesDir + '/workspace.json';
     if (message.format !== 2 || !value || value.version !== 1 || !Array.isArray(value.documents) || !message.texts || !message.histories || typeof message.id !== 'string' || !/^[A-Za-z0-9_-]{1,80}$/.test(message.id) || value.store !== undefined || value.localHistory !== undefined) throw new Error('增量数据无效。');
     const root = this.getRoot(), storageId = value.storage?.id || '', mirroring = !!root && !!storageId;
     if (root && storageId && storageId !== root.id) throw new Error('工作区已切换，请重新打开文件夹。');
@@ -276,7 +280,7 @@ export class WorkspaceFiles {
   }
   // Keeps the store files named by workspace.json, its .bak (the previous save) and the folder cache.
   collectStore(): void {
-    const filesDir = this.contextValue().filesDir, folder = storeFolder(filesDir), root = this.getRoot();
+    const filesDir = this.filesDirectory(), folder = storeFolder(filesDir), root = this.getRoot();
     if (!fs.accessSync(folder)) return;
     const keep = new Set<string>(), sources = [filesDir + '/workspace.json', filesDir + '/workspace.json.bak'];
     if (root) sources.push(this.cachePath(root.id));
@@ -294,7 +298,7 @@ export class WorkspaceFiles {
       if (file.data.length > 12 * 1024 * 1024 || total > 96 * 1024 * 1024) throw new Error('仓库文件超过本次拉取大小限制。');
     }
     for (const folder of folders) this.target(folder);
-    const staging = this.contextValue().filesDir + '/pull-' + util.generateRandomUUID();
+    const staging = this.filesDirectory() + '/pull-' + util.generateRandomUUID();
     fs.mkdirSync(staging);
     const existed: boolean[] = [], written: number[] = [];
     try {
@@ -386,7 +390,7 @@ export class WorkspaceFiles {
     if (stat.isSymbolicLink()) throw new Error('不允许删除符号链接。');
     if (stat.isDirectory()) fs.rmdirSync(path); else fs.unlinkSync(path);
   }
-  private trashPath(): string { return this.contextValue().filesDir + '/trash.json'; }
+  private trashPath(): string { return this.filesDirectory() + '/trash.json'; }
   private trashRecords(): TrashRecord[] { return fs.accessSync(this.trashPath()) ? JSON.parse(fs.readTextSync(this.trashPath())) as TrashRecord[] : []; }
   private trashPayload(id: string): string {
     if (!/^[A-Za-z0-9_-]{1,80}$/.test(id)) throw new Error('回收站标识无效。');

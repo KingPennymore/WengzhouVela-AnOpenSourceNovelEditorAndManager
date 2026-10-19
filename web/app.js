@@ -29,7 +29,7 @@ import {scrollPastEndCustom} from '../vendor/acode/src/cm/scrollPastEnd.ts';
 import {newDocument,validateWorkspace,chapterPosition,normalizeText,fileName,fileKind,documentKind,repoPath,MAX_TEXT_BYTES} from './model.mjs';
 import {GitHub,deviceLogin} from './github.mjs';
 import {Gitee} from './gitee.mjs';
-import {native,transport,readWorkspace,saveWorkspace,primeWorkspaceBaseline,exportText,exportBinary,openAuthorization,readEnvironment} from './platform.mjs';
+import {native,transport,readWorkspace,readWorkspaceAsync,saveWorkspace,saveWorkspaceAsync,primeWorkspaceBaseline,exportText,exportBinary,openAuthorization,readEnvironment} from './platform.mjs';
 import {guide,isOriginalDemo,previousGuideHashes} from './guide.mjs';
 import {shortcuts,matchesKey} from './shortcuts.mjs';
 import {SidebarLayout} from './sidebars.mjs';
@@ -135,6 +135,7 @@ const sourceRendering=new Compartment(),gutters=new Compartment(),formatEnv=new 
 const editorStates=new Map();
 const editorIndexes=new WeakMap();
 let workspaceSaveTimer=null;
+let backgroundSavePromise=null,backgroundSaveAgain=false;
 const current=()=>workspace.documents.find(d=>d.id===workspace.activeId);
 function toast(message){$('#toast').textContent=message;$('#toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').hidden=true,4200);}
 /** A notice that waits for the current toast instead of replacing it. */
@@ -153,10 +154,25 @@ function save(show=false){
   try{if(documents)flushFormats();const clean=documents?documents.save():(saveWorkspace(workspace),true);dirty=!clean;status(clean?'已保存到本机':'未保存',!clean);renderTabDirty();if(show&&clean)toast('文件已保存到本机');projects?.changed();return clean;}
   catch(e){dirty=true;status('保存失败 · 请导出备份',true);fail(new Error('保存失败：'+e.message));return false;}
 }
-function scheduleSave(){dirty=true;status('未保存',true);renderTabDirty();if(!saveTimer)saveTimer=setTimeout(()=>runScheduledSave('content'),1200);}
+function saveBackground(){
+  if(projectLocked||bootFailed)return Promise.resolve(false);
+  if(backgroundSavePromise){backgroundSaveAgain=true;return backgroundSavePromise;}
+  backgroundSavePromise=(async()=>{
+    try{
+      if(documents)flushFormats();
+      const clean=documents?await documents.saveAsync(saveWorkspaceAsync):(await saveWorkspaceAsync(workspace),true);
+      dirty=!clean;status(clean?'已保存到本机':'未保存',!clean);renderTabDirty();projects?.changed();
+      return clean;
+    }catch(e){dirty=true;status('保存失败 · 请手动保存',true);fail(new Error('后台保存失败：'+e.message));return false;}
+  })();
+  backgroundSavePromise.finally(()=>{backgroundSavePromise=null;if(backgroundSaveAgain){backgroundSaveAgain=false;scheduleSave(0);}});
+  return backgroundSavePromise;
+}
+function scheduleSave(delay=1200){dirty=true;status('未保存',true);renderTabDirty();clearTimeout(saveTimer);saveTimer=setTimeout(()=>runScheduledSave('content'),delay);}
 // Background saves wait for sidebar motion to finish. Explicit save, leaving
 // the app and switching away from edited content retain synchronous save guards.
-function runScheduledSave(kind){
+async function runScheduledSave(kind){
+  if(kind==='content')saveTimer=null;else workspaceSaveTimer=null;
   // Another sidebar animation may have started since navigation scheduled this
   // save. A timer delay alone does not keep synchronous storage out of its frames.
   if(sidebars.frame){
@@ -164,7 +180,7 @@ function runScheduledSave(kind){
     if(kind==='content')saveTimer=timer;else workspaceSaveTimer=timer;
     return;
   }
-  save();
+  await saveBackground();
 }
 function scheduleWorkspaceSave(){clearTimeout(workspaceSaveTimer);workspaceSaveTimer=setTimeout(()=>runScheduledSave('workspace'),300);}
 window.wenzhouSave=()=>{rememberPosition(workspace?.activeId,view?.state);return save();};
@@ -591,6 +607,7 @@ function closeModal(){if(dialogBusy)return;dialogCancel?.();dialogCancel=null;$(
 $('#dialog-close').innerHTML=icon('close');$('#dialog-close').onclick=closeModal;$('#dialog-cancel').onclick=closeModal;
 $('#dialog').addEventListener('cancel',e=>{e.preventDefault();closeModal();});
 $('#dialog-form').onsubmit=async e=>{e.preventDefault();if(dialogBusy)return;const version=dialogVersion;dialogBusy=true;$('#dialog-submit').disabled=true;try{const result=await dialogHandler?.(new FormData(e.target));if(version===dialogVersion&&result!==false){dialogCancel=null;$('#dialog').close();}}catch(err){if(version===dialogVersion)$('#dialog-error').textContent=err.message;else fail(err);}finally{if(version===dialogVersion){dialogBusy=false;$('#dialog-submit').disabled=false;}}};
+$('#dialog-form').addEventListener('submit',()=>{const check=$('#dialog-body [name=updateChecks]');if(check)workspace.settings.updateChecks=check.checked;});
 function addDocument(doc){if(projectLocked)throw new Error('项目正在提交，请稍后新建文件。');doc.path=uniquePath(doc.path||(selectedFolder?selectedFolder+'/':'')+doc.name,itemPaths(workspace));doc.name=doc.path.split('/').at(-1);workspace.documents.unshift(doc);switchDocument(doc.id);includeNewReadingFile(workspace,doc);for(const item of workspace.documents.filter(d=>documentKind(d)==='VELA'&&d.id!==workspace.activeId))editorStates.delete(item.id);save();showView('write');plugins?.emit('new-file',plugins.file(doc));return doc;}
 $('#new-doc').onclick=()=>{
  openModal('新建文件',newFileHtml(workspace,selectedFolder,esc),form=>{const name=fileName(form.get('name')),folder=form.get('folder');assertNewFile(workspace,name,folder);selectedFolder=folder;const template=form.has('skeleton')&&templatesFor(name).some(o=>o.id==='format')?'format':'empty';addDocument(newDocument(name,templateText(name,template,projectConfig(workspace,{name,path:(folder?folder+'/':'')+name})?.config?.formats)));});bindNewFile($('#dialog-body'),workspace);
@@ -686,7 +703,13 @@ $('#import-doc').onclick=async()=>{if(native){try{
   if(result.length){projects.changed('import');toast('文件已导入工作区');}
 }catch(e){fail(e);}}else $('#file-input').click();};
 $('#file-input').onchange=async e=>{try{for(const file of e.target.files){if(file.size>documentImportLimit(file.name))throw Error('文件超过文档导入大小限制。');await importSelectedDocument(new Uint8Array(await file.arrayBuffer()),file.name);}projects.changed('import');}catch(err){fail(err);}finally{e.target.value='';}};
-async function checkWindowsUpdates(visible=false){const descriptor=await texCompiler?.assets.descriptor().catch(()=>null);return checkAppUpdates({openModal,transport,native,platform:environment?.platform||'',current:environment?.version||__VELA_HARMONY_VERSION__,lite:descriptor?!descriptor.builtin:true,installed:new Map((plugins?.records||[]).filter(record=>!record.builtin).map(record=>[record.manifest.id,record.manifest.version])),openPlugins:showPlugins,toast,remember:result=>{workspace.updateInfo={available:result.available,version:result.version,checkedAt:result.checkedAt};save();}},{visible});}
+let updateCheckPromise=null;
+async function checkWindowsUpdates(visible=false){
+  if(updateCheckPromise&&!visible)return updateCheckPromise;
+  const descriptor=await texCompiler?.assets.descriptor().catch(()=>null);
+  updateCheckPromise=checkAppUpdates({openModal,dialogOpen:()=>$('#dialog')?.open===true,transport,native,platform:environment?.platform||'',current:environment?.version||__VELA_HARMONY_VERSION__,lite:descriptor?!descriptor.builtin:true,installed:new Map((plugins?.records||[]).filter(record=>!record.builtin).map(record=>[record.manifest.id,record.manifest.version])),openPlugins:showPlugins,toast,remember:result=>{workspace.updateInfo={available:result.available,version:result.version,checkedAt:result.checkedAt};scheduleWorkspaceSave();}},{visible});
+  try{return await updateCheckPromise;}finally{if(!visible)updateCheckPromise=null;}
+}
 window.addEventListener('resize',()=>{if(workspace&&pageName==='write'){updateEditorVisibility();view?.requestMeasure();}});
 
 function applyTheme(mode=workspace.settings.theme){
@@ -1100,7 +1123,7 @@ async function openProjectDocument(path,read,args={}){
 }
 async function boot(){try{
   await recoverBrowserProjects();
-  const raw=readWorkspace();
+  const raw=await readWorkspaceAsync();
   if(raw){workspace=validateWorkspace(JSON.parse(raw));primeWorkspaceBaseline(workspace);}else{const doc=newDocument('操作指南.md',guide);workspace={version:1,documents:[doc],openIds:[doc.id],activeId:doc.id,settings:{theme:'system'}};}
   gh=workspace.settings?.gitProvider==='gitee'?new Gitee(transport):new GitHub(transport);
   workspace.settings={language:'zh-CN',readingMode:'scroll',theme:'system',palette:'pine',fontSize:16,clientId:'',...workspace.settings,writer:chapterSettings(workspace.settings?.writer)};
@@ -1117,7 +1140,7 @@ async function boot(){try{
   initI18n(workspace.settings.language);
   texCompiler=new TexCompiler({manageComponents:showPlugins,workspace:()=>workspace,plugins:()=>plugins,project:doc=>projectConfig(workspace,doc)});
   createTexPreview=()=>new PdfPreview({compiler:texCompiler,fail,jump:(path,line)=>{const folder=projectConfig(workspace,current())?.folder||parentPath(documentPath(current())),doc=workspace.documents.find(doc=>documentPath(doc)===(folder?folder+'/':'')+path)||current();if(!doc)return;if(current()?.id!==doc.id)switchDocument(doc.id);if(!document.body.classList.contains('split-preview')){isPreview=false;updateEditorVisibility();}view.dispatch({selection:{anchor:view.state.doc.line(Math.max(1,Math.min(view.state.doc.lines,line))).from},scrollIntoView:true});view.focus();},source:()=>{if(!view||documentKind(current())!=='TEX')return null;const line=view.state.doc.lineAt(view.state.selection.main.head);return {text:line.text,line:line.number};},onDiagnostics:(doc,list)=>{if(!view||current()?.id!==doc.id)return;const folder=projectConfig(workspace,doc)?.folder||parentPath(documentPath(doc)),own=documentPath(doc).slice(folder?folder.length+1:0);loadLatexEditor().then(({setCompileDiagnostics})=>{if(view&&current()?.id===doc.id)view.dispatch({effects:setCompileDiagnostics.of(list.filter(item=>Number(item.line)>0&&(!item.file||item.file.replace(/^\.\//,'')===own)))});}).catch(fail);}});
-  if(native&&workspace.settings.updateChecks!==false&&Date.now()-(workspace.updateInfo?.checkedAt||0)>86400000)checkWindowsUpdates();
+  // Startup update checks are scheduled after the editor and account have loaded.
   createReader=()=>new Reader({root:$('#reader-view'),workspace:()=>workspace,loadImage:(doc,src)=>loadWorkspaceImage(doc,src),loadAsset:path=>loadWorkspaceAsset(path),latex:(root,doc,onReady)=>{const pane=new PdfPreview({compiler:texCompiler,fail,readingMode:()=>reader?.config?.reader?.mode?(reader.config.reader?.mode==='auto'?($('#reader-view').clientWidth>=1000?'double':'scroll'):reader.config.reader?.mode):workspace.settings.readingMode});pane.mount(root,doc,{reading:true,onReady});if(doc.binary){const epoch=pane.epoch;transport('readWorkspaceFile',{path:documentPath(doc)}).then(data=>{if(pane.epoch===epoch)return pane.openFile(fromBase64(data));}).catch(fail);}return pane;},onChrome:(open,visible)=>{if(native&&readerFullscreen!==open){readerFullscreen=open;fullscreenTask=fullscreenTask.catch(()=>{}).then(()=>transport('fullscreen',{enabled:open})).catch(fail);}document.body.classList.toggle('reader-open',open);document.body.classList.toggle('reader-chrome-visible',visible);$('#outline-toggle').disabled=!open;sidebars.update();},markdown:md,sanitize:DOMPurify.sanitize,escape:esc,save,fail,load:async doc=>{if(['TEX','PDF'].includes(documentKind(doc)))await ensurePdfPreview();return loadSubscriptionDocument(doc);},html:async(doc,size,layout)=>{if(native){if(save())await transport('previewHtml',{path:documentPath(doc),dark:workspace.settings.dark,reading:true,fontSize:size,layout,titlePage:reader.config?.reader?.titlePage!==false,readingMode:reader.config?.reader?.mode?(reader.config.reader?.mode==='auto'?($('#reader-view').clientWidth>=1000?'double':'scroll'):reader.config.reader?.mode):workspace.settings.readingMode,language:workspace.settings.language});}else{const content=$('#reader-view .reader-content');content.innerHTML='';const frame=document.createElement('iframe');frame.title='HTML';frame.sandbox='';frame.srcdoc=htmlPreview(doc.text,{dark:workspace.settings.dark,fontSize:size});content.append(frame);}}});
   subscriptions=new Subscriptions({root:$('#subscriptions-view'),nav:$('[data-view=subscriptions]'),workspace:()=>workspace,transport,save,escape:esc,modal:openModal,fail,cache:cacheSubscription,pull:pullSubscription,renderMarkdown:text=>DOMPurify.sanitize(md.render(text),{FORBID_TAGS:['iframe','form','input','button','style'],FORBID_ATTR:['style']})});subscriptions.dot();subscriptions.refresh();
   setCustomPalettes(workspace.settings.customPalettes);chapterMatcher(workspace.settings.writer);applyTheme();setFontSize(workspace.settings.fontSize,false);setSidebar('library',workspace.settings.libraryOpen===true,false);
@@ -1136,4 +1159,4 @@ onDocumentFormatsChange(()=>{
   if(['VODT','PLUGIN'].includes(reader?.kind)&&reader.id)reader.open(reader.id).catch(fail);
   if(workspace){fileListRevision='';renderDocuments();}
 });
-boot();
+boot().then(()=>{if(native&&workspace?.settings.updateChecks!==false&&Date.now()-(workspace.updateInfo?.checkedAt||0)>86400000)setTimeout(()=>checkWindowsUpdates().catch(fail),1500);});

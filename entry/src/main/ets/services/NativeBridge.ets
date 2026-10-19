@@ -12,6 +12,7 @@ import { HtmlPreviewSession, ReaderLayout } from './HtmlPreviewSession';
 import { PreviewResource } from './PreviewResource';
 import { WorkspaceFiles, BinaryWorkspaceFile } from './WorkspaceFiles';
 import { hydrateWorkspace } from './WorkspaceStore';
+import { lockWorkspace, unlockWorkspace, saveWorkspaceBackground } from './WorkspaceSave';
 import { decodeFileText, decodedFileName, encodeFileText } from './FileText';
 import { ReleaseDownloads } from './ReleaseDownloads';
 interface ProjectSystemError { code?: number; message?: string; }
@@ -70,6 +71,7 @@ export class NativeBridge {
   private tokens: Map<string, string> = new Map();
   private authGeneration: number = 0;
   private credentialQueue: Promise<void> = Promise.resolve();
+  private workspaceGate: Int32Array = new Int32Array(new SharedArrayBuffer(8));
   private encoder: util.TextEncoder = new util.TextEncoder();
   private credentialAlias(provider: string): Uint8Array { return new util.TextEncoder().encodeInto('wenzhou.' + provider + '.token'); }
   private workspaceFiles: WorkspaceFiles = new WorkspaceFiles();
@@ -116,6 +118,8 @@ export class NativeBridge {
   }
 
   writeWorkspace(data: string): string {
+    Atomics.add(this.workspaceGate, 1, 1);
+    try { lockWorkspace(this.workspaceGate); } catch (error) { return (error as Error).message; }
     try {
       if (this.projects.busy) throw new Error('项目事务正在提交，请稍后保存。');
       const parsed = JSON.parse(data) as WorkspaceHeader;
@@ -133,11 +137,13 @@ export class NativeBridge {
       return 'ok';
     } catch (error) {
       return '本地保存失败：' + (error as Error).message;
-    }
+    } finally { unlockWorkspace(this.workspaceGate); }
   }
 
   // Incremental save (WorkspaceStore.ets). Errors starting with E_DELTA_BASE make the page fall back to writeWorkspace.
   writeWorkspaceDelta(data: string): string {
+    Atomics.add(this.workspaceGate, 1, 1);
+    try { lockWorkspace(this.workspaceGate); } catch (error) { return (error as Error).message; }
     try {
       if (this.projects.busy) throw new Error('项目事务正在提交，请稍后保存。');
       this.workspaceFiles.context = this.context;
@@ -146,7 +152,7 @@ export class NativeBridge {
     } catch (error) {
       const message = (error as Error).message;
       return message.startsWith('E_DELTA_BASE') ? message : '本地保存失败：' + message;
-    }
+    } finally { unlockWorkspace(this.workspaceGate); }
   }
 
   private writeFile(path: string, text: string): void {
@@ -273,6 +279,12 @@ export class NativeBridge {
 
   async call(operation: string, json: string): Promise<string> {
     try {
+      if (operation === 'saveWorkspace') {
+        if (this.projects.busy) throw new Error('项目事务正在提交，请稍后保存。');
+        const epoch = Atomics.add(this.workspaceGate, 1, 1) + 1;
+        const result = await saveWorkspaceBackground(this.getContext().filesDir, json, this.workspaceGate, epoch);
+        return this.success({ superseded: result === 'superseded' });
+      }
       const data = JSON.parse(json) as BridgeRequest;
       this.workspaceFiles.context = this.context;
       this.projects.context = this.context; if (['project', 'initializeStorage', 'refreshFolder'].includes(operation)) this.projects.recover();

@@ -12,7 +12,7 @@ const seed={version:1,activeId:null,openIds:Array.from({length:8},(_,i)=>'book'+
 try{
  const context=await browser.newContext({viewport:{width:1280,height:850}});
  await context.addInitScript(seed=>{if(!localStorage.getItem('wenzhou.workspace'))localStorage.setItem('wenzhou.workspace',JSON.stringify(seed));window.workspaceWrites=0;const set=Storage.prototype.setItem;Storage.prototype.setItem=function(key,value){if(key==='wenzhou.workspace'){window.workspaceWrites++;if(window.rejectWorkspaceSave)throw Error('模拟保存失败');}return set.call(this,key,value);};},seed);
- const p=await context.newPage();p.on('pageerror',e=>errors.push(e.message));await p.goto(server.url);await openRecentFile(p,p.locator('[data-recent=book0]'));await p.waitForSelector('.cm-editor');await p.waitForFunction(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')).activeId==='book0');
+  const p=await context.newPage();p.on('pageerror',e=>errors.push(e.message));await p.goto(server.url);await openRecentFile(p,p.locator('[data-recent=book0]'));await p.waitForSelector('.cm-editor');await p.waitForFunction(async()=>JSON.parse(await (await import('/platform.mjs')).readWorkspaceAsync()).activeId==='book0');
  await check('已有标签切换只更新选中态，复用全部标签与文件节点且不在点击中写盘',async()=>{
   const result=await p.evaluate(async()=>{
    const tabs=[...document.querySelectorAll('.document-tab')],files=[...document.querySelectorAll('#doc-list .doc-item')],durations=[];let syncWrites=0;
