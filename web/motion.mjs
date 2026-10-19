@@ -65,11 +65,12 @@ function viewTransitions(){
 function tabEntrances(){
   const tabs=document.getElementById('document-tabs');if(!tabs)return;
   let known=new Set();
-  const read=()=>new Set([...tabs.querySelectorAll('.document-tab')].map(tab=>tab.dataset.id||tab.dataset.tab||tab.textContent));
+  const key=tab=>tab.querySelector('[data-tab]')?.dataset.tab;
+  const read=()=>new Set([...tabs.querySelectorAll('.document-tab')].map(key));
   known=read();
   new MutationObserver(()=>{
     const next=read();
-    if(!reducedMotion())for(const tab of tabs.querySelectorAll('.document-tab')){const key=tab.dataset.id||tab.dataset.tab||tab.textContent;if(!known.has(key))replay(tab,'tab-enter');}
+    if(!reducedMotion())for(const tab of tabs.querySelectorAll('.document-tab')){if(!known.has(key(tab)))replay(tab,'tab-enter');}
     known=next;
   }).observe(tabs,{childList:true});
 }

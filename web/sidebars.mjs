@@ -31,6 +31,7 @@ export class SidebarLayout {
   }
   targets(){
     const width=this.root.clientWidth;
+    this.maxResizeWidth=Math.min(480,width);
     const leftOpen=document.body.classList.contains('show-library');
     const rightOpen=document.body.classList.contains('show-outline')&&!document.body.classList.contains('focus')&&!document.querySelector('#write-view').hidden;
     const phone=width<=600;
@@ -60,12 +61,13 @@ export class SidebarLayout {
     this.root.style.setProperty('--footer-progress',String(1-values.bottom/this.footerHeight));
     const footer=document.querySelector('#writing-footer');if(footer){footer.style.visibility=values.bottom>0||target.bottom>0?'visible':'hidden';footer.inert=target.bottom===0;}
     this.left.inert=target.left===0;this.right.inert=target.right===0;
-    for(const [i,side] of ['left','right'].entries()){const handle=this.handles?.[i];if(handle){handle.setAttribute('aria-valuemin','120');handle.setAttribute('aria-valuemax',String(Math.min(480,this.root.clientWidth)));handle.setAttribute('aria-valuenow',String(Math.round(values[side+'Width'])));}}
+    for(const [i,side] of ['left','right'].entries()){const handle=this.handles?.[i];if(handle){handle.setAttribute('aria-valuemin','120');handle.setAttribute('aria-valuemax',String(this.maxResizeWidth));handle.setAttribute('aria-valuenow',String(Math.round(values[side+'Width'])));}}
     this.measure?.();
   }
   update(animate=true){
     const target=this.targets();
     if(animate&&this.frame&&fields.every(key=>Math.abs(this.target[key]-target[key])<.001))return;
+    if(animate&&!this.frame&&this.target&&fields.every(key=>Math.abs(this.current[key]-target[key])<.001))return;
     cancelAnimationFrame(this.frame);this.frame=0;
     this.target=target;
     const from={...this.current};
@@ -73,9 +75,12 @@ export class SidebarLayout {
       this.apply(target,target);this.root.dataset.sidebarsAnimating='false';return;
     }
     this.root.dataset.sidebarsAnimating='true';
-    const start=performance.now();
+    // Click handlers may still render/save synchronously. Start on the first
+    // visible frame so that work cannot consume the entire animation duration.
+    let start;
     this.apply(from,target);
     const tick=now=>{
+      start??=now;
       const progress=Math.max(0,Math.min(1,(now-start)/DURATION)),eased=1-(1-progress)**3;
       const values=Object.fromEntries(fields.map(key=>[key,from[key]+(target[key]-from[key])*eased]));
       this.apply(progress===1?target:values,target);

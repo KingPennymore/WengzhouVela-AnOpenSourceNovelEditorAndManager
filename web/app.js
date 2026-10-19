@@ -32,6 +32,7 @@ import {native,transport,readWorkspace,saveWorkspace,primeWorkspaceBaseline,expo
 import {guide,isOriginalDemo,previousGuideHashes} from './guide.mjs';
 import {shortcuts,matchesKey} from './shortcuts.mjs';
 import {SidebarLayout} from './sidebars.mjs';
+import {reconcilePanel,textInfoCache} from './document-panels.mjs';
 import {UIShell,organizeSettings} from './ui-shell.mjs';
 import {Subscriptions} from './subscriptions.mjs';
 import {createVelaV2,velaText,projectConfig,projectWriter,includeNewReadingFile,rewriteVelaFiles,configFolder,readable,GLOBAL_VELA_PATH,globalConfig,formatHome,legacySidecar,addFormatRecord,configStyles,readPosition,positionEntry,positionOffset,positionUpdate} from './vela.mjs';
@@ -130,6 +131,8 @@ bindViewport(()=>{sidebars.update(false);layoutShell();view?.requestMeasure();})
 let fileClipboard=null;
 const gutters=new Compartment(),formatEnv=new Compartment(),pluginExtras=new Compartment(),projectReadonly=new Compartment(),completer=new Compartment(),pluginKeys=new Compartment(),languages=new Compartment(),systemTheme=matchMedia('(prefers-color-scheme: dark)');
 const editorStates=new Map();
+const editorIndexes=new WeakMap();
+let workspaceSaveTimer=null;
 const current=()=>workspace.documents.find(d=>d.id===workspace.activeId);
 function toast(message){$('#toast').textContent=message;$('#toast').hidden=false;clearTimeout(toastTimer);toastTimer=setTimeout(()=>$('#toast').hidden=true,4200);}
 /** A notice that waits for the current toast instead of replacing it. */
@@ -142,18 +145,22 @@ function activeRedoDepth(){return isPreview&&documentKind(current())==='MAP'?$('
 function status(message,changed=false){$('#save-state').textContent=message;$('#save-state').classList.toggle('dirty',changed);}
 function save(show=false){
   if(projectLocked)return false;
+  clearTimeout(workspaceSaveTimer);workspaceSaveTimer=null;
   clearTimeout(saveTimer);saveTimer=null;
   if(bootFailed)return false;
   try{if(documents)flushFormats();const clean=documents?documents.save():(saveWorkspace(workspace),true);dirty=!clean;status(clean?'已保存到本机':'未保存',!clean);renderTabDirty();if(show&&clean)toast('文件已保存到本机');projects?.changed();return clean;}
   catch(e){dirty=true;status('保存失败 · 请导出备份',true);fail(new Error('保存失败：'+e.message));return false;}
 }
 function scheduleSave(){dirty=true;status('未保存',true);renderTabDirty();if(!saveTimer)saveTimer=setTimeout(()=>save(),1200);}
+// Navigation changes metadata only. Keep disk/bridge serialization outside the
+// click and animation frames; content edits still use the guarded save path.
+function scheduleWorkspaceSave(){clearTimeout(workspaceSaveTimer);workspaceSaveTimer=setTimeout(()=>save(),300);}
 window.wenzhouSave=()=>{rememberPosition(workspace?.activeId,view?.state);return save();};
-window.addEventListener('pagehide',()=>{rememberPosition(workspace?.activeId,view?.state);if(dirty)save();});
-document.addEventListener('visibilitychange',()=>{if(document.hidden&&rememberPosition(workspace?.activeId,view?.state))save();});
-window.addEventListener('blur',()=>{if(dirty)save();});
-window.addEventListener('beforeunload',e=>{if(dirty&&!save()){e.preventDefault();e.returnValue='';}});
-function ensureIndex(){const doc=view.state.doc,writer=documentKind(current())==='TEX'?{...projectWriter(workspace,current()),tex:true}:projectWriter(workspace,current()),settings=JSON.stringify(writer);if(doc!==indexDoc||settings!==indexSettings||!index){if(!indexService||indexService.doc!==doc||settings!==indexSettings)indexService=new EditorIndex(doc,writer);index=indexService.value;indexDoc=doc;indexSettings=settings;outlineRevision='';}return index;}
+window.addEventListener('pagehide',()=>{rememberPosition(workspace?.activeId,view?.state);if(dirty||workspaceSaveTimer!==null||documents?.dirty.size)save();});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){const moved=rememberPosition(workspace?.activeId,view?.state);if(moved||dirty||workspaceSaveTimer!==null)save();}});
+window.addEventListener('blur',()=>{if(dirty||workspaceSaveTimer!==null)save();});
+window.addEventListener('beforeunload',e=>{if((dirty||workspaceSaveTimer!==null)&&!save()){e.preventDefault();e.returnValue='';}});
+function ensureIndex(){const doc=view.state.doc,writer=documentKind(current())==='TEX'?{...projectWriter(workspace,current()),tex:true}:projectWriter(workspace,current()),settings=JSON.stringify(writer);if(doc!==indexDoc||settings!==indexSettings||!index){if(!indexService||indexService.doc!==doc||settings!==indexSettings){const cached=editorIndexes.get(doc);indexService=cached?.settings===settings&&cached.service.doc===doc?cached.service:new EditorIndex(doc,writer);}editorIndexes.set(doc,{settings,service:indexService});index=indexService.value;indexDoc=doc;indexSettings=settings;outlineRevision='';}return index;}
 function renderOutline(section){
   const idx=ensureIndex(),query=$('#chapter-search').value.trim().toLowerCase();
   const revision=JSON.stringify([current().id,query,idx.chapterCount,idx.total,idx.lineCount]);
@@ -347,17 +354,32 @@ function makeState(doc){const editor=projectConfig(workspace,doc)?.config?.edito
   if(update.docChanged&&isPreview&&documentKind(current())==='TEX')texPreview?.changed();
   if(update.docChanged||update.selectionSet){$('#quick-undo').disabled=activeUndoDepth()===0;$('#quick-redo').disabled=activeRedoDepth()===0;}
 })]});}
+const documentTextInfo=textInfoCache(text=>Writer.countText(text));
+let fileListRevision='';
 function renderDocuments(){
   const query=$('#doc-search').value.toLowerCase();
   const allPaths=new Set(workspace.documents.map(documentPath));
-  const docs=workspace.documents.filter(d=>!allPaths.has(sidecarTarget(documentPath(d)))&&(documentPath(d).toLowerCase().includes(query)||d.text.toLowerCase().includes(query)));
+  const docs=workspace.documents.filter(d=>!allPaths.has(sidecarTarget(documentPath(d)))&&(!query||documentPath(d).toLowerCase().includes(query)||documentTextInfo(d).includes(query)));
   $('#doc-count').textContent=workspace.documents.length;
   $('#workspace-name').textContent='内部文件夹';
   $('#workspace-name').title=workspace.storage?.root||'';
   $('#selected-folder').textContent=selectedFolder||'/';$('#file-sort').value=workspace.settings.filesSort||'name';$('#paste-file').disabled=!fileClipboard;
-  $('#document-tabs').innerHTML=workspace.openIds.map(id=>workspace.documents.find(d=>d.id===id)).filter(Boolean).map(d=>`<div class="document-tab ${d.id===workspace.activeId?'active':''}"><button class="tab-open" role="tab" aria-selected="${d.id===workspace.activeId}" data-tab="${esc(d.id)}"><span class="file-kind">${(documentKind(d)==='OUTLINE'?'PCS':documentKind(d)==='MAP'?'VLMP':fileIcon(documentKind(d)))}</span><strong>${esc(d.name)}</strong><span class="tab-dirty">${d.id===workspace.activeId&&dirty?'●':''}</span></button><button class="tab-close" data-close="${esc(d.id)}" title="关闭 ${esc(d.name)} (Ctrl+W)" aria-label="关闭 ${esc(d.name)}">×</button></div>`).join('');
-  if(workspace.storage?.id||workspace.folders?.length){$('#doc-list').innerHTML=folderTree(workspace,docs,esc,selectedFolder,workspace.settings.filesSort);return;}
-  $('#doc-list').innerHTML=docs.map(d=>`<div class="doc-item ${d.id===workspace.activeId?'active':''}"><button class="doc-open" data-doc="${esc(d.id)}"><span class="doc-symbol">${fileIcon(documentKind(d))}</span><span class="doc-info"><strong>${esc(d.name)}<span class="git-file-state">${gitFileState(workspace,d)}</span></strong><small>${new Date(d.updatedAt).toLocaleDateString('zh-CN',{month:'2-digit',day:'2-digit'})} · ${Writer.countText(d.text).toLocaleString()} 字${d.remote?' · Git':''}</small></span></button><button class="doc-menu" data-menu="${esc(d.id)}" title="文稿操作" aria-label="${esc(d.name)} 文稿操作">···</button></div>`).join('')||'<p class="blank">没有找到文稿。</p>';
+  reconcilePanel($('#document-tabs'),workspace.openIds.map(id=>workspace.documents.find(d=>d.id===id)).filter(Boolean).map(d=>`<div class="document-tab ${d.id===workspace.activeId?'active':''}"><button class="tab-open" role="tab" aria-selected="${d.id===workspace.activeId}" data-tab="${esc(d.id)}"><span class="file-kind">${(documentKind(d)==='OUTLINE'?'PCS':documentKind(d)==='MAP'?'VLMP':fileIcon(documentKind(d)))}</span><strong>${esc(d.name)}</strong><span class="tab-dirty">${d.id===workspace.activeId&&dirty?'●':''}</span></button><button class="tab-close" data-close="${esc(d.id)}" title="关闭 ${esc(d.name)} (Ctrl+W)" aria-label="关闭 ${esc(d.name)}">×</button></div>`).join(''));
+  const revision=JSON.stringify([workspace.storage?.id,workspace.folders,workspace.entries,workspace.settings.filesSort,workspace.settings.language,docs.map(doc=>[doc.id,doc.name,documentPath(doc),documentKind(doc),doc.updatedAt,doc.text.length,documentTextInfo(doc).count(),!!doc.remote,gitFileState(workspace,doc)])]);
+  if(revision===fileListRevision){renderDocumentSelection();return;}fileListRevision=revision;
+  if(workspace.storage?.id||workspace.folders?.length){reconcilePanel($('#doc-list'),folderTree(workspace,docs,esc,selectedFolder,workspace.settings.filesSort));renderTabDirty();return;}
+  reconcilePanel($('#doc-list'),docs.map(d=>`<div class="doc-item ${d.id===workspace.activeId?'active':''}"><button class="doc-open" data-doc="${esc(d.id)}"><span class="doc-symbol">${fileIcon(documentKind(d))}</span><span class="doc-info"><strong>${esc(d.name)}<span class="git-file-state">${gitFileState(workspace,d)}</span></strong><small>${new Date(d.updatedAt).toLocaleDateString('zh-CN',{month:'2-digit',day:'2-digit'})} · ${documentTextInfo(d).count().toLocaleString()} 字${d.remote?' · Git':''}</small></span></button><button class="doc-menu" data-menu="${esc(d.id)}" title="文稿操作" aria-label="${esc(d.name)} 文稿操作">···</button></div>`).join('')||'<p class="blank">没有找到文稿。</p>');renderTabDirty();
+}
+function renderDocumentSelection(){
+  const tabs=[...document.querySelectorAll('#document-tabs [data-tab]')];
+  if(tabs.length!==workspace.openIds.length||tabs.some((button,i)=>button.dataset.tab!==workspace.openIds[i])){renderDocuments();return;}
+  for(const button of document.querySelectorAll('[data-tab]')){const active=button.dataset.tab===workspace.activeId;button.setAttribute('aria-selected',String(active));button.closest('.document-tab').classList.toggle('active',active);}
+  const selectedFile=$('#doc-list').querySelector(`[data-doc="${CSS.escape(workspace.activeId||'')}"]`)?.closest('.doc-item');
+  for(const row of $('#doc-list').querySelectorAll('.doc-item.active'))if(row!==selectedFile)row.classList.remove('active');
+  selectedFile?.classList.add('active');
+  $('#selected-folder').textContent=selectedFolder||'/';
+  for(const summary of document.querySelectorAll('#doc-list summary[data-folder]'))summary.classList.toggle('selected-folder',summary.dataset.folder===selectedFolder);
+  renderTabDirty();
 }
 /** Stores where document uid=197610(renyu) gid=197610 groups=197610 was left (state: its editor state) in its .vela; true when the .vela changed. */
 function rememberPosition(id,state){
@@ -373,13 +395,13 @@ function switchDocument(id){
   if(!workspace.documents.some(d=>d.id===id))return;
   if(view){editorStates.delete(workspace.activeId);editorStates.set(workspace.activeId,view.state);if(dirty&&!save())return;if(workspace.activeId!==id)rememberPosition(workspace.activeId,view.state);while(editorStates.size>8)editorStates.delete(editorStates.keys().next().value);}
   $('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);
-  if(!workspace.openIds.includes(id))workspace.openIds.push(id);
+  const alreadyOpen=workspace.openIds.includes(id);if(!alreadyOpen)workspace.openIds.push(id);
   workspace.activeId=id;const doc=current();if(!doc)return;
   home=false;csvPage=0;csvColumnPage=0;$('#start-page').hidden=true;isPreview=['CSV','VELA','GLY','VODT','OUTLINE','MAP'].includes(documentKind(doc));
   // A file operation recreates the view; the kept state (undo history, formats) is reused while the text is unchanged.
   const kept=editorStates.get(id),reused=!!kept&&kept.doc.toString()===doc.text;if(view)view.setState(reused?kept:makeState(doc));else view=new EditorView({state:reused?kept:makeState(doc),parent:$('#editor')});if(!reused)restorePosition(doc);
   activateLanguage(doc);index=null;setFontSize(projectConfig(workspace,doc)?.config?.editor?.fontSize??workspace.settings.fontSize,false);$('#current-name').textContent=doc.name;
-  updateEditorVisibility();renderDocuments();updateStats();if(isPreview)renderPreview();save();showView('write');plugins?.emit('switch-file',plugins.activeFile);
+  updateEditorVisibility();if(alreadyOpen)renderDocumentSelection();else renderDocuments();updateStats();if(isPreview)renderPreview();scheduleWorkspaceSave();if(pageName!=='write'||document.body.dataset.page!=='write')showView('write');else sidebars.update();plugins?.emit('switch-file',plugins.activeFile);
 }
 function closeDocument(id){
   if(dirty&&!save())return;if(workspace.activeId!==id)rememberPosition(id,editorStates.get(id));
@@ -618,7 +640,7 @@ async function showTrash(){
 }
 $('#current-name').ondblclick=()=>{if(current())renameDocument(current());};
 function renameDocument(doc){renameItem(documentPath(doc));}
-$('#document-tabs').onclick=e=>{const close=e.target.closest('[data-close]');if(close){closeDocument(close.dataset.close);return;}const b=e.target.closest('[data-tab]');if(b)switchDocument(b.dataset.tab);};
+$('#document-tabs').onclick=e=>{const close=e.target.closest('[data-close]');if(close){closeDocument(close.dataset.close);return;}const b=e.target.closest('[data-tab]');if(b&&b.dataset.tab!==workspace.activeId)switchDocument(b.dataset.tab);};
 $('#outline-list').onclick=e=>{const b=e.target.closest('[data-row]');if(b){jump(view.state.doc.line(Number(b.dataset.row)+1).from);}};
 $('#chapter-search').oninput=()=>{outlineLimit=200;outlineRevision='';updateStats();};
 $('#export-chapters').onclick=()=>showChapterExport();
@@ -628,7 +650,7 @@ $('#search-editor').onclick=()=>{if(isPreview)togglePreview();openSearchPanel(vi
 $('#focus-toggle').onclick=()=>{document.body.classList.toggle('focus');sidebars.update();};
 function setSidebar(name,open,animate=true){if(name==='library'&&open){document.body.classList.remove('show-outline');reader?.root.querySelector('.reader-outline')?.remove();}document.body.classList.toggle('show-'+name,open);if(open)document.body.classList.remove('focus');sidebars.update(animate);$('#mobile-library').setAttribute('aria-expanded',String(document.body.classList.contains('show-library')));$('#outline-toggle').setAttribute('aria-expanded',String(document.body.classList.contains('show-outline')));$('#mobile-library').classList.toggle('active-tool',document.body.classList.contains('show-library'));$('#outline-toggle').classList.toggle('active-tool',document.body.classList.contains('show-outline'));}
 $('#outline-toggle').onclick=()=>{if(pageName==='reader'){reader?.toggleOutline();return;}if(planningPreview()){$('#preview').planningToggleDetails?.();$('#outline-toggle').setAttribute('aria-expanded',String(!!$('#preview').querySelector('.outline-detail:not([hidden]),.planning-sheet:not([data-closing])')));return;}setSidebar('outline',!document.body.classList.contains('show-outline'));};
-$('#mobile-library').onclick=()=>{renderDocuments();workspace.settings.libraryOpen=!document.body.classList.contains('show-library');setSidebar('library',workspace.settings.libraryOpen,true);save();};
+$('#mobile-library').onclick=()=>{workspace.settings.libraryOpen=!document.body.classList.contains('show-library');if(workspace.settings.libraryOpen)renderDocuments();setSidebar('library',workspace.settings.libraryOpen,true);scheduleWorkspaceSave();};
 $('#close-outline').onclick=()=>setSidebar('outline',false);
 $('#export-doc').onclick=()=>exportText(current().name,current().text).then(result=>{if(result!==false)toast('文稿已导出');}).catch(fail);
 $('#import-doc').onclick=async()=>{if(native){try{const result=await transport('import',{});for(const file of result){if(ODF_PACKED.test(file.name)&&typeof file.data==='string'){const result=importOdfBytes(fromBase64(file.data),file.name);addDocument(newDocument(result.name,result.text));toast('ODF 已导入，原始包资源保留。');}else if(typeof file.text==='string'){if(ODF_FLAT.test(file.name))validateFlatOdf(file.text,file.name);addDocument(newDocument(fileName(file.name),normalizeText(file.text)));}else if(typeof file.data==='string'){if(!save())return;const path=uniquePath((selectedFolder?selectedFolder+'/':'')+file.name,itemPaths(workspace));applyFileState(await transport('writeWorkspaceFiles',{files:[{path,data:file.data}]}));}}if(result.length){projects.changed('import');toast('文件已导入工作区');}}catch(e){fail(e);}}else $('#file-input').click();};
@@ -1057,6 +1079,9 @@ async function boot(){try{
   subscriptions=new Subscriptions({root:$('#subscriptions-view'),nav:$('[data-view=subscriptions]'),workspace:()=>workspace,transport,save,escape:esc,modal:openModal,fail,cache:cacheSubscription,pull:pullSubscription,renderMarkdown:text=>DOMPurify.sanitize(md.render(text),{FORBID_TAGS:['iframe','form','input','button','style'],FORBID_ATTR:['style']})});subscriptions.dot();subscriptions.refresh();
   setCustomPalettes(workspace.settings.customPalettes);chapterMatcher(workspace.settings.writer);applyTheme();setFontSize(workspace.settings.fontSize,false);setSidebar('library',workspace.settings.libraryOpen===true,false);
   if(workspace.documents.some(d=>/^操作指南\.(txt|md)$/i.test(d.name))&&workspace.openIds.includes(workspace.activeId))switchDocument(workspace.activeId);else showHome();
+  // Startup may have migrated paths, settings and guide text; persist those
+  // before exposing the editor, rather than treating them as tab navigation.
+  if(workspaceSaveTimer!==null)save();
   try{window.velaReady=true;await plugins.boot();}catch(error){toast('插件读取失败：'+error.message);}
   if(native){try{const user=await gh.user();account=user;$('#sidebar-logout').disabled=false;$('#account-label').textContent=gitName()+' · '+user.login;repositories=await gh.repositories();}catch{if(workspace.githubCache?.login&&(workspace.githubCache.provider||'github')===gh.provider){account={login:workspace.githubCache.login};repositories=workspace.githubCache.repositories||[];githubOffline=true;$('#sidebar-logout').disabled=false;$('#account-label').textContent=account.login+' · '+t('离线');}}}
 }catch(e){bootFailed=true;$('#editor').innerHTML=`<div class="blank"><h2>无法读取本地文稿</h2><p>${esc(e.message)}</p><p>原始数据已保留，请勿清除应用数据。可先导出原始文件进行恢复。</p><button id="recover-data" class="primary">导出原始数据</button></div>`;$('#recover-data').onclick=()=>exportText('文舟-恢复数据.json',readWorkspace()||'').catch(fail);document.querySelectorAll('button').forEach(b=>{if(b.id!=='recover-data')b.disabled=true;});}}
