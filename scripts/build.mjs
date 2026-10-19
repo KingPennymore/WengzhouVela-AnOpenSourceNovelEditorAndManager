@@ -15,6 +15,7 @@ const version=pkg.harmonyVersion||pkg.version;
 await rm(`${out}/chunks`,{recursive:true,force:true});
 const bundle = await build({entryPoints:['web/app.js'],bundle:true,outdir:out,entryNames:'[name]',chunkNames:'chunks/[name]-[hash]',splitting:true,format:'esm',target:'chrome105',minify:true,legalComments:'eof',metafile:true,define:{__VELA_HARMONY_VERSION__:JSON.stringify(version),__VELA_TEST_RELEASE_KEYS__:'[]'}});
 await mkdir('dist',{recursive:true});await writeFile('dist/app-metafile.json',JSON.stringify(bundle.metafile));
+await build({entryPoints:['web/map-fill-worker.js'],bundle:true,outfile:`${out}/map-fill-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
 await build({entryPoints:['web/map-simplify-worker.js'],bundle:true,outfile:`${out}/map-simplify-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
 await build({entryPoints:['web/noun-worker.js'],bundle:true,outfile:`${out}/noun-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
 await build({entryPoints:['web/project-archive-worker.js'],bundle:true,outfile:`${out}/project-archive-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});

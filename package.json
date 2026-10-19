@@ -30,6 +30,7 @@
     "test:start": "node tests/start-page-browser.mjs",
     "test:downloads": "node tests/component-download-browser.mjs",
     "test:latex": "node tests/latex-studio-browser.mjs",
+    "test:grid:stress": "node tests/hex-grid-performance-browser.mjs",
     "test:planning:stress": "node tests/planning-multitab-performance-browser.mjs"
   },
   "dependencies": {

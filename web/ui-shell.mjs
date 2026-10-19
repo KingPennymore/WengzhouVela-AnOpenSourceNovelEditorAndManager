@@ -44,7 +44,7 @@ export class UIShell {
   }
   environment(value){this.value=value;document.body.dataset.ui=platformProfile(value,location.search);this.layout();}
   // Plugin top-toolbar buttons: the first two stay visible on wide screens, the rest use the existing overflow menu.
-  setPluginActions(buttons){this.pluginActions=buttons;this.layout();}
+  setPluginActions(buttons){if(this.pluginActions?.length===buttons.length&&buttons.every((button,i)=>button===this.pluginActions[i]))return;this.pluginActions=buttons;this.layout();}
   layout(){
     const focused=this.menu.contains(document.activeElement)||(this.pluginActions||[]).includes(document.activeElement)?document.activeElement:null;
     for(const button of this.secondary){this.menu.append(button);button.setAttribute('role','menuitem');}

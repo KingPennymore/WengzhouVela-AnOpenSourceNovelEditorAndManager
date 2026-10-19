@@ -12,7 +12,7 @@ const version=json(resourceDir+'/version.json'),components=json(resourceDir+'/te
 assert.equal(version.version,versions.release);
 assert.ok(['full','lite'].includes(version.flavor));
 assert.equal(components.builtin,version.flavor==='full');
-for(const name of ['map-simplify-worker.js','tex-component-worker.js','project-archive-worker.js','html-reader.js','tex/worker.js','tex/manifest.json','tex/components.json','pdf/pdf.worker.mjs'])assert.ok(manifest.outputs[name],'缺少必需资源：'+name);
+for(const name of ['map-fill-worker.js','map-simplify-worker.js','tex-component-worker.js','project-archive-worker.js','html-reader.js','tex/worker.js','tex/manifest.json','tex/components.json','pdf/pdf.worker.mjs'])assert.ok(manifest.outputs[name],'缺少必需资源：'+name);
 // Code-split bundle: every module reachable from app.js (static and import()) is a recorded output, the lazy features
 // are separate chunks, and the startup graph holds neither pdf.js nor KaTeX.
 {

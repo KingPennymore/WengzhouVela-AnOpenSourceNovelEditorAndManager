@@ -7,7 +7,7 @@ import path from 'node:path';
 // entry/src/main/resources/rawfile (the native bundle and its TeX assets) or dist/web.
 // Bundles are built in memory like scripts/build.mjs (unminified, app.js split into chunks); everything else is read from web/,
 // node_modules for KaTeX/pdf.js assets, then the last built bundle for TeX and other copied assets.
-const workers=['map-simplify-worker.js','noun-worker.js','project-archive-worker.js','tex-component-worker.js','html-reader.js'];
+const workers=['map-fill-worker.js','map-simplify-worker.js','noun-worker.js','project-archive-worker.js','tex-component-worker.js','html-reader.js'];
 const mime={'.js':'text/javascript; charset=utf-8','.mjs':'text/javascript; charset=utf-8','.json':'application/json','.css':'text/css; charset=utf-8','.html':'text/html; charset=utf-8','.wasm':'application/wasm','.txt':'text/plain; charset=utf-8','.woff2':'font/woff2','.woff':'font/woff','.ttf':'font/ttf'};
 
 export async function startSourceAppServer({port=0}={}){

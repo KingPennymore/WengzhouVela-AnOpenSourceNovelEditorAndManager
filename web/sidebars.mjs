@@ -40,10 +40,10 @@ export class SidebarLayout {
     const preferred=(side,fallback)=>Number.isFinite(saved[side])?Math.max(120,Math.min(480,saved[side])):fallback;
     const leftWidth=preferred('left',phone?Math.min(180,width*.45):profile==='harmonyos'?282:profile==='windows'?244:260);
     const rightWidth=preferred('right',phone?Math.min(170,width*.42):profile==='harmonyos'?290:260);
-    const footer=document.querySelector('#writing-footer'),height=footer.offsetHeight;
+    const footer=document.querySelector('#writing-footer'),height=footer.offsetHeight,top=document.querySelector('.topbar').offsetHeight;
     if(height>0)this.footerHeight=height;
     this.root.style.setProperty('--footer-height',this.footerHeight+'px');
-    this.root.style.setProperty('--shell-top',document.querySelector('.topbar').offsetHeight+'px');
+    this.root.style.setProperty('--shell-top',top+'px');
     const minimumPaper=phone?Math.min(width,Math.max(160,width*.4)):Math.min(240,Math.max(96,width*.25));
     const budget=Math.max(0,width-minimumPaper);
     const total=(leftOpen?leftWidth:0)+(rightOpen?rightWidth:0);

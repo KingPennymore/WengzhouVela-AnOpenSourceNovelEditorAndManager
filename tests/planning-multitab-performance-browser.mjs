@@ -89,6 +89,8 @@ try{
     const names=new Map(files.map(file=>[file.id,file.name]));
     const open=async(id,round)=>{
       const phase=`round${round}-${id}`;
+      const profiling=process.env.VELA_PLANNING_PROFILE&&round===1&&['o1','m1'].includes(id);
+      if(profiling){await client.send('Profiler.enable');await client.send('Profiler.start');}
       const initial=await page.evaluate(({id,phase})=>{
         planningProbe.phase=phase;window.planningOldRoot=document.querySelector('#preview').firstElementChild;
         const start=performance.now();document.querySelector(`[data-tab=${id}]`).click();return {start,handlerMs:performance.now()-start};
@@ -100,6 +102,7 @@ try{
         return {end,domNodes:document.querySelector('#preview').querySelectorAll('*').length,cards:document.querySelectorAll('.outline-graph-card').length,canvas:document.querySelectorAll('#preview canvas').length,status:document.querySelector('#preview .planning-live')?.textContent||''};
       });
       const item={id,kind:id.startsWith('o')?'pcs':'vlmp',round,...initial,...end,readyMs:end.end-initial.start};
+      if(profiling){const {profile}=await client.send('Profiler.stop');await writeFile(`test-results/planning/${spec.name}-${id}.cpuprofile`,JSON.stringify(profile));}
       result.switches.push(item);console.log(spec.name+' '+phase+' '+item.readyMs.toFixed(1)+' ms');
     };
     for(let round=0;round<3;round++){
@@ -133,6 +136,11 @@ try{
       do{const now=await new Promise(requestAnimationFrame);if(last!==undefined)gaps.push(now-last);last=now;}while(document.querySelector('#app').dataset.sidebarsAnimating==='true');
       return {duration:performance.now()-start,gaps};
     });
+    // Measure completion separately: the responsive first frame precedes the
+    // asynchronous fill, while the old implementation blocked until it finished.
+    const fillStart=await page.evaluate(()=>{planningProbe.phase='fill-completion';window.planningOldRoot=document.querySelector('#preview').firstElementChild;const start=performance.now();document.querySelector('[data-tab=m0]').click();return start;});
+    await page.waitForFunction(()=>document.querySelector('#preview').firstElementChild!==window.planningOldRoot&&!!document.querySelector('.map-stage canvas')&&document.querySelector('#preview .planning-live')?.textContent==='');
+    result.initialFill={elapsedMs:await page.evaluate(()=>{window.planningOldRoot=null;return performance.now();})-fillStart};
     await page.evaluate(()=>{planningProbe.phase='leave-planning';document.querySelector('[data-tab=guide]').click();});
     await page.waitForFunction(()=>document.querySelector('#preview').hidden&&!document.querySelector('#editor').hidden);
     await page.evaluate(()=>new Promise(resolve=>setTimeout(resolve,500)));
@@ -152,7 +160,7 @@ try{
     assert.equal(result.idle.mapPaints,0,'leaving planning view must stop map painting');
     assert.deepEqual(result.errors,[]);
   }catch(error){result.failure=error.message;console.error('FAIL '+spec.name+': '+error.message);}
-  finally{results.push(result);await writeFile(output,JSON.stringify({testedBaseCommit:'2b1382f',includesLocalCenteringChanges:true,includesOutlineMarkerCache:true,storage:'in-memory workspace key; JSON processing included; no real disk/native latency',results},null,2));await context.close();}
+  finally{results.push(result);await writeFile(output,JSON.stringify({testedBaseCommit:'4fcda06',includesLocalCenteringChanges:true,includesOutlineMarkerCache:true,includesLargePlanningOptimization:true,includesHexTextureCache:true,storage:'in-memory workspace key; JSON processing included; no real disk/native latency',results},null,2));await context.close();}
   console.log('DONE '+spec.name+' '+JSON.stringify(result.summaries||{}));
  }
 }finally{await browser.close();await server.close();}
