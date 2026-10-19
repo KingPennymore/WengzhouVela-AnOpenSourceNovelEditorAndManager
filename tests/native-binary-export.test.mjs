@@ -2,8 +2,10 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import vm from 'node:vm';
 import {build} from 'esbuild';
+import {readFile} from 'node:fs/promises';
 
-const compiled=await build({entryPoints:['entry/src/main/ets/services/NativeBridge.ets'],bundle:true,write:false,platform:'node',format:'cjs',loader:{'.ets':'ts'},resolveExtensions:['.ets','.js'],plugins:[{name:'native-transfer-fixture',setup(plugin){
+const compiled=await build({entryPoints:['entry/src/main/ets/services/NativeBridge.ets'],bundle:true,write:false,platform:'node',format:'cjs',loader:{'.ets':'ts'},tsconfigRaw:{compilerOptions:{experimentalDecorators:true}},resolveExtensions:['.ets','.js'],plugins:[{name:'native-transfer-fixture',setup(plugin){
+ plugin.onLoad({filter:/WorkspaceSave\.ets$/},async args=>({contents:(await readFile(args.path,'utf8')).replace(/^@Concurrent\s*$/m,''),loader:'ts'}));
  plugin.onResolve({filter:/^@kit\./},args=>({path:args.path,namespace:'kit'}));
  plugin.onLoad({filter:/.*/,namespace:'kit'},args=>({contents:'module.exports=globalThis.sdk['+JSON.stringify(args.path)+'];'}));
 }}]});

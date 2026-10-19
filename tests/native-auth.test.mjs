@@ -2,11 +2,13 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { build } from 'esbuild';
 import vm from 'node:vm';
+import { readFile } from 'node:fs/promises';
 
 const compiled = await build({
   entryPoints: ['entry/src/main/ets/services/NativeBridge.ets'], bundle: true, write: false,
-  platform: 'node', format: 'cjs', loader: { '.ets': 'ts' }, resolveExtensions: ['.ets', '.js'],
+  platform: 'node', format: 'cjs', loader: { '.ets': 'ts' }, resolveExtensions: ['.ets', '.js'], tsconfigRaw: { compilerOptions: { experimentalDecorators: true } },
   plugins: [{ name: 'native-sdk-fixture', setup(plugin) {
+    plugin.onLoad({ filter: /WorkspaceSave\.ets$/ }, async args => ({ contents: (await readFile(args.path, 'utf8')).replace(/^@Concurrent\s*$/m, ''), loader: 'ts' }));
     plugin.onResolve({ filter: /^@kit\./ }, args => ({ path: args.path, namespace: 'kit' }));
     plugin.onLoad({ filter: /.*/, namespace: 'kit' }, args => ({ contents: `module.exports = globalThis.sdk[${JSON.stringify(args.path)}];` }));
   } }]

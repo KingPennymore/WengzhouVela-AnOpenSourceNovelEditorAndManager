@@ -12,8 +12,11 @@ export function lockWorkspace(gate: Int32Array): void {
 }
 export function unlockWorkspace(gate: Int32Array): void { Atomics.store(gate, 0, 0); Atomics.notify(gate, 0); }
 
+@Concurrent
 function saveInBackground(filesDir: string, json: string, gate: Int32Array, epoch: number): string {
-  lockWorkspace(gate);
+  while (Atomics.compareExchange(gate, 0, 0, 1) !== 0) {
+    if (Atomics.wait(gate, 0, 1, 30000) === 'timed-out') throw new Error('等待后台保存超时，请稍后重试。');
+  }
   try {
     if (Atomics.load(gate, 1) !== epoch) return 'superseded';
     const request = JSON.parse(json) as SaveRequest, files = new WorkspaceFiles();
@@ -30,7 +33,7 @@ function saveInBackground(filesDir: string, json: string, gate: Int32Array, epoc
     fs.renameSync(temp, path);
     try { files.collectStore(); } catch (_) { /* collect on the next save */ }
     return 'ok';
-  } finally { unlockWorkspace(gate); }
+  } finally { Atomics.store(gate, 0, 0); Atomics.notify(gate, 0); }
 }
 export async function saveWorkspaceBackground(filesDir: string, json: string, gate: Int32Array, epoch: number): Promise<string> {
   return await taskpool.execute(saveInBackground, filesDir, json, gate, epoch) as string;

@@ -65,6 +65,7 @@ interface AuthorizedResult { authorized: boolean; }
 interface ImportedFile { name: string; text?: string; data?: string; }
 interface WorkspaceHeader { version: number; documents: Object[]; }
 interface EmptyBody { message: string; }
+interface BackgroundSaveResult { superseded: boolean; }
 
 export class NativeBridge {
   context: common.UIAbilityContext | undefined = undefined;
@@ -283,7 +284,8 @@ export class NativeBridge {
         if (this.projects.busy) throw new Error('项目事务正在提交，请稍后保存。');
         const epoch = Atomics.add(this.workspaceGate, 1, 1) + 1;
         const result = await saveWorkspaceBackground(this.getContext().filesDir, json, this.workspaceGate, epoch);
-        return this.success({ superseded: result === 'superseded' });
+        const status: BackgroundSaveResult = { superseded: result === 'superseded' };
+        return this.success(status);
       }
       const data = JSON.parse(json) as BridgeRequest;
       this.workspaceFiles.context = this.context;
