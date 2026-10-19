@@ -29,7 +29,8 @@
     "test:components": "node tests/components-browser.mjs",
     "test:start": "node tests/start-page-browser.mjs",
     "test:downloads": "node tests/component-download-browser.mjs",
-    "test:latex": "node tests/latex-studio-browser.mjs"
+    "test:latex": "node tests/latex-studio-browser.mjs",
+    "test:planning:stress": "node tests/planning-multitab-performance-browser.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.0",
