@@ -20,9 +20,10 @@ export async function transport(operation,payload={}) {
   }
   if(operation==='logout') {sessionTokens.delete(provider);return true;}
   if(operation==='login') {
-    const token=payload.token.trim();
+    const token=payload.token?.trim();
+    if(!token||token.length>4096||/\s/.test(token))throw new Error('访问令牌格式不正确。');
     const result=await fetch(origin+'/user',{headers:headers(token,provider),redirect:'error',signal:AbortSignal.timeout(30000)});
-    if(!result.ok) throw new Error('令牌验证失败，请检查令牌和网络。');
+    if(!result.ok) throw new Error(result.status===401?'访问令牌无效或已过期（HTTP 401）。':result.status===403?'令牌验证受限（HTTP 403），请检查令牌授权、组织策略或请求速率限制。':`令牌验证失败（HTTP ${result.status}），请检查网络后重试。`);
     const user=await result.json();sessionTokens.set(provider,token);
     return user;
   }

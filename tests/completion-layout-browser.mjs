@@ -7,7 +7,7 @@ const config={version:2,kind:'workspace',id:'qa',project:{name:'航程'},editor:
 const glossary={version:1,entries:[{id:'term',term:'阿德里蒙',category:'人物',definition:'航海记录者。'.repeat(80),aliases:[]},{id:'other',term:'阿德船长',definition:'另一名船员。'.repeat(80),aliases:[]}]};
 glossary.entries.push({id:'place',term:'阿德港',definition:'港口。'.repeat(160),aliases:[]},{id:'tower',term:'阿德塔',definition:'灯塔。'.repeat(160),aliases:[]});
 const seed={version:1,documents:[{id:'book',name:'正文.txt',path:'Novel/正文.txt',text:'阿德',updatedAt:1},{id:'config',name:'.vela',path:'Novel/.vela',text:JSON.stringify(config),updatedAt:1},{id:'terms',name:'人物.gly',path:'Novel/人物.gly',text:JSON.stringify(glossary),updatedAt:1}],openIds:['book'],activeId:'book',settings:{theme:'light'}};
-const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'});
 await mkdir('test-results/completion-layout',{recursive:true});
 try{
  for(const [profile,width,height] of [['android',320,800],['android',390,420],['android',390,320],['harmonyos',1280,850],['windows',1440,960]]){

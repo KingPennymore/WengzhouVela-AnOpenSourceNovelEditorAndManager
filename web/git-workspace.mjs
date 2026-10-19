@@ -10,7 +10,7 @@ export function resolveRepositoryConflict(workspace,{provider='github',repo,bran
   if(!association.conflicts.length&&association.pendingCommit){association.commit=association.pendingCommit;delete association.pendingCommit;}
 }
 
-export function applyRemoteFile(workspace,{repo,branch,path,text,sha,provider='github'},prefix=''){
+export function applyRemoteFile(workspace,{repo,branch,path,text,remoteText=text,sha,provider='github'},prefix=''){
   path=repoPath(path);
   let doc=workspace.documents.find(doc=>(doc.remote?.provider||'github')===provider&&doc.remote?.repo.toLowerCase()===repo.toLowerCase()&&doc.remote.path===path);
   const localPath=(prefix?prefix+'/':'')+path;
@@ -18,7 +18,7 @@ export function applyRemoteFile(workspace,{repo,branch,path,text,sha,provider='g
     const occupied=new Set([...workspace.documents.map(documentPath),...(workspace.entries||[]).map(entry=>entry.path)]);
     const target=uniquePath(localPath,occupied);doc={...newDocument(target.split('/').at(-1),text),path:target};workspace.documents.unshift(doc);
   }
-  doc.text=text;doc.updatedAt=Date.now();doc.remote={...(provider==='gitee'?{provider}:{}),repo,branch,path,sha,lastSyncedText:text};
+  doc.text=text;doc.updatedAt=Date.now();doc.remote={...(provider==='gitee'?{provider}:{}),repo,branch,path,sha,lastSyncedText:remoteText};
   return doc;
 }
 export function repositoryFolder(workspace,repo,provider='github'){

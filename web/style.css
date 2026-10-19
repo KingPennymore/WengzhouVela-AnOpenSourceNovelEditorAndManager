@@ -30,6 +30,12 @@ body{--hairline:var(--line)}
 body{margin:0;color:var(--text)}
 body.dark{color-scheme:dark}
 button,input,select,textarea{font:inherit;color:inherit}
+/* Checkboxes retain independent multi-selection and native keyboard/label behaviour. */
+input[type=checkbox]{appearance:none;-webkit-appearance:none;display:inline-block;flex:0 0 18px;width:18px!important;height:18px!important;min-width:18px;min-height:18px!important;max-width:18px;max-height:18px;margin:3px;padding:3px!important;box-sizing:border-box;border:1.5px solid var(--accent)!important;border-radius:50%!important;background:transparent!important;background-clip:content-box!important;vertical-align:middle;cursor:pointer;align-self:center}
+input[type=checkbox]:checked{background-color:var(--accent)!important}
+input[type=checkbox]:indeterminate{background:linear-gradient(var(--accent),var(--accent)) center / 8px 2px no-repeat!important}
+input[type=checkbox]:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+input[type=checkbox]:disabled{opacity:.45;cursor:default}
 button{cursor:pointer;border:0;background:none;display:inline-flex;align-items:center;justify-content:center;gap:7px;border-radius:4px;color:inherit}
 button:disabled{cursor:default}
 input,select,textarea{background:var(--paper);border:1px solid var(--line);border-radius:4px;padding:8px 10px;outline:none;min-width:0}
@@ -213,7 +219,8 @@ html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
 .vela-sidecar dt{color:var(--muted)}
 .markdown pre{font-family:Consolas,monospace;overflow-wrap:anywhere}
 .markdown img{max-width:100%;height:auto}
-.markdown .task-state{color:var(--accent)}
+.markdown .task-state{display:inline-block;vertical-align:-.05em;width:.85em;height:.85em;padding:2px;border:1.5px solid var(--accent);border-radius:50%;background:transparent;background-clip:content-box}
+.markdown .task-state[data-checked=true]{background-color:var(--accent)}
 .plain-preview{white-space:pre-wrap}
 .palette-choice.custom{position:relative}
 .palette-edit{font-size:11px;padding:0 4px;min-height:0}
@@ -645,6 +652,10 @@ body.dark .tok-typeName,body.dark .tok-className,body.dark .tok-labelName{color:
 .cm-cursor{border-left-color:var(--accent)!important}
 .cm-selectionBackground{background:var(--selection)!important}
 .cm-panel{background:var(--panel);color:var(--text);border-color:var(--line)}
+.cm-tooltip{background:var(--paper)!important;color:var(--text)!important;border-color:var(--line)!important;box-shadow:var(--ui-shadow)}
+.cm-tooltip .cm-tooltip-arrow:before{border-top-color:var(--line)!important;border-bottom-color:var(--line)!important}
+.cm-tooltip .cm-tooltip-arrow:after{border-top-color:var(--paper)!important;border-bottom-color:var(--paper)!important}
+.vela-term-tip{background:var(--paper);color:var(--text)}
 .cm-search{padding:10px!important;font-size:12px!important}
 .focus .cm-content{max-width:1100px;width:100%;margin:0 auto;padding-top:30px!important}
 @media(max-width:600px){.cm-scroller{line-height:1.8}

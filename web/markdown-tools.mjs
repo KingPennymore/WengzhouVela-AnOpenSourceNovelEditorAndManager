@@ -23,7 +23,7 @@ export function taskLists(md){
       const token=state.tokens[i];if(token.type!=='inline'||state.tokens[i-2].type!=='list_item_open'||!/^\[[ xX]\] /.test(token.content))continue;
       const first=token.children?.[0];if(first?.type!=='text')continue;
       const checked=/^\[[xX]\]/.test(first.content);first.content=first.content.replace(/^\[[ xX]\] /,'');
-      const status=new state.Token('html_inline','',0);status.content=`<span class="task-state" aria-label="${checked?'已完成':'未完成'}">${checked?'☑':'☐'}</span> `;token.children.unshift(status);
+      const status=new state.Token('html_inline','',0);status.content=`<span class="task-state" data-checked="${checked}" aria-label="${checked?'已完成':'未完成'}"></span> `;token.children.unshift(status);
     }
   });
 }

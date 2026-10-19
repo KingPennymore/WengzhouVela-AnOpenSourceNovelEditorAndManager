@@ -3,7 +3,9 @@ export class GitHubBridge{
   async verify(token,generation,provider='github'){
     const response=await this.request((provider==='gitee'?'https://gitee.com/api/v5':'https://api.github.com')+'/user','GET',null,token);
     if(response.status!==200)throw new Error(response.status===401?'访问令牌无效或已过期。':`${provider==='gitee'?'Gitee':'GitHub'} 验证失败（HTTP ${response.status}）。`);
-    if(generation!==this.generation)throw new Error('登录已取消。');this.credentials.write(token,provider);return response.body;
+    if(generation!==this.generation)throw new Error('登录已取消。');
+    let saved;try{saved=this.credentials.read(provider);}catch{}
+    if(saved!==token)this.credentials.write(token,provider);return response.body;
   }
   async call(operation,data={}){
     const provider=data.provider||'github';if(!['github','gitee'].includes(provider))throw Error('不支持此代码托管平台。');const origin=provider==='gitee'?'https://gitee.com/api/v5':'https://api.github.com';

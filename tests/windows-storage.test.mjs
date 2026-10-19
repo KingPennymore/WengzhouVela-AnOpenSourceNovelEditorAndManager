@@ -7,6 +7,15 @@ import {WorkspaceStorage,relativePath} from '../windows/storage.mjs';
 import {GitHubBridge} from '../windows/github.mjs';
 const temp=()=>fs.mkdtempSync(path.join(os.tmpdir(),'vela-storage-qa-'));
 const clean=folder=>fs.rmSync(folder,{recursive:true,force:true});
+test('Windows 同一令牌重复登录与重启后登录不重复写安全存储，失效令牌仍被拒绝',async()=>{
+ let token='',writes=0,status=200,requests=0;
+ const options={request:async()=>{requests++;return {status,body:{login:'writer'}};},credentials:{read:()=>token,write:value=>{writes++;if(token===value)throw Error('duplicate credential');token=value;},clear:()=>token=''}};
+ const bridge=new GitHubBridge(options),data={token:'github_pat_fixture_repeat'};
+ await bridge.call('login',data);await bridge.call('login',data);await new GitHubBridge(options).call('login',data);
+ assert.equal(writes,1);assert.equal(requests,3);
+ status=401;await assert.rejects(bridge.call('login',data),/无效或已过期/);assert.equal(writes,1);
+ status=200;await bridge.call('logout');await bridge.call('login',data);assert.equal(writes,2);
+});
 test('Windows 内部文件持久保存，保留空文件和稳定 ID，阻止外部修改被覆盖',()=>{
   const base=temp();try{const store=new WorkspaceStorage(base),scan=store.scan(),state={version:1,...scan,documents:[{id:'book',name:'book.txt',path:'Novel/book.txt',text:'中文正文',updatedAt:1},{id:'empty',name:'empty.txt',text:'',updatedAt:1}],folders:['Novel','Empty']};store.saveWorkspace(JSON.stringify(state));assert.equal(fs.readFileSync(store.target('empty.txt'),'utf8'),'');assert.equal(store.scan().documents.find(doc=>doc.path==='Novel/book.txt').id,'book');
     fs.writeFileSync(store.target('Novel/book.txt'),'external');assert.throws(()=>store.saveWorkspace(JSON.stringify(state)),/外部修改/);assert.equal(fs.readFileSync(store.target('Novel/book.txt'),'utf8'),'external');

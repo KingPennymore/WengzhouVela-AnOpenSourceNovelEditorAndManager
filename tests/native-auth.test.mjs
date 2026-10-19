@@ -12,7 +12,7 @@ const compiled = await build({
   } }]
 });
 
-function fixture({ status = 200, networkError, storageError, closeError, text } = {}) {
+function fixture({ status = 200, networkError, storageError, closeError, text, rejectDuplicate = false, beforeAdd, beforeQuery } = {}) {
   const requests = [], assets = new Map(), logs = [];
   let configuration;
   const tags = { ALIAS: 1, SECRET: 2, RETURN_TYPE: 3, ACCESSIBILITY: 4, CONFLICT_RESOLUTION: 5 };
@@ -31,8 +31,8 @@ function fixture({ status = 200, networkError, storageError, closeError, text } 
     } },
     '@kit.AssetStoreKit': { asset: {
       Tag: tags, ReturnType: { ALL: 0 }, Accessibility: { DEVICE_UNLOCKED: 0 }, ConflictResolution: { OVERWRITE: 1 },
-      async query(attributes) { const value = assets.get(alias(attributes)); if (!value) throw { code: 24000002 }; return [value]; },
-      async add(attributes) { if (storageError) throw storageError; assets.set(alias(attributes), new Map(attributes)); },
+      async query(attributes) { const value = assets.get(alias(attributes)); if(beforeQuery)await beforeQuery();if (!value) throw { code: 24000002 }; return [value]; },
+      async add(attributes) { if(beforeAdd)await beforeAdd();if (storageError) throw storageError; if(rejectDuplicate&&assets.has(alias(attributes)))throw {code:24000003};assets.set(alias(attributes), new Map(attributes)); },
       async remove(attributes) { if (!assets.delete(alias(attributes))) throw { code: 24000002 }; }
     } },
     '@kit.ArkTS': { util: {
@@ -47,10 +47,20 @@ function fixture({ status = 200, networkError, storageError, closeError, text } 
   const context = vm.createContext({ sdk, module, exports: module.exports, Error, Map, Uint8Array });
   new vm.Script(compiled.outputFiles[0].text).runInContext(context);
   const bridge = new module.exports.NativeBridge();
-  return { call: async (operation, data = {}) => JSON.parse(await bridge.call(operation, JSON.stringify(data))), requests, assets, logs, config: () => configuration };
+  return { call: async (operation, data = {}) => JSON.parse(await bridge.call(operation, JSON.stringify(data))), restart:()=>new module.exports.NativeBridge(), requests, assets, logs, config: () => configuration };
 }
 
 const token = 'ghp_fixture_private_value';
+
+test('原生同一 fine-grained token 重复登录、重启后登录及退出后登录均可使用',async()=>{
+ const f=fixture({rejectDuplicate:true}),data={token:'github_pat_fixture_repeat'};
+ assert.equal((await f.call('login',data)).ok,true);
+ assert.equal((await f.call('login',data)).ok,true);
+ const restarted=f.restart();assert.equal(JSON.parse(await restarted.call('login',JSON.stringify(data))).ok,true);
+ assert.equal(f.assets.size,1);assert.equal(f.requests.length,3,'every login still verifies the token remotely');
+ assert.equal((await f.call('logout')).ok,true);
+ assert.equal((await f.call('login',data)).ok,true);
+});
 
 test('Gitee 原生登录隔离安全资产与令牌，退出不影响 GitHub',async()=>{
   const f=fixture();await f.call('login',{token,provider:'github'});await f.call('login',{token:'gitee_fixture_private_value',provider:'gitee'});
@@ -111,4 +121,25 @@ test('外部目录接口已撤销，桥接不会执行目录选择或权限申�
   const f=fixture();
   for(const operation of ['setupStorage','openFolder','internalStorage'])assert.equal((await f.call(operation)).ok,false);
   assert.equal(f.requests.length,0);
+});
+
+test('原生异步凭据写入与退出串行，慢登录不会在退出后恢复令牌',async()=>{
+ let release,entered;
+ const started=new Promise(resolve=>entered=resolve),pending=new Promise(resolve=>release=resolve);
+ const f=fixture({beforeAdd:()=>{entered();return pending;}});
+ const login=f.call('login',{token});await started;
+ const logout=f.call('logout');release();
+ assert.equal((await login).ok,false);assert.equal((await logout).ok,true);
+ assert.equal(f.assets.size,0);assert.equal((await f.call('api',{path:'/user'})).value.status,401);
+});
+
+test('启动时较慢的空凭据查询不会覆盖随后验证成功的令牌缓存',async()=>{
+ let queries=0,release,entered;
+ const started=new Promise(resolve=>entered=resolve),pending=new Promise(resolve=>release=resolve);
+ const f=fixture({beforeQuery:()=>{if(++queries===1){entered();return pending;}}});
+ const startup=f.call('api',{path:'/user'});await started;
+ assert.equal((await f.call('login',{token})).ok,true);release();
+ assert.equal((await startup).value.status,200);
+ assert.equal((await f.call('api',{path:'/user'})).value.status,200);
+ assert.equal(f.requests.at(-1).headers.Authorization,`Bearer ${token}`);
 });

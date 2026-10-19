@@ -68,6 +68,7 @@ export class NativeBridge {
   context: common.UIAbilityContext | undefined = undefined;
   private tokens: Map<string, string> = new Map();
   private authGeneration: number = 0;
+  private credentialQueue: Promise<void> = Promise.resolve();
   private encoder: util.TextEncoder = new util.TextEncoder();
   private credentialAlias(provider: string): Uint8Array { return new util.TextEncoder().encodeInto('wenzhou.' + provider + '.token'); }
   private workspaceFiles: WorkspaceFiles = new WorkspaceFiles();
@@ -175,11 +176,14 @@ export class NativeBridge {
         const bytes = entries[0].get(asset.Tag.SECRET) as Uint8Array;
         token = util.TextDecoder.create('utf-8').decodeToString(bytes);
       }
+      // A query started before login/logout must not replace the newer cached secret.
+      if (this.tokens.has(provider)) return this.tokens.get(provider) || '';
       this.tokens.set(provider, token);
       return token;
     } catch (error) {
       const failure = operationError(error as Object, 'credentials');
       if (failure.code === 24000002) {
+        if (this.tokens.has(provider)) return this.tokens.get(provider) || '';
         this.tokens.set(provider, '');
         return '';
       }
@@ -187,18 +191,32 @@ export class NativeBridge {
     }
   }
 
-  private async storeToken(token: string, provider: string = 'github'): Promise<void> {
-    const attributes: asset.AssetMap = new Map();
-    attributes.set(asset.Tag.ALIAS, this.credentialAlias(provider));
-    attributes.set(asset.Tag.SECRET, this.encoder.encodeInto(token));
-    attributes.set(asset.Tag.ACCESSIBILITY, asset.Accessibility.DEVICE_UNLOCKED);
-    attributes.set(asset.Tag.CONFLICT_RESOLUTION, asset.ConflictResolution.OVERWRITE);
-    try {
-      await asset.add(attributes);
-    } catch (error) {
-      throw operationError(error as Object, 'credentials');
-    }
-    this.tokens.set(provider, token);
+  private credentialWrite(action: () => Promise<void>): Promise<void> {
+    const task = this.credentialQueue.then(action);
+    this.credentialQueue = task.catch(() => {});
+    return task;
+  }
+
+  private async storeToken(token: string, provider: string = 'github', generation: number = this.authGeneration): Promise<void> {
+    await this.credentialWrite(async () => {
+      if (generation !== this.authGeneration) throw new Error('登录已取消。');
+      // Login has already verified /user. An identical saved secret needs no overwrite.
+      const saved = await this.loadToken(provider);
+      if (generation !== this.authGeneration) throw new Error('登录已取消。');
+      if (saved === token) return;
+      const attributes: asset.AssetMap = new Map();
+      attributes.set(asset.Tag.ALIAS, this.credentialAlias(provider));
+      attributes.set(asset.Tag.SECRET, this.encoder.encodeInto(token));
+      attributes.set(asset.Tag.ACCESSIBILITY, asset.Accessibility.DEVICE_UNLOCKED);
+      attributes.set(asset.Tag.CONFLICT_RESOLUTION, asset.ConflictResolution.OVERWRITE);
+      try {
+        await asset.add(attributes);
+      } catch (error) {
+        throw operationError(error as Object, 'credentials');
+      }
+      if (generation !== this.authGeneration) throw new Error('登录已取消。');
+      this.tokens.set(provider, token);
+    });
   }
 
   private async request(url: string, method: rcp.HttpMethod, body: Object | undefined,
@@ -317,20 +335,25 @@ export class NativeBridge {
         const user = await this.request(origin + '/user', 'GET', undefined, token);
         if (user.status !== 200) throw loginStatusError(user.status);
         if (generation !== this.authGeneration) throw new Error('登录已取消。');
-        await this.storeToken(token, provider);
+        await this.storeToken(token, provider, generation);
+        if (generation !== this.authGeneration) throw new Error('登录已取消。');
         return this.success(user.body);
       }
       if (operation === 'logout') {
         this.authGeneration++;
-        const query: asset.AssetMap = new Map();
-        query.set(asset.Tag.ALIAS, this.credentialAlias(provider));
-        try {
-          await asset.remove(query);
-        } catch (error) {
-          const failure = operationError(error as Object, 'credentials');
-          if (failure.code !== 24000002) throw failure;
-        }
-        this.tokens.set(provider, '');
+        // A pending asset write must finish before removal, otherwise a slow login
+        // could restore a credential after logout has already reported success.
+        await this.credentialWrite(async () => {
+          const query: asset.AssetMap = new Map();
+          query.set(asset.Tag.ALIAS, this.credentialAlias(provider));
+          try {
+            await asset.remove(query);
+          } catch (error) {
+            const failure = operationError(error as Object, 'credentials');
+            if (failure.code !== 24000002) throw failure;
+          }
+          this.tokens.set(provider, '');
+        });
         return this.success(true);
       }
       if (operation === 'oauth') {
@@ -347,7 +370,8 @@ export class NativeBridge {
           const user = await this.request('https://api.github.com/user', 'GET', undefined, oauth.access_token);
           if (user.status !== 200) throw loginStatusError(user.status);
           if (generation !== this.authGeneration) throw new Error('登录已取消。');
-          await this.storeToken(oauth.access_token);
+          await this.storeToken(oauth.access_token, 'github', generation);
+          if (generation !== this.authGeneration) throw new Error('登录已取消。');
           // Expired credentials trigger reauthentication. Refresh credentials are never sent to WebView.
           const authorized: AuthorizedResult = { authorized: true };
           return this.success(authorized);

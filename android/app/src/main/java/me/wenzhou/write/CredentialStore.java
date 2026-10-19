@@ -41,6 +41,9 @@ final class CredentialStore {
     }
 
     synchronized void write(String token) throws Exception {
+        // A verified repeat login does not need to rewrite the encrypted secret.
+        // A damaged old credential must still be replaceable with a valid one.
+        try { if (token.equals(read())) return; } catch (Exception ignored) { }
         Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
         cipher.init(Cipher.ENCRYPT_MODE, key());
         JSONObject data = new JSONObject().put("iv", Base64.encodeToString(cipher.getIV(), Base64.NO_WRAP))
