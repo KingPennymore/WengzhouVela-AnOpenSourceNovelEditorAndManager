@@ -1,0 +1,431 @@
+{
+  "reports": [
+    {
+      "width": 1280,
+      "cpu": 1,
+      "sidebar": {
+        "duration": 248.90000000002328,
+        "frames": 16,
+        "maxFrameGap": 16.799999999999727,
+        "gapsOver50": 0,
+        "maxSidebarCallback": 0.1000000000349246,
+        "longTasks": []
+      },
+      "switching": {
+        "duration": 246.79999999998836,
+        "frames": 15,
+        "maxFrameGap": 33.30000000000018,
+        "gapsOver50": 0,
+        "maxSidebarCallback": 0.09999999997671694,
+        "longTasks": [],
+        "clickDurations": [
+          13.099999999976717,
+          17.800000000046566,
+          18.5
+        ]
+      },
+      "withoutMotion": {
+        "duration": 49.29999999998836,
+        "frames": 4,
+        "maxFrameGap": 16.799999999999727,
+        "gapsOver50": 0,
+        "maxSidebarCallback": 0,
+        "longTasks": [],
+        "clickDurations": [
+          12.599999999976717,
+          11.899999999965075,
+          12.199999999953434
+        ]
+      },
+      "storage": {
+        "metrics": {
+          "duration": 257,
+          "frames": 16,
+          "maxFrameGap": 16.799999999999727,
+          "gapsOver50": 0,
+          "maxSidebarCallback": 0.1000000000349246,
+          "longTasks": []
+        },
+        "writes": [
+          {
+            "start": 4198.700000000012,
+            "duration": 91.10000000003492,
+            "animating": false
+          }
+        ]
+      },
+      "contentSave": {
+        "metrics": {
+          "duration": 242.39999999996508,
+          "frames": 16,
+          "maxFrameGap": 16.800000000000182,
+          "gapsOver50": 0,
+          "maxSidebarCallback": 0.20000000001164153,
+          "longTasks": []
+        },
+        "writes": [
+          {
+            "start": 6379,
+            "duration": 91.5,
+            "animating": false
+          }
+        ],
+        "saved": true
+      }
+    },
+    {
+      "width": 1280,
+      "cpu": 4,
+      "sidebar": {
+        "duration": 273.80000000004657,
+        "frames": 8,
+        "maxFrameGap": 50,
+        "gapsOver50": 0,
+        "maxSidebarCallback": 1,
+        "longTasks": [
+          {
+            "start": 3247.5,
+            "duration": 59
+          }
+        ]
+      },
+      "switching": {
+        "duration": 388.8999999999651,
+        "frames": 4,
+        "maxFrameGap": 150,
+        "gapsOver50": 3,
+        "maxSidebarCallback": 0.1000000000349246,
+        "longTasks": [
+          {
+            "start": 3418.7999999999884,
+            "duration": 97
+          },
+          {
+            "start": 3516.4000000000233,
+            "duration": 127
+          },
+          {
+            "start": 3662,
+            "duration": 123
+          }
+        ],
+        "clickDurations": [
+          73.79999999998836,
+          101.20000000001164,
+          95.29999999998836
+        ]
+      },
+      "withoutMotion": {
+        "duration": 409.79999999998836,
+        "frames": 4,
+        "maxFrameGap": 183.29999999999973,
+        "gapsOver50": 3,
+        "maxSidebarCallback": 0,
+        "longTasks": [
+          {
+            "start": 3976.100000000035,
+            "duration": 192
+          },
+          {
+            "start": 4169.400000000023,
+            "duration": 99
+          },
+          {
+            "start": 4269.5,
+            "duration": 98
+          }
+        ],
+        "clickDurations": [
+          177.69999999995343,
+          69.70000000001164,
+          76.70000000001164
+        ]
+      },
+      "storage": {
+        "metrics": {
+          "duration": 286.5,
+          "frames": 7,
+          "maxFrameGap": 66.59999999999945,
+          "gapsOver50": 2,
+          "maxSidebarCallback": 0.7999999999883585,
+          "longTasks": [
+            {
+              "start": 5438.400000000023,
+              "duration": 50
+            },
+            {
+              "start": 5489.299999999988,
+              "duration": 59
+            },
+            {
+              "start": 5549,
+              "duration": 53
+            },
+            {
+              "start": 5602.200000000012,
+              "duration": 53
+            }
+          ]
+        },
+        "writes": [
+          {
+            "start": 5665.400000000023,
+            "duration": 94.70000000001164,
+            "animating": false
+          }
+        ]
+      },
+      "contentSave": {
+        "metrics": {
+          "duration": 260.0999999999767,
+          "frames": 9,
+          "maxFrameGap": 49.900000000000546,
+          "gapsOver50": 0,
+          "maxSidebarCallback": 1.1999999999534339,
+          "longTasks": []
+        },
+        "writes": [
+          {
+            "start": 7883.299999999988,
+            "duration": 96.60000000003492,
+            "animating": false
+          }
+        ],
+        "saved": true
+      }
+    },
+    {
+      "width": 390,
+      "cpu": 1,
+      "sidebar": {
+        "duration": 243.59999999997672,
+        "frames": 16,
+        "maxFrameGap": 16.700000000000273,
+        "gapsOver50": 0,
+        "maxSidebarCallback": 0.20000000001164153,
+        "longTasks": []
+      },
+      "switching": {
+        "duration": 247.5,
+        "frames": 16,
+        "maxFrameGap": 16.800000000000182,
+        "gapsOver50": 0,
+        "maxSidebarCallback": 0.1000000000349246,
+        "longTasks": [],
+        "clickDurations": [
+          13.5,
+          16,
+          16.899999999965075
+        ]
+      },
+      "withoutMotion": {
+        "duration": 48.29999999998836,
+        "frames": 4,
+        "maxFrameGap": 16.699999999999818,
+        "gapsOver50": 0,
+        "maxSidebarCallback": 0,
+        "longTasks": [],
+        "clickDurations": [
+          12.300000000046566,
+          11.5,
+          11.600000000034925
+        ]
+      },
+      "storage": {
+        "metrics": {
+          "duration": 265.79999999998836,
+          "frames": 16,
+          "maxFrameGap": 16.700000000000728,
+          "gapsOver50": 0,
+          "maxSidebarCallback": 0.1000000000349246,
+          "longTasks": []
+        },
+        "writes": [
+          {
+            "start": 4147.700000000012,
+            "duration": 91,
+            "animating": false
+          }
+        ]
+      },
+      "contentSave": {
+        "metrics": {
+          "duration": 242.79999999998836,
+          "frames": 16,
+          "maxFrameGap": 16.799999999999272,
+          "gapsOver50": 0,
+          "maxSidebarCallback": 0.1000000000349246,
+          "longTasks": []
+        },
+        "writes": [
+          {
+            "start": 6331.400000000023,
+            "duration": 91.29999999998836,
+            "animating": false
+          }
+        ],
+        "saved": true
+      }
+    },
+    {
+      "width": 390,
+      "cpu": 4,
+      "sidebar": {
+        "duration": 269.29999999998836,
+        "frames": 7,
+        "maxFrameGap": 50,
+        "gapsOver50": 0,
+        "maxSidebarCallback": 0.7000000000116415,
+        "longTasks": [
+          {
+            "start": 3079.600000000035,
+            "duration": 56
+          }
+        ]
+      },
+      "switching": {
+        "duration": 389.69999999995343,
+        "frames": 4,
+        "maxFrameGap": 149.9000000000001,
+        "gapsOver50": 3,
+        "maxSidebarCallback": 1,
+        "longTasks": [
+          {
+            "start": 3390,
+            "duration": 91
+          },
+          {
+            "start": 3482.2000000000116,
+            "duration": 127
+          },
+          {
+            "start": 3612.8000000000466,
+            "duration": 148
+          },
+          {
+            "start": 3763.4000000000233,
+            "duration": 52
+          }
+        ],
+        "clickDurations": [
+          69.20000000001164,
+          90.79999999998836,
+          117.59999999997672
+        ]
+      },
+      "withoutMotion": {
+        "duration": 308.29999999998836,
+        "frames": 4,
+        "maxFrameGap": 100,
+        "gapsOver50": 3,
+        "maxSidebarCallback": 0,
+        "longTasks": [
+          {
+            "start": 4022,
+            "duration": 98
+          },
+          {
+            "start": 4120.600000000035,
+            "duration": 95
+          },
+          {
+            "start": 4216.300000000047,
+            "duration": 101
+          }
+        ],
+        "clickDurations": [
+          74.60000000003492,
+          75.60000000003492,
+          73.59999999997672
+        ]
+      },
+      "storage": {
+        "metrics": {
+          "duration": 297.70000000001164,
+          "frames": 8,
+          "maxFrameGap": 50,
+          "gapsOver50": 0,
+          "maxSidebarCallback": 0.8000000000465661,
+          "longTasks": []
+        },
+        "writes": [
+          {
+            "start": 5591.400000000023,
+            "duration": 95.20000000001164,
+            "animating": false
+          }
+        ]
+      },
+      "contentSave": {
+        "metrics": {
+          "duration": 240.79999999998836,
+          "frames": 9,
+          "maxFrameGap": 33.400000000000546,
+          "gapsOver50": 0,
+          "maxSidebarCallback": 0.5999999999767169,
+          "longTasks": []
+        },
+        "writes": [
+          {
+            "start": 7818.700000000012,
+            "duration": 98.40000000002328,
+            "animating": false
+          }
+        ],
+        "saved": true
+      }
+    }
+  ],
+  "errors": [],
+  "beforeFixStorage": [
+    {
+      "width": 1280,
+      "cpu": 1,
+      "writes": [
+        {
+          "start": 3826.7000000000116,
+          "duration": 91.20000000001164,
+          "animating": true
+        }
+      ],
+      "maxFrameGap": 99.89999999999964
+    },
+    {
+      "width": 1280,
+      "cpu": 4,
+      "writes": [
+        {
+          "start": 4874.400000000023,
+          "duration": 95.29999999998836,
+          "animating": true
+        }
+      ],
+      "maxFrameGap": 166.59999999999945
+    },
+    {
+      "width": 390,
+      "cpu": 1,
+      "writes": [
+        {
+          "start": 3746.399999999965,
+          "duration": 91,
+          "animating": true
+        }
+      ],
+      "maxFrameGap": 99.90000000000009
+    },
+    {
+      "width": 390,
+      "cpu": 4,
+      "writes": [
+        {
+          "start": 4932.700000000012,
+          "duration": 96.20000000001164,
+          "animating": true
+        }
+      ],
+      "maxFrameGap": 166.80000000000018
+    }
+  ],
+  "scope": "Chromium 153 headless; three 3000-line TXT documents; 1280px and 390px; normal and 4x CPU throttling. Slow storage deliberately adds 90ms of synchronous work; it is a simulation, not a native-device measurement."
+}

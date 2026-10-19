@@ -151,10 +151,20 @@ function save(show=false){
   try{if(documents)flushFormats();const clean=documents?documents.save():(saveWorkspace(workspace),true);dirty=!clean;status(clean?'已保存到本机':'未保存',!clean);renderTabDirty();if(show&&clean)toast('文件已保存到本机');projects?.changed();return clean;}
   catch(e){dirty=true;status('保存失败 · 请导出备份',true);fail(new Error('保存失败：'+e.message));return false;}
 }
-function scheduleSave(){dirty=true;status('未保存',true);renderTabDirty();if(!saveTimer)saveTimer=setTimeout(()=>save(),1200);}
-// Navigation changes metadata only. Keep disk/bridge serialization outside the
-// click and animation frames; content edits still use the guarded save path.
-function scheduleWorkspaceSave(){clearTimeout(workspaceSaveTimer);workspaceSaveTimer=setTimeout(()=>save(),300);}
+function scheduleSave(){dirty=true;status('未保存',true);renderTabDirty();if(!saveTimer)saveTimer=setTimeout(()=>runScheduledSave('content'),1200);}
+// Background saves wait for sidebar motion to finish. Explicit save, leaving
+// the app and switching away from edited content retain synchronous save guards.
+function runScheduledSave(kind){
+  // Another sidebar animation may have started since navigation scheduled this
+  // save. A timer delay alone does not keep synchronous storage out of its frames.
+  if(sidebars.frame){
+    const timer=setTimeout(()=>runScheduledSave(kind),50);
+    if(kind==='content')saveTimer=timer;else workspaceSaveTimer=timer;
+    return;
+  }
+  save();
+}
+function scheduleWorkspaceSave(){clearTimeout(workspaceSaveTimer);workspaceSaveTimer=setTimeout(()=>runScheduledSave('workspace'),300);}
 window.wenzhouSave=()=>{rememberPosition(workspace?.activeId,view?.state);return save();};
 window.addEventListener('pagehide',()=>{rememberPosition(workspace?.activeId,view?.state);if(dirty||workspaceSaveTimer!==null||documents?.dirty.size)save();});
 document.addEventListener('visibilitychange',()=>{if(document.hidden){const moved=rememberPosition(workspace?.activeId,view?.state);if(moved||dirty||workspaceSaveTimer!==null)save();}});
