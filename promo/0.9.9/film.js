@@ -150,13 +150,15 @@ function sinfranAt(x,y,s,ang){
   T(()=>{wspiral(-14,-150,26,DYE.black,{lw:11,dir:-1});wspiral(-14,-150,26,DYE.sky,{lw:5,dir:-1});})();
 }
 const BEATS=[44,46,48],WING=[null,.9,0,2.3]; // folded, half, raised, down
+// Sinfran is drawn facing right; on his treetop he turns to face left, towards the wind he sends over the picture
+const facingLeft=(x,draw)=>{ctx.save();ctx.translate(x,0);ctx.scale(-1,1);ctx.translate(-x,0);draw();ctx.restore();};
 const beatsDone=t=>BEATS.filter(b=>t>=b).length;
 function stripAt(t,{bear,wing}){
   // only what the camera can see; no clipping, as wFigure reads and writes the whole grid: the meadow covers the
   // strip from DIV on, and the tree there, winter on its left and spring on its right, covers the seam
   const c=stripCam(t),l=c.x-W2/c.z,r=c.x+W2/c.z;
   if(l<DIV)battleAt(t);
-  if(r>DIV-300){ctx.save();ctx.translate(BX,0);meadowAt(t);if(t<41)(bear==='roar'?bearRoarParts:bearBreathParts)(t);if(t>34)sinfranAt(PERCH[0],PERCH[1],.96,wing);ctx.restore();}
+  if(r>DIV-300){ctx.save();ctx.translate(BX,0);meadowAt(t);if(t<41)(bear==='roar'?bearRoarParts:bearBreathParts)(t);if(t>34)facingLeft(PERCH[0],()=>sinfranAt(PERCH[0],PERCH[1],.96,wing));ctx.restore();}
   if(l<DIV+300&&r>DIV-300)wTree(DIV,850,800,{seed:27,leaf:DYE.sky,leaf2:DYE.green,trunk:DYE.walnut});
 }
 // the camera along the strip: a slow push towards the tree, the pan into the meadow, the climb to the treetop

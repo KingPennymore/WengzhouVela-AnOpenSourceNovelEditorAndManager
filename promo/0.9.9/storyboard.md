@@ -146,11 +146,11 @@
 
 **镜头 07｜00:41—00:52｜寒鸦辛弗兰**
 
-![07a](storyboard/frames/07a.jpg)
+![07a](storyboard/frames/v8-07a.jpg)
 ![07b](storyboard/frames/v8-07.jpg)
 
 - **画面：**
-  1. 修长的寒鸦停在这棵高树的树梢上，颈部一圈浅色领羽。铭文“HIC SINFRAN MONEDVLA”。
+  1. 修长的寒鸦停在这棵高树的树梢上，面朝左，颈部一圈浅色领羽。铭文“HIC SINFRAN MONEDVLA”。
   2. 双翅高举，铭文换成“HIC SINFRAN VENTVM MOVET”。
 - **动态：** 三次振翅各重织一个姿态，落在鼓点上。每扇一次，寒风就大一级：
   - 从右往左吹的风带更多、更宽、更快；

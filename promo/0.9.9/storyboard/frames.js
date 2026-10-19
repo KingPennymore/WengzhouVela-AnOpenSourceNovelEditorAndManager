@@ -77,6 +77,8 @@ function sinfran(x,y,s,{wings=0}={}){
 // the pine twig he sits on, needles in tufts as in the photograph
 function pineTwig(x,y){wcurve([x-40,H+20,x-20,y+260,x+10,y+120,x,y],16,DYE.walnut,{lw:6});
   for(let i=0;i<9;i++){const k=i/8,tx=lerp(x-40,x,k)+(i%2?-10:10),ty=lerp(y+420,y+20,k);for(let j=-3;j<=3;j++){const a=-Math.PI/2+j*.32+(i%2?-.3:.3);wline([tx,ty,tx+Math.cos(a)*90,ty+Math.sin(a)*90],j%2?DYE.green:DYE.moss,5);}}}
+// facing left: mirrored about x
+const mirrorX=(x,draw)=>{ctx.save();ctx.translate(x,0);ctx.scale(-1,1);ctx.translate(-x,0);draw();ctx.restore();};
 function wWinterSky({wind=0}={}){
   rect(0,0,W,H,DYE.wool);for(let i=0;i<2;i++){const y=250+i*170;wpoly([-40,y,W+40,y-30,W+40,y+14,-40,y+44],DYE.sky,{lw:6});}
   for(let i=0;i<9;i++){const x=i*240-40;wpoly([x,820,x+130,560+hash(i)*80,x+260,820],i%2?DYE.sky:DYE.woad,{lw:7});}
@@ -85,8 +87,8 @@ function wWinterSky({wind=0}={}){
   if(wind>0){for(let k=0;k<6;k++){const p=[];for(let i=0;i<=12;i++){const u=i/12;p.push(W-u*W*1.1,220+k*90+Math.sin(u*7+k)*30*wind);}wcurve(p,10,k%2?DYE.indigo:DYE.woad,{lw:5});}for(let i=0;i<80;i++)wFlake(hash(i*2.9)*W,150+hash(i*6.3)*660,.8+hash(i)*.6,i%3?DYE.bone:DYE.sky);}
 }
 const GLOSS_S={t0:41.2,t1:48.2,x:60,y:150,sentence:'辛弗兰就用它的翅膀扇起寒风，',term:'辛弗兰',cat:'精魂',def:'寒鸦精魂',q:.82,keepTag:false};
-frame('07a',()=>{weave(()=>{wWinterSky();pineTwig(1240,560);sinfran(1240,556,1.25);wBorderTop('HIC SINFRAN MONEDVLA',{h:124});wBorderBottom();},{seed:7,flicker:.1});grade(0);ui(()=>glossaryOverlay(45.0,GLOSS_S));caption('05');});
-frame('07b',()=>{weave(()=>{wWinterSky({wind:1});pineTwig(1240,560);sinfran(1240,556,1.25,{wings:1});wBorderTop('HIC SINFRAN VENTVM MOVET',{h:124});wBorderBottom();},{seed:7,flicker:.1});grade(0);caption('05');});
+frame('07a',()=>{weave(()=>{wWinterSky();pineTwig(1240,560);mirrorX(1240,()=>sinfran(1240,556,1.25));wBorderTop('HIC SINFRAN MONEDVLA',{h:124});wBorderBottom();},{seed:7,flicker:.1});grade(0);ui(()=>glossaryOverlay(45.0,GLOSS_S));caption('05');});
+frame('07b',()=>{weave(()=>{wWinterSky({wind:1});pineTwig(1240,560);mirrorX(1240,()=>sinfran(1240,556,1.25,{wings:1}));wBorderTop('HIC SINFRAN VENTVM MOVET',{h:124});wBorderBottom();},{seed:7,flicker:.1});grade(0);caption('05');});
 frame('08',()=>{
   weave(()=>{wWinterSky({wind:1});wBorderTop('HIC SINFRAN VENTVM MOVET',{h:124});},{seed:8,flicker:.1,light:.9});
   const edge=y=>980+Math.sin(y/70)*60+noise(y/30)*80;
