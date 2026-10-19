@@ -13,7 +13,7 @@
  "vela":{"api":">=4 <5","requiredCapabilities":["ui-slots"]}}
 ```
 
-`vela.api` 必须声明；`requiredCapabilities` 中有当前宿主没有的能力时，插件不会运行，并显示缺少的能力。当前能力：`ui-slots`、`commands`、`pages`、`assets`、`completion`、`editor-extensions`、`documents`、`configuration-v2`、`chapters`、`local-history`、`tex`、`document-formats-v1`，以及项目接口提供的能力（如 `filesystem-v1`）。
+`vela.api` 必须声明；`requiredCapabilities` 中有当前宿主没有的能力时，插件不会运行，并显示缺少的能力。当前能力：`ui-slots`、`commands`、`pages`、`assets`、`completion`、`editor-extensions`、`documents`、`configuration-v2`、`chapters`、`local-history`、`tex`、`document-formats-v1`、`document-formats-v2`，以及项目接口提供的能力（如 `filesystem-v1`）。
 
 `main` 是打包好的单个脚本（例如 esbuild `--format=iife`），以普通脚本方式加载；不能用 `import` 引用包内其他文件，资源请用 `vela.assets`。
 
@@ -107,3 +107,38 @@ button.dispose();
 | `vela.compileTex` | `vela.tex.compile` |
 
 插件缓存目录（`cache/`）写入已移除；需要持久数据时使用 `settings` 或项目接口。
+
+## 通用文档格式（document-formats-v2）
+
+插件仍使用 API 4；新插件声明 `requiredCapabilities: ["document-formats-v2"]`。宿主按注册格式处理文件导入、工作区附件点击、编辑预览及阅读页，不再要求扩展名属于 ODF。
+
+`formats.register` 的 `extensions` 声明导入扩展名；新增 `sourceExtensions` 声明持久化的 UTF-8 编辑源扩展名，省略时沿用 `extensions`。例如输入 `.epub`，输出 `.vepub`，源文件可使用插件定义的 JSON/XML。二进制书籍必须生成独立编辑源，不能把 JSON/XML 当作 `.epub`、`.mobi`、`.azw3` 等原书保存。工作区内打开原书会生成同目录、不覆盖已有文件的编辑副本；原书字节保持不变。编辑源可以直接导入、打开和保存。
+
+```js
+vela.formats.register({
+  id: 'example.epub',
+  extensions: ['.epub'],
+  sourceExtensions: ['.vepub'],
+  maxImportBytes: 32 * 1024 * 1024,
+  async importBytes(bytes, name, {signal} = {}) {
+    const book = await decodeBook(bytes, {signal}); // 插件自己的解析器
+    return {name: name.replace(/\.epub$/i, '.vepub'), text: JSON.stringify(book)};
+  },
+  validate: source => validateBook(JSON.parse(source)),
+  plainText: source => bookText(JSON.parse(source)),
+  toHtml: source => bookHtml(JSON.parse(source)),
+  render({root, doc, onChange, signal, exportBinary}) {
+    const editor = mountBookEditor(root, JSON.parse(doc.text), {
+      change: book => onChange(JSON.stringify(book)),
+      export: bytes => exportBinary('书籍.mobi', bytes, 'application/x-mobipocket-ebook')
+    });
+    return () => editor.destroy();
+  }
+});
+```
+
+`importBytes` 可同步或异步，输出名称必须属于该插件的编辑源扩展名。`maxImportBytes` 默认 8 MiB、最大 32 MiB；编辑源始终限 8 MiB。三端选择器当前单次导入仍限 8 MiB；较大的原书可先通过项目文件接口导入，再从工作区打开。插件负责限制解压大小、资源数量及解析复杂度，主程序的文件大小限制不会代替这些检查。
+
+`render` 可返回清理函数，也兼容旧组件设置的 `root.odfDispose`。切换文稿、离开预览或停用格式时，宿主中止该次渲染的 `signal` 并执行清理；旧渲染的 `onChange` 不再生效。插件停用后，已导入文稿保留格式标记和编辑源，可查看源码、重新启用插件。异步解析期间停用格式，解析结果不会写入工作区。
+
+预览回调中的 `exportBinary(name, bytes, mime)` 支持任意非空二进制格式，限 32 MiB；三端通过保存选择器导出，取消返回 `false`。阅读页对 `toHtml` 结果进行清理。需要保留 EPUB 的出版社样式和原始资源时，应存入编辑源或项目文件，不能从已清理的阅读 HTML 反向生成原书。

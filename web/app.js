@@ -6,7 +6,8 @@ bindAppChoices();
 import {outlineMarkers,outlineMarksChanged} from './outline-markers.mjs';
 import {startPageMarkup,setStartPanel} from './start-page.mjs';
 import {templatesFor,templateText} from './file-templates.mjs';
-import {renderOdfDocument,importOdfBytes,validateFlatOdf,odfText,ODF_PACKED,ODF_FLAT,onDocumentFormatsChange} from './document-components.mjs';
+import {renderComponentDocument,componentText,isComponentDocument,documentProvider,documentSourceProvider,documentImportExtensions,onDocumentFormatsChange} from './document-components.mjs';
+import {prepareDocumentImport,documentImportLimit,readDocumentBytes,binaryDocumentName,BINARY_DOCUMENT_EXTENSIONS} from './document-import.mjs';
 import {bindSelectionMenu} from './selection-menu.mjs';
 import {bindStylePanel} from './format-style-panel.mjs';
 import {readImportedArchive} from './imported-archive.mjs';
@@ -185,7 +186,7 @@ function updateStats(){
   renderSyncStatus();
   if(!current()||!view){$('#chapter-count').textContent='';$('#word-count').textContent='';$('#current-chapter').textContent='';$('#cursor-position').textContent='';$('#selection-count').textContent='';return;}
   if(planningPreview()){$('#chapter-count').textContent='';$('#current-chapter').textContent=t(documentKind(current())==='MAP'?'点绘地图':'剧情与关系');$('#word-count').textContent=$('#preview').planningSummary?.()||'';$('#cursor-position').textContent='';$('#selection-count').textContent='';$('#outline-list').replaceChildren();$('#quick-undo').disabled=activeUndoDepth()===0;$('#quick-redo').disabled=activeRedoDepth()===0;return;}
-  if(documentKind(current())==='VODT'&&isPreview){try{const text=odfText(current().text,current().name);$('#word-count').textContent='全文 '+Writer.countText(text).toLocaleString()+' 字';$('#current-chapter').textContent='富文本';$('#cursor-position').textContent='';$('#chapter-count').textContent='';$('#selection-count').textContent='';$('#outline-list').replaceChildren();$('#quick-undo').disabled=activeUndoDepth()===0;$('#quick-redo').disabled=activeRedoDepth()===0;return;}catch{}}
+  if(isComponentDocument(current())&&isPreview){try{const text=componentText(current().text,current().name);$('#word-count').textContent='全文 '+Writer.countText(text).toLocaleString()+' 字';$('#current-chapter').textContent='富文本';$('#cursor-position').textContent='';$('#chapter-count').textContent='';$('#selection-count').textContent='';$('#outline-list').replaceChildren();$('#quick-undo').disabled=activeUndoDepth()===0;$('#quick-redo').disabled=activeRedoDepth()===0;return;}catch{}}
   const idx=ensureIndex(),pos=view.state.selection.main.head,row=view.state.doc.lineAt(pos),section=Writer.sectionAt(idx,row.number-1);
   $('#chapter-count').textContent=`${idx.chapterCount} 章`;
   $('#word-count').textContent=`本章 ${section?.count||0} 字 · 全文 ${idx.total} 字`;
@@ -379,7 +380,7 @@ function renderDocuments(){
   reconcilePanel($('#document-tabs'),workspace.openIds.map(id=>workspace.documents.find(d=>d.id===id)).filter(Boolean).map(d=>`<div class="document-tab ${d.id===workspace.activeId?'active':''}"><button class="tab-open" role="tab" aria-selected="${d.id===workspace.activeId}" data-tab="${esc(d.id)}"><span class="file-kind">${(documentKind(d)==='OUTLINE'?'PCS':documentKind(d)==='MAP'?'VLMP':fileIcon(documentKind(d)))}</span><strong>${esc(d.name)}</strong><span class="tab-dirty">${d.id===workspace.activeId&&dirty?'●':''}</span></button><button class="tab-close" data-close="${esc(d.id)}" title="关闭 ${esc(d.name)} (Ctrl+W)" aria-label="关闭 ${esc(d.name)}">×</button></div>`).join(''));
   const revision=JSON.stringify([workspace.storage?.id,workspace.folders,workspace.entries,workspace.settings.filesSort,workspace.settings.language,docs.map(doc=>[doc.id,doc.name,documentPath(doc),documentKind(doc),doc.updatedAt,doc.text.length,documentTextInfo(doc).count(),!!doc.remote,gitFileState(workspace,doc)])]);
   if(revision===fileListRevision){renderDocumentSelection();return;}fileListRevision=revision;
-  if(workspace.storage?.id||workspace.folders?.length){reconcilePanel($('#doc-list'),folderTree(workspace,docs,esc,selectedFolder,workspace.settings.filesSort));renderTabDirty();return;}
+  if(workspace.storage?.id||workspace.folders?.length||workspace.entries?.length){reconcilePanel($('#doc-list'),folderTree(workspace,docs,esc,selectedFolder,workspace.settings.filesSort));renderTabDirty();return;}
   reconcilePanel($('#doc-list'),docs.map(d=>`<div class="doc-item ${d.id===workspace.activeId?'active':''}"><button class="doc-open" data-doc="${esc(d.id)}"><span class="doc-symbol">${fileIcon(documentKind(d))}</span><span class="doc-info"><strong>${esc(d.name)}<span class="git-file-state">${gitFileState(workspace,d)}</span></strong><small>${new Date(d.updatedAt).toLocaleDateString('zh-CN',{month:'2-digit',day:'2-digit'})} · ${documentTextInfo(d).count().toLocaleString()} 字${d.remote?' · Git':''}</small></span></button><button class="doc-menu" data-menu="${esc(d.id)}" title="文稿操作" aria-label="${esc(d.name)} 文稿操作">···</button></div>`).join('')||'<p class="blank">没有找到文稿。</p>');renderTabDirty();
 }
 function renderDocumentSelection(){
@@ -409,7 +410,7 @@ function switchDocument(id){
   $('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);
   const alreadyOpen=workspace.openIds.includes(id);if(!alreadyOpen)workspace.openIds.push(id);
   workspace.activeId=id;const doc=current();if(!doc)return;
-  home=false;csvPage=0;csvColumnPage=0;$('#start-page').hidden=true;isPreview=['CSV','VELA','GLY','VODT','OUTLINE','MAP'].includes(documentKind(doc));
+  home=false;csvPage=0;csvColumnPage=0;$('#start-page').hidden=true;isPreview=['CSV','VELA','GLY','VODT','PLUGIN','OUTLINE','MAP'].includes(documentKind(doc));
   // A file operation recreates the view; the kept state (undo history, formats) is reused while the text is unchanged.
   const kept=editorStates.get(id),reused=!!kept&&kept.doc.toString()===doc.text;if(view)view.setState(reused?kept:makeState(doc));else view=new EditorView({state:reused?kept:makeState(doc),parent:$('#editor')});if(!reused)restorePosition(doc);
   if(isPreview&&['OUTLINE','MAP'].includes(documentKind(doc))&&sourceRendering.get(view.state)?.length)view.dispatch({effects:sourceRendering.reconfigure([])});
@@ -431,7 +432,7 @@ function updateGlossaryPanel(){
 function updateEditorVisibility(){
   document.body.classList.toggle('start-open',home&&pageName==='write');
   updateGlossaryPanel();const planning=planningPreview();document.body.dataset.planning=planning?documentKind(current()):'';const detail=$('#outline-toggle');if(planning&&!detail.planningOriginal){detail.planningOriginal={html:detail.innerHTML,title:detail.title,label:detail.getAttribute('aria-label')};detail.innerHTML=icon('info');detail.title=t('显示详情');detail.setAttribute('aria-label',t('显示详情'));}else if(!planning&&detail.planningOriginal){detail.innerHTML=detail.planningOriginal.html;detail.title=detail.planningOriginal.title;detail.setAttribute('aria-label',detail.planningOriginal.label);delete detail.planningOriginal;}
-  renderDisplayOptions();const split=workspace.settings.splitPreview&&innerWidth>=1000&&isPreview&&!home&&documentKind(current())!=='VODT';document.body.classList.toggle('split-preview',!!split);$('#markdown-tools').hidden=home||isPreview&&!split||documentKind(current())!=='MD';document.querySelectorAll('#markdown-tools button').forEach(button=>button.disabled=home||documentKind(current())!=='MD');$('#editor').hidden=home||isPreview&&!split;$('#preview').hidden=home||!isPreview;refreshFormatEnvironment();renderFormatTools();layoutShell();
+  renderDisplayOptions();const split=workspace.settings.splitPreview&&innerWidth>=1000&&isPreview&&!home&&!isComponentDocument(current());document.body.classList.toggle('split-preview',!!split);$('#markdown-tools').hidden=home||isPreview&&!split||documentKind(current())!=='MD';document.querySelectorAll('#markdown-tools button').forEach(button=>button.disabled=home||documentKind(current())!=='MD');$('#editor').hidden=home||isPreview&&!split;$('#preview').hidden=home||!isPreview;refreshFormatEnvironment();renderFormatTools();layoutShell();
   for(const id of ['search-editor','outline-toggle','focus-toggle','export-doc','quick-top','quick-bottom','quick-chapter-top','quick-chapter-bottom','append-chapter','locate-chapter','export-chapters'])$('#'+id).disabled=home;
   for(const id of ['search-editor','quick-top','quick-bottom','quick-chapter-top','quick-chapter-bottom','append-chapter','locate-chapter','export-chapters'])if(planning)$('#'+id).disabled=true;$('#add-glossary').disabled=home||isPreview||pageName!=='write';
   if(home){$('#quick-undo').disabled=true;$('#quick-redo').disabled=true;}
@@ -440,7 +441,7 @@ function renderDisplayOptions(){
   const doc=current();$('#display-options').hidden=home||!doc;if(!doc)return;
   const kind=documentKind(doc);$('#display-options').innerHTML=`<button data-format title="选择文件类型">${kind==='OUTLINE'?'PCS':kind==='MAP'?'VLMP':kind==='MD'?'Markdown':kind==='TXT'?'文本':kind}</button><button data-display="source" title="源码" aria-label="源码" class="${!isPreview?'selected':''}">${icon('code')}</button><button data-display="preview" title="预览" aria-label="预览" class="${isPreview?'selected':''}">${icon('preview')}</button>${native&&kind==='HTML'&&isPreview?`<button data-native-html title="在独立页面中调试 HTML" aria-label="独立预览">${icon('external')}</button>`:''}`;
 }
-$('#display-options').onclick=e=>{if(e.target.closest('[data-native-html]')){openNativeHtml();return;}const mode=e.target.closest('[data-display]');if(mode){if(mode.dataset.display==='source'&&['OUTLINE','MAP'].includes(documentKind(current()))&&view.state.doc.toString()!==current().text)view.setState(makeState(current()));$('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);isPreview=mode.dataset.display==='preview';if(['OUTLINE','MAP'].includes(documentKind(current())))view.dispatch({effects:sourceRendering.reconfigure(isPreview?[]:sourceRenderExtensions(current()))});updateEditorVisibility();if(isPreview)renderPreview();else{activateLanguage(current());view.focus();}}if(e.target.closest('[data-format]')){const doc=current();openModal('文件类型',`<label>编辑格式<select name="kind">${[['','按扩展名识别'],['TXT','纯文本'],['MD','Markdown'],['HTML','HTML'],['CSV','CSV 表格'],['VELA','VELA 工作区配置'],['GLY','术语库'],['OUTLINE','大纲'],['MAP','地图'],['TEX','LaTeX'],['CODE','代码']].map(([value,label])=>`<option value="${value}" ${value===(doc.kind||'')?'selected':''}>${label}</option>`).join('')}</select></label>`,f=>{doc.kind=f.get('kind')||undefined;isPreview=['CSV','VELA','GLY','VODT','OUTLINE','MAP'].includes(documentKind(doc));refreshFileType(doc);save();});}};
+$('#display-options').onclick=e=>{if(e.target.closest('[data-native-html]')){openNativeHtml();return;}const mode=e.target.closest('[data-display]');if(mode){$('#preview').odfDispose?.();if(mode.dataset.display==='source'&&['OUTLINE','MAP'].includes(documentKind(current()))&&view.state.doc.toString()!==current().text)view.setState(makeState(current()));$('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);isPreview=mode.dataset.display==='preview';if(['OUTLINE','MAP'].includes(documentKind(current())))view.dispatch({effects:sourceRendering.reconfigure(isPreview?[]:sourceRenderExtensions(current()))});updateEditorVisibility();if(isPreview)renderPreview();else{activateLanguage(current());view.focus();}}if(e.target.closest('[data-format]')){const doc=current();openModal('文件类型',`<label>编辑格式<select name="kind">${[['','按扩展名识别'],['TXT','纯文本'],['MD','Markdown'],['HTML','HTML'],['CSV','CSV 表格'],['VELA','VELA 工作区配置'],['GLY','术语库'],['OUTLINE','大纲'],['MAP','地图'],['TEX','LaTeX'],['CODE','代码']].map(([value,label])=>`<option value="${value}" ${value===(doc.kind||'')?'selected':''}>${label}</option>`).join('')}</select></label>`,f=>{doc.kind=f.get('kind')||undefined;isPreview=['CSV','VELA','GLY','VODT','PLUGIN','OUTLINE','MAP'].includes(documentKind(doc));refreshFileType(doc);save();});}};
 function showHome(){
   if(view){if(dirty&&!save())return;$('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);editorStates.set(workspace.activeId,view.state);rememberPosition(workspace.activeId,view.state);view.destroy();view=null;}
   ui.close();selectionMenu.hide();$('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);$('#preview').odfDispose?.();document.body.classList.remove('focus');
@@ -495,9 +496,10 @@ function linkOutlineSelection(){
 }
 let previewRevision=0;
 function renderPreview(){const revision=++previewRevision;
+  $('#preview').odfDispose?.();
   $('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);
   $('#preview').classList.toggle('velaodt-preview',documentKind(current())==='VODT');
-  if(documentKind(current())==='VODT'){const doc=current();renderOdfDocument({root:$('#preview'),doc,manage:showPlugins,exportText,exportBinary,onChange:text=>{if(projectLocked)throw Error('项目正在提交，请稍后编辑。');view.dispatch({changes:{from:0,to:view.state.doc.length,insert:text},userEvent:'input.richtext'});},onCopy:text=>addDocument(newDocument(doc.name.replace(/\.(velaodt|vodt|fodt)$/i,'')+'-可编辑副本'+(/\.vodt$/i.test(doc.name)?'.vodt':'.velaodt'),text)),onError:fail,onGlossary:addSelectionToGlossary});return;}
+  if(isComponentDocument(current())){const doc=current();renderComponentDocument({root:$('#preview'),doc,manage:showPlugins,exportText,exportBinary,onChange:text=>{if(projectLocked||current()!==doc||!isPreview)throw Error('请先打开当前文稿再编辑。');view.dispatch({changes:{from:0,to:view.state.doc.length,insert:text},userEvent:'input.richtext'});},onCopy:text=>{const dot=doc.name.lastIndexOf('.'),copy=newDocument(doc.name.slice(0,dot)+'-可编辑副本'+doc.name.slice(dot),text);if(documentKind(doc)==='PLUGIN'){copy.kind='PLUGIN';copy.formatId=doc.formatId;}return addDocument(copy);},onError:fail,onGlossary:addSelectionToGlossary});return;}
 
   if(documentKind(current())!=='TEX')texPreview?.dispose();
   $('#preview').className='markdown';
@@ -536,7 +538,7 @@ function applyCsv(){const source=view.state.doc.toString(),separator=current().d
 $('#preview').addEventListener('input',e=>{const cell=e.target.closest('[data-cell-row]');if(!cell)return;const row=Number(cell.dataset.cellRow),column=Number(cell.dataset.cellColumn);while(csvRows[row].length<=column)csvRows[row].push('');csvRows[row][column]=cell.value;applyCsv();});
 $('#preview').addEventListener('paste',e=>{const cell=e.target.closest('[data-cell-row]'),text=e.clipboardData?.getData('text/plain');if(!cell||!text?.includes('\t'))return;try{const grid=parseCsv(text,'\t'),row=Number(cell.dataset.cellRow),column=Number(cell.dataset.cellColumn);for(const [r,values] of grid.entries()){csvRows[row+r]||=[];for(const [c,value] of values.entries())csvRows[row+r][column+c]=value;}e.preventDefault();applyCsv();renderPreview();}catch(error){fail(error);}});
 async function openNativeHtml(){if(!save())return;try{await transport('previewHtml',{path:documentPath(current()),dark:workspace.settings.dark,language:workspace.settings.language,fontSize:textFontSize});}catch(error){fail(error);}}
-function togglePreview(){if(!current()||!view)return;$('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);if(isPreview&&['OUTLINE','MAP'].includes(documentKind(current()))&&view.state.doc.toString()!==current().text)view.setState(makeState(current()));isPreview=!isPreview;updateEditorVisibility();if(isPreview)renderPreview();else view.focus();}
+function togglePreview(){if(!current()||!view)return;$('#preview').odfDispose?.();$('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);if(isPreview&&['OUTLINE','MAP'].includes(documentKind(current()))&&view.state.doc.toString()!==current().text)view.setState(makeState(current()));isPreview=!isPreview;updateEditorVisibility();if(isPreview)renderPreview();else view.focus();}
 for(const [id,mark] of [['md-bold','**'],['md-italic','*'],['md-strike','~~'],['md-code','`']])$('#'+id).onclick=()=>inlineMarkup(view,mark);
 for(const [id,prefix] of [['md-heading','# '],['md-list','- '],['md-task','- [ ] '],['md-quote','> ']])$('#'+id).onclick=()=>lineMarkup(view,prefix);
 $('#markdown-tools').addEventListener('mousedown',e=>e.preventDefault());
@@ -666,8 +668,24 @@ $('#outline-toggle').onclick=()=>{if(pageName==='reader'){reader?.toggleOutline(
 $('#mobile-library').onclick=()=>{workspace.settings.libraryOpen=!document.body.classList.contains('show-library');if(workspace.settings.libraryOpen)renderDocuments();setSidebar('library',workspace.settings.libraryOpen,true);scheduleWorkspaceSave();};
 $('#close-outline').onclick=()=>setSidebar('outline',false);
 $('#export-doc').onclick=()=>exportText(current().name,current().text).then(result=>{if(result!==false)toast('文稿已导出');}).catch(fail);
-$('#import-doc').onclick=async()=>{if(native){try{const result=await transport('import',{});for(const file of result){if(ODF_PACKED.test(file.name)&&typeof file.data==='string'){const result=importOdfBytes(fromBase64(file.data),file.name);addDocument(newDocument(result.name,result.text));toast('ODF 已导入，原始包资源保留。');}else if(typeof file.text==='string'){if(ODF_FLAT.test(file.name))validateFlatOdf(file.text,file.name);addDocument(newDocument(fileName(file.name),normalizeText(file.text)));}else if(typeof file.data==='string'){if(!save())return;const path=uniquePath((selectedFolder?selectedFolder+'/':'')+file.name,itemPaths(workspace));applyFileState(await transport('writeWorkspaceFiles',{files:[{path,data:file.data}]}));}}if(result.length){projects.changed('import');toast('文件已导入工作区');}}catch(e){fail(e);}}else $('#file-input').click();};
-$('#file-input').onchange=async e=>{try{for(const file of e.target.files){if(file.size>MAX_TEXT_BYTES)throw new Error('请选择 8 MB 以内的文本文件。');const bytes=new Uint8Array(await file.arrayBuffer()),result=ODF_PACKED.test(file.name)?importOdfBytes(bytes,file.name):{name:file.name,text:decodeFileText(bytes)};if(ODF_FLAT.test(result.name))validateFlatOdf(result.text,result.name);addDocument(newDocument(fileName(result.name),normalizeText(result.text)));}projects.changed('import');}catch(err){fail(err);}finally{e.target.value='';}};
+const defaultImportAccept=$('#file-input').accept;
+async function importSelectedDocument(bytes,name){
+  const target=workspace,folder=selectedFolder,result=await prepareDocumentImport(bytes,name,decodeFileText);
+  if(workspace!==target)throw Error('工作区已切换，请重新导入。');
+  const doc=Object.assign(newDocument(fileName(result.name),result.kind?result.text:normalizeText(result.text)),result);
+  doc.path=(folder?folder+'/':'')+doc.name;
+  return addDocument(doc);
+}
+$('#import-doc').onclick=async()=>{if(native){try{
+  const result=await transport('import',{binaryExtensions:[...BINARY_DOCUMENT_EXTENSIONS,...documentImportExtensions()]});
+  for(const file of result){
+    if(documentProvider(file.name)||documentSourceProvider(file.name))await importSelectedDocument(typeof file.data==='string'?fromBase64(file.data):new TextEncoder().encode(file.text),file.name);
+    else if(typeof file.text==='string'&&!binaryDocumentName(file.name))await importSelectedDocument(new TextEncoder().encode(file.text),file.name);
+    else if(typeof file.data==='string'){if(!save())return;const path=uniquePath((selectedFolder?selectedFolder+'/':'')+file.name,itemPaths(workspace));applyFileState(await transport('writeWorkspaceFiles',{files:[{path,data:file.data}]}));}
+  }
+  if(result.length){projects.changed('import');toast('文件已导入工作区');}
+}catch(e){fail(e);}}else $('#file-input').click();};
+$('#file-input').onchange=async e=>{try{for(const file of e.target.files){if(file.size>documentImportLimit(file.name))throw Error('文件超过文档导入大小限制。');await importSelectedDocument(new Uint8Array(await file.arrayBuffer()),file.name);}projects.changed('import');}catch(err){fail(err);}finally{e.target.value='';}};
 async function checkWindowsUpdates(visible=false){const descriptor=await texCompiler?.assets.descriptor().catch(()=>null);return checkAppUpdates({openModal,transport,native,platform:environment?.platform||'',current:environment?.version||__VELA_HARMONY_VERSION__,lite:descriptor?!descriptor.builtin:true,installed:new Map((plugins?.records||[]).filter(record=>!record.builtin).map(record=>[record.manifest.id,record.manifest.version])),openPlugins:showPlugins,toast,remember:result=>{workspace.updateInfo={available:result.available,version:result.version,checkedAt:result.checkedAt};save();}},{visible});}
 window.addEventListener('resize',()=>{if(workspace&&pageName==='write'){updateEditorVisibility();view?.requestMeasure();}});
 
@@ -734,13 +752,13 @@ $('#settings').onclick=()=>{
 };
 
 function showView(name){
-  if(dirty&&!save())return;ui.close();pageName=name;document.body.dataset.page=name;document.body.classList.toggle('start-open',home&&name==='write');
+  if(dirty&&!save())return;if(name!=='write')$('#preview').odfDispose?.();ui.close();pageName=name;document.body.dataset.page=name;document.body.classList.toggle('start-open',home&&name==='write');
   document.querySelectorAll('[data-view]').forEach(b=>{b.classList.toggle('active',b.dataset.view===name);if(b.dataset.view===name)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
   for(const page of ['write','github','subscriptions','reader'])$('#'+page+'-view').hidden=page!==name;
   $('#sidebar-logout').disabled=!account;$('#add-glossary').disabled=name!=='write'||home||isPreview;
   if(name==='github'){document.body.classList.remove('focus');renderGitHub();}
   if(name==='subscriptions')subscriptions?.enter();else subscriptions?.leave();
-  if(name==='reader'){indexService=null;index=null;indexDoc=null;setSidebar('library',false);ensureReader().then(reader=>{if(pageName==='reader')reader.home();}).catch(error=>chunkFailure($('#reader-view'),error,()=>showView('reader')));}else{reader?.leave();updateEditorVisibility();}
+  if(name==='reader'){indexService=null;index=null;indexDoc=null;setSidebar('library',false);ensureReader().then(reader=>{if(pageName==='reader')reader.home();}).catch(error=>chunkFailure($('#reader-view'),error,()=>showView('reader')));}else{reader?.leave();updateEditorVisibility();if(name==='write'&&isPreview&&isComponentDocument(current()))renderPreview();}
   sidebars.update();
 }
 document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>showView(b.dataset.view));$('#github-shortcut').onclick=()=>showView('github');$('#sidebar-logout').onclick=logout;
@@ -1064,10 +1082,21 @@ async function hydratePlanningDocuments({paths=null,outlineOnly=false}={}){
  for(const doc of workspace.documents.filter(d=>documentKind(d)==='OUTLINE'))try{documents.outlineAnchors.open(doc);}catch{}
 }
 async function openLazyProjectDocument(path){
+  if(documentProvider(path)||documentSourceProvider(path)){
+    const target=workspace,entry=(workspace.entries||[]).find(e=>e.path===path),limit=documentImportLimit(path);
+    if(entry?.size>limit)throw Error('文件超过文档插件的导入大小限制。');
+    const {bytes,revision}=await readDocumentBytes(async args=>{const part=await projects.backend.call('read','host',{root:'',...args});return {...part,bytes:fromBase64(part.data)};},path,limit);
+    const result=await prepareDocumentImport(bytes,basename(path),decodeFileText);
+    if(workspace!==target)throw Error('工作区已切换，请重新打开文件。');
+    if(result.name===basename(path)&&!binaryDocumentName(path))return openProjectDocument(path,{text:result.text,revision},{format:result});
+    const doc=Object.assign(newDocument(result.name,result.text),result);
+    doc.path=(parentPath(path)?parentPath(path)+'/':'')+result.name;
+    return addDocument(doc);
+  }
   const p=projects.projects().filter(p=>(!p.root||path.startsWith(p.root+'/'))).sort((a,b)=>b.root.length-a.root.length)[0];if(!p)throw new Error('文件不属于 .vela 工作区。');const binding=projects.bind('vela.builtin.filebrowser','文件浏览器');try{await binding.api.workspace.open({workspaceId:p.id});await binding.api.documents.open({workspaceId:p.id,path:path.slice(p.root?p.root.length+1:0),focus:true});}finally{await binding.stop();}
 }
 async function openProjectDocument(path,read,args={}){
-  if(projectLocked)throw new Error('项目正在提交，请稍后打开文稿。');let doc=workspace.documents.find(d=>documentPath(d)===path);if(!doc){doc=newDocument(basename(path),read.text);doc.text=read.text;doc.path=path;doc.id=workspace.pluginProject?.entries[path]||doc.id;workspace.documents.push(doc);documents.register(doc);}switchDocument(doc.id);if(args.selection&&view)view.dispatch({selection:{anchor:args.selection.from,head:args.selection.to},scrollIntoView:true});if(args.focus!==false)view?.focus();return {documentId:doc.id,revision:read.revision};
+  if(projectLocked)throw new Error('项目正在提交，请稍后打开文稿。');let doc=workspace.documents.find(d=>documentPath(d)===path);if(!doc){doc=newDocument(basename(path),read.text);doc.text=read.text;doc.path=path;doc.id=workspace.pluginProject?.entries[path]||doc.id;workspace.documents.push(doc);documents.register(doc);}if(args.format){doc.kind=args.format.kind;doc.formatId=args.format.formatId;}switchDocument(doc.id);if(args.selection&&view)view.dispatch({selection:{anchor:args.selection.from,head:args.selection.to},scrollIntoView:true});if(args.focus!==false)view?.focus();return {documentId:doc.id,revision:read.revision};
 }
 async function boot(){try{
   await recoverBrowserProjects();
@@ -1100,5 +1129,11 @@ async function boot(){try{
   if(native){try{const user=await gh.user();account=user;$('#sidebar-logout').disabled=false;$('#account-label').textContent=gitName()+' · '+user.login;repositories=await gh.repositories();}catch{if(workspace.githubCache?.login&&(workspace.githubCache.provider||'github')===gh.provider){account={login:workspace.githubCache.login};repositories=workspace.githubCache.repositories||[];githubOffline=true;$('#sidebar-logout').disabled=false;$('#account-label').textContent=account.login+' · '+t('离线');}}}
 }catch(e){bootFailed=true;$('#editor').innerHTML=`<div class="blank"><h2>无法读取本地文稿</h2><p>${esc(e.message)}</p><p>原始数据已保留，请勿清除应用数据。可先导出原始文件进行恢复。</p><button id="recover-data" class="primary">导出原始数据</button></div>`;$('#recover-data').onclick=()=>exportText('文舟-恢复数据.json',readWorkspace()||'').catch(fail);document.querySelectorAll('button').forEach(b=>{if(b.id!=='recover-data')b.disabled=true;});}}
 window.wenzhouBack=()=>{if(isPreview&&documentKind(current())==='MAP'&&mapBack())return true;if(home&&pageName==='write'&&$('#start-page').dataset.panel==='recent'){setStartPanel($('#start-page'),'actions');return true;}if(pageName==='reader'&&reader?.id){reader.home();return true;}if(pageName!=='write'){showView('write');return true;}return false;};
-onDocumentFormatsChange(()=>{if(current()&&isPreview&&documentKind(current())==='VODT')renderPreview();if(reader?.kind==='VODT'&&reader.id)reader.open(reader.id).catch(fail);});
+onDocumentFormatsChange(()=>{
+  $('#file-input').accept=[defaultImportAccept,...documentImportExtensions()].join(',');
+  for(const doc of workspace?.documents||[])if(documentSourceProvider(doc.name)&&documentKind(doc)!=='VODT'){doc.kind='PLUGIN';doc.formatId=documentSourceProvider(doc.name).id;}
+  if(current()&&isPreview&&isComponentDocument(current()))renderPreview();
+  if(['VODT','PLUGIN'].includes(reader?.kind)&&reader.id)reader.open(reader.id).catch(fail);
+  if(workspace){fileListRevision='';renderDocuments();}
+});
 boot();

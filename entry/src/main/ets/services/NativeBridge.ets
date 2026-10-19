@@ -17,6 +17,7 @@ import { ReleaseDownloads } from './ReleaseDownloads';
 interface ProjectSystemError { code?: number; message?: string; }
 
 interface BridgeRequest {
+  binaryExtensions?: string[];
   owner?: string;
   request?: string;
   path?: string;
@@ -394,16 +395,16 @@ export class NativeBridge {
         const clip = await pasteboard.getSystemPasteboard().getData();
         return this.success(await clip.getPrimaryText());
       }
-      if (operation === 'export' || operation === 'exportPdf' || operation === 'exportOdt' || operation === 'exportPng') {
+      if (operation === 'export' || operation === 'exportPdf' || operation === 'exportOdt' || operation === 'exportPng' || operation === 'exportBinary') {
         const name = data.name || '文稿.txt';
         if (/[\\/\x00-\x1f]/.test(name)) throw new Error('文件名无效。');
         const documentPicker = new picker.DocumentViewPicker(this.getContext());
         const options: picker.DocumentSaveOptions = { newFileNames: [name] };
         const uris = await documentPicker.save(options);
         if (uris.length === 0) return this.success(false);
-        if (operation === 'exportPdf' || operation === 'exportOdt' || operation === 'exportPng') {
+        if (operation === 'exportPdf' || operation === 'exportOdt' || operation === 'exportPng' || operation === 'exportBinary') {
           const bytes = new util.Base64Helper().decodeSync(data.data || '');
-          if (bytes.length < 5 || bytes.length > 32 * 1024 * 1024 || (operation === 'exportPng' ? bytes.length < 8 || bytes[0] !== 137 || bytes[1] !== 80 || bytes[2] !== 78 || bytes[3] !== 71 || bytes[4] !== 13 || bytes[5] !== 10 || bytes[6] !== 26 || bytes[7] !== 10 : operation === 'exportPdf' ? new util.TextDecoder('utf-8').decodeToString(bytes.slice(0, 5)) !== '%PDF-' : bytes[0] !== 0x50 || bytes[1] !== 0x4b)) throw new Error('PDF 无效或超过 32 MB。');
+          if (bytes.length < 1 || bytes.length > 32 * 1024 * 1024 || operation !== 'exportBinary' && (bytes.length < 5 || (operation === 'exportPng' ? bytes.length < 8 || bytes[0] !== 137 || bytes[1] !== 80 || bytes[2] !== 78 || bytes[3] !== 71 || bytes[4] !== 13 || bytes[5] !== 10 || bytes[6] !== 26 || bytes[7] !== 10 : operation === 'exportPdf' ? new util.TextDecoder('utf-8').decodeToString(bytes.slice(0, 5)) !== '%PDF-' : bytes[0] !== 0x50 || bytes[1] !== 0x4b))) throw new Error('PDF 无效或超过 32 MB。');
           const file = fs.openSync(uris[0], fs.OpenMode.WRITE_ONLY | fs.OpenMode.CREATE | fs.OpenMode.TRUNC);
           try { const buffer = new ArrayBuffer(bytes.byteLength); new Uint8Array(buffer).set(bytes); fs.writeSync(file.fd, buffer); } finally { fs.closeSync(file); }
         } else this.writeFile(uris[0], data.text || '');
@@ -429,7 +430,8 @@ export class NativeBridge {
               offset += count;
             }
             const imported: ImportedFile = { name: decodedFileName(new fileUri.FileUri(uri).name) };
-            try { imported.text = decodeFileText(new Uint8Array(buffer)); }
+            const raw = (data.binaryExtensions || []).some(ext => /^\.[a-z0-9]+$/.test(ext) && imported.name.toLowerCase().endsWith(ext));
+            try { if (raw) imported.data = new util.Base64Helper().encodeToStringSync(new Uint8Array(buffer)); else imported.text = decodeFileText(new Uint8Array(buffer)); }
             catch (error) { imported.data = new util.Base64Helper().encodeToStringSync(new Uint8Array(buffer)); }
             files.push(imported);
           } finally {

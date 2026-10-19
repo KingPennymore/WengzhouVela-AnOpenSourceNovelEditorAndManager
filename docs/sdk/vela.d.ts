@@ -38,11 +38,15 @@ export interface Page {
 }
 export interface DocumentFormatProvider {
   id: string; extensions: string[];
-  importBytes(bytes: Uint8Array, name: string): { name: string; text: string };
+  /** Text source extensions; defaults to extensions for API v1 providers. Binary imports must return a separate text source name. */
+  sourceExtensions?: string[];
+  /** Defaults to 8 MiB, at most 32 MiB. Persisted text sources remain limited to 8 MiB. */
+  maxImportBytes?: number;
+  importBytes(bytes: Uint8Array, name: string, options?: { signal?: AbortSignal }): { name: string; text: string } | Promise<{ name: string; text: string }>;
   validate?(source: string): unknown;
   plainText(source: string): string;
   toHtml(source: string): string;
-  render(options: { root: HTMLElement; doc: { id: string; name: string; text: string }; onChange(text: string): void; onCopy(text: string): void; onError(error: Error): void; onGlossary?: (text: string) => void; manage(): void; exportText(name: string, text: string): Promise<unknown>; exportBinary(name: string, bytes: Uint8Array, mime?: string): Promise<unknown> }): void;
+  render(options: { root: HTMLElement; doc: { id: string; name: string; text: string }; signal: AbortSignal; onChange(text: string): void; onCopy(text: string): void; onError(error: Error): void; onGlossary?: (text: string) => void; manage(): void; exportText(name: string, text: string): Promise<unknown>; exportBinary(name: string, bytes: Uint8Array, mime?: string): Promise<unknown> }): void | (() => void);
 }
 /** Project interface (workspaces, file transactions, imports, snapshots): `vela.project` in plugin API 4. */
 export interface VelaProject {

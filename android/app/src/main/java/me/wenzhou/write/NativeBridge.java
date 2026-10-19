@@ -78,7 +78,7 @@ final class NativeBridge {
                     }
                     activity.deliver(requestId, success(projects.call(action, owner, args))); return;
                 }
-                if (Arrays.asList("import", "export", "exportPdf", "exportOdt", "exportPng", "importPlugin", "importImage").contains(operation)) { activity.pick(requestId, operation, data); return; }
+                if (Arrays.asList("import", "export", "exportPdf", "exportOdt", "exportPng", "exportBinary", "importPlugin", "importImage").contains(operation)) { activity.pick(requestId, operation, data); return; }
                 Object value = dispatch(operation, data, generation);
                 activity.deliver(requestId, success(value));
             } catch (Exception error) { activity.deliver(requestId, failure(operation.equals("project") ? projectError(error) : error)); }

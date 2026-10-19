@@ -7,7 +7,7 @@ import {parseDocumentVela,sidecarText,readSidecar,resolveSidecar,resolveRecord,s
 import {createVelaV2} from './vela-v2.mjs';
 export {createVelaV2,effectiveVela,configStyles} from './vela-v2.mjs';
 
-export const readable=doc=>['TXT','MD','HTML','CSV','TEX','CODE','PDF','VODT'].includes(documentKind(doc));
+export const readable=doc=>['TXT','MD','HTML','CSV','TEX','CODE','PDF','VODT','PLUGIN'].includes(documentKind(doc));
 export const GLOBAL_VELA_PATH='.global.vela';
 export const readingLayoutDefaults=Object.freeze({lineHeight:1.9,marginTop:24,marginBottom:24,marginLeft:35,marginRight:35});
 export function readingLayout(value={}){

@@ -234,10 +234,10 @@ public final class MainActivity extends Activity {
             if (pickerId != null) { deliver(id, NativeBridge.failure(new IOException("请先完成当前文件选择。"))); return; }
             try {
                 Intent intent;
-                if ((operation.equals("export") || (operation.equals("exportPdf") || operation.equals("exportOdt") || operation.equals("exportPng")) || operation.equals("project-export"))) {
+                if ((operation.equals("export") || (operation.equals("exportPdf") || operation.equals("exportOdt") || operation.equals("exportPng") || operation.equals("exportBinary")) || operation.equals("project-export"))) {
                     String name = data.optString("name", "文稿.txt");
                     if (name.isEmpty() || name.matches("(?s).*[\\\\/\u0000-\u001f].*")) throw new IOException("文件名无效。");
-                    intent = new Intent(Intent.ACTION_CREATE_DOCUMENT).setType(operation.equals("project-export") ? PreviewResource.mime(name) : mime(name)); intent.putExtra(Intent.EXTRA_TITLE, name);
+                    intent = new Intent(Intent.ACTION_CREATE_DOCUMENT).setType((operation.equals("project-export") || operation.equals("exportBinary")) ? PreviewResource.mime(name) : mime(name)); intent.putExtra(Intent.EXTRA_TITLE, name);
                 } else {
                     intent = new Intent(Intent.ACTION_OPEN_DOCUMENT).setType(operation.equals("importImage") ? "image/*" : operation.equals("importPlugin") ? "application/zip" : "*/*");
                     if (operation.equals("importImage")) intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{"image/png", "image/jpeg", "image/webp"});
@@ -280,11 +280,11 @@ public final class MainActivity extends Activity {
                     value = new JSONObject().put("cancelled", false).put("selections", selections);
                 } else if (operation.equals("project-export")) {
                     value = bridge.projects.deliver(payload.getString("owner"), payload.getJSONObject("args"), uris.get(0));
-                } else if ((operation.equals("export") || (operation.equals("exportPdf") || operation.equals("exportOdt") || operation.equals("exportPng")))) {
+                } else if ((operation.equals("export") || (operation.equals("exportPdf") || operation.equals("exportOdt") || operation.equals("exportPng") || operation.equals("exportBinary")))) {
                     try (OutputStream stream = getContentResolver().openOutputStream(uris.get(0), "wt")) {
                         if (stream == null) throw new IOException("无法写入所选文件。");
-                        byte[] output = (operation.equals("exportPdf") || operation.equals("exportOdt") || operation.equals("exportPng")) ? android.util.Base64.decode(payload.optString("data"), android.util.Base64.DEFAULT) : payload.optString("text").getBytes(StandardCharsets.UTF_8);
-                        if ((operation.equals("exportPdf") || operation.equals("exportOdt") || operation.equals("exportPng")) && (output.length < 5 || output.length > 32 * 1024 * 1024 || (operation.equals("exportPng") ? output.length < 8 || output[0] != (byte)137 || output[1] != 80 || output[2] != 78 || output[3] != 71 || output[4] != 13 || output[5] != 10 || output[6] != 26 || output[7] != 10 : operation.equals("exportPdf") ? !new String(output, 0, 5, StandardCharsets.US_ASCII).equals("%PDF-") : output[0] != 0x50 || output[1] != 0x4b))) throw new IOException("导出文档无效或超过 32 MB。");
+                        byte[] output = (operation.equals("exportPdf") || operation.equals("exportOdt") || operation.equals("exportPng") || operation.equals("exportBinary")) ? android.util.Base64.decode(payload.optString("data"), android.util.Base64.DEFAULT) : payload.optString("text").getBytes(StandardCharsets.UTF_8);
+                        if ((operation.equals("exportPdf") || operation.equals("exportOdt") || operation.equals("exportPng") || operation.equals("exportBinary")) && (output.length < 1 || output.length > 32 * 1024 * 1024 || !operation.equals("exportBinary") && (output.length < 5 || (operation.equals("exportPng") ? output.length < 8 || output[0] != (byte)137 || output[1] != 80 || output[2] != 78 || output[3] != 71 || output[4] != 13 || output[5] != 10 || output[6] != 26 || output[7] != 10 : operation.equals("exportPdf") ? !new String(output, 0, 5, StandardCharsets.US_ASCII).equals("%PDF-") : output[0] != 0x50 || output[1] != 0x4b)))) throw new IOException("导出文档无效或超过 32 MB。");
                         stream.write(output); stream.flush();
                     }
                     value = true;
@@ -294,7 +294,12 @@ public final class MainActivity extends Activity {
                     JSONArray files = new JSONArray();
                     for (Uri uri : uris) {
                         byte[] bytes = documentBytes(uri); JSONObject file = new JSONObject().put("name", displayName(uri));
-                        try { file.put("text", FileText.decode(bytes)); }
+                        JSONArray binaryExtensions = payload.optJSONArray("binaryExtensions");
+                        String lowerName = file.getString("name").toLowerCase(java.util.Locale.ROOT);
+                        boolean raw = false;
+                        if (binaryExtensions != null) for (int i = 0; i < binaryExtensions.length(); i++) { String ext = binaryExtensions.optString(i); if (ext.matches("\\.[a-z0-9]+") && lowerName.endsWith(ext)) raw = true; }
+                        if (raw) file.put("data", android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP));
+                        else try { file.put("text", FileText.decode(bytes)); }
                         catch (IOException binary) { file.put("data", android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)); }
                         files.put(file);
                     }

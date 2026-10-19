@@ -1,3 +1,4 @@
+import {documentSourceProvider} from './document-components.mjs';
 export const MAX_TEXT_BYTES = 8 * 1024 * 1024;
 export function newDocument(name = '未命名文稿.md', text = '') {
   return { id: crypto.randomUUID(), name, text, updatedAt: Date.now(), remote: null };
@@ -34,7 +35,7 @@ export function fileName(value) {
   return /\.[^.]+$/.test(name) ? name : name + '.md';
 }
 export function fileKind(name) { return /\.(process|pcs)$/i.test(name)?'OUTLINE':/\.(velamap|vlmp)$/i.test(name)?'MAP':/\.(velaodt|vodt|fodt|fods|fodp|fodg)$/i.test(name)?'VODT':/\.(gly|glossary)$/i.test(name)?'GLY':/\.vela$/i.test(name)?'VELA':/\.(csv|tsv)$/i.test(name)?'CSV':/\.html?$/i.test(name)?'HTML':/\.(md|markdown|mdown|mkd)$/i.test(name)?'MD':/\.(tex|latex|ltx)$/i.test(name)?'TEX':/\.(js|jsx|mjs|cjs|ts|tsx|py|pyw|css|scss|sass|less|json|json5|jsonl|xml|svg|yaml|yml|toml|ini|conf|cfg|sh|bash|zsh|java|c|cpp|cc|h|hpp|cs|rs|go|kt|kts|sql|php|rb|lua|diff|patch|bib|r|swift|vue|svelte|dockerfile)$/i.test(name)||/^(Dockerfile|Makefile|CMakeLists\.txt)$/i.test(name)?'CODE':'TXT'; }
-export function documentKind(doc){return /\.pdf$/i.test(doc?.name||'')||doc?.kind==='PDF'?'PDF':['TXT','MD','HTML','CSV','VELA','GLY','TEX','CODE','VODT','OUTLINE','MAP'].includes(doc?.kind)?doc.kind:fileKind(doc?.name||'');}
+export function documentKind(doc){return /\.pdf$/i.test(doc?.name||'')||doc?.kind==='PDF'?'PDF':['TXT','MD','HTML','CSV','VELA','GLY','TEX','CODE','VODT','OUTLINE','MAP','PLUGIN'].includes(doc?.kind)?doc.kind:documentSourceProvider(doc?.name||'')&&!/\.(velaodt|vodt|fodt|fods|fodp|fodg)$/i.test(doc?.name||'')?'PLUGIN':fileKind(doc?.name||'');}
 export function repoPath(value) {
   const path = value.trim();
   if (!path || path.startsWith('/') || /[\\\x00-\x1f]/.test(path) || path.split('/').some(p => !p || p === '.' || p === '..')) throw new Error('请填写有效的仓库相对路径，例如 chapters/第一章.md。');
