@@ -17,7 +17,8 @@ export class SidebarViews {
    bar.append(glyph,title,select,actions,close);parent.append(bar);parent.classList.add('has-sidebar-views');this.regions[side]={builtin,shell,parent,bar,select,glyph,title,actions};
    shell.addEventListener('keydown',e=>{if(e.key==='Escape'&&!e.defaultPrevented){e.stopPropagation();this.close(side);}});
   }
-  document.addEventListener('pointerdown',event=>{if(innerWidth>600||event.target.closest('dialog,#toolbar-overflow,.topbar'))return;for(const [side,region] of Object.entries(this.regions))if(document.body.classList.contains(side==='left'?'show-library':'show-outline')&&!region.shell.contains(event.target))this.open(side,false);});
+  document.getElementById('app').addEventListener('sidebar-layout-settled',()=>this.refresh());
+  document.addEventListener('pointerdown',event=>{if(innerWidth>600||event.target.closest('dialog,#toolbar-overflow,.topbar,.app-choice-menu'))return;for(const [side,region] of Object.entries(this.regions))if(document.body.classList.contains(side==='left'?'show-library':'show-outline')&&!region.shell.contains(event.target))this.open(side,false);});
  }
  close(side){this.open(side,false);document.getElementById(side==='left'?'mobile-library':'outline-toggle')?.focus({preventScroll:true});}
  available(view){const c=this.context();return c.page==='write'&&!!c.file&&(!view.documentKinds||view.documentKinds.includes(c.kind))&&(!view.modes||view.modes.includes(c.mode));}
@@ -30,20 +31,21 @@ export class SidebarViews {
  }
  select(side,key,remember=true){const view=this.views.get(key);if(key!=='builtin'&&(!view||view.side!==side||!this.available(view)))return;this.selected[side]=key;if(remember){this.preferred[side]=key;try{localStorage.setItem('vela.sidebar-views',JSON.stringify(this.preferred));}catch{}}this.refresh();}
  refresh(){
-  const context=this.context();
+  const context=this.context();let needsLayout=false;
   for(const [side,region] of Object.entries(this.regions)){
    const eligible=[...this.views.values()].filter(view=>view.side===side&&this.available(view)),preferred=this.preferred[side];
    let key=this.selected[side];if(key!=='builtin'&&!eligible.some(v=>v.key===key))key='builtin';if(preferred&&eligible.some(v=>v.key===preferred))key=preferred;
-   this.selected[side]=key;const signature=JSON.stringify(eligible.map(v=>[v.key,v.title]));if(region.signature!==signature){region.signature=signature;region.select.replaceChildren();for(const [id,title] of [['builtin',t(side==='left'?'文件':'章节目录')],...eligible.map(v=>[v.key,v.title])])region.select.add(new Option(title,id));}region.select.value=key;region.select.hidden=!eligible.length;region.title.hidden=!!eligible.length;region.actions.hidden=key!=='builtin';const glyph=this.views.get(key)?.icon||(side==='left'?'files':'outline');if(region.glyphName!==glyph){region.glyphName=glyph;region.glyph.innerHTML=icon(glyph);}region.builtin.hidden=key!=='builtin';const custom=String(key!=='builtin'),layoutChanged=region.shell.dataset.sidebarCustom!==custom;region.shell.dataset.sidebarCustom=custom;if(layoutChanged)this.onLayout();
+   this.selected[side]=key;const signature=JSON.stringify(eligible.map(v=>[v.key,v.title]));if(region.signature!==signature){region.signature=signature;region.select.replaceChildren();for(const [id,title] of [['builtin',t(side==='left'?'文件':'章节目录')],...eligible.map(v=>[v.key,v.title])])region.select.add(new Option(title,id));}region.select.value=key;region.select.hidden=!eligible.length;region.title.hidden=!!eligible.length;region.actions.hidden=key!=='builtin';const glyph=this.views.get(key)?.icon||(side==='left'?'files':'outline');if(region.glyphName!==glyph){region.glyphName=glyph;region.glyph.innerHTML=icon(glyph);}region.builtin.hidden=key!=='builtin';const custom=String(key!=='builtin'),layoutChanged=region.shell.dataset.sidebarCustom!==custom;region.shell.dataset.sidebarCustom=custom;if(layoutChanged)needsLayout=true;
    const open=document.body.classList.contains(side==='left'?'show-library':'show-outline');
    for(const view of [...this.views.values()].filter(v=>v.side===side)){
     const visible=key===view.key&&open&&this.available(view)&&!document.hidden&&(side!=='right'||!document.body.classList.contains('focus'));
     if(visible&&!view.mounted){const body=document.createElement('section');body.className='sidebar-view-body';body.dataset.sidebarView=view.key;body.setAttribute('aria-label',view.title);region.parent.append(body);view.body=body;view.controller=new AbortController();view.mounted=true;body.addEventListener('keydown',e=>{if(e.key==='Escape'&&!e.defaultPrevented){e.stopPropagation();this.close(side);}});
      try{view.cleanup=view.mount({body,context:structuredClone(context),signal:view.controller.signal});if(view.cleanup&&typeof view.cleanup!=='function')throw invalid('mount 应同步返回清理函数。');}catch(error){this.onError(error);this.remove(view.key);break;}
     }
-    if(view.body){view.body.hidden=!visible;view.body.setAttribute('aria-label',view.title);}if(visible!==view.visible){view.visible=visible;this.call(visible?view.onShow:view.onHide,structuredClone(context));}if(visible)this.call(view.onContextChange,structuredClone(context));
+    if(view.body){view.body.hidden=!visible&&!(key===view.key&&region.shell.dataset.drawerClosing==='true');view.body.setAttribute('aria-label',view.title);}if(visible!==view.visible){view.visible=visible;this.call(visible?view.onShow:view.onHide,structuredClone(context));}if(visible)this.call(view.onContextChange,structuredClone(context));
    }
   }
+  if(needsLayout)this.onLayout();
  }
  remove(key){const view=this.views.get(key);if(!view)return;this.views.delete(key);view.controller?.abort();if(view.visible)this.call(view.onHide,this.context());this.call(view.cleanup);view.body?.remove();if(this.selected[view.side]===key)this.selected[view.side]='builtin';this.refresh();}
  dispose(owner){for(const view of [...this.views.values()])if(view.owner===owner)this.remove(view.key);}

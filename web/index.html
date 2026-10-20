@@ -5,6 +5,8 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' blob: 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline' blob:; img-src 'self' data: blob: vela: https://wenzhou-project.local; font-src 'self' blob: vela: https://wenzhou-project.local; media-src 'self' blob: vela: https://wenzhou-project.local; connect-src 'self' https://api.github.com https://gitee.com blob: vela: https://wenzhou-project.local; worker-src 'self' blob:; frame-src 'self' blob: https://wenzhou-preview.local; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>文舟 · 小说编辑器</title>
+  <link rel="stylesheet" href="./startup.css">
+  <script src="./startup.js"></script>
   <link rel="stylesheet" href="./style.css">
   <link rel="stylesheet" href="./file-manager.css">
   <link rel="stylesheet" href="./katex.min.css">
@@ -13,6 +15,7 @@
   <link rel="stylesheet" href="./refinement.css">
 </head>
 <body>
+<div id="startup-screen" role="status" aria-label="正在打开文舟"><div class="startup-brand"><svg viewBox="0 0 192 192" aria-hidden="true"><path d="M37 129h120l-34 34H70zM95 28v86H43zM111 46l47 68h-47z" fill="currentColor"/></svg><span>文舟</span></div></div>
 <div id="app">
   <div id="library-shell" class="library-shell"><div class="library-panel">
   <aside class="library" id="library">

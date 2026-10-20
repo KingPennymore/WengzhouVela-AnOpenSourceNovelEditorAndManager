@@ -81,6 +81,8 @@
 
   /* The form scrolls independently; its primary action remains within reach. */
   .map-point-sheet {inset:52px 0 0 auto;width:var(--planning-pane-width,340px);height:auto;max-height:none;border-radius:var(--radius) 0 0 var(--radius);padding:0;z-index:10}
+  /* Link pickers stack above the point editor instead of hiding it. */
+  .planning-sheet-overlay {z-index:11}
   .map-point-sheet .planning-sheet-surface {height:auto;min-height:0;max-height:100%;flex:1}
   .map-point-sheet header {padding:10px 16px;min-height:56px}
   .map-point-sheet header strong {font-size:14px;font-weight:500}
@@ -130,6 +132,8 @@
     #app {--sidebar-top-clearance:52px}
     body[data-planning]:not([data-planning=""]) #app {--sidebar-top-clearance:108px}
     #app :is(.library-shell,.outline-shell) {position:fixed;inset:auto 8px calc(var(--sidebar-bottom,80px) + var(--safe-bottom,0px));height:min(64dvh,520px);max-height:calc(var(--app-height,100dvh) - var(--shell-top,60px) - var(--safe-top,0px) - var(--sidebar-bottom,80px) - var(--sidebar-top-clearance));width:auto!important;z-index:30;border:1px solid var(--hairline);border-radius:var(--radius);background:var(--panel);box-shadow:var(--elev-3)}
+    #app .library-shell {transform:translate3d(0,calc((1 - var(--left-drawer-progress,0)) * (100% + 16px)),0);opacity:var(--left-drawer-progress,0)}
+    #app .outline-shell {transform:translate3d(0,calc((1 - var(--right-drawer-progress,0)) * (100% + 16px)),0);opacity:var(--right-drawer-progress,0)}
     #app .library-shell>.library-panel {width:100%;inset:0}
     #app .library-panel>#library {width:100%}
     #app .outline-shell>#outline,#app .outline-shell>.sidebar-view-body {width:100%}

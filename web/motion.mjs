@@ -16,10 +16,12 @@ function replay(element,...names){
 }
 
 export function stagger(root){
-  if(reducedMotion()||!root)return;
-  [...root.querySelectorAll(staggerTargets)].filter(item=>item.offsetParent!==null).slice(0,staggerLimit).forEach((item,index)=>{
-    item.style.setProperty('--stagger',index);replay(item,'stagger-in');
-  });
+  if(reducedMotion()||!root||document.documentElement.dataset.startup)return;
+  const items=[...root.querySelectorAll(staggerTargets)].filter(item=>item.offsetParent!==null).slice(0,staggerLimit);
+  for(const [index,item] of items.entries()){item.classList.remove('stagger-in');item.style.setProperty('--stagger',index);}
+  // One style flush for the entire group, rather than one full layout per card.
+  if(items.length)void root.offsetWidth;
+  for(const item of items){item.classList.add('stagger-in');item.addEventListener('animationend',function done(event){if(event.target!==item)return;item.classList.remove('stagger-in');item.removeEventListener('animationend',done);});}
 }
 
 function navIndicator(){
@@ -89,7 +91,7 @@ function savedPulse(){
 // applyTheme() calls beginThemeShift() before toggling; the observer only covers other code that toggles `dark`.
 let themeTimer=0;
 export function beginThemeShift(){
-  if(reducedMotion())return;
+  if(reducedMotion()||document.documentElement.dataset.startup)return;
   document.documentElement.classList.add('theme-shift');clearTimeout(themeTimer);
   themeTimer=setTimeout(()=>document.documentElement.classList.remove('theme-shift'),480);
 }

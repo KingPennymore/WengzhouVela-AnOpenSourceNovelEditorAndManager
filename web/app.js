@@ -8,7 +8,7 @@ import {ViewContext,BackgroundTasks} from './extension-services.mjs';
 import {bindPanelTapGuard} from './tap-guard.mjs';
 bindPanelTapGuard();
 import {bindAppChoices} from './app-choices.mjs';
-bindAppChoices();
+const closeAppChoices=bindAppChoices();
 import {outlineMarkers,outlineMarksChanged} from './outline-markers.mjs';
 import {startPageMarkup,setStartPanel} from './start-page.mjs';
 import {templatesFor,templateText} from './file-templates.mjs';
@@ -19,6 +19,7 @@ import {bindStylePanel} from './format-style-panel.mjs';
 import {readImportedArchive} from './imported-archive.mjs';
 import {isTexComponentArchive} from './tex-component.mjs';
 import {icon,fileIcon} from './icons.mjs';
+import {planningTopSheet} from './planning-sheet.mjs';
 import {EditorState,Compartment,Transaction} from '@codemirror/state';
 import {EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter} from '@codemirror/view';
 import {history, historyKeymap, defaultKeymap, undo, redo, undoDepth, redoDepth} from '@codemirror/commands';
@@ -134,7 +135,7 @@ Object.defineProperty(window,'velaEditorView',{get:()=>view,configurable:true});
 const pluginUi=new PluginUiHost({roots:pluginRoots,shell:ui,builtins:()=>builtinControls,onError:error=>fail(error)});initMotion();
 const sidebars=new SidebarLayout(()=>view?.requestMeasure());
 const extensionContext=new ViewContext(()=>{const doc=workspace?.documents.find(d=>d.id===workspace.activeId),selection=view?.state.selection.main;return {file:doc?{id:doc.id,name:doc.name,path:documentPath(doc)}:null,kind:doc?documentKind(doc):null,mode:isPreview?'preview':'source',page:pageName,selection:!home&&pageName==='write'&&isPreview&&['MAP','OUTLINE'].includes(doc?documentKind(doc):null)?$('#preview').planningApi?.selection?.()||null:selection?{from:selection.from,to:selection.to}:null};});
-const sidebarViews=new SidebarViews({context:()=>extensionContext.get(),onLayout:()=>sidebars.update(false),open:(side,open)=>setSidebar(side==='left'?'library':'outline',open),onError:fail});
+const sidebarViews=new SidebarViews({context:()=>extensionContext.get(),onLayout:()=>sidebars.update(),open:(side,open)=>setSidebar(side==='left'?'library':'outline',open),onError:fail});
 const extensionTasks=new BackgroundTasks();
 const mapDirectory=registerMapDirectory({sidebars:sidebarViews,context:extensionContext,snapshot:()=>planningPreview()&&documentKind(current())==='MAP'?$('#preview').planningApi?.snapshot():null,navigate:spec=>$('#preview').planningApi?.navigate(spec),apply:async patch=>{const doc=current(),expected=doc.text,{applyPlanningChanges}=await import('./planning-transactions.mjs');return applyExtensionPlanning(doc.id,applyPlanningChanges('MAP',expected,[{op:'update',collection:'labels',id:'map',patch}]),expected);},escape:esc,fail});
 extensionContext.subscribe(()=>sidebarViews.refresh());
@@ -209,10 +210,10 @@ async function runScheduledSave(kind){
 }
 function scheduleWorkspaceSave(){clearTimeout(workspaceSaveTimer);workspaceSaveTimer=setTimeout(()=>runScheduledSave('workspace'),300);}
 window.wenzhouSave=()=>{rememberPosition(workspace?.activeId,view?.state);return save();};
-window.addEventListener('pagehide',()=>{rememberPosition(workspace?.activeId,view?.state);if(dirty||workspaceSaveTimer!==null||documents?.dirty.size)save();});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){const moved=rememberPosition(workspace?.activeId,view?.state);if(moved||dirty||workspaceSaveTimer!==null)save();}});
-window.addEventListener('blur',()=>{if(dirty||workspaceSaveTimer!==null)save();});
-window.addEventListener('beforeunload',e=>{if((dirty||workspaceSaveTimer!==null)&&!save()){e.preventDefault();e.returnValue='';}});
+window.addEventListener('pagehide',()=>{rememberPosition(workspace?.activeId,view?.state);if(dirty||workspaceSaveTimer!==null||backgroundSavePromise||documents?.dirty.size)save();});
+document.addEventListener('visibilitychange',()=>{if(document.hidden){const moved=rememberPosition(workspace?.activeId,view?.state);if(moved||dirty||workspaceSaveTimer!==null||backgroundSavePromise)save();}});
+window.addEventListener('blur',()=>{if(dirty||workspaceSaveTimer!==null||backgroundSavePromise)save();});
+window.addEventListener('beforeunload',e=>{if((dirty||workspaceSaveTimer!==null||backgroundSavePromise)&&!save()){e.preventDefault();e.returnValue='';}});
 function ensureIndex(){const doc=view.state.doc,writer=documentKind(current())==='TEX'?{...projectWriter(workspace,current()),tex:true}:projectWriter(workspace,current()),settings=JSON.stringify(writer);if(doc!==indexDoc||settings!==indexSettings||!index){if(!indexService||indexService.doc!==doc||settings!==indexSettings){const cached=editorIndexes.get(doc);indexService=cached?.settings===settings&&cached.service.doc===doc?cached.service:new EditorIndex(doc,writer);}editorIndexes.set(doc,{settings,service:indexService});index=indexService.value;indexDoc=doc;indexSettings=settings;outlineRevision='';}return index;}
 function renderOutline(section){
   const idx=ensureIndex(),query=$('#chapter-search').value.trim().toLowerCase();
@@ -745,6 +746,7 @@ function applyTheme(mode=workspace.settings.theme){
   const dark=mode==='dark'||mode==='system'&&(environment?.dark??systemTheme.matches);
   if(dark!==document.body.classList.contains('dark'))beginThemeShift();
   workspace.settings.dark=dark;document.body.classList.toggle('dark',dark);workspace.settings.palette=applyPalette(document.body,workspace.settings.palette,dark);
+  window.velaStartup?.remember(workspace.settings,{light:paletteFor(workspace.settings.palette,false).colors,dark:paletteFor(workspace.settings.palette,true).colors});
   const follows=!dark===(environment?.dark??systemTheme.matches),label=(mode==='system'?`跟随系统（${dark?'深色':'浅色'}），`:'')+`切换到${dark?'浅色':'深色'}模式${follows?'（跟随系统）':''}`;
   const menuLabel=$('#theme .menu-label');$('#theme').innerHTML=icon(dark?'sun':'theme');if(menuLabel)$('#theme').append(menuLabel);$('#theme').title=label+' (Ctrl+Alt+T)';$('#theme').setAttribute('aria-label',label);
   const githubTheme=$('[data-toggle-theme]');if(githubTheme){githubTheme.innerHTML=icon(dark?'sun':'theme');githubTheme.title=label;githubTheme.setAttribute('aria-label',label);}
@@ -1171,19 +1173,34 @@ async function boot(){try{
   // Startup update checks are scheduled after the editor and account have loaded.
   createReader=()=>new Reader({root:$('#reader-view'),workspace:()=>workspace,loadImage:(doc,src)=>loadWorkspaceImage(doc,src),loadAsset:path=>loadWorkspaceAsset(path),latex:(root,doc,onReady)=>{const pane=new PdfPreview({compiler:texCompiler,fail,readingMode:()=>reader?.config?.reader?.mode?(reader.config.reader?.mode==='auto'?($('#reader-view').clientWidth>=1000?'double':'scroll'):reader.config.reader?.mode):workspace.settings.readingMode});pane.mount(root,doc,{reading:true,onReady});if(doc.binary){const epoch=pane.epoch;transport('readWorkspaceFile',{path:documentPath(doc)}).then(data=>{if(pane.epoch===epoch)return pane.openFile(fromBase64(data));}).catch(fail);}return pane;},onChrome:(open,visible)=>{if(native&&readerFullscreen!==open){readerFullscreen=open;fullscreenTask=fullscreenTask.catch(()=>{}).then(()=>transport('fullscreen',{enabled:open})).catch(fail);}document.body.classList.toggle('reader-open',open);document.body.classList.toggle('reader-chrome-visible',visible);$('#outline-toggle').disabled=!open;sidebars.update();},markdown:md,sanitize:DOMPurify.sanitize,escape:esc,save,fail,load:async doc=>{if(['TEX','PDF'].includes(documentKind(doc)))await ensurePdfPreview();return loadSubscriptionDocument(doc);},html:async(doc,size,layout)=>{if(native){if(save())await transport('previewHtml',{path:documentPath(doc),dark:workspace.settings.dark,reading:true,fontSize:size,layout,titlePage:reader.config?.reader?.titlePage!==false,readingMode:reader.config?.reader?.mode?(reader.config.reader?.mode==='auto'?($('#reader-view').clientWidth>=1000?'double':'scroll'):reader.config.reader?.mode):workspace.settings.readingMode,language:workspace.settings.language});}else{const content=$('#reader-view .reader-content');content.innerHTML='';const frame=document.createElement('iframe');frame.title='HTML';frame.sandbox='';frame.srcdoc=htmlPreview(doc.text,{dark:workspace.settings.dark,fontSize:size});content.append(frame);}}});
   subscriptions=new Subscriptions({root:$('#subscriptions-view'),nav:$('[data-view=subscriptions]'),workspace:()=>workspace,transport,save,escape:esc,modal:openModal,fail,cache:cacheSubscription,pull:pullSubscription,renderMarkdown:text=>DOMPurify.sanitize(md.render(text),{FORBID_TAGS:['iframe','form','input','button','style'],FORBID_ATTR:['style']})});subscriptions.dot();subscriptions.refresh();
-  setCustomPalettes(workspace.settings.customPalettes);chapterMatcher(workspace.settings.writer);applyTheme();setFontSize(workspace.settings.fontSize,false);setSidebar('library',workspace.settings.libraryOpen===true,false);
-  if(workspace.documents.some(d=>/^操作指南\.(txt|md)$/i.test(d.name))&&workspace.openIds.includes(workspace.activeId))switchDocument(workspace.activeId);else showHome();
-  // Startup may have migrated paths, settings and guide text; persist those
-  // before exposing the editor, rather than treating them as tab navigation.
+  setCustomPalettes(workspace.settings.customPalettes);chapterMatcher(workspace.settings.writer);applyTheme();setFontSize(workspace.settings.fontSize,false);
+  // Phones always start with the file drawer closed; only desktop restores the last sidebar state.
+  setSidebar('library',innerWidth>600&&workspace.settings.libraryOpen===true,false);
+  // Prepare the final chrome geometry without creating editor, preview or home content beneath the logo.
+  const initialId=workspace.documents.some(d=>/^操作指南\.(txt|md)$/i.test(d.name))&&workspace.openIds.includes(workspace.activeId)?workspace.activeId:null;
+  const initialDoc=workspace.documents.find(doc=>doc.id===initialId);
+  home=!initialDoc;isPreview=!!initialDoc&&['CSV','VELA','GLY','VODT','PLUGIN','OUTLINE','MAP'].includes(documentKind(initialDoc));
+  if(home)workspace.activeId=null;
+  document.body.dataset.page='write';$('#current-name').textContent=initialDoc?.name||'启动页';updateEditorVisibility();renderDocuments();updateStats();sidebars.update(false);
+  performance.mark('vela:core-ready');
+  await window.velaStartup?.ready();
+  if(initialDoc)switchDocument(initialDoc.id);else showHome();
+  window.velaStartup?.reveal();
+  // Persist startup migrations before exposing the workspace; geometry reads stay batched.
   if(workspaceSaveTimer!==null)save();
-  try{window.velaReady=true;await plugins.boot();}catch(error){toast('插件读取失败：'+error.message);}
+  sidebars.update(false);performance.mark('vela:content-ready');
+  const pluginBoot=plugins.boot().catch(error=>toast('插件读取失败：'+error.message));
+  window.velaReady=true;performance.mark('vela:interactive');
+  await pluginBoot;
   if(native){try{const user=await gh.user();account=user;$('#sidebar-logout').disabled=false;$('#account-label').textContent=gitName()+' · '+user.login;repositories=await gh.repositories();}catch{if(workspace.githubCache?.login&&(workspace.githubCache.provider||'github')===gh.provider){account={login:workspace.githubCache.login};repositories=workspace.githubCache.repositories||[];githubOffline=true;$('#sidebar-logout').disabled=false;$('#account-label').textContent=account.login+' · '+t('离线');}}}
-}catch(e){bootFailed=true;$('#editor').innerHTML=`<div class="blank"><h2>无法读取本地文稿</h2><p>${esc(e.message)}</p><p>原始数据已保留，请勿清除应用数据。可先导出原始文件进行恢复。</p><button id="recover-data" class="primary">导出原始数据</button></div>`;$('#recover-data').onclick=()=>exportText('文舟-恢复数据.json',readWorkspace()||'').catch(fail);document.querySelectorAll('button').forEach(b=>{if(b.id!=='recover-data')b.disabled=true;});}}
+}catch(e){bootFailed=true;window.velaStartup?.dismiss();$('#editor').innerHTML=`<div class="blank"><h2>无法读取本地文稿</h2><p>${esc(e.message)}</p><p>原始数据已保留，请勿清除应用数据。可先导出原始文件进行恢复。</p><button id="recover-data" class="primary">导出原始数据</button></div>`;$('#recover-data').onclick=()=>exportText('文舟-恢复数据.json',readWorkspace()||'').catch(fail);document.querySelectorAll('button').forEach(b=>{if(b.id!=='recover-data')b.disabled=true;});}}
 window.wenzhouBack=()=>{
+ if(closeAppChoices())return true;
  if($('#dialog').open){closeModal();return true;}
  if(!ui.menu.hidden){ui.close(true);return true;}
  const more=$('#preview .planning-overflow[aria-expanded=true]');if(more?.getClientRects().length){more.click();more.focus({preventScroll:true});return true;}
- const panel=[...document.querySelectorAll('#preview .planning-sheet:not([hidden]):not([data-closing]),#preview .map-tools-panel:not([hidden]):not([data-closing])')].find(el=>el.getClientRects().length&&el.planningClose);if(panel){panel.planningClose();return true;}
+ const sheet=planningTopSheet($('#preview'));if(sheet){sheet.planningClose();return true;}
+ const panel=[...document.querySelectorAll('#preview .map-tools-panel:not([hidden]):not([data-closing])')].find(el=>el.getClientRects().length&&el.planningClose);if(panel){panel.planningClose();return true;}
  const detail=$('#preview .outline-detail:not([hidden]):not([data-closing]) [data-close],#preview .outline-detail:not([hidden]):not([data-closing]) [data-close-edge]');if(detail?.getClientRects().length){detail.click();return true;}
  const readerClose=$('.reader-tools-panel [data-tools-close]');if(readerClose?.getClientRects().length){readerClose.click();return true;}
  for(const [name,id] of [['outline','outline-toggle'],['library','mobile-library']])if(document.body.classList.contains('show-'+name)&&!$('#'+(name==='library'?'library':'outline')+'-shell').inert){setSidebar(name,false);$('#'+id).focus({preventScroll:true});return true;}

@@ -10,7 +10,7 @@ const application=await electron.launch({executablePath:process.env.VELA_TEST_EX
 application.process().stderr.on('data',chunk=>{const text=String(chunk);if(/Error|Exception/.test(text)&&!text.includes('ssl_client_socket'))console.error(text.trim());});
 let page;const check=async(name,run)=>{await run();checks.push(name);console.log('PASS '+name);};
 try{
-  page=await application.firstWindow();await application.evaluate(({BrowserWindow})=>{for(const window of BrowserWindow.getAllWindows())window.webContents.on('render-process-gone',(_event,details)=>console.error('QA renderer exited:',JSON.stringify(details)));});page.on('crash',()=>console.error('QA renderer crashed'));page.on('pageerror',error=>errors.push(error.message));await page.waitForSelector('.cm-editor',{timeout:30000});
+  page=await application.firstWindow();await application.evaluate(({BrowserWindow})=>{for(const window of BrowserWindow.getAllWindows())window.webContents.on('render-process-gone',(_event,details)=>console.error('QA renderer exited:',JSON.stringify(details)));});page.on('crash',()=>console.error('QA renderer crashed'));page.on('pageerror',error=>errors.push(error.message));await page.waitForSelector('.cm-editor',{timeout:30000});await page.waitForFunction(()=>window.velaReady);
   await check('Windows 原生启动、沙箱桥与内部文件夹持久保存',async()=>{
     assert.equal(await application.evaluate(({Menu})=>Menu.getApplicationMenu()),null);
     assert.equal(await page.evaluate(()=>window.WenzhouNative.platform),'windows');assert.equal(await page.evaluate(()=>typeof window.require),'undefined');assert.equal(await page.evaluate(()=>typeof window.process),'undefined');assert.equal(await page.locator('#workspace-name').count(),0);
@@ -31,7 +31,7 @@ try{
     await edit(String.fromCharCode(10)+marker);await edit('续');
     assert.ok(stored().startsWith('{"store":{"format":2'),'workspace.json is a skeleton after an incremental save');assert.ok(!stored().includes(marker),'texts live in workspace-store, not in the skeleton');
     const read=JSON.parse(await page.evaluate(()=>window.WenzhouNative.readWorkspace()));assert.ok(read.documents.some(doc=>doc.text.endsWith(marker+'续')));
-    await page.reload();await page.waitForSelector('.cm-editor',{timeout:30000});assert.ok((await page.evaluate(()=>velaEditorView.state.doc.toString())).endsWith(marker+'续'));
+    await page.reload();await page.waitForSelector('.cm-editor',{timeout:30000});await page.waitForFunction(()=>window.velaReady);assert.ok((await page.evaluate(()=>velaEditorView.state.doc.toString())).endsWith(marker+'续'));
     await page.evaluate(text=>{const v=velaEditorView;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:text}});},original);await page.evaluate(()=>window.wenzhouSave());
   });
   await check('全局配置 GUI 可枚举内部文件、调整排版、保存后恢复',async()=>{

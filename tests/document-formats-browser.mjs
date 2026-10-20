@@ -65,6 +65,7 @@ try{
  await page.reload();await page.waitForFunction(()=>window.formatQA);await openRecentFile(page,page.locator('[data-recent="'+book.id+'"]'));
  if(!await page.locator('[data-project-file="原书.epub"]').isVisible())await page.locator('#mobile-library').click();
  await page.locator('[data-project-file="原书.epub"]').click();await page.locator('[data-book-edit]').waitFor();
+ await page.waitForFunction(()=>document.querySelector('#current-name').textContent==='原书.vepub');
  assert.equal(await page.locator('#current-name').textContent(),'原书.vepub');
  stored=await page.evaluate(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')));
  assert.ok(stored.entries.some(e=>e.path==='原书.epub'));assert.ok(!stored.documents.some(d=>d.name==='原书.epub'));

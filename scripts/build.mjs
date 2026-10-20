@@ -22,7 +22,7 @@ await build({entryPoints:['web/workspace-save-worker.js'],bundle:true,outfile:`$
 await build({entryPoints:['web/project-archive-worker.js'],bundle:true,outfile:`${out}/project-archive-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
 await build({entryPoints:['web/tex-component-worker.js'],bundle:true,outfile:`${out}/tex-component-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
 await build({entryPoints:['web/html-reader.js'],bundle:true,outfile:`${out}/html-reader.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
-for(const name of ['index.html','style.css','file-manager.css','ui.css','design.css','refinement.css']) await copyFile(`web/${name}`,`${out}/${name}`);
+for(const name of ['index.html','startup.js','startup.css','style.css','file-manager.css','ui.css','design.css','refinement.css']) await copyFile(`web/${name}`,`${out}/${name}`);
 await copyFile('node_modules/katex/dist/katex.min.css',`${out}/katex.min.css`);
 await cp('node_modules/katex/dist/fonts',`${out}/fonts`,{recursive:true});
 await copyTexAssets(out,{lite});

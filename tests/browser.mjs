@@ -131,7 +131,7 @@ try{
       await m.locator('#'+id).scrollIntoViewIfNeeded();const rect=await m.locator('#'+id).boundingBox();assert.ok(rect.x>=0&&rect.x+rect.width<=390.5,id);
     }
     await m.locator('#mobile-library').click();assert.equal(await m.locator('#library').isVisible(),true);await m.locator('#mobile-library').click();
-    await m.locator('#outline-toggle').click();await m.locator('[data-row="5"]').click();assert.equal(await m.locator('#cursor-position').textContent(),'行 6，列 1');assert.equal(await m.locator('#outline').isVisible(),false);assert.equal(await m.locator('#outline-toggle').getAttribute('aria-expanded'),'false');
+    await m.locator('#outline-toggle').click();await m.locator('[data-row="5"]').click();assert.equal(await m.locator('#cursor-position').textContent(),'行 6，列 1');await m.locator('#outline').waitFor({state:'hidden'});assert.equal(await m.locator('#outline').isVisible(),false);assert.equal(await m.locator('#outline-toggle').getAttribute('aria-expanded'),'false');
     await m.locator('#more-tools').click();await m.locator('#theme').click();assert.equal(await m.locator('body').evaluate(el=>el.classList.contains('dark')),false);assert.equal(await m.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   });
   await m.screenshot({path:'test-results/mobile.png'});await mobile.close();

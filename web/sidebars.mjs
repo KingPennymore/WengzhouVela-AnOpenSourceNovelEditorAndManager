@@ -1,6 +1,6 @@
 import {reducedMotion} from './motion.mjs';
 const DURATION=240;
-const fields=['left','right','leftWidth','rightWidth','bottom'];
+const fields=['left','right','leftWidth','rightWidth','bottom','leftReveal','rightReveal'];
 
 // Both sidebar slots and the editor consume the same frame's layout dimensions.
 export class SidebarLayout {
@@ -9,17 +9,17 @@ export class SidebarLayout {
     this.root=document.querySelector('#app');
     this.left=document.querySelector('#library-shell');
     this.right=document.querySelector('#outline-shell');
-    this.current={left:0,right:0,leftWidth:255,rightWidth:270,bottom:80};
+    this.current={left:0,right:0,leftWidth:255,rightWidth:270,bottom:80,leftReveal:0,rightReveal:0};
     this.frame=0;
     this.footerHeight=80;
     this.motion=matchMedia('(prefers-reduced-motion: reduce)');
     try{this.widths=JSON.parse(localStorage.getItem('vela.sidebar-widths')||'{}');}catch{this.widths={};}
     if(!this.widths||typeof this.widths!=='object')this.widths={};
     this.handles=[this.makeHandle(this.left,'left'),this.makeHandle(this.right,'right')];
-    window.addEventListener('resize',()=>this.update(false));
-    // Moving quick actions between the status bar and toolbar changes the footer after resize.
-    this.footerObserver=new ResizeObserver(()=>{const height=document.querySelector('#writing-footer').offsetHeight;if(height>0&&height!==this.footerHeight)this.update(false);});
-    this.footerObserver.observe(document.querySelector('#writing-footer'));
+    window.addEventListener('resize',()=>{this.geometry=null;this.update(false);});
+    // Read dimensions together after layout; never read geometry between animation writes.
+    this.geometryObserver=new ResizeObserver(()=>{const next=this.readGeometry();if(JSON.stringify(next)!==JSON.stringify(this.geometry)){this.geometry=next;this.update(false);}});
+    for(const element of [this.root,document.querySelector('#writing-footer'),document.querySelector('.topbar')])this.geometryObserver.observe(element);
     this.motion.addEventListener('change',()=>this.update(false));
     this.update(false);
   }
@@ -32,8 +32,10 @@ export class SidebarLayout {
     handle.onkeydown=event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const width=this.current[side+'Width'],direction=side==='left'?1:-1;set(event.key==='Home'?120:event.key==='End'?480:width+(event.key==='ArrowRight'?16:-16)*direction);store();};
     handle.ondblclick=()=>{delete this.widths[key()]?.[side];this.update(false);store();};return handle;
   }
+  readGeometry(){return {width:this.root.clientWidth,height:this.root.clientHeight,footer:document.querySelector('#writing-footer').offsetHeight,top:document.querySelector('.topbar').offsetHeight};}
   targets(){
-    const width=this.root.clientWidth;
+    const geometry=this.geometry??=this.readGeometry(),width=geometry.width;
+    this.phone=width<=600;
     this.maxResizeWidth=Math.min(480,width);
     const overlay=()=>width<=600;
     const leftOpen=document.body.classList.contains('show-library')&&!overlay('left');
@@ -44,7 +46,7 @@ export class SidebarLayout {
     const preferred=(side,fallback)=>Number.isFinite(saved[side])?Math.max(120,Math.min(480,saved[side])):fallback;
     const leftWidth=preferred('left',phone?Math.min(180,width*.45):profile==='harmonyos'?282:profile==='windows'?244:260);
     const rightWidth=preferred('right',phone?Math.min(170,width*.42):profile==='harmonyos'?290:260);
-    const footer=document.querySelector('#writing-footer'),height=footer.offsetHeight,top=document.querySelector('.topbar').offsetHeight;
+    const {footer:height,top}=geometry;
     if(height>0)this.footerHeight=height;
     this.root.style.setProperty('--footer-height',this.footerHeight+'px');
     this.root.style.setProperty('--shell-top',top+'px');
@@ -55,24 +57,25 @@ export class SidebarLayout {
     return {left:leftOpen?leftWidth*ratio:0,right:rightOpen?rightWidth*ratio:0,
       leftWidth:leftOpen?leftWidth*ratio:this.current.left>0?this.current.leftWidth:leftWidth,
       rightWidth:rightOpen?rightWidth*ratio:this.current.right>0?this.current.rightWidth:rightWidth,
+      leftReveal:phone&&document.body.classList.contains('show-library')?1:0,
+      rightReveal:phone&&document.body.classList.contains('show-outline')&&!document.body.classList.contains('focus')&&!document.body.classList.contains('start-open')&&!document.querySelector('#write-view').hidden?1:0,
       bottom:!document.querySelector('#write-view').hidden&&!document.body.classList.contains('start-open')?this.footerHeight:0};
   }
   apply(values,target){
+    const measure=['left','right','bottom'].some(key=>this.current[key]!==values[key])||this.appliedGeometry!==this.geometry;this.appliedGeometry=this.geometry;
     this.current=values;
-    for(const [property,key] of [['--left-size','left'],['--right-size','right'],['--left-panel-width','leftWidth'],['--right-panel-width','rightWidth'],['--sidebar-bottom','bottom']])this.root.style.setProperty(property,values[key].toFixed(3)+'px');
-    const overlayOpen=side=>this.root.clientWidth<=600&&document.body.classList.contains(side==='left'?'show-library':'show-outline')&&(side==='left'||!document.querySelector('#write-view').hidden&&!document.body.classList.contains('start-open')&&!document.body.classList.contains('focus'));
-    this.left.style.visibility=values.left>0||target.left>0||overlayOpen('left')?'visible':'hidden';
-    this.right.style.visibility=values.right>0||target.right>0||overlayOpen('right')?'visible':'hidden';
+    for(const [property,key] of [['--left-size','left'],['--right-size','right'],['--left-panel-width','leftWidth'],['--right-panel-width','rightWidth'],['--sidebar-bottom','bottom'],['--left-drawer-progress','leftReveal'],['--right-drawer-progress','rightReveal']])this.root.style.setProperty(property,values[key].toFixed(3)+(key.endsWith('Reveal')?'':'px'));
+    const overlayOpen=side=>this.phone&&target[side+'Reveal']>0;
+    for(const [side,shell] of [['left',this.left],['right',this.right]]){shell.style.visibility=values[side]>0||target[side]>0||this.phone&&(values[side+'Reveal']>0||overlayOpen(side))?'visible':'hidden';shell.dataset.drawerClosing=String(this.phone&&values[side+'Reveal']>0&&!overlayOpen(side));}
     this.root.style.setProperty('--footer-progress',String(1-values.bottom/this.footerHeight));
     const footer=document.querySelector('#writing-footer');if(footer){footer.style.visibility=values.bottom>0||target.bottom>0?'visible':'hidden';footer.inert=target.bottom===0;}
     this.left.inert=target.left===0&&!overlayOpen('left');this.right.inert=target.right===0&&!overlayOpen('right');
     for(const [i,side] of ['left','right'].entries()){const handle=this.handles?.[i];if(handle){handle.setAttribute('aria-valuemin','120');handle.setAttribute('aria-valuemax',String(this.maxResizeWidth));handle.setAttribute('aria-valuenow',String(Math.round(values[side+'Width'])));}}
-    this.measure?.();
+    if(measure)this.measure?.();
   }
   update(animate=true){
     const target=this.targets();
-    const overlayKey=this.root.clientWidth<=600?[document.body.classList.contains('show-library'),document.body.classList.contains('show-outline'),document.body.classList.contains('focus'),document.body.classList.contains('start-open'),document.querySelector('#write-view').hidden].join(':'):'';
-    if(this.overlayKey!==overlayKey){this.overlayKey=overlayKey;animate=false;}
+    if(this.wasPhone!==this.phone){this.wasPhone=this.phone;animate=false;}
     if(animate&&this.frame&&fields.every(key=>Math.abs(this.target[key]-target[key])<.001))return;
     if(animate&&!this.frame&&this.target&&fields.every(key=>Math.abs(this.current[key]-target[key])<.001))return;
     cancelAnimationFrame(this.frame);this.frame=0;
@@ -92,7 +95,7 @@ export class SidebarLayout {
       const values=Object.fromEntries(fields.map(key=>[key,from[key]+(target[key]-from[key])*eased]));
       this.apply(progress===1?target:values,target);
       if(progress<1)this.frame=requestAnimationFrame(tick);
-      else{this.frame=0;this.root.dataset.sidebarsAnimating='false';}
+      else{this.frame=0;this.root.dataset.sidebarsAnimating='false';this.root.dispatchEvent(new Event('sidebar-layout-settled'));}
     };
     this.frame=requestAnimationFrame(tick);
   }

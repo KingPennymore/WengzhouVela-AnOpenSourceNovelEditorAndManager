@@ -30,7 +30,7 @@ try{
     await p.locator('#quick-git').click();assert.equal(await p.locator('#library').isVisible(),true);assert.equal(await p.locator('#mobile-library').isVisible(),true);
     await p.locator('#mobile-library').click();await p.locator('#library').waitFor({state:'hidden'});assert.equal(await p.locator('#library').isVisible(),false);await p.locator('#mobile-library').click();await p.locator('[data-return-write]').click();
     await p.locator('[data-close=book]').click();assert.equal(await p.locator('#library').isVisible(),true);await p.locator('[data-doc=book]').click();
-    await importFile(p,'导入.txt','正文');assert.equal(await p.locator('#library').isVisible(),true);await p.reload();await p.waitForSelector('#mobile-library');assert.equal(await p.locator('#library').isVisible(),true);
+    await importFile(p,'导入.txt','正文');assert.equal(await p.locator('#library').isVisible(),true);await p.reload();await p.waitForFunction(()=>window.velaReady);assert.equal(await p.locator('#library').isVisible(),true);
     await p.locator('#mobile-library').click();await p.locator('#library').waitFor({state:'hidden'});await p.keyboard.press('Control+Alt+h');assert.equal(await p.locator('#library').isVisible(),false);
   });
   await check('五套配色可切换、持久化，并分别跟随系统深浅模式',async()=>{

@@ -32,7 +32,7 @@ try{
     const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
     await page.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/,route=>route.abort());
     await page.goto(url+'/?ui='+profile);
-    await page.locator('#start-actions-panel').waitFor({state:'visible'});
+    await page.locator('#start-actions-panel').waitFor({state:'visible'});await page.waitForFunction(()=>window.velaReady);
     assert.equal(await page.locator('.file-rowbar').isVisible(),false);
     assert.equal(await page.locator('#writing-footer').isVisible(),false);
     assert.equal(await page.locator('#outline-toggle').isVisible(),false);
