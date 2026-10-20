@@ -14,7 +14,7 @@ try{
  for(const [profile,width,height] of [['windows',1440,960],['harmonyos',1280,850],['android',390,844]]){
   const context=await browser.newContext({viewport:{width,height},colorScheme:'light'});
   await context.addInitScript(seed=>localStorage.setItem('wenzhou.workspace',JSON.stringify(seed)),seed);
-  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto((process.env.VELA_TEST_URL||'http://127.0.0.1:4173')+'/?ui='+profile);if(await page.locator('#start-page').isVisible())await openRecentFile(page,page.locator('[data-recent=book]'));await page.waitForSelector('.cm-editor');
+  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto((process.env.VELA_TEST_URL||'http://127.0.0.1:4173')+'/?ui='+profile);await page.waitForFunction(()=>window.velaReady===true);if(await page.locator('#start-page').isVisible())await openRecentFile(page,page.locator('[data-recent=book]'));await page.waitForSelector('.cm-editor');
   assert.equal(await page.locator('body').getAttribute('data-ui'),profile);
   await page.locator('#mobile-library').click();if(width>600)await page.locator('#outline-toggle').click();await settled(page);
   await page.screenshot({path:`${out}/${profile}-editor.png`});

@@ -20,6 +20,7 @@ async function open(documents,settings={},extra={}){
   const context=await browser.newContext({viewport:{width:1280,height:800},acceptDownloads:true});await context.grantPermissions(['clipboard-read','clipboard-write'],{origin:server.url});
   // Seed once; later reloads keep what the app saved.
   await context.addInitScript(seed=>{if(!sessionStorage.getItem('seeded')){localStorage.setItem('wenzhou.workspace',JSON.stringify(seed));sessionStorage.setItem('seeded','1');}},{version:1,activeId:documents[0].id,openIds:documents.map(doc=>doc.id),settings:{theme:'light',...settings},documents,...extra});
+  await context.addInitScript(()=>{window.__formatNotices=[];new MutationObserver(()=>{const text=document.querySelector('#toast')?.textContent;if(text&&window.__formatNotices.at(-1)!==text)window.__formatNotices.push(text);}).observe(document,{subtree:true,childList:true,characterData:true});});
   const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));
   await page.goto(server.url);await enter(page,documents[0].id);
   return page;
@@ -117,7 +118,7 @@ try{
     assert.deepEqual(await rendered(outside,'.vela-format-emphasis'),[]);
     assert.equal(await outside.locator('#format-tools').isVisible(),true,'an existing sidecar shows the toolbar without the setting');
     assert.equal(await outside.locator('#format-review').textContent(),'待确认 1');
-    await outside.waitForFunction(()=>document.querySelector('#toast').textContent.includes('1 处格式待确认'));
+    await outside.waitForFunction(()=>window.__formatNotices.some(text=>text.includes('1 处格式待确认')));
   });
   await check('a review entry is applied and saved; the 0.9.7 sidecar moves into .vela and goes to the trash',async()=>{
     await selectText(outside,'糟糕');await outside.locator('#format-review').click();await outside.locator('[data-apply]').click();
