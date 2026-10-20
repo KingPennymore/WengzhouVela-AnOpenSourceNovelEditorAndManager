@@ -36,7 +36,9 @@ def prepareEditor = tasks.register('prepareEditor', Exec) {
     inputs.dir '../../vendor/acode-writer/src'
     inputs.dir '../../vendor/acode/src/cm'
     inputs.dir '../../vendor/wasmtex'
-    inputs.files '../../package.json', '../../package-lock.json', '../../scripts/build-android.mjs', '../../scripts/build.mjs', '../../scripts/tex-assets.mjs', '../../scripts/frontend-state.mjs'
+    inputs.dir '../../vendor/jieba'
+    inputs.dir '../../components'
+    inputs.files '../../package.json', '../../package-lock.json', '../../scripts/build-android.mjs', '../../scripts/build.mjs', '../../scripts/tex-assets.mjs', '../../scripts/frontend-state.mjs', '../../scripts/build-guide.mjs', '../../scripts/package-ebook-component.mjs', '../../docs/USER-GUIDE.md', '../../vendor/acode/LICENSE', '../../vendor/acode-writer/LICENSE'
     inputs.file '../APACHE-2.0.txt'
     outputs.dir 'src/main/assets/web'
 }
