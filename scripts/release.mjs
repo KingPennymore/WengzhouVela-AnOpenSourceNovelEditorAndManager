@@ -101,7 +101,7 @@ export function packVersion(file){const files=unzipSync(new Uint8Array(readFileS
 function newestApp(){const folder='build/outputs/default';if(!existsSync(folder))return null;return readdirSync(folder).filter(name=>name.endsWith('.app')&&!name.endsWith('-unsigned.app')).map(name=>path.join(folder,name)).sort((a,b)=>statSync(b).mtimeMs-statSync(a).mtimeMs)[0]||null;}
 const releaseAssets=ctx=>{const file=`${ctx.metadata}/release-assets-${ctx.version}.json`;return existsSync(file)?JSON.parse(readFileSync(file,'utf8')):null;};
 /** The asset list finalize-release.py writes, for planning before it exists. */
-const expectedAssets=ctx=>[...ctx.flavors.flatMap(f=>[`Vela-${ctx.androidName}${f}-release-signed.apk`,`Vela-${ctx.androidName}${f}-release-signed.aab`,`Vela-${ctx.version}${f}-release-signed.app.zip`,`Vela-${ctx.version}${f}-release-signed.hap`,`Vela-${ctx.version}-windows${f}-setup-x64.exe`,`Vela-${ctx.version}-windows${f}-x64.zip`]),`Vela-${ctx.version}-source.zip`,'Vela-TeX-0.1.1.zip','Vela-Ebook-Reader-1.1.0.zip',`SHA256SUMS-${ctx.version}.txt`,`SHA256SUMS-${ctx.version}.txt.sig`];
+const expectedAssets=ctx=>[...ctx.flavors.flatMap(f=>[`Vela-${ctx.androidName}${f}-release-signed.apk`,`Vela-${ctx.version}${f}-release-signed.app.zip`,`Vela-${ctx.version}${f}-release-signed.hap`,`Vela-${ctx.version}-windows${f}-setup-x64.exe`,`Vela-${ctx.version}-windows${f}-x64.zip`]),`Vela-${ctx.version}-source.zip`,'Vela-TeX-0.1.1.zip','Vela-Ebook-Reader-1.1.0.zip',`SHA256SUMS-${ctx.version}.txt`,`SHA256SUMS-${ctx.version}.txt.sig`];
 
 // ---- stages ---------------------------------------------------------------------------------------------------------
 const stages={
@@ -147,7 +147,7 @@ const stages={
     // The keystore password is read by sign-android.ps1 alone.
     for(const flavor of ctx.flavors){
       await exec('pwsh',['-NoProfile','-File','scripts/sign-android.ps1',...(flavor?['-Lite']:[])]);
-      if(!ctx.dryRun)for(const ext of ['apk','aab']){const file=`dist/Vela-${ctx.androidName}${flavor}-release-signed.${ext}`;if(!existsSync(file))throw Error('签名后缺少 '+file);}
+      if(!ctx.dryRun)for(const ext of ['apk']){const file=`dist/Vela-${ctx.androidName}${flavor}-release-signed.${ext}`;if(!existsSync(file))throw Error('签名后缺少 '+file);}
     }
     if(ctx.dryRun)say(`  · 检查发布清单签名私钥 ${defaultKeyPath()} 存在（package 阶段签 SHA256SUMS 与 catalog.json）`);
     else if(!existsSync(defaultKeyPath()))throw Error('缺少发布清单签名私钥：'+defaultKeyPath());
@@ -162,7 +162,7 @@ const stages={
     await exec('node',['scripts/build-catalog.mjs','--version',ctx.version,'--previous',path.join(previous,'catalog.json')]);
   },
   async verify(ctx){
-    await exec('node',['scripts/verify.mjs','--tex','--windows']);
+    await exec('node',['scripts/verify.mjs','--tex','--windows',...(flag('--lite-only')?['--lite']:[])]);
     if(ctx.dryRun){say(`  · 核对 ${ctx.metadata}/release-assets-${ctx.version}.json 中每个文件存在、与 SHA256SUMS 一致，SHA256SUMS 与 catalog.json 的签名有效，.app 的 pack.info 版本，APK 签名证书指纹`);return;}
     const assets=releaseAssets(ctx);if(!assets)throw Error('缺少发布文件清单，先运行 package 阶段。');
     const sums=new Map(lines(readFileSync(`${ctx.release}/SHA256SUMS-${ctx.version}.txt`,'utf8')).map(line=>line.split(/\s+\*?/)).map(([hash,name])=>[name,hash]));
@@ -202,7 +202,7 @@ const stages={
   },
   async restore(ctx){
     // Builds and verify leave the full front end in rawfile; rebuild it once more so the tree matches HEAD's sources.
-    await exec('node',['scripts/build.mjs']);await exec('node',['scripts/check-build.mjs']);
+    await exec('node',['scripts/build.mjs',...(flag('--lite-only')?['--lite']:[])]);await exec('node',['scripts/check-build.mjs']);
     if(!ctx.dryRun)rmSync(path.join(os.tmpdir(),'vela-release-catalog-'+ctx.version),{recursive:true,force:true});
     const dirty=changedPaths((await exec('git',['status','--porcelain'],{capture:true,quiet:true,readOnly:true})).out).filter(file=>!config.allowDirty.some(prefix=>file.startsWith(prefix)));
     check(ctx,!dirty.length,dirty.length?'发布后工作区有改动：'+dirty.join('、'):'工作区与 HEAD 一致（除构建产物和本机配置）');

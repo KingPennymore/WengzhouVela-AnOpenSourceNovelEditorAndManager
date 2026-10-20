@@ -18,7 +18,7 @@ try{
   await context.addInitScript(({seed,mapText})=>{
    localStorage.setItem('wenzhou.workspace',JSON.stringify(seed));localStorage.setItem('vela.test.motion','off');
    window.largeProbe={mapParses:0,live:new Set(),starts:0};const parse=JSON.parse;JSON.parse=function(text,...args){if(text===mapText)largeProbe.mapParses++;return parse.call(this,text,...args);};
-   const Original=Worker;window.Worker=class extends Original{constructor(...args){super(...args);largeProbe.live.add(this);largeProbe.starts++;}terminate(){largeProbe.live.delete(this);super.terminate();}};
+   const Original=Worker;window.Worker=class extends Original{constructor(...args){super(...args);if(String(args[0]).includes('map-fill-worker')){largeProbe.live.add(this);largeProbe.starts++;}}terminate(){largeProbe.live.delete(this);super.terminate();}};
   },{seed,mapText:seed.documents.find(d=>d.id==='m').text});
   const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto(server.url);await page.waitForFunction(()=>window.velaReady);
   const open=async id=>{await page.locator(`[data-tab=${id}]`).click();await page.waitForFunction(id=>document.querySelector('#current-name')?.textContent===({o:'大型.pcs',r:'关系.pcs',m:'地图.vlmp',guide:'操作指南.txt'})[id],id);if(id==='o'||id==='r')await page.locator('.outline-large-plane').waitFor();if(id==='m')await page.locator('.map-stage canvas').waitFor();await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));};

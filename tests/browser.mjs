@@ -131,7 +131,7 @@ try{
       await m.locator('#'+id).scrollIntoViewIfNeeded();const rect=await m.locator('#'+id).boundingBox();assert.ok(rect.x>=0&&rect.x+rect.width<=390.5,id);
     }
     await m.locator('#mobile-library').click();assert.equal(await m.locator('#library').isVisible(),true);await m.locator('#mobile-library').click();
-    await m.locator('#outline-toggle').click();await m.locator('[data-row="5"]').click();assert.equal(await m.locator('#cursor-position').textContent(),'行 6，列 1');assert.equal(await m.locator('#outline').isVisible(),true);await m.locator('#outline-toggle').click();await m.locator('#outline').waitFor({state:'hidden'});
+    await m.locator('#outline-toggle').click();await m.locator('[data-row="5"]').click();assert.equal(await m.locator('#cursor-position').textContent(),'行 6，列 1');assert.equal(await m.locator('#outline').isVisible(),false);assert.equal(await m.locator('#outline-toggle').getAttribute('aria-expanded'),'false');
     await m.locator('#more-tools').click();await m.locator('#theme').click();assert.equal(await m.locator('body').evaluate(el=>el.classList.contains('dark')),false);assert.equal(await m.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
   });
   await m.screenshot({path:'test-results/mobile.png'});await mobile.close();
@@ -157,12 +157,12 @@ try{
   const n=await nativeContext.newPage();n.on('pageerror',e=>errors.push(e.message));await n.goto(url);await n.waitForSelector('.cm-editor');
   await check('页面的鸿蒙桥接路径可保存、导入、导出，且不写浏览器文稿存储',async()=>{
     await n.locator('#mobile-library').click();await n.locator('#import-doc').click();await n.waitForFunction(()=>document.querySelector('#current-name').textContent==='导入小说.txt');await n.locator('#quick-save').click();
-    const id=await n.evaluate(()=>document.querySelector('.document-tab.active [data-tab]').dataset.tab);await n.locator(`[data-menu="${id}"]`).click();await n.locator('#menu-export').click();
-    const calls=await n.evaluate(()=>window.__nativeCalls);assert.ok(calls.some(c=>c.operation==='save'&&c.value.includes('导入小说.txt')));assert.ok(calls.some(c=>c.operation==='export'&&c.payload.text==='第一章 导入\n正文'));assert.equal(await n.evaluate(()=>localStorage.getItem('wenzhou.workspace')),null);
+    const id=await n.evaluate(()=>document.querySelector('.document-tab.active [data-tab]').dataset.tab);if(await n.locator('#mobile-library').getAttribute('aria-expanded')!=='true')await n.locator('#mobile-library').click();await n.locator(`[data-menu="${id}"]`).click();await n.locator('#menu-export').click();
+    await until(async()=>n.evaluate(()=>window.__nativeCalls.some(c=>c.operation==='export')));const calls=await n.evaluate(()=>window.__nativeCalls);assert.ok(calls.some(c=>c.operation==='save'&&c.value.includes('导入小说.txt')));assert.equal(calls.find(c=>c.operation==='export')?.payload.text.replace(/\r\n/g,'\n'),'第一章 导入\n正文');assert.equal(await n.evaluate(()=>localStorage.getItem('wenzhou.workspace')),null);
   });
   await check('原生连接检测和 Promise 登录返回值可正确显示，异常返回不会成为已登录状态',async()=>{
     await n.locator('#dialog-cancel').click().catch(()=>{});
-    await n.locator('#mobile-library').click();await n.locator('#quick-git').click();await n.locator('#check-connection').click();await n.waitForFunction(()=>document.querySelector('#dialog-body').textContent.includes('连接正常'));await n.locator('#dialog-cancel').click();
+    if(await n.locator('#mobile-library').getAttribute('aria-expanded')==='true')await n.locator('#mobile-library').click();await n.locator('#quick-git').click();await n.locator('#check-connection').click();await n.waitForFunction(()=>document.querySelector('#dialog-body').textContent.includes('连接正常'));await n.locator('#dialog-cancel').click();
     await n.locator('#token-login').click();await n.locator('[name="token"]').fill('native-test-token');
     await n.evaluate(()=>window.__nativeMode='no-result');await n.locator('#dialog-submit').click();await n.waitForFunction(()=>document.querySelector('#dialog-error').textContent.includes('未返回结果'));
     await n.evaluate(()=>window.__nativeMode='network-failure');await n.locator('#dialog-submit').click();await n.waitForFunction(()=>document.querySelector('#dialog-error').textContent.includes('1007900028'));

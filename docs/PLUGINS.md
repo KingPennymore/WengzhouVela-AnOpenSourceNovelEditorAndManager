@@ -65,6 +65,10 @@ button.dispose();
 - `createPage(title)`：全屏插件页，沿用文舟返回按钮与标题栏；`{body, show(), hide(), close(), setTitle(), onVisible(), onHide(), onBeforeClose()}`。
 - `toast(message)`、`alert(title,message)`、`confirm(title,message)`、`prompt(title,value)`：使用文舟现有提示与对话框。
 
+## 左右栏视图与规划扩展
+
+完整侧栏视图、上下文通知、对象导航、结构化修改、后台任务及公共控件见 [侧栏视图与规划扩展](SIDEBAR-VIEWS.md)。旧按钮和追加面板接口保持兼容。
+
 ## 命令、资源与设置
 
 - `commands.register({id,title,shortcut?,run})`：进入命令面板，`shortcut` 支持 `Ctrl-`/`Mod-` 写法；完整命令名为“插件 ID.命令 ID”。`commands.execute(id)` 执行本插件或其他插件的命令。

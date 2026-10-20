@@ -99,17 +99,30 @@ export interface VelaProject {
   getCapabilities(): Promise<Capabilities>;
 }
 
-export type ButtonLocation = 'top-toolbar' | 'document-toolbar' | 'bottom-toolbar' | 'library-sidebar' | 'outline-sidebar' | 'selection-menu';
-export interface ButtonContext { location: ButtonLocation; selection?: { text: string; from: number; to: number; editable: boolean } }
+export type ButtonLocation = 'top-toolbar' | 'document-toolbar' | 'bottom-toolbar' | 'library-sidebar' | 'outline-sidebar' | 'selection-menu' | 'planning-toolbar' | 'planning-bottom' | 'planning-sidebar';
+export type PanelLocation = 'library-sidebar' | 'outline-sidebar' | 'planning-sidebar';
+export interface ViewContextInfo { file: { id: string; name: string; path: string } | null; kind: string | null; mode: 'source' | 'preview'; page: string; selection: { from: number; to: number } | { id: string; collection?: string; layer?: string } | null }
+export interface SidebarViewSpec {
+  id: string; title: string; side: 'left' | 'right'; icon?: string; documentKinds?: string[]; modes?: ('source' | 'preview')[];
+  mount(context: { body: HTMLElement; context: ViewContextInfo; signal: AbortSignal }): void | (() => void);
+  onShow?(context: ViewContextInfo): void; onHide?(context: ViewContextInfo): void; onContextChange?(context: ViewContextInfo): void;
+}
+export interface SidebarViewHandle { show(): void; hide(): void; update(patch: { title?: string }): void; dispose(): void }
+export interface PlanningChange { op: 'add' | 'update' | 'remove'; collection: 'markers' | 'cells' | 'symbols' | 'arrows' | 'labels' | 'nodes' | 'relations.nodes'; id: string; patch?: Record<string, unknown> }
+export interface BackgroundTask<T> { readonly id: string; readonly result: Promise<T>; cancel(): void }
+export interface ButtonContext { location: ButtonLocation; documentKind?: string; selection?: { text: string; from: number; to: number; editable: boolean } }
 export interface ButtonSpec { id: string; title: string; location?: ButtonLocation; locations?: ButtonLocation[]; icon?: string; order?: number; toggle?: boolean; checked?: boolean; disabled?: boolean; hidden?: boolean; tooltip?: string; run(context: ButtonContext): unknown }
 export interface FileInfo { readonly id: string; readonly name: string; readonly path: string; readonly text: string }
 /** Plugin API 4, passed to activate(). Every member throws E_PLUGIN_STOPPED after the plugin stops. */
 export interface Vela {
   readonly version: 4; readonly id: string; readonly platform: string; readonly capabilities: readonly string[];
   ui: {
-    readonly locations: { buttons: readonly ButtonLocation[]; panels: readonly ('library-sidebar' | 'outline-sidebar')[] };
+    readonly locations: { buttons: readonly ButtonLocation[]; panels: readonly PanelLocation[] };
+    registerSidebarView(spec: SidebarViewSpec): SidebarViewHandle;
+    theme(): Record<'paper' | 'panel' | 'text' | 'muted' | 'accent' | 'line' | 'radius' | 'control', string>;
+    createElement(kind: 'empty' | 'toolbar' | 'list', options?: { title?: string; text?: string }): HTMLElement;
     addButton(spec: ButtonSpec): { update(patch: Partial<Omit<ButtonSpec, 'id'>>): void; dispose(): void };
-    addPanel(spec: { id: string; title: string; location: 'library-sidebar' | 'outline-sidebar' }): { readonly body: HTMLElement; update(patch: { title?: string; collapsed?: boolean }): void; dispose(): void };
+    addPanel(spec: { id: string; title: string; location: PanelLocation }): { readonly body: HTMLElement; update(patch: { title?: string; collapsed?: boolean }): void; dispose(): void };
     builtins(location?: ButtonLocation): { id: string; title: string; location: ButtonLocation }[];
     setBuiltin(id: string, options: { hidden?: boolean; order?: number }): () => void;
     createPage(title?: string): Page;
@@ -120,12 +133,27 @@ export interface Vela {
   settings: { get(): Record<string, unknown>; update(value: Record<string, unknown>): void; page(config: { list: { key: string; text?: string; value?: unknown; checkbox?: boolean }[]; cb?(key: string, value: unknown): unknown }): () => void };
   editor: { readonly codemirror: Record<'state' | 'view' | 'commands' | 'language' | 'search' | 'autocomplete', unknown>; readonly view: unknown; addExtension(extension: unknown): () => void; addCompletion(source: unknown, kinds?: string[]): () => void };
   documents: {
+    open(id: string, options?: { selection?: { from: number; to?: number }; chapter?: number; object?: string; collection?: string; signal?: AbortSignal }): Promise<{ id: string }>;
     active(): FileInfo | null; list(): { id: string; name: string; path: string }[];
     readText(id: string): Promise<string>; writeText(id: string, text: string): Promise<boolean>;
     info(id: string): unknown; history(id: string): { revision: string; createdAt: number; characters: number }[]; config(id: string): unknown; chapters(id: string): unknown;
     create(name: string, text?: string): FileInfo;
   };
   project: VelaProject | null;
+  context: { get(): ViewContextInfo; subscribe(listener: (context: ViewContextInfo) => void): Unsubscribe };
+  planning: {
+    parse(kind: 'MAP' | 'OUTLINE', text: string): Promise<Record<string, unknown>>;
+    serialize(kind: 'MAP' | 'OUTLINE', value: unknown): Promise<string>;
+    snapshot(): { fileId: string; kind: 'MAP'; points: Array<{ id: string; name?: string; note?: string; category?: string; symbol?: string; x: number; y: number }>; labels: { hiddenCategories?: string[] }; viewport: { x: number; y: number; scale: number } } | { fileId: string; kind: 'OUTLINE'; value: Record<string, unknown> };
+    navigate(spec: { id?: string; collection?: string; details?: boolean; edit?: boolean; bounds?: { x: number; y: number; width: number; height: number } }): boolean;
+    applyChanges(spec: { fileId: string; expectedText: string; changes: PlanningChange[] }): Promise<boolean>;
+    registerMapSymbol(spec: { type: string; label: string; path: string }): Promise<{ type: string; dispose(): void }>;
+    registerMapAlgorithm(spec: { id: string; label: string; defaults?: Record<string, number | string | boolean>; run(cells: unknown, params: unknown, context: unknown): unknown | Promise<unknown> }): Promise<{ id: string; dispose(): void }>;
+  };
+  tasks: {
+    run<T>(spec: { title: string; run(context: { signal: AbortSignal; report(progress: { progress?: number; message?: string }): void; yield(): Promise<void> }): T | Promise<T> }): BackgroundTask<T>;
+    runWorker<T>(spec: { title: string; path: string; input: unknown; type?: 'classic' | 'module' }): BackgroundTask<T>;
+  };
   tex: { compile(fileId: string, options?: { engine?: string; signal?: AbortSignal; onLog?: (line: string) => void }): Promise<unknown> };
   formats: { register(provider: DocumentFormatProvider): () => void };
   on(event: 'switch-file' | 'file-content-changed' | 'new-file', listener: (file: FileInfo | null) => void): () => void;

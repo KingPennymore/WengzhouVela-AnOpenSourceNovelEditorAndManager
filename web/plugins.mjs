@@ -11,10 +11,11 @@ import {fromBase64,assetPath,validatePluginStore,checkPluginCompatibility} from 
 import {error as velaError} from './project-contract.mjs';
 import {readPluginStore,writePluginStore} from './platform.mjs';
 import {isTexPackage,storeTexPackage,removeTexPackage} from './tex-packages.mjs';
+import {createUiElement,themeSnapshot} from './extension-services.mjs';
 
 /** Vela plugin API 4: in-page plugins without the former Acode compatibility layer. */
 export const PLUGIN_API=4;
-const BASE_CAPABILITIES=['ui-slots','commands','pages','assets','completion','editor-extensions','documents','configuration-v2','chapters','local-history','tex','document-formats-v1','document-formats-v2','planning-formats-v1','planning-ui-v1','map-symbols-v1','map-algorithms-v1'];
+const BASE_CAPABILITIES=['ui-slots','commands','pages','assets','completion','editor-extensions','documents','configuration-v2','chapters','local-history','tex','document-formats-v1','document-formats-v2','planning-formats-v1','planning-ui-v1','map-symbols-v1','map-algorithms-v1','sidebar-views-v1','view-context-v1','planning-navigation-v1','planning-transactions-v1','document-navigation-v1','background-tasks-v1','ui-components-v1'];
 // Extensions must come from the host's CodeMirror instance; a bundled second copy would be rejected.
 const codemirror=Object.freeze({state,view,commands,language,search,autocomplete});
 const isComponent=record=>record.manifest.vela?.type==='tex-component';
@@ -50,9 +51,13 @@ export class PluginRuntime {
     const doc=fileId=>{const found=host.getFiles().find(item=>item.id===fileId);if(!found)throw velaError('E_NOT_FOUND','文稿不存在。');return found;};
     resources.project||=host.projects?.bind(id,name);
     const ui=host.ui;
+    if(!resources.servicesOwned){resources.servicesOwned=true;own(()=>{host.tasks?.dispose(id);host.sidebarViews?.dispose(id);});}
     return Object.freeze({
       version:PLUGIN_API,id,platform:host.projects?.host.platform||window.WenzhouNative?.platform||'browser',capabilities:Object.freeze(this.capabilities()),
       ui:Object.freeze({
+        registerSidebarView(spec){alive();const handle=host.sidebarViews.register(id,spec),dispose=own(()=>handle.dispose());return Object.freeze({show(){alive();handle.show();},hide(){alive();handle.hide();},update(patch){alive();handle.update(patch);},dispose});},
+        theme(){alive();return themeSnapshot();},
+        createElement(kind,options){alive();return createUiElement(kind,options);},
         locations:ui?Object.freeze({buttons:ui.locations,panels:ui.panelLocations}):Object.freeze({buttons:[],panels:[]}),
         addButton(spec){alive();if(!ui)throw velaError('E_UNSUPPORTED','当前界面不支持插件按钮。');const key=ui.addButton(id,name,spec),dispose=own(()=>ui.removeButton(key));return Object.freeze({update(patch){alive();ui.updateButton(key,patch||{});},dispose});},
         addPanel(spec){alive();if(!ui)throw velaError('E_UNSUPPORTED','当前界面不支持插件面板。');const panel=ui.addPanel(id,name,spec),dispose=own(()=>ui.removePanel(panel.key));return Object.freeze({body:panel.body,update(patch){alive();ui.updatePanel(panel.key,patch||{});},dispose});},
@@ -84,6 +89,7 @@ export class PluginRuntime {
         get view(){alive();return host.getView();}
       }),
       documents:Object.freeze({
+        async open(fileId,options={}){alive();doc(fileId);const controller=new AbortController(),release=own(()=>controller.abort()),abort=()=>controller.abort();if(options.signal?.aborted)controller.abort();options.signal?.addEventListener('abort',abort,{once:true});try{return await host.openDocument(fileId,{...options,signal:controller.signal});}finally{options.signal?.removeEventListener('abort',abort);release();}},
         active(){alive();return runtime.activeFile;},
         list(){alive();return host.getFiles().map(item=>({id:item.id,name:item.name,path:item.path||item.name}));},
         async readText(fileId){alive();return doc(fileId).text;},
@@ -97,12 +103,17 @@ export class PluginRuntime {
       project:resources.project?.api||null,
       tex:Object.freeze({async compile(fileId,options={}){alive();if(runtime.loadingId===id)throw velaError('E_INVALID_DATA','请在初始化完成后的用户操作中编译。');const target=doc(fileId),controller=new AbortController(),cancel=()=>controller.abort();resources.disposers.push(cancel);options.signal?.addEventListener('abort',cancel,{once:true});try{return await host.compileTex(target,{engine:options.engine||'xetex',onLog:options.onLog,signal:controller.signal});}finally{options.signal?.removeEventListener('abort',cancel);resources.disposers=resources.disposers.filter(fn=>fn!==cancel);}}}),
       planning:Object.freeze({
+        navigate(spec){alive();return host.navigatePlanning(spec);},
+        snapshot(){alive();return host.planningSnapshot();},
+        async applyChanges({fileId,expectedText,changes}){alive();doc(fileId);if(typeof expectedText!=='string')throw velaError('E_INVALID_DATA','需要读取时的 expectedText。');const module=await import('./planning-transactions.mjs');alive();const target=doc(fileId);if(target.text!==expectedText)throw velaError('E_CONFLICT','文稿已变化，请重新读取。');const kind=host.documentKind(target),next=module.applyPlanningChanges(kind,expectedText,changes);return host.applyPlanning(fileId,next,expectedText);},
         async parse(kind,text){alive();const module=kind==='OUTLINE'?await loadOutlineView():kind==='MAP'?await loadMapView():null;alive();if(!module)throw velaError('E_INVALID_DATA','规划格式无效。');return structuredClone((module.parseOutline||module.parseMap)(text));},
         async serialize(kind,value){alive();const module=kind==='OUTLINE'?await loadOutlineView():kind==='MAP'?await loadMapView():null;alive();if(!module)throw velaError('E_INVALID_DATA','规划格式无效。');return (module.outlineText||module.mapText)(structuredClone(value));},
         async registerMapSymbol(spec){alive();const module=await loadMapView();alive();const handle=module.registerMapSymbol(id,spec),dispose=own(handle.dispose);return Object.freeze({type:handle.type,dispose});},
         async registerMapAlgorithm(spec){alive();if(!spec||typeof spec.run!=='function')throw velaError('E_INVALID_DATA','插件算法定义无效。');const module=await loadMapAlgorithms();alive();const handle=module.registerMapAlgorithm(id,{...spec,run:async(...args)=>{alive();const result=await spec.run(...args);alive();return result;}}),dispose=own(handle.dispose);return Object.freeze({id:handle.id,dispose});}
       }),
       formats:Object.freeze({register(provider){alive();return own(registerDocumentFormat(id,provider));}}),
+      context:Object.freeze({get(){alive();return host.context.get();},subscribe(fn){alive();if(typeof fn!=='function')throw velaError('E_INVALID_DATA','需要监听函数。');return own(host.context.subscribe(context=>{if(runtime.running.get(id)===resources&&!resources.stopping)fn(context);}));}}),
+      tasks:Object.freeze({run(spec){alive();const task=host.tasks.run(id,spec),release=own(()=>task.cancel());task.result.then(release,release);return task;},runWorker(spec){alive();const url=runtime.assetUrl(id,assetPath(spec.path));if(!url)throw velaError('E_NOT_FOUND','Worker 资源不存在。');const task=host.tasks.worker(id,{...spec,url}),release=own(()=>task.cancel());task.result.then(release,release);return task;}}),
       on(event,fn){alive();if(typeof fn!=='function')throw velaError('E_INVALID_DATA','事件监听器必须是函数。');const entry={event,fn},list=runtime.listeners.get(id)||[];list.push(entry);runtime.listeners.set(id,list);return own(()=>{const current=runtime.listeners.get(id)||[];runtime.listeners.set(id,current.filter(item=>item!==entry));});},
       dispose(fn){alive();if(typeof fn!=='function')throw velaError('E_INVALID_DATA','清理器必须是函数。');resources.disposers.push(fn);return fn;}
     });

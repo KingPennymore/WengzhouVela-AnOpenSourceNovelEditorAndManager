@@ -39,7 +39,7 @@ GitHub Actions 的 `Verify` 工作流在 master 推送、拉取请求或手动�
 
 ## 样式表结构
 
-`index.html` 仍依次加载 `style.css`、`file-manager.css`、`katex.min.css`、`ui.css`、`design.css`，层次由 `style.css` 开头的 `@layer reset, tokens, app, state;` 决定：
+`index.html` 仍依次加载 `style.css`、`file-manager.css`、`katex.min.css`、`ui.css`、`design.css`、`refinement.css`，层次由 `style.css` 开头的 `@layer reset, tokens, app, state;` 决定：
 
 - `reset`：`box-sizing`、`[hidden]`（带 `!important`，在任何层里都优先）、细滚动条。
 - `tokens`：全部设计令牌（颜色、圆角、阴影、动效曲线，按平台和深浅色覆盖），四个文件里的令牌按原顺序集中在 `style.css` 开头。
@@ -60,10 +60,10 @@ GitHub Actions 的 `Verify` 工作流在 master 推送、拉取请求或手动�
 
 ## 完整版与轻量版
 
-默认 `npm run build`、`npm run build:android` 和 `npm run build:windows` 继续生成完整版，内置离线 TeX 引擎及中文包。
+正式发布仅提供三端轻量版，安卓仅发布 APK，不构建或发布 AAB。本地 `npm run build`、`npm run build:android` 和 `npm run build:windows` 仍支持生成内置离线 TeX 引擎及中文包的完整版。
 
 - `npm run build:lite`：生成轻量前端，仍包含编辑、术语库、同步、阅读、PDF 阅读与 Markdown 数学公式；不内置 TeX 引擎和中文字体。
-- `npm run build:android:lite`：生成安卓轻量发布 APK / AAB，名称包含 `-lite-`。与完整版使用相同包名，不用于同时安装；签名发布时必须沿用原证书。轻量签名使用 `scripts/sign-android.ps1 -Lite`，完整版不加 `-Lite`。
+- `npm run build:android:lite`：生成安卓轻量发布 APK，名称包含 `-lite-`。与完整版使用相同包名，不用于同时安装；签名发布时必须沿用原证书。轻量签名使用 `scripts/sign-android.ps1 -Lite`，完整版不加 `-Lite`。
 - `npm run build:windows:lite`：生成 Windows 轻量安装程序及 ZIP，放在 `dist/windows-lite/`，名称包含 `-lite-`。
 - 鸿蒙轻量版：先执行 `npm run build:lite`，再按现有鸿蒙构建流程打包。构建前端时可设置 `VELA_BUILD_FLAVOR=lite`；环境变量会传递给安卓的资源准备任务。
 
@@ -80,7 +80,7 @@ GitHub Actions 的 `Verify` 工作流在 master 推送、拉取请求或手动�
 ```
 node scripts/release.mjs bump 0.9.9                 同步全部版本号
 node scripts/release.mjs run --dry-run              演练：只做检查、列出命令和外部操作
-node scripts/release.mjs run                        从第一个未完成的阶段开始
+node scripts/release.mjs run --lite-only            仅构建、验证和发布轻量版，从断点继续
 node scripts/release.mjs run --only verify          只跑某一阶段；--from build 从某阶段起重跑
 node scripts/release.mjs status                     查看各阶段状态
 node scripts/release.mjs fingerprints [--record]    显示或记录签名证书指纹
@@ -94,10 +94,10 @@ node scripts/release.mjs fingerprints [--record]    显示或记录签名证书�
 2. **build**：先轻量版、后完整版，依次构建安卓 release、Windows 和鸿蒙 `assembleApp`（DevEco 用本机 `build-profile.json5` 中的签名配置）。DevEco 生成的 `.app` 文件名可能仍是旧版本（如 `me.wenzhou.write-0.9.6.app`），脚本取最新的 `.app`，按包内 `pack.info` 核对版本后改名为 `Vela-<版本>[-lite]-release-signed.app`，已签名 HAP 同样改名。
 3. **sign**：`scripts/sign-android.ps1`（轻量版加 `-Lite`）。安卓口令只由该脚本自己读取。
 4. **package**：`package.py --source-only` 生成源码包，其中的 `build-profile.json5` 一律取自仓库 HEAD（不带本机签名配置）；`finalize-release.py` 收集附件、写 `SHA256SUMS-<版本>.txt` 并签名；从 GitHub 取回当前 `catalog.json` 作为上一份目录，`build-catalog.mjs` 生成并签名新目录。
-5. **verify**：`verify.mjs --tex --windows`；附件齐全且与 `SHA256SUMS` 一致；两份清单签名有效；`.app.zip` 中鸿蒙包的版本；APK 签名证书指纹；列出超过 Gitee 100 MB 附件上限、只发布到 GitHub 的文件。
+5. **verify**：`verify.mjs --tex --windows`（`--lite-only` 时加 `--lite`）；附件齐全且与 `SHA256SUMS` 一致；两份清单签名有效；`.app.zip` 中鸿蒙包的版本；APK 签名证书指纹；列出超过 Gitee 100 MB 附件上限、只发布到 GitHub 的文件。
 6. **publish-github**（外部）：用 gh 创建草稿发布（目标为 HEAD），只上传缺少或摘要不同的文件，核对 GitHub 计算的大小和 SHA-256 后设为正式发布并标为 Latest；更新 `catalog` 发布中的目录三件。gh 在 Windows 上输出 CRLF，脚本解析时统一去掉。
 7. **mirror-gitee**（外部）：把应用附件（不超过 100 MB 的，含 `.sig`，不含源码包）和组件目录同步到 Gitee。核对方式：先比对 API 返回的大小，再从公开地址下载 1 MB 以下的文件核对 SHA-256；从 Gitee 下载大文件很慢，只在加 `--gitee-full-verify` 时全部下载核对。`--gitee-replace` 重传同名同大小的文件。刚替换的目录可能被 CDN 缓存，核对失败时稍后用 `--only mirror-gitee` 重试。
-8. **restore**：重新构建完整版前端并运行 `check-build.mjs`，清理临时文件，确认工作区与 HEAD 一致（除构建产物和本机配置）。
+8. **restore**：重新构建本次发布类型的前端（`--lite-only` 为轻量版）并运行 `check-build.mjs`，清理临时文件，确认工作区与 HEAD 一致（除构建产物和本机配置）。
 
 外部操作前，脚本列出本次运行将要做的全部外部操作（每个上传的文件及大小、发布与 Latest 的变化），输入 `yes` 确认一次后才执行。Gitee 私人令牌在一次运行中只输入一次（终端中不回显），只保存在进程内存里：不写入磁盘、状态文件或日志，不出现在命令行参数中，错误信息中出现时替换为 `***`。状态与日志在 `dist/release-state/<版本>.json` / `.log`；提交变化后状态自动清空，从头开始。
 

@@ -94,7 +94,7 @@ try{
   await writeFile('test-results/animation-blocking.json',JSON.stringify({reports,errors},null,2));
   assert.deepEqual(errors,[]);
   for(const report of reports){
-    assert.ok(report.sidebar.frames>=3,'sidebar must paint intermediate frames');
+    if(report.width>600)assert.ok(report.sidebar.frames>=3,'desktop sidebar must paint intermediate frames');else assert.ok(report.sidebar.frames>=1,'phone drawer opens without resizing the editor');
     assert.equal(report.storage.writes.filter(write=>write.animating).length,0,'deferred navigation save must not run during an animation');
     assert.equal(report.storage.writes.length,0,'deferred navigation must not synchronously write localStorage');
     assert.equal(report.storage.saved,true,'deferred navigation must eventually be saved');

@@ -17,7 +17,7 @@ const lines=['第一章 风起',''];for(let i=1;i<=120;i++)lines.push(`　　第
 const novel=lines.join('\n'),bold=novel.indexOf('林舟',novel.indexOf('第3段'));
 const config={version:3,kind:'workspace',id:'voyage',project:{name:'航程'},richText:{enabled:true,documents:{'正文.txt':buildRecord(novel,[{group:'marks',type:'strong',from:bold,to:bold+2}])}}};
 const seed={version:1,activeId:'book',openIds:['book','notes','config'],settings:{theme:'light',richText:true},documents:[{id:'book',name:'正文.txt',path:'航程/正文.txt',text:novel,updatedAt:1},{id:'notes',name:'笔记.txt',path:'航程/笔记.txt',text:'笔记',updatedAt:1},{id:'config',name:'.vela',path:'航程/.vela',text:JSON.stringify(config,null,2),updatedAt:1}]};
-const stored=page=>page.evaluate(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')));
+const stored=page=>page.evaluate(async()=>{const {readWorkspaceAsync}=await import('/platform.mjs');return JSON.parse(await readWorkspaceAsync());});
 const velaOf=async page=>JSON.parse((await stored(page)).documents.find(doc=>doc.path==='航程/.vela').text);
 async function open(options={viewport:{width:1280,height:800}}){
   const context=await browser.newContext(options);

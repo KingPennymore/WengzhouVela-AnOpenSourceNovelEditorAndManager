@@ -22,7 +22,7 @@ await build({entryPoints:['web/workspace-save-worker.js'],bundle:true,outfile:`$
 await build({entryPoints:['web/project-archive-worker.js'],bundle:true,outfile:`${out}/project-archive-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
 await build({entryPoints:['web/tex-component-worker.js'],bundle:true,outfile:`${out}/tex-component-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
 await build({entryPoints:['web/html-reader.js'],bundle:true,outfile:`${out}/html-reader.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
-for(const name of ['index.html','style.css','file-manager.css','ui.css','design.css']) await copyFile(`web/${name}`,`${out}/${name}`);
+for(const name of ['index.html','style.css','file-manager.css','ui.css','design.css','refinement.css']) await copyFile(`web/${name}`,`${out}/${name}`);
 await copyFile('node_modules/katex/dist/katex.min.css',`${out}/katex.min.css`);
 await cp('node_modules/katex/dist/fonts',`${out}/fonts`,{recursive:true});
 await copyTexAssets(out,{lite});
@@ -34,7 +34,7 @@ for(const [name,path] of [['jieba vocabulary','vendor/jieba/LICENSE'],['Acode','
   const text=await readFile(path,'utf8');licenses.push({name,text});await writeFile(`${out}/licenses/${name.replaceAll(' ','-')}.txt`,text);
 }
 licenses.push({name:'TeX Live / BusyTeX · notices and license inventory',text:await readFile('vendor/wasmtex/THIRD_PARTY_NOTICES.md','utf8')});
-const included=new Set(Object.keys(bundle.metafile.inputs).map(input=>input.match(/^node_modules\/((?:@[^/]+\/)?[^/]+)\//)?.[1]).filter(Boolean));
+const included=new Set(Object.keys(bundle.metafile.inputs).map(input=>input.replaceAll('\\','/').match(/(?:^|\/)node_modules\/((?:@[^/]+\/)?[^/]+)\//)?.[1]).filter(Boolean));
 for(const name of [...included].sort()) {
   const p=`node_modules/${name}`;
   let found=false;

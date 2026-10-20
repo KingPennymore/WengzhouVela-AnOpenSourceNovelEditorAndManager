@@ -1,0 +1,218 @@
+/* Shared finishing details. Editor text metrics and canvas coordinates stay in their feature styles. */
+@layer app {
+  /* One header for built-in and registered views; actions keep their original IDs. */
+  .library-heading,.outline-heading {display:none}
+  .has-sidebar-views>.sidebar-view-bar {height:52px;padding:6px 12px;gap:8px}
+  .sidebar-view-icon {width:20px;height:20px;display:inline-flex;flex:none;color:var(--accent)}
+  .sidebar-view-icon svg {width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.7}
+  .sidebar-view-title {margin:0;font-size:14px;font-weight:500;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .sidebar-builtin-actions {display:flex;align-items:center;gap:6px;flex:none;color:var(--muted);font-size:11px}
+  .sidebar-builtin-actions button {width:36px;height:36px;padding:0;display:grid;place-items:center;border-radius:var(--radius);color:var(--accent)}
+  .sidebar-builtin-actions #chapter-count {white-space:nowrap}
+  .sidebar-view-bar [hidden] {display:none}
+  .sidebar-view-bar select {padding-inline:0;min-height:40px;cursor:pointer}
+  .library-panel.has-sidebar-views>#library {margin-top:52px;height:calc(100% - 52px);padding-top:12px}
+  .outline-shell.has-sidebar-views>#outline {top:52px;padding-top:12px}
+  .sidebar-view-body {inset-block-start:52px}
+  .sidebar-view-bar>button {width:36px;height:36px;min-height:36px;padding:0;display:grid;place-items:center}
+
+  /* Keep common actions in place; group less frequent commands by purpose. */
+  #toolbar-overflow {width:max-content;min-width:min(176px,calc(100vw - 24px));max-width:calc(100vw - 24px);max-height:calc(var(--app-height,100dvh) - var(--shell-top,60px) - var(--safe-top,0px) - 20px);overflow:auto;overscroll-behavior:contain;padding:8px}
+  .toolbar-menu-group+.toolbar-menu-group,.planning-menu-group+.planning-menu-group {border-top:1px solid var(--hairline);margin-top:6px;padding-top:6px}
+  .toolbar-menu-group[hidden]+.toolbar-menu-group,.planning-menu-group[hidden]+.planning-menu-group {border-top:0;margin-top:0;padding-top:0}
+  .toolbar-menu-heading {padding:8px 10px 4px;color:var(--muted);font-size:11px;line-height:1.5;font-weight:400;white-space:nowrap}
+  #toolbar-overflow button {gap:10px;min-height:42px;padding:8px 10px;white-space:nowrap}
+  #toolbar-overflow .menu-label {flex:1;min-width:0;text-align:start;font-size:12px;line-height:1.5;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .menu-shortcut {display:none}
+  #toolbar-overflow .menu-shortcut {display:inline;color:var(--muted);font-size:10px;font-family:inherit;white-space:nowrap;margin-inline-start:auto}
+  #toolbar-overflow button:focus-visible,.planning-menu button:focus-visible {outline:2px solid var(--accent);outline-offset:-2px;background:var(--accent-tint)}
+  .planning-menu {--planning-menu-top:66px;top:var(--planning-menu-top);width:max-content;min-width:min(168px,calc(100% - 20px));max-width:calc(100% - 20px);max-height:calc(100% - var(--planning-menu-top) - 8px);display:flex;flex-direction:column}
+  .planning-menu[hidden] {display:none}
+  .planning-menu-scroll {padding:8px;max-height:min(65vh,560px);flex:1;min-height:0}
+  .planning-menu-group button {border-radius:var(--radius);min-height:42px;padding:8px 10px;font-size:12px;line-height:1.5;white-space:nowrap}
+  .planning-menu-group button>span {min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .planning-menu-group [aria-pressed=true] {background:var(--accent-tint);color:var(--accent)}
+  .planning-menu-group [aria-pressed=true]::after {content:'✓';margin-inline-start:auto}
+  .planning-toolbar.outline-toolbar .planning-primary {flex:0 1 auto;max-width:calc(100% - 52px);gap:3px;padding:3px;border:1px solid var(--hairline);border-radius:var(--radius);background:var(--soft)}
+  .outline-toolbar .planning-primary>[data-outline-mode] {min-width:72px;min-height:34px;height:34px;padding:4px 16px;font-size:12px}
+  .outline-toolbar .planning-primary>[data-outline-mode][aria-pressed=true] {background:var(--paper);box-shadow:var(--elev-1);color:var(--accent)}
+  .outline-toolbar .planning-overflow {margin-inline-start:auto}
+  .sidebar-view-bar select {font-size:13px;font-weight:500;padding-inline:8px}
+  .sidebar-view-bar button {color:var(--muted)}
+  .sidebar-view-body {scrollbar-gutter:stable}
+  .library-heading h1,.outline-heading h2 {font-size:14px;font-weight:500}
+  .workspace-controls {padding-block:8px}
+  .workspace-controls>.workspace-actions {display:flex;flex-wrap:nowrap;align-items:center;gap:8px;margin-top:0;min-width:0}
+  .workspace-action-buttons {display:flex;align-items:center;flex:1;min-width:0;gap:2px;overflow-x:auto;scrollbar-width:thin;overscroll-behavior:contain}
+  .workspace-action-buttons button {width:30px;min-width:30px;height:36px;min-height:36px;padding:5px;flex:none;white-space:nowrap}
+  .workspace-actions>#file-sort {width:82px;max-width:40%;flex:none;min-width:0;min-height:36px;height:36px;padding:4px 6px;font-size:11px;background:var(--paper);border-color:var(--hairline)}
+  .workspace-controls>.file-location {margin:4px 0 0;font-size:10px;line-height:1.6}
+  .workspace-controls>.file-location:has(#selected-folder:empty) {display:none}
+  .file-location {font-size:11px;gap:8px;align-items:flex-start}
+  .file-location>select {font-size:11px;flex:none}
+  .doc-open {min-width:0}
+  .workspace-folder>.doc-item {width:calc(100% - 12px)}
+  .doc-item>.doc-open {padding-inline-end:30px}
+  .doc-info strong {font-size:13px;max-width:100%;line-height:1.5}
+  .doc-info small {font-size:11px;line-height:1.5;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .workspace-folder>summary {min-height:38px;font-size:12px}
+  .chapter {border-radius:var(--radius)}
+  .chapter small {font-size:11px;line-height:1.5}
+  .map-directory {gap:12px}
+  .map-directory-search {border:1px solid var(--hairline);border-radius:var(--radius);padding-inline:10px;gap:8px;background:var(--paper);flex:none}
+  .sidebar-view-body .map-directory-search input {border:0;border-radius:0;box-shadow:none;padding-inline:0;min-height:40px;background:transparent}
+  .map-directory-search:focus-within {border-color:var(--accent);box-shadow:0 0 0 2px var(--accent-tint)}
+  .sidebar-view-body .map-directory-search input:focus {box-shadow:none}
+  .map-directory-filter summary {cursor:pointer;min-height:36px;line-height:36px;color:var(--text)}
+  .map-filter-hint {color:var(--muted);font-size:11px;line-height:1.7;margin:4px 0 8px}
+  .map-directory-filter>button {color:var(--accent);min-height:36px;padding-inline:0}
+  .map-directory-meta {display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:32px;flex:none;border-bottom:1px solid var(--hairline);padding-bottom:4px}
+  .map-directory-meta button {font-size:11px;color:var(--accent);padding:4px;min-height:32px}
+  .map-directory-meta button[hidden] {display:none}
+  .map-directory-list {scrollbar-gutter:stable;scroll-padding-block:8px}
+  .map-directory-row {border-bottom:0;border-radius:var(--radius);margin-block:2px}
+  .map-directory-row>button:first-child {min-height:64px;padding:8px 6px}
+  .map-directory-row strong {line-height:1.6}
+  .map-directory-detail {width:40px;min-height:40px;color:var(--muted)}
+  .map-label-category {min-height:48px;cursor:pointer}
+  .map-label-category small {font-size:11px;min-width:24px;text-align:center;padding:3px 6px;border-radius:var(--radius);background:var(--soft)}
+  .map-label-controls .vela-extension-toolbar {flex-wrap:nowrap;gap:8px}
+  .map-label-controls .vela-extension-toolbar button {flex:1;font-size:12px}
+
+  /* The form scrolls independently; its primary action remains within reach. */
+  .map-point-sheet {inset:52px 0 0 auto;width:var(--planning-pane-width,340px);height:auto;max-height:none;border-radius:var(--radius) 0 0 var(--radius);padding:0;z-index:10}
+  .map-point-sheet .planning-sheet-surface {height:auto;min-height:0;max-height:100%;flex:1}
+  .map-point-sheet header {padding:10px 16px;min-height:56px}
+  .map-point-sheet header strong {font-size:14px;font-weight:500}
+  .map-point-sheet header button {width:40px;height:40px;flex:none;color:var(--muted)}
+  .map-point-sheet .planning-sheet-scroll {display:flex;flex:1;min-height:0;max-height:none;overflow:hidden;padding:0}
+  .map-point-form {width:100%;min-height:0;display:flex;flex-direction:column;gap:0}
+  .map-point-fields {flex:1;min-height:0;overflow:auto;overscroll-behavior:contain;touch-action:pan-y;padding:16px;display:flex;flex-direction:column;gap:16px;scrollbar-gutter:stable}
+  .map-point-fields>label {font-size:12px;line-height:1.5;gap:8px;flex:none;color:var(--muted)}
+  .map-point-fields input,.map-point-fields select,.map-point-fields textarea {box-sizing:border-box;min-height:44px;border:1px solid var(--hairline);padding:10px;color:var(--text);background:var(--paper)}
+  .map-point-fields textarea {resize:vertical;min-height:88px}
+  .map-point-fields .map-info-icon-preview {line-height:1.7;flex:none}
+  .map-point-form>.button-row {flex:none;display:flex;gap:8px;margin:0;padding:12px 16px;border-top:1px solid var(--hairline);background:var(--panel)}
+  .map-point-form>.button-row>button {flex:1;min-height:44px;font-size:12px;border-radius:var(--radius)}
+  .map-point-form [data-remove-marker] {color:var(--danger)}
+
+  .settings-navigation {gap:6px}
+  .settings-navigation button {border-radius:var(--radius);font-size:13px;line-height:1.5;min-height:42px}
+  .settings-navigation button[aria-current] {color:var(--accent);background:var(--accent-tint);font-weight:500;box-shadow:inset 3px 0 var(--accent)}
+  .settings-section {scroll-margin-top:0;padding-block:16px 24px}
+  .settings-section h3 {font-size:14px;font-weight:500;margin:0 0 20px;color:var(--text)}
+  .settings-section>label {font-size:12px;line-height:1.7;gap:8px}
+  .settings-section small {font-size:11px;line-height:1.7}
+  .settings-dialog .dialog-actions button {min-height:42px;min-width:80px;border-radius:var(--radius)}
+  .settings-dialog #dialog-close {width:40px;height:40px;min-height:40px;color:var(--muted)}
+
+  :is(.sidebar-view-bar,.map-directory,.map-label-controls,.planning-toolbar,.status-actions,.settings-navigation) button:focus-visible,
+  .map-directory-filter summary:focus-visible {outline:2px solid var(--accent);outline-offset:2px}
+  @media(hover:hover) {
+    .sidebar-view-bar button:hover {background:var(--soft);color:var(--text)}
+    .map-directory-row:hover {background:var(--soft)}
+    .map-label-category:hover {background:var(--soft)}
+    .settings-navigation button:hover {background:var(--soft);color:var(--text)}
+    .settings-navigation button[aria-current]:hover {background:var(--accent-tint);color:var(--accent)}
+  }
+  @media(min-width:900px) {
+    .planning-menu {--planning-menu-top:58px}
+    .status-actions button {width:32px;height:32px;border-radius:var(--radius)}
+    .status-actions button svg {width:18px;height:18px}
+    .status-actions .planning-bottom-actions>button {width:32px;min-width:32px;height:32px}
+    .status-actions .planning-bottom-actions>button svg {width:18px;height:18px}
+  }
+  @media(max-width:899px) {
+    .map-point-sheet {inset:auto 0 0;width:100%;height:min(680px,82%);max-height:calc(100% - 56px);border-radius:var(--radius) var(--radius) 0 0}
+    .map-point-form>.button-row {padding:12px 16px calc(12px + var(--safe-bottom,0px))}
+  }
+  @media(max-width:600px) {
+    #app {--sidebar-top-clearance:52px}
+    body[data-planning]:not([data-planning=""]) #app {--sidebar-top-clearance:108px}
+    #app :is(.library-shell,.outline-shell) {position:fixed;inset:auto 8px calc(var(--sidebar-bottom,80px) + var(--safe-bottom,0px));height:min(64dvh,520px);max-height:calc(var(--app-height,100dvh) - var(--shell-top,60px) - var(--safe-top,0px) - var(--sidebar-bottom,80px) - var(--sidebar-top-clearance));width:auto!important;z-index:30;border:1px solid var(--hairline);border-radius:var(--radius);background:var(--panel);box-shadow:var(--elev-3)}
+    #app .library-shell>.library-panel {width:100%;inset:0}
+    #app .library-panel>#library {width:100%}
+    #app .outline-shell>#outline,#app .outline-shell>.sidebar-view-body {width:100%}
+    #app :is(.library-shell,.outline-shell)>.sidebar-resize {display:none}
+    body[data-keyboard=true] #app :is(.library-shell,.outline-shell) {height:min(56dvh,360px)}
+    .sidebar-builtin-actions button,.sidebar-view-bar>button {width:40px;height:40px;min-height:40px}
+    #toolbar-overflow button,.planning-menu-group button {min-height:44px}
+    #toolbar-overflow .menu-shortcut {display:none}
+    .outline-toolbar .planning-primary>[data-outline-mode] {min-height:38px;height:38px;min-width:68px}
+    .sidebar-view-bar button {width:40px;height:40px}
+    .map-directory {gap:8px}
+    .map-directory-detail {width:44px;min-height:44px}
+    .map-directory-row>button:first-child {min-height:60px}
+    .settings-navigation {gap:4px}
+    .settings-navigation button {font-size:12px;min-height:40px;padding:8px 12px}
+    .settings-navigation button[aria-current] {box-shadow:inset 0 -2px var(--accent)}
+    .settings-dialog .dialog-actions button {min-height:44px}
+  }
+  @media(orientation:landscape) and (max-height:520px) {
+    .planning-menu {--planning-menu-top:48px}
+    .map-point-sheet {inset:44px 0 0 auto;width:var(--planning-pane-width,340px);height:auto;max-height:none;border-radius:var(--radius) 0 0 var(--radius)}
+    .map-point-sheet header {min-height:44px;padding:2px 12px}
+    .map-point-fields {padding:12px;gap:12px}
+    .map-point-form>.button-row {padding:8px 12px}
+  }
+  @media(max-width:600px) and (max-height:520px) {
+    .map-directory {height:auto;min-height:100%}
+    .map-directory-list {flex:none;overflow:visible}
+  }
+  @media(max-height:520px) {
+    #app #library,#app #outline {overflow:auto}
+    #doc-list,#outline-list {flex:none;overflow:visible}
+  }
+  @media(max-height:320px) {
+    .map-point-sheet {inset:0 0 0 auto;max-height:none;height:auto}
+    .map-point-sheet header {min-height:36px}
+  }
+
+  /* Dialogs share a bounded form: only its content and long errors scroll. */
+  #dialog {max-height:calc(var(--app-height,100dvh) - 24px);overflow:hidden}
+  #dialog-form {min-height:0;max-height:inherit;overflow:hidden}
+  #dialog .dialog-heading {min-height:64px;padding:12px 20px;gap:12px}
+  #dialog-title {font-size:16px;line-height:1.5;font-weight:500;min-width:0;overflow-wrap:anywhere}
+  #dialog-close {flex:none;min-width:40px;width:40px;min-height:40px;height:40px;padding:0;color:var(--muted)}
+  #dialog-body {flex:0 1 auto;min-height:0;padding:16px 20px;overscroll-behavior:contain;scroll-padding-block:16px;overflow-wrap:anywhere}
+  #dialog-body>label:first-child {margin-top:0}
+  #dialog-body>label:last-child {margin-bottom:0}
+  #dialog-body label {line-height:1.6;min-width:0}
+  #dialog-body input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=color]),#dialog-body select,#dialog-body textarea {min-width:0;max-width:100%;min-height:42px;font-size:14px;line-height:1.5;padding:9px 10px;border-radius:var(--radius);box-sizing:border-box;scroll-margin-block:16px}
+  #dialog-body textarea {resize:vertical}
+  #dialog-body small {font-size:11px;color:var(--muted);line-height:1.7}
+  #dialog-body label.checkbox {gap:10px;min-height:40px;cursor:pointer}
+  #dialog-body .folder-picker {margin-block:16px;padding:8px;min-width:0}
+  #dialog-body .folder-picker-scroll {max-height:min(180px,26vh);scroll-padding-block:6px}
+  #dialog-body .folder-picker-scroll button {min-width:0;max-width:100%;text-align:start}
+  #dialog-body .folder-picker-scroll button span {min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #dialog-error {flex:none;max-height:min(22vh,104px);overflow:auto;overflow-wrap:anywhere}
+  #dialog-error:empty {display:none}
+  #dialog-error:not(:empty) {padding:10px 20px;border-top:1px solid var(--hairline);background:var(--soft);color:var(--danger);font-size:12px;line-height:1.7}
+  #dialog .dialog-actions {flex:none;gap:10px;padding:12px 20px;min-height:68px;justify-content:flex-end}
+  #dialog .dialog-actions>button {min-height:44px;min-width:88px;padding:10px 16px;font-size:13px;line-height:1.5;white-space:nowrap}
+  #dialog-submit.destructive {background:var(--danger);color:var(--paper)}
+  #dialog[aria-busy=true] #dialog-submit::before {content:'';width:13px;height:13px;flex:none;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:dialog-working .8s linear infinite}
+  #dialog .dialog-actions>button:focus-visible {outline:2px solid var(--accent);outline-offset:2px}
+  body[data-keyboard=true] #dialog {inset:8px 0 auto;margin:0 auto;max-height:calc(var(--app-height,100dvh) - 16px)}
+  body[data-keyboard=true] #dialog.settings-dialog {height:calc(var(--app-height,100dvh) - 16px);max-height:calc(var(--app-height,100dvh) - 16px)}
+  @keyframes dialog-working {to{transform:rotate(360deg)}}
+  @media(max-width:600px) {
+    #dialog:not(.settings-dialog) {inset:auto 0 0;margin:0 auto;width:calc(100vw - 16px);max-width:calc(100vw - 16px);max-height:calc(var(--app-height,100dvh) - 12px);border-radius:20px 20px 0 0}
+    #dialog .dialog-heading {min-height:56px;padding:8px 16px}
+    #dialog-body {padding:14px 16px}
+    #dialog-body input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=color]),#dialog-body select,#dialog-body textarea {min-height:44px;font-size:16px}
+    #dialog .dialog-actions {padding:10px 16px calc(10px + var(--safe-bottom,0px));min-height:64px}
+    #dialog-error:not(:empty) {padding:8px 16px}
+    #dialog-body .button-row>button {min-height:44px}
+    body[data-keyboard=true] #dialog:not(.settings-dialog) {inset:6px 0 auto;margin:0 auto;max-height:calc(var(--app-height,100dvh) - 12px)}
+  }
+  @media(max-height:520px) {
+    #dialog .dialog-heading {min-height:48px;padding:4px 12px}
+    #dialog .dialog-actions {min-height:56px;padding:6px 12px}
+    #dialog-body {padding:12px 16px}
+    #dialog-body .folder-picker-scroll {max-height:100px}
+    #dialog-error:not(:empty) {padding:6px 12px}
+  }
+  @media(prefers-reduced-motion:reduce) {#dialog[aria-busy=true] #dialog-submit::before {animation:none}}
+}

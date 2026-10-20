@@ -32,4 +32,4 @@ export function drawingPointPositions(value,step=0){
  return level;
 }
 export function informationPoints(value){const geometry=cellGeometry(value);let stored=cache.get(value);if(!stored||stored.geometry!==geometry||stored.markers!==value.markers){stored={geometry,markers:value.markers,points:[...(value.markers||[]),...geometry.info]};cache.set(value,stored);}return stored.points;}
-export function hitInformationPoint(value,p,tolerance=18){return informationPoints(value).reverse().find(m=>Math.hypot(m.x-p.x,m.y-p.y)<=tolerance);}
+export function hitInformationPoint(value,p,tolerance=18){return informationPoints(value).reverse().find(m=>Math.hypot(m.x-p.x,m.y-p.y)<=tolerance||m.symbol&&Math.abs(m.x-p.x)<=tolerance&&Math.abs(m.y-p.y-22*tolerance/18)<=12*tolerance/18);}

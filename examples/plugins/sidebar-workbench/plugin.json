@@ -1,0 +1,1 @@
+{"id":"sample.sidebar.workbench","name":"侧栏扩展示例","version":"1.0.0","main":"main.js","vela":{"api":">=4 <5","requiredCapabilities":["sidebar-views-v1","view-context-v1","planning-navigation-v1","background-tasks-v1","ui-components-v1"]}}

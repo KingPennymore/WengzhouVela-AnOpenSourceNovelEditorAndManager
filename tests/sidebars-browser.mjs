@@ -1,11 +1,9 @@
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
-import {readFile,writeFile,mkdir} from 'node:fs/promises';
-import http from 'node:http';
-import path from 'node:path';
-const root=path.resolve('dist/web');
-const server=http.createServer(async(req,res)=>{const name=new URL(req.url,'http://localhost').pathname,file=path.resolve(root,'.'+(name==='/'?'/index.html':decodeURIComponent(name)));if(!file.startsWith(root+path.sep)){res.writeHead(403).end();return;}try{const bytes=await readFile(file);res.writeHead(200,{'Content-Type':{'.html':'text/html','.js':'text/javascript','.css':'text/css'}[path.extname(file)]||'text/plain'}).end(bytes);}catch{res.writeHead(404).end();}});
-await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
+import {writeFile,mkdir} from 'node:fs/promises';
+import {startSourceAppServer} from './source-app-server.mjs';
+import {openRecentFile} from './start-page-helper.mjs';
+const server=await startSourceAppServer();
 const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'}),checks=[],errors=[],samples=[];
 await mkdir('test-results',{recursive:true});
 const page=await browser.newPage({viewport:{width:1440,height:900}});page.on('pageerror',e=>errors.push(e.message));
@@ -21,19 +19,17 @@ async function animate(id){const frames=await page.evaluate(async id=>{
   return frames;
 },id);attached(frames);assert.ok(frames.length>=3,'动画必须覆盖多个可见帧');return frames;}
 try{
-  await page.goto(`http://127.0.0.1:${server.address().port}`);await page.waitForSelector('.cm-editor');
+  await page.addInitScript(()=>{if(!localStorage.getItem('wenzhou.workspace'))localStorage.setItem('wenzhou.workspace',JSON.stringify({version:1,documents:[{id:'book',name:'航程.txt',path:'航程.txt',text:'第一章 航程\n正文。',updatedAt:1}],activeId:null,openIds:[],settings:{theme:'light'}}));});await page.goto(server.url);await page.waitForFunction(()=>window.velaReady);await openRecentFile(page,page.locator('[data-recent=book]'));await page.waitForSelector('.cm-editor');
   await page.evaluate(()=>{window.__sidebarGeometry=()=>{const paper=document.querySelector('.paper').getBoundingClientRect(),left=document.querySelector('#library').getBoundingClientRect(),right=document.querySelector('#outline').getBoundingClientRect();return {paperLeft:paper.left,paperRight:paper.right,paperWidth:paper.width,libraryRight:left.right,outlineLeft:right.left,width:innerWidth,scrollWidth:document.documentElement.scrollWidth,time:performance.now()};};});
-  for(const width of [1440,800,390])await check(`${width}px 下左右侧栏展开、同时显示和收起的每帧边界与正文贴合`,async()=>{
+  for(const width of [1440,800])await check(`${width}px 下左右侧栏展开、同时显示和收起的每帧边界与正文贴合`,async()=>{
     await page.setViewportSize({width,height:900});
     await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));
-    const left=await animate('mobile-library');
-    if(width<=600){assert.ok(left.at(-1).paperLeft<=180);await page.screenshot({path:`test-results/sidebars-042-${width}-files.png`});}
+    await animate('mobile-library');
     await animate('outline-toggle');
     assert.equal(await page.locator('body').evaluate(el=>el.classList.contains('show-library')&&el.classList.contains('show-outline')),true);
     const header=await page.locator('#mobile-library').boundingBox();assert.ok(header.x>=0&&header.x+header.width<=width);
     await page.screenshot({path:`test-results/sidebars-042-${width}.png`});
-    const right=await animate('mobile-library');
-    if(width<=600){assert.ok(width-right.at(-1).paperRight<=170);await page.screenshot({path:`test-results/sidebars-042-${width}-chapters.png`});}
+    await animate('mobile-library');
     await animate('close-outline');
     assert.equal(await page.locator('#library').isVisible(),false);assert.equal(await page.locator('#outline').isVisible(),false);
   });
@@ -55,7 +51,7 @@ try{
   });
   await check('窗口尺寸变化和沉浸模式切换保持两侧贴合，文件侧栏状态不受影响',async()=>{
     await animate('mobile-library');await animate('outline-toggle');
-    for(const width of [1440,390,800]){await page.setViewportSize({width,height:900});await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));await page.waitForFunction(()=>document.querySelector('#app').dataset.sidebarsAnimating==='false');attached([await page.evaluate(()=>window.__sidebarGeometry())]);}
+    for(const width of [1440,1000,800]){await page.setViewportSize({width,height:900});await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));await page.waitForFunction(()=>document.querySelector('#app').dataset.sidebarsAnimating==='false');attached([await page.evaluate(()=>window.__sidebarGeometry())]);}
     await animate('focus-toggle');assert.equal(await page.locator('#outline').isVisible(),false);assert.equal(await page.locator('#library').isVisible(),true);
     await animate('focus-toggle');assert.equal(await page.locator('#outline').isVisible(),true);
     await animate('close-outline');await animate('mobile-library');
@@ -66,4 +62,4 @@ try{
     assert.equal(await page.locator('#library').isVisible(),false);assert.equal(await page.locator('#outline').isVisible(),false);
   });
   assert.deepEqual(errors,[]);await writeFile('test-results/sidebars-042-results.json',JSON.stringify({passed:checks.length,checks,sampledFrames:samples.length,maxLeftGap:Math.max(...samples.map(s=>Math.abs(s.paperLeft-s.libraryRight))),maxRightGap:Math.max(...samples.map(s=>Math.abs(s.paperRight-s.outlineLeft))),pageErrors:errors},null,2));
-}catch(error){await page.screenshot({path:'test-results/sidebars-042-failure.png'}).catch(()=>{});throw error;}finally{await browser.close();server.close();}
+}catch(error){await page.screenshot({path:'test-results/sidebars-042-failure.png'}).catch(()=>{});throw error;}finally{await browser.close();await server.close();}

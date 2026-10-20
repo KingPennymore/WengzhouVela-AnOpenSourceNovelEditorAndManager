@@ -29,7 +29,6 @@ for flavor in (['-lite'] if '--lite-only' in sys.argv else ['', '-lite']):
     with ZipFile(appzip, 'w', ZIP_DEFLATED, compresslevel=9) as archive:
         archive.write(app, app.name)
     assets += [f'Vela-{version}-android.1{flavor}-release-signed.apk',
-               f'Vela-{version}-android.1{flavor}-release-signed.aab',
                appzip.name, f'Vela-{version}{flavor}-release-signed.hap',
                f'Vela-{version}-windows{flavor}-setup-x64.exe',
                f'Vela-{version}-windows{flavor}-x64.zip']

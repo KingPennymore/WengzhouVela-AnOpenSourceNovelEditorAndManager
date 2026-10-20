@@ -436,8 +436,44 @@ body.reader-open .reader-header{transform:none;visibility:visible;pointer-events
 
 
 @layer app{.planning-sheet-surface{min-height:0}}
+@layer app{
+ .has-sidebar-views>.sidebar-view-bar{position:absolute;inset:0 0 auto;height:46px;display:flex;align-items:center;gap:6px;padding:4px 10px;border-bottom:1px solid var(--hairline);background:var(--panel);z-index:4}
+ .sidebar-view-bar[hidden],.sidebar-view-body[hidden],#library[hidden],#outline[hidden]{display:none!important}
+ .sidebar-view-bar select{flex:1;min-width:0;min-height:36px;background:transparent;border:0;color:var(--text);font-weight:600}
+ .sidebar-view-bar button{flex:none;width:36px;height:36px;border-radius:var(--radius)}.sidebar-view-bar svg{width:18px;height:18px}
+ .library-panel.has-sidebar-views>#library{margin-top:46px;height:calc(100% - 46px)}
+ .outline-shell.has-sidebar-views>#outline{top:46px}
+ .sidebar-view-body{position:absolute;inset:46px 0 0;min-height:0;background:var(--panel);color:var(--text);overflow:auto;overscroll-behavior:contain;touch-action:pan-y;padding:14px 12px}
+ .outline-shell>.sidebar-view-body{width:var(--right-panel-width,270px)}
+ .sidebar-view-body input:not([type=checkbox]),.sidebar-view-body select{min-width:0;max-width:100%;width:100%;background:transparent;color:var(--text);border:1px solid var(--hairline);border-radius:var(--radius);min-height:40px;padding:8px 10px}
+ .sidebar-view-body button{min-height:40px;border-radius:var(--radius);padding:6px 10px;color:var(--text)}
+ .map-directory{height:100%;min-height:0;display:flex;flex-direction:column;gap:10px}
+ .map-directory header strong,.map-label-controls header strong{display:none}.map-directory header p,.map-label-controls header p{font-size:12px;color:var(--muted);line-height:1.7;margin:5px 0}
+ .map-directory-search{display:flex;align-items:center;gap:6px}.map-directory-search svg{fill:none;stroke:currentColor;stroke-width:1.7;width:18px;height:18px;flex:none;color:var(--muted)}
+ .map-directory-filter{font-size:12px;flex:none}.map-directory-filter summary{min-height:32px;line-height:32px;color:var(--muted)}
+ [data-directory-categories]{display:flex;flex-wrap:wrap;gap:4px 10px;max-height:140px;overflow:auto}
+ [data-directory-categories] label{display:flex;align-items:center;gap:6px;min-height:36px}
+ [data-directory-count]{margin:0;font-size:11px;color:var(--muted)}
+ .map-directory-list{flex:1;min-height:0;overflow:auto;overscroll-behavior:contain}.map-directory-row{display:flex;align-items:center;border-bottom:1px solid var(--hairline);min-width:0}
+ .map-directory-row>button:first-child{flex:1;min-width:0;display:flex;align-items:center;gap:9px;justify-content:flex-start;text-align:start;min-height:60px}
+ .map-directory-row>button:hover,.map-directory-row>button:focus-visible{background:var(--accent-tint)}
+ .map-directory-row>button>span:last-child{min-width:0}.map-directory-row strong{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:500;font-size:13px}.map-directory-row small{display:block;color:var(--muted);font-size:11px;margin-top:4px}
+ .map-directory-icon{width:30px;height:32px;flex:none;color:var(--accent);display:grid;place-items:center}.map-directory-icon svg{width:26px;height:26px}.map-directory-detail{flex:none;width:36px;padding:4px!important}.map-directory-detail svg{width:18px;height:18px}
+ .map-label-controls{display:flex;flex-direction:column;gap:12px}.map-label-category{display:flex;align-items:center;gap:9px;min-height:46px;border-bottom:1px solid var(--hairline);font-size:13px}.map-label-category small{margin-inline-start:auto;color:var(--muted)}
+ .sidebar-view-body input[type=checkbox]{width:18px;height:18px;accent-color:var(--accent);flex:none}
+ .map-info-icon-preview{display:flex;gap:10px;align-items:center;color:var(--muted);font-size:11px}.map-info-icon-preview svg{width:38px;height:38px;flex:none;color:var(--accent)}
+ .vela-extension-toolbar{display:flex;align-items:center;gap:6px;flex-wrap:wrap}.vela-extension-toolbar button{background:var(--soft)}
+ .vela-extension-list{display:flex;flex-direction:column;min-height:0;overflow:auto}.vela-extension-empty{padding:24px 12px;text-align:center;color:var(--muted)}.vela-extension-empty p{font-size:12px;line-height:1.7}
+ .extension-tasks{position:fixed;right:12px;bottom:calc(var(--footer-height,80px) + 12px);z-index:70;width:min(360px,calc(100vw - 24px));background:var(--panel);border:1px solid var(--hairline);border-radius:var(--radius);box-shadow:var(--elev-2);max-height:40vh;overflow:auto}.extension-tasks[hidden]{display:none}.extension-tasks>div{display:grid;grid-template-columns:1fr auto;gap:8px;padding:12px}.extension-tasks span{font-size:12px;overflow-wrap:anywhere}.extension-tasks progress{width:100%;grid-row:2;accent-color:var(--accent)}.extension-tasks button{grid-column:2;grid-row:1/3;min-height:40px;color:var(--accent);padding:8px}
+ @media(max-width:600px){
+  .library-shell[data-sidebar-custom=true],.outline-shell[data-sidebar-custom=true]{position:fixed;left:8px;right:8px;top:auto;bottom:calc(var(--sidebar-bottom,80px) + var(--safe-bottom,0px));height:min(58vh,440px);width:auto!important;z-index:30;border:1px solid var(--hairline);border-radius:var(--radius);box-shadow:var(--elev-3)}
+  .library-shell[data-sidebar-custom=true]>.library-panel{width:100%;left:0;right:0}.outline-shell[data-sidebar-custom=true]>.sidebar-view-body{width:100%}.sidebar-view-body{padding:10px 12px}.map-directory header{display:none}.map-directory{gap:6px}
+  .library-shell[data-sidebar-custom=true]>.sidebar-resize,.outline-shell[data-sidebar-custom=true]>.sidebar-resize{display:none}
+  body[data-keyboard=true] .library-shell[data-sidebar-custom=true],body[data-keyboard=true] .outline-shell[data-sidebar-custom=true]{height:min(48vh,300px)}
+ }
+}
 
-@layer state{body[data-page=write][data-planning]:not([data-planning=""]) :is(#quick-top,#quick-bottom,#quick-chapter-top,#quick-chapter-bottom,#search-editor,#add-glossary){display:none}body[data-page=write][data-planning]:not([data-planning=""]) .outline-shell{flex-basis:0;width:0;visibility:hidden}}
+@layer state{body[data-page=write][data-planning]:not([data-planning=""]) :is(#quick-top,#quick-bottom,#quick-chapter-top,#quick-chapter-bottom,#search-editor,#add-glossary){display:none}body[data-page=write][data-planning]:not([data-planning=""]) .outline-shell:not([data-sidebar-custom=true]){flex-basis:0;width:0;visibility:hidden}}
 
 @layer app{.planning-menu .plugin-action-strip{flex-direction:column;width:100%}.planning-menu .plugin-action-strip button{width:100%;min-height:44px}.planning-menu .plugin-action-label{display:inline}}
 

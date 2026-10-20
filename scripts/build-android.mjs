@@ -31,7 +31,7 @@ if(process.argv.includes('--assets-only')){
   const env={...process.env,ANDROID_HOME:sdk,ANDROID_SDK_ROOT:sdk,...(java?{JAVA_HOME:java}:{} )};
   await writeFile('android/local.properties',`sdk.dir=${sdk.replaceAll('\\','/')}\n`);
   const release=process.argv.includes('--release');
-  const command=release?'assembleRelease bundleRelease':'assembleDebug';
+  const command=release?'assembleRelease':'assembleDebug';
   const child=process.platform==='win32'
     ?spawn('cmd.exe',['/d','/s','/c',`gradlew.bat --no-daemon --console=plain ${command}`],{cwd:join(root,'android'),env,stdio:'inherit'})
     :spawn('./gradlew',['--no-daemon','--console=plain',...command.split(' ')],{cwd:join(root,'android'),env,stdio:'inherit'});
@@ -43,7 +43,6 @@ if(process.argv.includes('--assets-only')){
   const suffix=process.env.VELA_BUILD_FLAVOR==='lite'?'-lite':'';
   const target=`dist/Vela-${name}${suffix}-${release?'release-unsigned':'debug'}.apk`;
   await cp(source,target);
-  if(release)await cp('android/app/build/outputs/bundle/release/app-release.aab',`dist/Vela-${name}${suffix}-release-unsigned.aab`);
   const bytes=await readFile(target);
   await writeFile(`dist/android-${variant}${suffix}.json`,JSON.stringify({version:name,package:'me.wenzhou.write',variant,flavor:suffix?'lite':'full',signed:!release,file:target.split('/').at(-1),bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')},null,2));
   console.log('安卓 APK：'+target+(release?'（未签名）':'（调试签名）'));

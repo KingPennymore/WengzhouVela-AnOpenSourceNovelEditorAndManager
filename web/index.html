@@ -10,6 +10,7 @@
   <link rel="stylesheet" href="./katex.min.css">
   <link rel="stylesheet" href="./ui.css">
   <link rel="stylesheet" href="./design.css">
+  <link rel="stylesheet" href="./refinement.css">
 </head>
 <body>
 <div id="app">
@@ -17,7 +18,7 @@
   <aside class="library" id="library">
     <div class="library-heading"><h1>文件</h1><div><button id="new-doc" title="新建小说文件" aria-label="新建小说文件">＋</button></div></div>
     <label class="search-box"><span id="search-icon"></span><input id="doc-search" placeholder="搜索文稿…" aria-label="搜索文稿"><kbd>⌕</kbd></label>
-    <div class="workspace-controls"><strong id="workspace-name">内部文件夹</strong><div><button id="refresh-folder" class="text-button">刷新</button><button id="new-folder" class="text-button">新建工作区</button><button id="workspace-root" class="text-button">根目录</button><button id="paste-file" class="text-button" disabled>粘贴</button><button id="open-trash" class="text-button">回收站</button></div><div class="file-location"><span id="selected-folder">/</span><select id="file-sort" aria-label="文件排序"><option value="name">名称</option><option value="modified">修改时间</option><option value="size">大小</option></select></div></div>
+    <div class="workspace-controls"><div class="workspace-actions" role="toolbar" aria-label="文件工具"><div class="workspace-action-buttons"><button id="refresh-folder" class="text-button">刷新</button><button id="new-folder" class="text-button">新建工作区</button><button id="workspace-root" class="text-button">根目录</button><button id="paste-file" class="text-button" disabled>粘贴</button><button id="open-trash" class="text-button">回收站</button></div><select id="file-sort" aria-label="文件排序"><option value="name">名称</option><option value="modified">修改时间</option><option value="size">大小</option></select></div><div class="file-location"><span id="selected-folder"></span></div></div>
     <div class="library-label"><span>本地文件 <b id="doc-count">0</b></span><button id="import-doc" class="text-button">导入</button></div>
     <div id="doc-list" class="doc-list"></div>
     <button class="github-connect" id="github-shortcut"><span id="github-icon"></span><div><strong id="account-label">连接 GitHub / Gitee</strong><small>仓库、分支与版本提交</small></div><span>↗</span></button>
@@ -41,7 +42,7 @@
 </div>
   </main>
 </div>
-<dialog id="dialog"><form id="dialog-form"><div class="dialog-heading"><h2 id="dialog-title"></h2><button type="button" id="dialog-close" aria-label="关闭">×</button></div><div id="dialog-body"></div><p id="dialog-error" class="error" role="alert"></p><div class="dialog-actions"><button type="button" id="dialog-cancel" class="secondary">取消</button><button type="submit" id="dialog-submit" class="primary">确定</button></div></form></dialog>
+<dialog id="dialog" aria-labelledby="dialog-title"><form id="dialog-form"><div class="dialog-heading"><h2 id="dialog-title"></h2><button type="button" id="dialog-close" aria-label="关闭">×</button></div><div id="dialog-body"></div><p id="dialog-error" class="error" role="alert"></p><div class="dialog-actions"><button type="button" id="dialog-cancel" class="secondary">取消</button><button type="submit" id="dialog-submit" class="primary">确定</button></div></form></dialog>
 <div id="toast" role="status" hidden></div>
 <input type="file" id="file-input" accept="text/*,.process,.pcs,.velamap,.vlmp,.velaodt,.vodt,.fodt,.fods,.fodp,.fodg,.odt,.ott,.ods,.ots,.odp,.otp,.odg,.otg,.txt,.md,.markdown,.vela,.gly,.glossary,.html,.htm,.csv,.tsv,.tex,.latex,.bib,.json,.json5,.js,.jsx,.ts,.tsx,.py,.css,.scss,.xml,.svg,.yaml,.yml,.toml,.ini,.sh,.java,.c,.cpp,.h,.rs,.go,.kt,.sql,.log,.conf,.diff" multiple hidden>
 <input type="file" id="plugin-input" accept=".zip" hidden>
