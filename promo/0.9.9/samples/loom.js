@@ -27,21 +27,25 @@ const RAMP={madder:[DYE.madderL,DYE.madder,DYE.madderD],bay:[DYE.bayL,DYE.bay,DY
 const DYE_RGB=Object.values(DYE).map(rgbOf);
 let PW=6,PH=4,GW=320,GH=270,ZOOM=1;
 
-const WEAVE_TEX=new Map();
+const WEAVE_TEX=new Map(),TILE=64;   // the cloth's shading repeats every TILE picks each way
+const wrap=(v,n)=>((v%n)+n)%n;
 // Shading of the cloth itself: warp ribs running down, each pick a bump of twisted wool, picks offset half a row on
-// alternate warps; a few stray fibres. Grey values around 1 for a multiply pass.
+// alternate warps; a few stray fibres. Grey values around 1 for a multiply pass. The pattern repeats every TILE picks,
+// so that it can be laid under the picks at any whole-pick offset and stay with the cloth when the camera moves.
 function weaveTexture(w,h,pw=PW,ph=PH){
   const key=`${w}x${h}/${pw}x${ph}`;if(WEAVE_TEX.has(key))return WEAVE_TEX.get(key);
-  const c=document.createElement('canvas');c.width=w;c.height=h;const g=c.getContext('2d'),img=g.createImageData(w,h),d=img.data;
-  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
-    const col=Math.floor(x/pw),u=(x%pw+.5)/pw,yo=y+(col%2)*ph/2,row=Math.floor(yo/ph),v=(yo%ph+.5)/ph;
+  const tw=TILE*pw,th=TILE*ph,tile=document.createElement('canvas');tile.width=tw;tile.height=th;const g=tile.getContext('2d'),img=g.createImageData(tw,th),d=img.data;
+  for(let y=0;y<th;y++)for(let x=0;x<tw;x++){
+    const col=Math.floor(x/pw),u=(x%pw+.5)/pw,yo=y+(col%2)*ph/2,row=wrap(Math.floor(yo/ph),TILE),v=(yo%ph+.5)/ph;
     const across=Math.pow(Math.sin(Math.PI*u),.7),down=Math.pow(Math.sin(Math.PI*v),.9);
     const twist=.07*Math.sin((u*pw*1.1+v*ph*1.6)*2.3+hash(col*31+row)*6),lot=(hash(col*7.3+row*1.9)-.5)*.1;
-    const s=clamp(.56+.4*across*(.62+.38*down)+twist+lot,0,1.06),i=(y*w+x)*4;
+    const s=clamp(.56+.4*across*(.62+.38*down)+twist+lot,0,1.06),i=(y*tw+x)*4;
     d[i]=d[i+1]=d[i+2]=Math.round(Math.min(255,s*262));d[i+3]=255;}
   g.putImageData(img,0,0);
   g.globalCompositeOperation='screen';g.lineCap='round';
-  for(let i=0;i<w*h/900;i++){const x=hash(i*1.7)*w,y=hash(i*3.1)*h,a=hash(i*5.3)*TAU,l=3+hash(i*7.9)*9;g.strokeStyle=`rgba(255,255,255,${.05+.08*hash(i)})`;g.lineWidth=.7;g.beginPath();g.moveTo(x,y);g.quadraticCurveTo(x+Math.cos(a)*l*.6+2,y+Math.sin(a)*l*.6,x+Math.cos(a)*l,y+Math.sin(a)*l);g.stroke();}
+  for(let i=0;i<tw*th/900;i++){const x=hash(i*1.7)*tw,y=hash(i*3.1)*th,a=hash(i*5.3)*TAU,l=3+hash(i*7.9)*9;g.strokeStyle=`rgba(255,255,255,${.05+.08*hash(i)})`;g.lineWidth=.7;
+    for(const [dx,dy] of [[0,0],[-tw,0],[0,-th],[-tw,-th]]){g.beginPath();g.moveTo(x+dx,y+dy);g.quadraticCurveTo(x+dx+Math.cos(a)*l*.6+2,y+dy+Math.sin(a)*l*.6,x+dx+Math.cos(a)*l,y+dy+Math.sin(a)*l);g.stroke();}}
+  const c=document.createElement('canvas');c.width=w+tw;c.height=h+th;const cg=c.getContext('2d');cg.fillStyle=cg.createPattern(tile,'repeat');cg.fillRect(0,0,c.width,c.height);
   if(WEAVE_TEX.size>6)WEAVE_TEX.delete(WEAVE_TEX.keys().next().value);WEAVE_TEX.set(key,c);return c;
 }
 
@@ -49,8 +53,12 @@ function weaveTexture(w,h,pw=PW,ph=PH){
 // light: hearth glow from the lower left, flicker 0..1; folds: depth of the hanging folds.
 // zoom: the camera is that much closer to the cloth, so every pick is that much larger; (x0, y0) is where a pick
 // boundary falls on the screen, so that when the camera moves the picks stay fixed to the design instead of crawling.
+// Everything that varies from pick to pick (dye lots, hatching, the shading of the wool) is keyed to the pick's place on
+// the cloth (kx, ky: how many whole picks the cloth has moved), never to its place on the screen, or a moving camera
+// would deal every pick a new random shade each frame and the cloth would shimmer.
 function weave(draw,{seed=0,light=1,flicker=0,folds=1,pw=6,ph=4,zoom=1,x0=0,y0=0}={}){
-  pw*=zoom;ph*=zoom;PW=pw;PH=ph;ZOOM=zoom;x0=((x0%pw)+pw)%pw-pw;y0=((y0%ph)+ph)%ph-ph;
+  pw*=zoom;ph*=zoom;PW=pw;PH=ph;ZOOM=zoom;const X0=x0,Y0=y0;x0=((x0%pw)+pw)%pw-pw;y0=((y0%ph)+ph)%ph-ph;
+  const kx=Math.round((X0-x0)/pw),ky=Math.round((Y0-y0)/ph);
   const gw=Math.ceil((W-x0)/pw),gh=Math.ceil((H-y0)/ph);GW=gw;GH=gh;
   ctx.save();ctx.setTransform(1/pw,0,0,1/ph,-x0/pw,-y0/ph);ctx.clearRect(x0,y0,W-x0,H-y0);draw();ctx.restore();
   const src=ctx.getImageData(0,0,gw,gh),s=src.data,out=new ImageData(gw,gh),o=out.data;
@@ -58,19 +66,19 @@ function weave(draw,{seed=0,light=1,flicker=0,folds=1,pw=6,ph=4,zoom=1,x0=0,y0=0
     const i=(y*gw+x)*4,r=s[i],g=s[i+1],b=s[i+2];let b1=1e9,b2=1e9,c1=0,c2=0;
     for(let k=0;k<DYE_RGB.length;k++){const p=DYE_RGB[k],dr=r-p[0],dg=g-p[1],db=b-p[2],e=dr*dr*2+dg*dg*4+db*db*3;if(e<b1){b2=b1;c2=c1;b1=e;c1=k;}else if(e<b2){b2=e;c2=k;}}
     // hatching: where the drawn colour sits between two dyes, alternate picks take the other one
-    const t=Math.sqrt(b1)/(Math.sqrt(b1)+Math.sqrt(b2)+1e-6),ci=t>((y%2)?.2:.4)?c2:c1,p=DYE_RGB[ci];
-    const lot=1+.075*(noise(y*.11+ci*13.7+seed)-.5)*2+.03*(noise(x*.05+y*.9+ci)-.5)+(hash(x*3.7+y*11.3+seed)-.5)*.05;
+    const cx=x-kx,cy=y-ky,t=Math.sqrt(b1)/(Math.sqrt(b1)+Math.sqrt(b2)+1e-6),ci=t>(wrap(cy,2)?.2:.4)?c2:c1,p=DYE_RGB[ci];
+    const lot=1+.075*(noise(cy*.11+ci*13.7+seed)-.5)*2+.03*(noise(cx*.05+cy*.9+ci)-.5)+(hash(cx*3.7+cy*11.3+seed)-.5)*.05;
     o[i]=p[0]*lot;o[i+1]=p[1]*lot;o[i+2]=p[2]*lot;o[i+3]=255;}
   ctx.save();ctx.setTransform(1,0,0,1,0,0);
   if(zoom===1){const small=document.createElement('canvas');small.width=gw;small.height=gh;small.getContext('2d').putImageData(out,0,0);
     ctx.clearRect(0,0,W,H);ctx.imageSmoothingEnabled=false;ctx.drawImage(small,x0,y0,gw*pw,gh*ph);ctx.imageSmoothingEnabled=true;
-    ctx.globalCompositeOperation='multiply';ctx.drawImage(weaveTexture(W+12,H+8,pw,ph),x0,y0);}
+    ctx.globalCompositeOperation='multiply';ctx.drawImage(weaveTexture(W+12,H+8,pw,ph),x0-wrap(-kx,TILE)*pw,y0-wrap(-ky,TILE)*ph);}
   else{ // picks of a fractional size: each pixel finds its pick and its place in the pick, so colour and wool line up
     const img=ctx.createImageData(W,H),d=img.data,col=new Int32Array(W),A=new Float32Array(W),V=[new Int32Array(H),new Int32Array(H)],D=[new Float32Array(H),new Float32Array(H)];
     for(let x=0;x<W;x++){const c=Math.floor((x-x0)/pw),u=((x-x0)-c*pw+.5)/pw;col[x]=c;A[x]=Math.pow(Math.sin(Math.PI*clamp(u,0,1)),.7);}
-    for(let p=0;p<2;p++)for(let y=0;y<H;y++){const yo=(y-y0)+p*ph/2,r=Math.floor(yo/ph),v=(yo-r*ph+.5)/ph;V[p][y]=r;D[p][y]=Math.pow(Math.sin(Math.PI*clamp(v,0,1)),.9);}
-    for(let y=0;y<H;y++){const cr=Math.min(gh-1,Math.max(0,Math.floor((y-y0)/ph)));for(let x=0;x<W;x++){const c=Math.min(gw-1,Math.max(0,col[x])),p=c&1,i=(cr*gw+c)*4,j=(y*W+x)*4;
-      const sh=clamp(.56+.4*A[x]*(.62+.38*D[p][y])+(hash(c*7.3+V[p][y]*1.9)-.5)*.1,0,1.06)*1.027;d[j]=o[i]*sh;d[j+1]=o[i+1]*sh;d[j+2]=o[i+2]*sh;d[j+3]=255;}}
+    for(let p=0;p<2;p++)for(let y=0;y<H;y++){const yo=(y-y0)+p*ph/2,r=Math.floor(yo/ph),v=(yo-r*ph+.5)/ph;V[p][y]=r-ky;D[p][y]=Math.pow(Math.sin(Math.PI*clamp(v,0,1)),.9);}
+    for(let y=0;y<H;y++){const cr=Math.min(gh-1,Math.max(0,Math.floor((y-y0)/ph)));for(let x=0;x<W;x++){const c=Math.min(gw-1,Math.max(0,col[x])),p=wrap(c-kx,2),i=(cr*gw+c)*4,j=(y*W+x)*4;
+      const sh=clamp(.56+.4*A[x]*(.62+.38*D[p][y])+(hash((c-kx)*7.3+V[p][y]*1.9)-.5)*.1,0,1.06)*1.027;d[j]=o[i]*sh;d[j+1]=o[i+1]*sh;d[j+2]=o[i+2]*sh;d[j+3]=255;}}
     ctx.putImageData(img,0,0);}
   // the hanging's soft folds, then the hearth light raking across from the lower left
   if(folds>0){const g=ctx.createLinearGradient(0,0,W,0);for(let k=0;k<=24;k++){const v=Math.sin(k/24*TAU*3.4+seed)*.5+Math.sin(k/24*TAU*7.1+seed*2)*.2;g.addColorStop(k/24,`rgba(${v>0?'255,255,255':'60,40,30'},${Math.abs(v)*.12*folds})`);}ctx.globalCompositeOperation='soft-light';ctx.fillStyle=g;ctx.fillRect(0,0,W,H);}

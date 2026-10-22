@@ -286,7 +286,8 @@ const outOf=t=>1-easeIn(seg(t,WSTOP,99.4)),into=t=>easeIn(seg(t,115,116.6));
 // time and cross-faded, with a pointer drawn going to the points the capture recorded (in CSS px of the capture).
 const APP=window.UI_SHOTS||{},APP_IMG={},APP_DPR=1.5;
 for(const q of Object.values(APP))for(const [,f] of q.frames)if(!APP_IMG[f]){const i=new Image();i.src='ui/shots/'+f;APP_IMG[f]=i;}
-window.uiReady=Promise.all(Object.values(APP_IMG).map(i=>i.decode().catch(()=>{})));
+// (the bold of the inscriptions is loaded on first use otherwise, and the first frame with a band would miss it)
+window.uiReady=Promise.all([...Object.values(APP_IMG).map(i=>i.decode().catch(()=>{})),document.fonts.load(`700 64px ${SERIF}`,'HIC').catch(()=>{})]);
 // keys [[t, frame], …] → the frame showing at t, the one before it and how far the new one has faded in (.12 s)
 function appAt(keys,t){let i=-1;for(let j=0;j<keys.length;j++)if(t>=keys[j][0])i=j;if(i<0)return null;return {f:keys[i][1],g:i?keys[i-1][1]:null,k:seg(t,keys[i][0],keys[i][0]+.12)};}
 // part src [x, y, w, h] (CSS px) of a frame of sequence q, put at (x, y) on the film at s film px per CSS px
