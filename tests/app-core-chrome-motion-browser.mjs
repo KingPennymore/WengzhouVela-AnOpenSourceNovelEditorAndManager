@@ -125,6 +125,9 @@ try {
         return { inert: menu.inert, animated: menu.getAnimations().length > 0 };
       });
       assert.deepEqual(closing, { inert: true, animated: true });
+      if (width < 600) {
+        assert.equal(await page.evaluate(() => window.wenzhouBack()), false);
+      }
       await page.locator('#toolbar-overflow').waitFor({ state: 'hidden' });
       await page.evaluate(() => {
         const more = document.querySelector('#more-tools');

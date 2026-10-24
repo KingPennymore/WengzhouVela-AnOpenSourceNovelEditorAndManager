@@ -1225,7 +1225,7 @@ async function boot(){try{
 window.wenzhouBack=()=>{
  if(closeAppChoices())return true;
  if($('#dialog').open){closeModal();return true;}
- if(!ui.menu.hidden){ui.close(true);return true;}
+ if(ui.menuOpen){ui.close(true);return true;}
  const more=$('#preview .planning-overflow[aria-expanded=true]');if(more?.getClientRects().length){more.click();more.focus({preventScroll:true});return true;}
  const sheet=planningTopSheet($('#preview'));if(sheet){sheet.planningClose();return true;}
  const panel=[...document.querySelectorAll('#preview .map-tools-panel:not([hidden]):not([data-closing])')].find(el=>el.getClientRects().length&&el.planningClose);if(panel){panel.planningClose();return true;}

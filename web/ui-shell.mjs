@@ -38,11 +38,11 @@ export class UIShell {
     this.allTools=[...this.contextual,...this.secondary];
     for(const button of this.allTools){const label=document.createElement('span');label.className='menu-label';label.textContent=button.getAttribute('aria-label');button.append(label);}
     for(const [id,key] of [['search-editor','Ctrl F'],['commands','Ctrl Shift K']]){const hint=document.createElement('kbd');hint.className='menu-shortcut';hint.textContent=key;hint.setAttribute('aria-hidden','true');document.getElementById(id).append(hint);}
-    this.toggle.onclick=()=>this.toggle.getAttribute('aria-expanded')==='true'?this.close(true):this.open();
+    this.toggle.onclick=()=>this.menuOpen?this.close(true):this.open();
     this.menu.addEventListener('click',event=>{if(event.target.closest('button'))this.close();});
     document.addEventListener('pointerdown',event=>{if(!this.menu.contains(event.target)&&!this.toggle.contains(event.target))this.close();});
     document.addEventListener('keydown',event=>{
-      if(this.toggle.getAttribute('aria-expanded')!=='true')return;
+      if(!this.menuOpen)return;
       if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();this.close(true);return;}
       if(['ArrowDown','ArrowUp','Home','End'].includes(event.key)){
         event.preventDefault();const items=this.menuItems(),index=items.indexOf(document.activeElement);
@@ -54,6 +54,7 @@ export class UIShell {
     this.environment(environment);
   }
   environment(value){this.value=value;document.body.dataset.ui=platformProfile(value,location.search);this.layout();}
+  get menuOpen(){return this.toggle.getAttribute('aria-expanded')==='true';}
   editorContext(page,home){if(this.editorChrome.context(page,home))this.layout({animate:innerWidth<900});}
   toggleEditorChrome(){if(innerWidth<900&&this.editorChrome.toggle())this.layout({animate:true});}
   // Plugin top-toolbar buttons: the first two stay visible on wide screens, the rest use the existing overflow menu.
