@@ -50,7 +50,12 @@ try {
         const wide = page.viewportSize().width >= 900;
         compact = !wide && compact;
         const pinned = wide || compact;
-        assert.equal(await state(), wide ? 'wide' : compact ? 'compact' : 'expanded');
+        const mode = wide ? 'wide' : compact ? 'compact' : 'expanded';
+        await page.waitForFunction(
+          ({ width, mode }) => innerWidth === width && document.body.dataset.editorChrome === mode,
+          { width: page.viewportSize().width, mode },
+        );
+        assert.equal(await state(), mode);
         assert.equal(
           await editor.evaluate((button) => button.classList.contains('editor-emphasis')),
           compact,
