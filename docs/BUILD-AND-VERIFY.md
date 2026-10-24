@@ -107,7 +107,7 @@ node scripts/release.mjs fingerprints [--record]    显示或记录签名证书�
 4. **package**：`package.py --source-only` 生成源码包，其中的 `build-profile.json5` 一律取自仓库 HEAD（不带本机签名配置）；`finalize-release.py` 收集附件、写 `SHA256SUMS-<版本>.txt` 并签名；从 GitHub 取回当前 `catalog.json` 作为上一份目录，`build-catalog.mjs` 生成并签名新目录。
 5. **verify**：`verify.mjs --tex --windows`（`--lite-only` 时加 `--lite`）；附件齐全且与 `SHA256SUMS` 一致；两份清单签名有效；`.app.zip` 中鸿蒙包的版本；APK 签名证书指纹；列出超过 Gitee 100 MB 附件上限、只发布到 GitHub 的文件。
 6. **publish-github**（外部）：用 gh 创建草稿发布（目标为 HEAD），只上传缺少或摘要不同的文件，核对 GitHub 计算的大小和 SHA-256 后设为正式发布并标为 Latest；更新 `catalog` 发布中的目录三件。gh 在 Windows 上输出 CRLF，脚本解析时统一去掉。
-7. **mirror-gitee**（外部）：把应用附件（不超过 100 MB 的，含 `.sig`，不含源码包）和组件目录同步到 Gitee。核对方式：先比对 API 返回的大小，再从公开地址下载 1 MB 以下的文件核对 SHA-256；从 Gitee 下载大文件很慢，只在加 `--gitee-full-verify` 时全部下载核对。`--gitee-replace` 重传同名同大小的文件。刚替换的目录可能被 CDN 缓存，核对失败时稍后用 `--only mirror-gitee` 重试。
+7. **mirror-gitee**（外部）：把应用附件（不超过 100 MB 的，含源码包与 `.sig`）和组件目录同步到 Gitee。核对方式：先比对 API 返回的大小，再从公开地址下载 1 MB 以下的文件核对 SHA-256；从 Gitee 下载大文件很慢，只在加 `--gitee-full-verify` 时全部下载核对。`--gitee-replace` 重传同名同大小的文件。刚替换的目录可能被 CDN 缓存，核对失败时稍后用 `--only mirror-gitee` 重试。
 8. **restore**：重新构建本次发布类型的前端（`--lite-only` 为轻量版）并运行 `check-build.mjs`，清理临时文件，确认工作区与 HEAD 一致（除构建产物和本机配置）。
 
 外部操作前，脚本列出本次运行将要做的全部外部操作（每个上传的文件及大小、发布与 Latest 的变化），输入 `yes` 确认一次后才执行。Gitee 私人令牌在一次运行中只输入一次（终端中不回显），只保存在进程内存里：不写入磁盘、状态文件或日志，不出现在命令行参数中，错误信息中出现时替换为 `***`。状态与日志在 `dist/release-state/<版本>.json` / `.log`；提交变化后状态自动清空，从头开始。
@@ -145,7 +145,7 @@ TeX 引擎和中文组件不随应用版本变化时，单独以标签 `tex-<组
    - `Vela-<版本>-windows[-lite]-setup-x64.exe`
    - `Vela-<版本>-android.N[-lite]-release-signed.apk`
    - `Vela-<组件名>-<x.y.z>.zip`
-4. 镜像应用发布：`pwsh scripts/mirror-tex-gitee.ps1 -Owner kingpennymore -Repository wenzhou-vela-mirror-repository -AppVersion <版本>`。超过 Gitee 100 MB 附件上限的文件（目前是 Windows 安装包和 ZIP）只留在 GitHub，应用会自动回退到 GitHub。
+4. 镜像应用发布：`pwsh scripts/mirror-tex-gitee.ps1 -Owner kingpennymore -Repository wenzhou-vela-mirror-repository -AppVersion <版本>`。超过 Gitee 100 MB 附件上限的文件（例如 Windows 便携 ZIP）只留在 GitHub，应用会自动回退到 GitHub。
 4a. 更新组件目录（应用发布和组件标签都上传完之后）：
    - `node scripts/build-catalog.mjs --version <版本> --previous <上一份 catalog.json>`：从 `dist/releases/<版本>/` 中的 `Vela-<名称>-<x.y.z>.zip` 生成 `dist/releases/catalog/catalog.json` 和 `SHA256SUMS-catalog.txt`。TeX 指向 `tex-<版本>` 标签，其他组件指向 `v<版本>`。上一份目录中本次没有的组件会保留，先用 `gh release download catalog -p catalog.json -D <目录>` 取回上一份。
    - GitHub：第一次运行 `gh release create catalog dist/releases/catalog/* --title 文舟组件目录 --notes 应用读取的组件目录 --latest=false`，以后运行 `gh release upload catalog dist/releases/catalog/* --clobber`。`catalog` 不是版本号，不会被当作应用更新。
