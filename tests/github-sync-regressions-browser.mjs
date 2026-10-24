@@ -1,3 +1,4 @@
+import {selectAppView} from './navigation-helper.mjs';
 import {chromium} from 'playwright';
 import {build} from 'esbuild';
 import assert from 'node:assert/strict';
@@ -31,7 +32,7 @@ try{
  await page.route(server.url+'/sync-regression-fixture.js',route=>route.fulfill({contentType:'text/javascript',body:fixture.outputFiles[0].text}));
  await page.goto(server.url);await page.waitForFunction(()=>window.velaReady);
  for(let round=0;round<3;round++){
-  if(await page.locator('#token-login').count()===0)await page.locator('[data-view=github]').click();await page.locator('#token-login').click();
+  if(await page.locator('#token-login').count()===0)await selectAppView(page,'github');await page.locator('#token-login').click();
   await page.locator('[name=token]').fill('github_pat_fixture_repeat');await page.locator('#dialog-submit').click();
   await page.locator('[data-repo="writer/Book"]').waitFor();
   await page.locator('#logout').click();await page.locator('#token-login').waitFor();

@@ -1,3 +1,4 @@
+import {selectAppView} from './navigation-helper.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {writeFile,mkdir} from 'node:fs/promises';
@@ -8,7 +9,7 @@ const text=Array.from({length:80},(_,chapter)=>`第${chapter+1}章 航路${chapt
 await noMotion(page.context());await page.addInitScript(text=>{if(!localStorage.getItem('wenzhou.workspace'))localStorage.setItem('wenzhou.workspace',JSON.stringify({version:1,documents:[{id:'book',name:'Novel.txt',text,updatedAt:1},{id:'guide',name:'操作指南.txt',text:'guide',updatedAt:1}],activeId:'book',openIds:['book'],settings:{theme:'light',readingMode:'pages',libraryOpen:true}}));},text);
 const position=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')).readerPositions?.book);
 async function tap(fraction){await readerIdle(page);const box=await page.locator('.reader-viewport').boundingBox();await page.mouse.click(box.x+box.width*fraction,box.y+box.height*.55);await readerIdle(page);}
-async function nav(view){if(await page.locator('body').evaluate(el=>el.classList.contains('reader-open')))await page.locator('#reader-back').click();await page.locator(`[data-view=${view}]`).click();}
+async function nav(view){if(await page.locator('body').evaluate(el=>el.classList.contains('reader-open')))await page.locator('#reader-back').click();await selectAppView(page,view);}
 async function check(name,fn){await fn();checks.push(name);console.log('PASS '+name);}
 try{await page.goto((process.env.VELA_TEST_URL||'http://127.0.0.1:4173'));await page.waitForSelector('.cm-editor');await nav('reader');await page.locator('[data-read=book]').click();
   await check('阅读自动收起文件栏，专用安全区顶栏、时间与进度显示',async()=>{await readerReady(page);assert.equal(await page.locator('#library').isVisible(),false);assert.equal(await page.locator('.topbar').isVisible(),false);assert.equal(await page.locator('#reader-next,#reader-prev').count(),0);assert.match(await page.locator('#reader-clock').textContent(),/\d{2}:\d{2}/);});

@@ -1,3 +1,4 @@
+import {selectAppView} from './navigation-helper.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
 import {chromium} from 'playwright';
 import {readdir,readFile,mkdir,writeFile} from 'node:fs/promises';
@@ -14,8 +15,8 @@ const open=async path=>{if(!await page.locator('#start-page').isVisible()){await
 async function compile(path,engine){await open(path);await page.locator('[data-display=preview]').click();await page.locator('.tex-engine').selectOption(engine);await page.locator('.tex-compile').click();await page.waitForFunction(()=>!document.querySelector('.tex-compile').disabled,{},{timeout:180000});const log=await page.locator('.tex-log pre').textContent();await writeFile('test-results/sample-'+engine+'.log',log);assert.equal(await page.locator('.tex-status').textContent(),'编译完成',log.slice(-3000));assert.ok(await page.locator('canvas').evaluate(el=>el.width>0));const wait=page.waitForEvent('download');await page.locator('.tex-export').click();await(await wait).saveAs('test-results/sample-'+engine+'.pdf');return log;}
 try{
   await page.goto('http://127.0.0.1:4173');await page.waitForFunction(()=>!!window.velaReady);
-  await page.locator('[data-view=reader]').click();await page.waitForFunction(()=>document.querySelectorAll('[data-read]').length===54);console.log('PASS all 54 samples appear in reading library');
-  await page.locator('[data-view=write]').click();
+  await selectAppView(page,'reader');await page.waitForFunction(()=>document.querySelectorAll('[data-read]').length===54);console.log('PASS all 54 samples appear in reading library');
+  await selectAppView(page,'write');
   const chinese=await compile('LaTeX/main.tex','xetex');assert.match(chinese,/Database file #1: references.bib/);assert.match(chinese,/makeindex|MakeIndex/i);console.log('PASS public Chinese multi-file TEX, macro, bibliography, index and PDF export');
   await compile('LaTeX/latin.tex','pdftex');console.log('PASS public Latin pdfLaTeX PDF');
   for(const [path,prefix,expected] of [['代码/example.js','fu','function'],['代码/example.py','de','def'],['代码/example.json','tr','true'],['LaTeX/latin.tex','\\fr','\\frac'],['HTML/index.html','<sec','section']]){

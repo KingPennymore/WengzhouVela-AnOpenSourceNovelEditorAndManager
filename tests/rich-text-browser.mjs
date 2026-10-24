@@ -1,3 +1,4 @@
+import {selectAppView} from './navigation-helper.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {existsSync} from 'node:fs';
@@ -73,12 +74,12 @@ try{
     assert.deepEqual(await rendered(page,'.vela-format-strong'),['林舟冷笑']);assert.deepEqual(await rendered(page,'.vela-format-emphasis'),['不好']);assert.equal(await page.locator('.cm-line.vela-format-center').count(),1);
   });
   await check('the reader shows the formats without changing the text it measures',async()=>{
-    await page.locator('[data-view="reader"]').click();await page.locator('[data-read="book"]').click();await page.locator('.reader-content .reader-format-strong').first().waitFor();
+    await selectAppView(page,'reader');await page.locator('[data-read="book"]').click();await page.locator('.reader-content .reader-format-strong').first().waitFor();
     assert.deepEqual(await page.evaluate(()=>[...document.querySelectorAll('.reader-content .reader-format-strong')].map(node=>node.textContent)),['林舟冷笑']);
     assert.deepEqual(await page.evaluate(()=>[...document.querySelectorAll('.reader-content .reader-format-emphasis')].map(node=>node.textContent)),['不好']);
     assert.equal(await page.evaluate(()=>getComputedStyle(document.querySelector('.reader-content .reader-format-center')).textAlign),'center');
     assert.equal(await page.evaluate(()=>document.querySelector('.reader-content').textContent),novel);
-    await page.locator('#reader-back').click();await page.locator('[data-view="write"]').click();await page.waitForFunction(()=>!!window.velaEditorView&&!document.querySelector('#editor').hidden);
+    await page.locator('#reader-back').click();await selectAppView(page,'write');await page.waitForFunction(()=>!!window.velaEditorView&&!document.querySelector('#editor').hidden);
   });
   const openExport=async format=>{if(!await page.locator('#export-chapters').isVisible())await page.locator('#outline-toggle').click();await page.locator('#export-chapters').click();await page.waitForFunction(()=>document.querySelector('#dialog-title')?.textContent==='导出章节');await page.locator('#dialog-body [name=format]').selectOption(format);};
   await check('chapters export as HTML with their formats',async()=>{
@@ -140,7 +141,7 @@ try{
   const long='第一章 长夜\n'+paragraphs.join('\n'),longMarks=[];for(let i=0;i<4000;i+=50){const quote='第'+i+'段',from=long.indexOf('　　'+quote+'，')+2;longMarks.push({group:'marks',type:'strong',from,to:from+quote.length});}
   const reading=await open([{id:'long',name:'长篇.txt',text:long,updatedAt:1},{id:'side',name:'长篇.txt.vela',text:sidecarText(buildSidecar('长篇.txt',long,longMarks)),updatedAt:1}],{},{readerPositions:{long:{offset:long.indexOf('第2000段')}}});
   await check('a long book shows formats in the chunk opened in the middle of the text',async()=>{
-    await reading.locator('[data-view="reader"]').click();await reading.locator('[data-read="long"]').click();await reading.locator('.reader-content .reader-format-strong').first().waitFor();
+    await selectAppView(reading,'reader');await reading.locator('[data-read="long"]').click();await reading.locator('.reader-content .reader-format-strong').first().waitFor();
     const bold=await reading.evaluate(()=>[...document.querySelectorAll('.reader-content .reader-format-strong')].map(node=>node.textContent));
     assert.ok(bold.length>=2,'several marks in the chunk');const quotes=new Set(longMarks.map(mark=>long.slice(mark.from,mark.to)));for(const text of bold)assert.ok(quotes.has(text),text);
     assert.ok(bold.includes('第2000段'));

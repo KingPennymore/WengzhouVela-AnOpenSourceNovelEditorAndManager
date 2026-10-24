@@ -1,3 +1,4 @@
+import {selectAppView} from './navigation-helper.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
@@ -27,14 +28,15 @@ async function createPage(width=1440){const context=await browser.newContext({vi
     else body={full_name:'sample/novel',default_branch:'main',pushed_at:'revision-'+revision};
     return route.fulfill({status:200,body:JSON.stringify(body),contentType:'application/json'});
   });const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));await page.goto(url);await page.waitForSelector('.cm-editor');return page;}
-async function nav(page,name){if(await page.locator('body').evaluate(el=>el.classList.contains('reader-open')))await page.locator('#reader-back').click();await page.locator(`[data-view=${name}]`).click();}
+async function nav(page,name){if(await page.locator('body').evaluate(el=>el.classList.contains('reader-open')))await page.locator('#reader-back').click();await selectAppView(page,name);}
 async function turn(page,delta){const box=await page.locator('.reader-viewport').boundingBox();await page.mouse.click(box.x+box.width*(delta>0?.9:.1),box.y+box.height/2);}
 const saved=page=>page.evaluate(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')));
 async function check(name,run){await run();checks.push(name);console.log('PASS '+name);}
 let page;
 try{
   page=await createPage(390);
-  await check('手机顶栏四个页面入口常驻，文件名隐藏，Git 页退出按钮与底栏动画同步',async()=>{
+  await check('编辑页可展开四个页面入口，文件名隐藏，Git 页退出按钮与底栏动画同步',async()=>{
+    await page.locator('[data-view=write]').click();
     assert.equal(await page.locator('.page-navigation button').count(),4);for(const button of await page.locator('.page-navigation button').all())assert.equal(await button.isVisible(),true);
     assert.equal(await page.locator('#current-name').isVisible(),false);await page.locator('#mobile-library').click();await page.waitForFunction(()=>document.querySelector('#app').dataset.sidebarsAnimating==='false');
     const frames=await page.evaluate(async()=>{const values=[];document.querySelector('[data-view=github]').click();do{await new Promise(requestAnimationFrame);values.push({bottom:document.querySelector('#library').getBoundingClientRect().bottom,footer:document.querySelector('#writing-footer').getBoundingClientRect().top});}while(document.querySelector('#app').dataset.sidebarsAnimating==='true');return values;});

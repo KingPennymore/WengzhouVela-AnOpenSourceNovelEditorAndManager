@@ -36,7 +36,7 @@ package_info = json.loads((root / "package.json").read_text(encoding="utf-8"))
 version = package_info.get("harmonyVersion", package_info["version"])
 source = out / f"Vela-{version}-source.zip"
 folders = [".github", "web", "scripts", "tests", "vendor", "hvigor", "AppScope", "entry/src", "previews", "android", "windows", "docs", "examples", "components", "测试文件"]
-files = ["package.json", "package-lock.json", "oh-package.json5", "build-profile.json5", "hvigorfile.ts", ".gitignore", ".gitattributes", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "VALIDATION.md", "RELEASE_NOTES.md", "entry/oh-package.json5", "entry/build-profile.json5", "entry/hvigorfile.ts"]
+files = ["package.json", "package-lock.json", "oh-package.json5", "build-profile.json5", "hvigorfile.ts", ".gitignore", ".gitattributes", ".prettierrc.json", "eslint.config.mjs", "jsconfig.core.json", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "VALIDATION.md", "RELEASE_NOTES.md", "entry/oh-package.json5", "entry/build-profile.json5", "entry/hvigorfile.ts"]
 # build-profile.json5 holds the local HarmonyOS signing configuration once DevEco has signed a build; the source
 # package always carries the committed version instead.
 clean_profile = subprocess.run(["git", "show", "HEAD:build-profile.json5"], cwd=root, capture_output=True, check=True).stdout

@@ -24,7 +24,7 @@
 .cm-tooltip-autocomplete>ul{font:inherit!important;flex:1 1 auto;min-height:28px;height:auto!important;max-height:220px!important;min-width:min(250px,calc(100vw - 24px))!important;max-width:min(440px,calc(100vw - 24px))!important}
 .cm-tooltip-autocomplete>ul>li{padding:5px 8px!important;font-size:12px!important;line-height:1.5!important;display:flex!important;align-items:center;gap:8px;white-space:nowrap!important;overflow:hidden;max-width:100%;height:28px;box-sizing:border-box}
 .cm-tooltip-autocomplete>ul>li[aria-selected]{background:var(--soft)!important;color:var(--accent)!important}
-body{font-family:"HarmonyOS Sans SC","Segoe UI","Microsoft YaHei",sans-serif;font-size:var(--ui-font)}
+body{font-family:var(--app-font-family,"HarmonyOS Sans SC","Segoe UI","Microsoft YaHei",sans-serif);font-size:var(--ui-font)}
 button,input,select,textarea{border-radius:var(--radius)}
 button:disabled{opacity:.45}
 button svg{width:20px;height:20px;flex-shrink:0;stroke-width:1.7}
@@ -401,7 +401,7 @@ body{position:fixed;inset:0}
 #preview,.doc-list,#outline-list,.reader-viewport{overscroll-behavior:contain}
 }
 /* Third-party elements, unlayered; !important beats CodeMirror's injected theme (see the end of style.css). */
-.cm-tooltip-autocomplete,.cm-tooltip.cm-completionInfo{font-family:"HarmonyOS Sans SC","Segoe UI","Microsoft YaHei",sans-serif;font-size:12px!important;line-height:1.5!important;border:1px solid var(--line)!important;border-radius:var(--radius);background:var(--paper)!important;color:var(--text)!important;box-shadow:var(--ui-shadow)}
+.cm-tooltip-autocomplete,.cm-tooltip.cm-completionInfo{font-family:var(--app-font-family,"HarmonyOS Sans SC","Segoe UI","Microsoft YaHei",sans-serif);font-size:12px!important;line-height:1.5!important;border:1px solid var(--line)!important;border-radius:var(--radius);background:var(--paper)!important;color:var(--text)!important;box-shadow:var(--ui-shadow)}
 .cm-tooltip-autocomplete{display:flex;flex-direction:column;overflow:hidden;max-width:min(440px,calc(100vw - 24px))}
 .cm-tooltip-autocomplete .cm-completionDetail{font-size:11px!important;font-style:normal;color:var(--muted);margin-left:0;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .cm-completionInfo{max-width:min(360px,calc(100vw - 24px));white-space:pre-wrap;padding:10px}

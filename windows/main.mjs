@@ -2,6 +2,7 @@ import {app,BrowserWindow,ipcMain,protocol,session,nativeTheme,safeStorage,dialo
 import fs from 'node:fs';
 import path from 'node:path';
 import {randomUUID} from 'node:crypto';
+import {listSystemFonts} from './system-fonts.mjs';
 import {fileURLToPath} from 'node:url';
 import {WorkspaceStorage,decodeText,atomic,mime} from './storage.mjs';
 import {GitHubBridge} from './github.mjs';
@@ -95,6 +96,7 @@ async function dispatch(operation,data){
     case 'openRelease':if(typeof data.url!=='string'||!/^https:\/\/(github\.com\/KingPennymore\/WengzhouVela-AnOpenSourceNovelEditorAndManager|gitee\.com\/kingpennymore\/wenzhou-vela-mirror-repository)\/releases\/tag\/[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(data.url))throw Error('发布地址无效。');await shell.openExternal(data.url);return true;
     case 'clipboardWrite':if(typeof data.text!=='string'||data.text.length>8*1024*1024)throw Error('剪贴板内容无效。');clipboard.writeText(data.text);return true;
     case 'clipboardRead':return clipboard.readText();
+    case 'listSystemFonts':return listSystemFonts();
     case 'import':case 'export':case 'exportPdf':case 'exportOdt':case 'exportPng':case 'exportBinary':case 'importPlugin':case 'importImage':return picker(operation,data);
     case 'downloadComponent':return downloads.component(data);
     case 'downloadUpdate':return downloads.update(data);

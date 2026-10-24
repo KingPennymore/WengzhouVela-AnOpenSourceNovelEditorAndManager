@@ -1,5 +1,6 @@
 import {reducedMotion} from './motion.mjs';
 import {t} from './i18n.mjs';
+import {EditorChrome} from './app-core/editor-chrome.mjs';
 
 export function platformProfile(environment,search='') {
   const platform=environment?.platform;
@@ -11,6 +12,7 @@ export function platformProfile(environment,search='') {
 
 export class UIShell {
   constructor(environment) {
+    this.editorChrome=new EditorChrome();
     this.toolbar=document.querySelector('.toolbar');
     this.menu=document.createElement('div');
     this.menu.id='toolbar-overflow';this.menu.hidden=true;
@@ -20,7 +22,7 @@ export class UIShell {
       const heading=document.createElement('div');heading.className='toolbar-menu-heading';heading.setAttribute('role','presentation');heading.textContent=title;group.append(heading);this.groups[id]=group;this.menu.append(group);
     }
     document.body.append(this.menu);
-    const global=document.createElement('div');global.className='global-tools';
+    const global=document.createElement('div');global.className='global-tools';this.globalTools=global;
     global.append(document.querySelector('#outline-toggle'));
     this.toggle=document.createElement('button');this.toggle.id='more-tools';
     this.toggle.title='更多操作';this.toggle.setAttribute('aria-label','更多操作');
@@ -49,13 +51,29 @@ export class UIShell {
     this.environment(environment);
   }
   environment(value){this.value=value;document.body.dataset.ui=platformProfile(value,location.search);this.layout();}
+  editorContext(page,home){if(this.editorChrome.context(page,home))this.layout();}
+  toggleEditorChrome(){if(innerWidth<900&&this.editorChrome.toggle())this.layout();}
   // Plugin top-toolbar buttons: the first two stay visible on wide screens, the rest use the existing overflow menu.
   setPluginActions(buttons){if(this.pluginActions?.length===buttons.length&&buttons.every((button,i)=>button===this.pluginActions[i]))return;this.pluginActions=buttons;this.layout();}
   layout(){
     const focused=this.menu.contains(document.activeElement)||(this.pluginActions||[]).includes(document.activeElement)?document.activeElement:null;
     const groupFor=id=>['search-editor','add-glossary','export-doc'].includes(id)?this.groups.document:['focus-toggle','theme'].includes(id)?this.groups.layout:id==='plugins'?this.groups.extensions:this.groups.app;
-    for(const button of this.secondary){groupFor(button.id).append(button);button.setAttribute('role','menuitem');}
-    for(const button of this.contextual){(innerWidth<=600?groupFor(button.id):this.toolbar).append(button);if(innerWidth<=600)button.setAttribute('role','menuitem');else button.removeAttribute('role');}
+    const wide=innerWidth>=900,compact=!wide&&this.editorChrome.compact;
+    const pinnedActions=this.editorChrome.active&&(wide||compact);
+    document.body.dataset.editorChrome=wide&&this.editorChrome.active?'wide':compact?'compact':'expanded';
+    for(const button of this.allTools){
+      const pinned=pinnedActions&&['search-editor','add-glossary','export-doc'].includes(button.id);
+      if(pinned){this.globalTools.insertBefore(button,document.getElementById('outline-toggle'));button.removeAttribute('role');}
+      else{groupFor(button.id).append(button);button.setAttribute('role','menuitem');}
+    }
+    this.groups.document.hidden=pinnedActions||document.body.classList.contains('start-open')||document.body.dataset.page!=='write';
+    for(const button of document.querySelectorAll('.page-navigation [data-view]')){
+      if(button.dataset.view==='write'){
+        button.classList.toggle('editor-emphasis',compact);
+        if(wide){button.removeAttribute('aria-expanded');button.removeAttribute('aria-controls');}
+        else{button.setAttribute('aria-expanded',String(!compact));button.setAttribute('aria-controls','nav-github nav-subscriptions nav-reader');}
+      }else{button.id='nav-'+button.dataset.view;button.hidden=compact;}
+    }
     for(const [index,button] of (this.pluginActions||[]).entries()){const overflow=innerWidth<=900||index>=2||document.body.classList.contains('start-open'),target=overflow?this.groups.extensions:this.toolbar;target.append(button);if(overflow)button.setAttribute('role','menuitem');else button.removeAttribute('role');}
     const sync=document.querySelector('#sync-state');if(sync)this.toolbar.prepend(sync);
     this.toggle.hidden=false;
@@ -76,14 +94,14 @@ export class UIShell {
     style.setProperty('--reader-header-height',Math.max(44,Number(this.value?.top)||0,padding+44,cutout?cutout.bottom+4:0)+'px');
   }
   menuItems(){return [...this.menu.querySelectorAll('button')].filter(button=>!button.disabled&&!button.hidden&&!button.closest('[hidden]')&&button.getClientRects().length);}
-  open(){this.groups.document.hidden=document.body.classList.contains('start-open')||document.body.dataset.page!=='write';this.menu.hidden=false;this.toggle.setAttribute('aria-expanded','true');this.menuItems()[0]?.focus();}
+  open(){this.groups.document.hidden=(this.editorChrome.active&&(innerWidth>=900||this.editorChrome.compact))||document.body.classList.contains('start-open')||document.body.dataset.page!=='write';this.menu.hidden=false;this.toggle.setAttribute('aria-expanded','true');this.menuItems()[0]?.focus();}
   close(focus=false){this.menu.hidden=true;this.toggle.setAttribute('aria-expanded','false');if(focus)this.toggle.focus();}
 }
 
 // Keep every control in one form, so category navigation never discards unsaved settings.
 export function organizeSettings(root) {
   document.querySelector('#dialog').classList.add('settings-dialog');
-  const groups=[['外观与语言',['language','theme','palette']],['编辑',['fontSize','autoNouns','glossaryPanel','highlightTerms','novelLineNumbers','richText','countMode','includeHeading']],['阅读',['readingMode','globalVelaOverride','edit-global-vela']],['工作区配置',['create-vela']],['GitHub',['clientId']],['备份与应用',['backup-all','show-licenses','check-updates','updateChecks']]];
+  const groups=[['外观与语言',['language','theme','fontFamily','palette']],['编辑',['fontSize','autoNouns','glossaryPanel','highlightTerms','novelLineNumbers','richText','countMode','includeHeading']],['阅读',['readingMode','globalVelaOverride','edit-global-vela']],['工作区配置',['create-vela']],['GitHub',['clientId']],['备份与应用',['backup-all','show-licenses','check-updates','updateChecks']]];
   const original=[...root.children],nav=document.createElement('nav');nav.className='settings-navigation';nav.setAttribute('aria-label',t('设置分类'));
   const content=document.createElement('div');content.className='settings-content';
   const activate=index=>{[...nav.children].forEach((button,i)=>{if(i===index)button.setAttribute('aria-current','location');else button.removeAttribute('aria-current');});};

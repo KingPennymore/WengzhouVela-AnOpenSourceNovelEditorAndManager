@@ -1,3 +1,4 @@
+import {selectAppView} from './navigation-helper.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {existsSync} from 'node:fs';
@@ -87,13 +88,13 @@ try{
     assert.deepEqual(await nodes('.cm-content .vela-format-ruby'),['林舟']);assert.equal(await page.locator('.cm-line.vela-style-block').count(),1);assert.equal(await page.locator('.vela-format-image').count(),1);
   });
   await check('the reader shows ruby, styles and the illustration box while its text stays the TXT',async()=>{
-    await page.locator('[data-view="reader"]').click();await page.locator('[data-read="book"]').click();await page.locator('.reader-content .reader-format-ruby').waitFor();
+    await selectAppView(page,'reader');await page.locator('[data-read="book"]').click();await page.locator('.reader-content .reader-format-ruby').waitFor();
     assert.equal(await page.locator('.reader-content .reader-format-ruby').getAttribute('data-ruby'),'lín zhōu');
     assert.equal(await page.evaluate(()=>getComputedStyle(document.querySelector('.reader-content .reader-style-block[data-style="system"]')).textAlign),'center');
     assert.equal(await page.locator('.reader-content .reader-style[data-style="whisper"]').textContent(),'走');
     assert.equal(await page.locator('.reader-content .reader-format-image.missing').getAttribute('data-caption'),'雪夜山门');
     assert.equal(await page.evaluate(()=>document.querySelector('.reader-content').textContent),novel);
-    await page.locator('#reader-back').click();await page.locator('[data-view="write"]').click();await page.waitForFunction(()=>!!window.velaEditorView&&!document.querySelector('#editor').hidden);
+    await page.locator('#reader-back').click();await selectAppView(page,'write');await page.waitForFunction(()=>!!window.velaEditorView&&!document.querySelector('#editor').hidden);
   });
   await check('HTML export has ruby and style classes and reports the unreadable illustration',async()=>{
     if(!await page.locator('#export-chapters').isVisible())await page.locator('#outline-toggle').click();await page.locator('#export-chapters').click();await page.locator('#dialog-body [name=format]').selectOption('html');

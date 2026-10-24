@@ -1,7 +1,7 @@
 {
   "name": "wenzhou-harmonyos",
-  "version": "0.9.9-5",
-  "harmonyVersion": "0.9.9.5",
+  "version": "0.9.9-6",
+  "harmonyVersion": "0.9.9.6",
   "private": true,
   "description": "文舟 Vela：HarmonyOS NEXT / Android / Windows 开源小说创作与阅读工具",
   "scripts": {
@@ -31,7 +31,15 @@
     "test:downloads": "node tests/component-download-browser.mjs",
     "test:latex": "node tests/latex-studio-browser.mjs",
     "test:grid:stress": "node tests/hex-grid-performance-browser.mjs",
-    "test:planning:stress": "node tests/planning-multitab-performance-browser.mjs"
+    "test:planning:stress": "node tests/planning-multitab-performance-browser.mjs",
+    "package:ebook-studio": "node scripts/package-ebook-studio.mjs",
+    "build:ebook-mobi": "node scripts/build-ebook-mobi.mjs",
+    "test:ebook-studio": "node tests/ebook-studio-browser.mjs && node tests/ebook-studio-visual-browser.mjs",
+    "check:core": "node scripts/check-core.mjs",
+    "typecheck:core": "tsc -p jsconfig.core.json",
+    "lint:core": "eslint web/app-core tests/app-core*.mjs eslint.config.mjs --max-warnings 0 scripts/check-core.mjs",
+    "format:core": "prettier --write \"web/app-core/**/*.mjs\" \"tests/app-core*.mjs\" eslint.config.mjs scripts/check-core.mjs jsconfig.core.json .prettierrc.json docs/adr/*.md",
+    "format:core:check": "prettier --check \"web/app-core/**/*.mjs\" \"tests/app-core*.mjs\" eslint.config.mjs scripts/check-core.mjs jsconfig.core.json .prettierrc.json docs/adr/*.md"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.0",
@@ -41,8 +49,8 @@
     "@codemirror/lang-markdown": "^6.3.0",
     "@codemirror/language": "^6.11.0",
     "@codemirror/language-data": "^6.5.2",
-    "@codemirror/lint": "^6.9.7",
     "@codemirror/legacy-modes": "^6.5.4",
+    "@codemirror/lint": "^6.9.7",
     "@codemirror/search": "^6.5.0",
     "@codemirror/state": "^6.5.0",
     "@codemirror/view": "^6.38.0",
@@ -55,7 +63,15 @@
     "wasmtex": "^0.1.1"
   },
   "devDependencies": {
+    "@tiptap/core": "3.32.0",
+    "@tiptap/pm": "3.32.0",
+    "@tiptap/starter-kit": "3.32.0",
+    "epub-gen-memory": "1.1.2",
     "esbuild": "^0.25.0",
-    "playwright": "^1.55.0"
+    "eslint": "10.13.0",
+    "pagedjs": "0.4.3",
+    "playwright": "^1.55.0",
+    "prettier": "3.9.10",
+    "typescript": "5.9.3"
   }
 }

@@ -67,3 +67,18 @@ Object.assign(dictionary,{
  '安装、启停和管理扩展功能':'Install, enable and manage extensions',
  '调整外观、语言与编辑偏好':'Adjust appearance, language and editor preferences'
 });
+Object.assign(dictionary, {
+ '字体':'Font',
+ '界面与正文字体':'Interface and text font',
+ '获取系统字体':'Get system fonts',
+ '点击获取本机可用字体；浏览器可能会请求授权。':'Get fonts available on this device. Your browser may ask for permission.',
+ '海风吹过港湾，文舟记录故事。':'The sea breeze crosses the harbour. Vela records the story.',
+ '用于界面、正文编辑和普通阅读；文档指定样式与 PDF 排版保持原样。':'Used for the interface, editing and plain text reading. Document styles and PDF typography are preserved.',
+ '文舟默认':'Vela default',
+ '跟随系统字体':'System font',
+ '当前设置':'Current selection',
+ '正在读取系统字体…':'Loading system fonts…',
+ '已读取本机可用字体。':'Fonts available on this device are ready.',
+ '系统未提供可选字体，仍可使用默认或跟随系统。':'No selectable fonts were provided. You can still use Vela default or the system font.',
+ '未能读取字体列表，可重试或选择跟随系统字体。':'Could not read the font list. Retry or choose the system font.',
+});

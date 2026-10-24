@@ -1,3 +1,4 @@
+import {selectAppView} from './navigation-helper.mjs';
 // A walk through the main pages and popups of the app, shared by tests/style-snapshot.mjs and
 // tests/scroll-backgrounds-browser.mjs. `visit(name)` is awaited in each state once the page has settled.
 import {createVelaV2,velaText} from '../web/vela.mjs';
@@ -36,9 +37,9 @@ export async function tour(page,{url,profile,width},visit){
   await page.locator('[data-tab=terms]').click();await page.locator('#preview .glossary-entry, #preview .glossary-row, #preview table').first().waitFor().catch(()=>{});await take('glossary');
   await page.locator('[data-display=source]').click().catch(()=>{});await page.locator('[data-tab=book]').click();await settled(page);
   await page.locator('#more-tools').click();await page.locator('#commands').click();await page.locator('#command-search').waitFor();await take('commands');await escape();
-  await page.locator('[data-view=github]').click();await page.locator('#github-view').waitFor();await take('github');
-  await page.locator('[data-view=subscriptions]').click();await page.locator('#subscriptions-view').waitFor();await take('subscriptions');
-  await page.locator('[data-view=reader]').click();await page.locator('.reader-library').waitFor();await take('reader-library');
+  await selectAppView(page,'github');await page.locator('#github-view').waitFor();await take('github');
+  await selectAppView(page,'subscriptions');await page.locator('#subscriptions-view').waitFor();await take('subscriptions');
+  await selectAppView(page,'reader');await page.locator('.reader-library').waitFor();await take('reader-library');
   await page.locator('[data-read=book]').click();await readerReady(page);await take('reader-book');
   await page.locator('.reader-viewport').click({position:{x:Math.round(width/2),y:200}});await take('reader-chrome');
 }

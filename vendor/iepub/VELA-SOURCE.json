@@ -1,0 +1,15 @@
+{
+  "name": "iepub",
+  "version": "1.3.7",
+  "license": "MIT",
+  "repository": "https://github.com/inkroom/iepub",
+  "source": "https://crates.io/api/v1/crates/iepub/1.3.7/download",
+  "sha256": "febd6c533adf390e1e8be84cc3090d2f08132d2bdddebd22c9b39fc97b7ada2c",
+  "changes": [
+    "Disable unused native ZIP codecs; retain deflate.",
+    "Use deterministic zero PDB timestamps on wasm32; native behavior unchanged.",
+    "Gate the EPUB adapter, ZIP and CSS dependencies behind an epub feature (enabled by default); the MOBI WASM opts out of that feature."
+  ],
+  "commit": "baaf9db2026de1c089ed04e6c39bb7c283ca2293",
+  "licenseSource": "https://raw.githubusercontent.com/inkroom/iepub/baaf9db2026de1c089ed04e6c39bb7c283ca2293/LICENSE"
+}

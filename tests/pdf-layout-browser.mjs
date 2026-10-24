@@ -1,3 +1,4 @@
+import {selectAppView} from './navigation-helper.mjs';
 import {chromium} from 'playwright';
 import {build} from 'esbuild';
 import assert from 'node:assert/strict';
@@ -48,7 +49,7 @@ try{
   await page.setViewportSize({width:1920,height:600});await contained('低高度宽屏 PDF 不延伸到底栏之外');
   await page.evaluate(()=>{document.querySelector('.tex-log').open=false;window.pdfLayoutPane.zoom=2;return window.pdfLayoutPane.render();});
   assert.ok(await page.locator('.pdf-canvas').evaluate(box=>box.scrollHeight>box.clientHeight||box.scrollWidth>box.clientWidth));await page.locator('.pdf-canvas').evaluate(box=>box.scrollTop=box.scrollHeight);checks.push('主动放大后仅在 PDF 容器内部滚动');
-  await page.evaluate(()=>window.pdfLayoutPane.dispose());await page.locator('[data-view=reader]').click();await page.locator('[data-read=guide]').click();
+  await page.evaluate(()=>window.pdfLayoutPane.dispose());await selectAppView(page,'reader');await page.locator('[data-read=guide]').click();
   await page.evaluate(pdf=>{window.pdfLayoutPane=new PdfLayoutPreview({compiler:{compile:async()=>({ok:true,pdf:new Uint8Array(pdf),diagnostics:[]})},fail:error=>{throw error;}});window.pdfLayoutPane.mount(document.querySelector('.reader-content'),{name:'阅读排版.tex'},{reading:true});},pdf);
   await contained('阅读模式 PDF 下边界保持在阅读底栏上方');await page.setViewportSize({width:1280,height:800});await contained('平板阅读模式整页 PDF 自动适配');await page.screenshot({path:'test-results/pdf-tablet-reading.png'});
   assert.deepEqual(errors,[]);await mkdir('test-results',{recursive:true});await writeFile('test-results/pdf-layout-results.json',JSON.stringify({passed:checks.length,checks,errors},null,2));

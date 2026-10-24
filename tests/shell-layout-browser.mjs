@@ -1,3 +1,4 @@
+import {selectAppView} from './navigation-helper.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {existsSync} from 'node:fs';
@@ -69,7 +70,7 @@ try{
     assert.equal(await page.locator('.status-actions [id^="quick-"]').count(),8);assert.equal(await page.evaluate(()=>velaEditorView.state.doc.toString()),text);
   });
   await check('the reading library heading and books share one left edge',async()=>{
-    await page.locator('[data-view="reader"]').click();await page.locator('.reader-book').first().waitFor();
+    await selectAppView(page,'reader');await page.locator('.reader-book').first().waitFor();
     const edges=await page.evaluate(()=>[document.querySelector('.reader-library header').getBoundingClientRect().left,document.querySelector('.reader-books').getBoundingClientRect().left].map(Math.round));
     assert.equal(edges[0],edges[1]);
   });

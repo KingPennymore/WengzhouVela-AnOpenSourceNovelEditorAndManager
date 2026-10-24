@@ -102,6 +102,7 @@ final class NativeBridge {
         String origin = provider.equals("gitee") ? "https://gitee.com/api/v5" : "https://api.github.com";
         CredentialStore store = provider.equals("gitee") ? giteeCredentials : credentials;
         switch (operation) {
+            case "listSystemFonts": return SystemFontCatalog.list();
             case "clipboardWrite": {
                 String text = data.optString("text"); if (text.length() > 8 * 1024 * 1024) throw new IOException("剪贴板内容过大。");
                 java.util.concurrent.FutureTask<Boolean> task = new java.util.concurrent.FutureTask<>(() -> {

@@ -1,3 +1,4 @@
+import {selectAppView} from './navigation-helper.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {existsSync} from 'node:fs';
@@ -38,7 +39,7 @@ try{
   });
   await check('the reader chunk loads on entering the reading page; a failure shows a message and retry recovers',async()=>{
     const {context,page,requested,unblock}=await open({block:['reader']});await openRecentFile(page,page.locator('[data-recent=book]'));await page.waitForSelector('.cm-editor');
-    await page.locator('[data-view=reader]').click();await page.locator('#reader-view .chunk-failure').waitFor();assert.match(await page.locator('#reader-view .chunk-failure').textContent(),/阅读/);
+    await selectAppView(page,'reader');await page.locator('#reader-view .chunk-failure').waitFor();assert.match(await page.locator('#reader-view .chunk-failure').textContent(),/阅读/);
     unblock('reader');await page.locator('#reader-view [data-chunk-retry]').click();await page.locator('#reader-view [data-read=book]').waitFor();await page.locator('[data-read=book]').click();await page.locator('.reader-content').waitFor();
     assert.match(await page.locator('.reader-content').textContent(),/船离开港口/);assert.ok(requested.filter(name=>name==='reader').length>=2);await context.close();
   });

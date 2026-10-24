@@ -3,6 +3,7 @@ import { mkdir, copyFile, cp, readFile, writeFile, rm } from 'node:fs/promises';
 import { recordBundle } from './frontend-state.mjs';
 import {copyTexAssets} from './tex-assets.mjs';
 import {packageEbookComponent} from './package-ebook-component.mjs';
+import {packageEbookStudio} from './package-ebook-studio.mjs';
 await import('./build-guide.mjs');
 const out = 'entry/src/main/resources/rawfile/web';
 const lite=process.argv.includes('--lite')||process.env.VELA_BUILD_FLAVOR==='lite';
@@ -44,6 +45,7 @@ for(const name of [...included].sort()) {
 await writeFile(`${out}/licenses.js`,'window.WENZHOU_LICENSES = '+JSON.stringify(licenses)+';');
 await writeFile(`${out}/version.json`,JSON.stringify({version,flavor:lite?'lite':'full',writer:'1.0.4',acode:'a63983fd2f76d5ae44c73d062acb18c12bdc0e7f'}));
 await packageEbookComponent();
+await packageEbookStudio();
 recordBundle(process.cwd());
 await mkdir('dist',{recursive:true});
 // Remove only obsolete TeX files: cp alone would leave full assets in a lite build.

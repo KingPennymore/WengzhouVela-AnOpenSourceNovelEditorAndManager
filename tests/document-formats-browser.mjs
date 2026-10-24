@@ -1,3 +1,4 @@
+import {selectAppView} from './navigation-helper.mjs';
 import assert from 'node:assert/strict';
 import {chromium} from 'playwright';
 import {readFile} from 'node:fs/promises';
@@ -45,10 +46,10 @@ try{
  await page.evaluate(()=>formatQA.lastChange('{"body":"STALE"}'));
  assert.equal(await page.evaluate(()=>velaEditorView.state.doc.toString()),'普通正文');
  await page.locator('[data-doc="'+book.id+'"]').click();await page.locator('[data-book-edit]').waitFor();
- await page.locator('[data-view="reader"]').click();await page.locator('[data-read="'+book.id+'"]').click();
+ await selectAppView(page,'reader');await page.locator('[data-read="'+book.id+'"]').click();
  await page.waitForFunction(()=>document.querySelector('.reader-content')?.textContent.includes('修改后的正文'));
  assert.equal(await page.locator('.reader-content script').count(),0);assert.equal(await page.evaluate(()=>window.BAD_BOOK),undefined);
- await page.locator('#reader-back').click();await page.locator('[data-view="write"]').click();await page.locator('[data-book-edit]').waitFor();
+ await page.locator('#reader-back').click();await selectAppView(page,'write');await page.locator('[data-book-edit]').waitFor();
  console.log('PASS preview cleanup, stale callback isolation, and sanitized reading view');
 
  // A binary attachment can be opened even without a .vela project; the original stays binary.

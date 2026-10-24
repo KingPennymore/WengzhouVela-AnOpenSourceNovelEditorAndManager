@@ -1,3 +1,4 @@
+import {selectAppView} from './navigation-helper.mjs';
 import {checkNativeNouns} from './native-nouns.mjs';
 import {_android} from 'playwright';
 import {execFileSync} from 'node:child_process';
@@ -22,7 +23,7 @@ const invoke=async(op,payload={})=>{
   const result=await p.evaluate(async({op,payload})=>JSON.parse(await window.WenzhouNative.call(op,JSON.stringify(payload))),{op,payload});
   if(!result.ok)throw new Error(result.error);return result.value;
 };
-async function nav(name){if(await p.locator('body').evaluate(el=>el.classList.contains('reader-open')))await p.locator('#reader-back').click();await p.locator(`[data-view=${name}]`).click();}
+async function nav(name){if(await p.locator('body').evaluate(el=>el.classList.contains('reader-open')))await p.locator('#reader-back').click();await selectAppView(p,name);}
 const saved=()=>p.evaluate(()=>{if(!window.wenzhouSave())throw Error('Native save failed');return JSON.parse(window.WenzhouNative.readWorkspace());});
 const prefix='移植验证-'+Date.now();
 try{

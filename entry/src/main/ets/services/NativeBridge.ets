@@ -8,6 +8,7 @@ import { hilog } from '@kit.PerformanceAnalysisKit';
 import { NativeOperationError, operationError, loginStatusError } from './NativeErrors';
 import { ProjectFiles, ProjectFailure } from './ProjectFiles';
 import { Runtime } from './Runtime';
+import { listSystemFonts } from './SystemFonts';
 import { HtmlPreviewSession, ReaderLayout } from './HtmlPreviewSession';
 import { PreviewResource } from './PreviewResource';
 import { WorkspaceFiles, BinaryWorkspaceFile } from './WorkspaceFiles';
@@ -402,6 +403,7 @@ export class NativeBridge {
         await pasteboard.getSystemPasteboard().setData(pasteboard.createData(pasteboard.MIMETYPE_TEXT_PLAIN, data.text || ''));
         return this.success(true);
       }
+      if (operation === 'listSystemFonts') return this.success(await listSystemFonts());
       if (operation === 'clipboardRead') {
         const access = abilityAccessCtrl.createAtManager();
         const result = await access.requestPermissionsFromUser(this.getContext(), ['ohos.permission.READ_PASTEBOARD']);

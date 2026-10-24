@@ -1,0 +1,9 @@
+{
+  "id": "vela.component.ebook-studio",
+  "name": "电子书制作",
+  "version": "0.2.0",
+  "main": "main.js",
+  "vela": {"api": ">=4 <5", "requiredCapabilities": ["document-formats-v2", "documents", "assets", "commands", "ui-slots"]},
+  "description": "Tiptap 可视化与源码编辑 EPUB 正文，管理目录、元数据与样式；小说排版、分页预览、EPUB 与传统 MOBI 导出。",
+  "license": "MIT"
+}

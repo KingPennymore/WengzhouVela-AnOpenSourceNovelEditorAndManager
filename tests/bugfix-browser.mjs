@@ -1,3 +1,4 @@
+import {selectAppView} from './navigation-helper.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
@@ -24,7 +25,7 @@ try{
   await page.keyboard.press('Control+Alt+h');await page.locator('#mobile-library').click();await settled(page);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
   const bounds=await page.locator('.recent-files>button>div').evaluateAll(elements=>elements.map(el=>({right:el.getBoundingClientRect().right,parent:el.parentElement.getBoundingClientRect().right,overflow:getComputedStyle(el).overflow})));assert.ok(bounds.every(b=>b.right<=b.parent+1&&b.overflow==='hidden'));await page.screenshot({path:`test-results/bugfix/home-${width}.png`});
   await openRecentFile(page,page.locator('[data-recent=terms]'));await page.locator('.glossary-row').first().click();assert.equal(await page.locator('.glossary-preview textarea').first().evaluate(el=>getComputedStyle(el).resize),'vertical');await page.keyboard.press('Control+Alt+h');await openRecentFile(page,page.locator('[data-recent=config]'));assert.ok((await page.locator('.vela-preview textarea').evaluateAll(elements=>elements.map(el=>getComputedStyle(el).resize))).every(value=>value==='vertical'));
-  await page.locator('[data-view=reader]').click();await page.locator('[data-read=book]').click();await readerReady(page);
+  await selectAppView(page,'reader');await page.locator('[data-read=book]').click();await readerReady(page);
   assert.equal(await page.locator('.reader-indented-title').count(),2);assert.equal(await page.locator('.reader-indented-title').first().evaluate(el=>getComputedStyle(el).breakAfter),'column');
   await page.locator('.reader-viewport').focus();await page.keyboard.press('ArrowRight');assert.equal(await page.locator('.reader-page-overlay').count(),1);await readerReady(page);assert.equal(await page.locator('.reader-page-overlay').count(),0);await page.keyboard.press('ArrowLeft');assert.equal(await page.locator('.reader-page-incoming').evaluate(el=>el.style.zIndex),'6');await readerReady(page);
   await page.locator('#reader-outline-action').click();await page.locator('[data-reader-offset]').last().click();assert.ok(await page.locator('.reader-outline').isVisible());

@@ -1,3 +1,4 @@
+import {selectAppView} from './navigation-helper.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
@@ -99,7 +100,7 @@ try{
     await n.locator('#github-shortcut').click();await n.waitForSelector('#repo-pull');await n.locator('#repo-pull').click();await n.locator('#dialog-submit').click();await n.waitForSelector('[name=downloadFiles]');for(const input of await n.locator('[name=downloadFiles]').all())await input.check();await n.locator('#dialog-submit').click();await n.waitForFunction(()=>!document.querySelector('#dialog').open);const w=await nativeSave(n);assert.equal(w.documents.find(d=>d.id===pulledId).path,'novel/全书.txt');assert.ok(w.documents.some(d=>d.path==='novel/资料/设定.md'));assert.ok(w.documents.some(d=>d.name==='人物.md'));assert.deepEqual(await n.evaluate(()=>[...window.__roots.internal['novel/封面.png']]),[0,1,2]);assert.equal(await n.locator('#library').isVisible(),true);
   });
   await check('Markdown 相对图片从原生工作区读取并显示',async()=>{
-    const w=await nativeSave(n),d=w.documents.find(d=>d.path==='novel/资料/设定.md');await n.locator('[data-view=write]').click();await n.locator(`[data-doc="${d.id}"]`).click();await n.evaluate(()=>{const v=window.velaEditorView;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:'# 设定\n\n![封面](../封面.png)'}});});await n.locator('[data-display=preview]').click();await n.waitForSelector('#preview img');assert.ok((await n.locator('#preview img').getAttribute('src')).startsWith('data:image/png;base64,'));const calls=await n.evaluate(()=>window.__nativeCalls);assert.ok(calls.some(c=>c.operation==='readWorkspaceAsset'&&c.payload.path==='novel/封面.png'));
+    const w=await nativeSave(n),d=w.documents.find(d=>d.path==='novel/资料/设定.md');await selectAppView(n,'write');await n.locator(`[data-doc="${d.id}"]`).click();await n.evaluate(()=>{const v=window.velaEditorView;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:'# 设定\n\n![封面](../封面.png)'}});});await n.locator('[data-display=preview]').click();await n.waitForSelector('#preview img');assert.ok((await n.locator('#preview img').getAttribute('src')).startsWith('data:image/png;base64,'));const calls=await n.evaluate(()=>window.__nativeCalls);assert.ok(calls.some(c=>c.operation==='readWorkspaceAsset'&&c.payload.path==='novel/封面.png'));
   });
   await check('拉取预览默认保留本地冲突，取消不写文件，明确覆盖留下历史',async()=>{
     await n.locator(`[data-doc="${pulledId}"]`).click();await n.evaluate(()=>{const v=velaEditorView;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:'第一章 本地修改\n不能静默丢失'}});window.wenzhouSave();window.__remote='第一章 远端\n第三版';});

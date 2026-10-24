@@ -15,6 +15,17 @@ GitHub Actions 的 `Verify` 工作流在 master 推送、拉取请求或手动�
 
 新写的浏览器测试可以用 `tests/source-app-server.mjs` 的 `startSourceAppServer()` 直接从 `web/` 源码在内存中打包并提供页面，不需要先 `npm run build`，也不会改写 `entry/` 或 `dist/web`。TeX 等复制类资源仍取自最近一次构建。单独运行 `node tests/source-app-server.mjs` 可在 4174 端口预览源码（`VELA_PREVIEW_PORT` 可改）。
 
+## 核心模块维护检查
+
+`npm run check:core` 检查 `web/app-core/` 的 JSDoc 类型、ESLint 与 Prettier 格式，
+`npm run format:core` 修正格式。`npm run verify` 会在构建之前执行相同门禁。
+新增核心模块放在此目录并加 `// @ts-check`，可自动进入检查范围；旧依赖按模块逐步迁入。
+工作区启动模块也通过局部数据契约接受严格检查，完整旧数据模型仍按模块逐步类型化。
+
+保存调度、工作区启动、命令分发、布局和平台环境的职责与顺序见
+[ADR 0001：渐进拆分应用核心](adr/0001-incremental-app-core.md)。
+验证日志记录实际结果，架构取舍和后续变更写入 ADR。
+
 ## 前端打包结构
 
 `scripts/build.mjs` 把 `web/app.js` 打成 ES 模块（`format:'esm'`、`splitting:true`、`target:'chrome105'`），由 `index.html` 的 `<script type="module" src="./app.js">` 加载。`import()` 引入的模块单独成块，放在 `chunks/<名称>-<内容哈希>.js`：

@@ -1,0 +1,8 @@
+{
+  "engine": "iepub",
+  "version": "1.3.7",
+  "source": "vendor/iepub/VELA-SOURCE.json",
+  "sourceSha256": "abec6a463316278c7bd8554ba224c89cbdb8725affb7568b3908d09a180d9d32",
+  "sha256": "cc3e15fc74e268504ca94c302dd4c989423b40306ba5546a25f697a0cab2a2ea",
+  "bytes": 138905
+}

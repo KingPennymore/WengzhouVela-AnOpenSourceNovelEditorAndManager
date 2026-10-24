@@ -26,7 +26,7 @@ body.dark{--elev-1:0 1px 2px #0005;--elev-2:0 12px 28px -12px #000a,0 2px 6px #0
 body{--hairline:var(--line)}
 }
 @layer app{
-:root{font-family:"HarmonyOS Sans SC","Microsoft YaHei",sans-serif;font-size:13px;color-scheme:light}
+:root{font-family:var(--app-font-family,"HarmonyOS Sans SC","Microsoft YaHei",sans-serif);font-size:13px;color-scheme:light}
 body{margin:0;color:var(--text)}
 body.dark{color-scheme:dark}
 button,input,select,textarea{font:inherit;color:inherit}
@@ -643,7 +643,7 @@ body.dark .tok-typeName,body.dark .tok-className,body.dark .tok-labelName{color:
    !important rules in this section refine earlier ones (focus mode, narrow and short screens, selections). */
 .cm-editor{height:100%;color:var(--text)}
 .cm-editor.cm-focused{outline:none}
-.cm-scroller{font-family:"HarmonyOS Sans SC","Microsoft YaHei",sans-serif!important;line-height:1.9;overflow:auto!important}
+.cm-scroller{font-family:var(--app-font-family,"HarmonyOS Sans SC","Microsoft YaHei",sans-serif)!important;line-height:1.9;overflow:auto!important}
 .cm-content{padding:20px 30px 100px 18px!important;caret-color:var(--accent)}
 .cm-line{padding:0 6px}
 .cm-gutters{border-right:1px solid var(--line)!important;color:var(--muted)!important;font-size:11px;font-family:Consolas,monospace;min-width:52px}

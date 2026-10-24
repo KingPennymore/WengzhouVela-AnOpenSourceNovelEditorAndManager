@@ -1,0 +1,50 @@
+export default [
+  {
+    ignores: ['node_modules/**', 'dist/**', 'entry/**', 'vendor/**', 'test-results/**'],
+  },
+  {
+    files: [
+      'web/app-core/**/*.mjs',
+      'tests/app-core*.mjs',
+      'eslint.config.mjs',
+      'scripts/check-core.mjs',
+    ],
+    languageOptions: {
+      ecmaVersion: 2022,
+      sourceType: 'module',
+      globals: Object.fromEntries(
+        [
+          'setTimeout',
+          'clearTimeout',
+          'HTMLElement',
+          'Element',
+          'crypto',
+          'TextEncoder',
+          'Event',
+          'EventTarget',
+          'CustomEvent',
+          'window',
+          'document',
+          'getComputedStyle',
+          'innerWidth',
+          'localStorage',
+          'console',
+          'process',
+        ].map((name) => [name, 'readonly']),
+      ),
+    },
+    rules: {
+      'no-undef': 'error',
+      'no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+      'no-unreachable': 'error',
+      'no-constant-condition': 'error',
+      'no-dupe-args': 'error',
+      'no-dupe-keys': 'error',
+      'constructor-super': 'error',
+      'valid-typeof': 'error',
+      eqeqeq: ['error', 'always'],
+      curly: ['error', 'multi-line'],
+      'max-len': ['error', { code: 120, ignoreUrls: true }],
+    },
+  },
+];

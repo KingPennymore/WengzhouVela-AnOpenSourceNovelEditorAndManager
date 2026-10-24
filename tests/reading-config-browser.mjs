@@ -1,3 +1,4 @@
+import {selectAppView} from './navigation-helper.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
@@ -21,7 +22,7 @@ try{
   await p.locator('[name=readerMode]').selectOption('pages');await p.locator('#vela-form .primary').click();const config=JSON.parse((await state()).documents.find(d=>d.path==='.global.vela').text);assert.deepEqual(config.library.items.map(item=>item.path),['其他/散文.txt']);assert.equal(config.reader.layout.lineHeight,2.2);assert.equal(config.kind,'global');
  });
  await check('区域配置优先，全局回退应用字号、行距与四边留白',async()=>{
-  await p.locator('[data-view=reader]').click();await p.locator('.reader-library').waitFor();/* the reader is a lazy chunk */assert.equal(await p.locator('[data-read]').count(),1);await p.locator('[data-read=outside]').click();await readerReady(p);
+  await selectAppView(p,'reader');await p.locator('.reader-library').waitFor();/* the reader is a lazy chunk */assert.equal(await p.locator('[data-read]').count(),1);await p.locator('[data-read=outside]').click();await readerReady(p);
   const css=await p.locator('.reader-content').evaluate(e=>{const s=getComputedStyle(e);return {font:s.fontSize,line:s.lineHeight,left:s.paddingLeft,right:s.paddingRight,top:s.paddingTop,bottom:s.paddingBottom};});assert.deepEqual(css,{font:'25px',line:'55px',left:'42px',right:'48px',top:'32px',bottom:'36px'});
  });
  await check('章节标题独占居中页、页数与居中章节名去掉尾部标点',async()=>{
@@ -34,7 +35,7 @@ try{
   await swipe(0,-100);await readerReady(p);assert.match(await p.locator('#reader-position').textContent(),/^3 \/ /);await swipe(100,0);await readerReady(p);await swipe(0,100);await readerReady(p);assert.match(await p.locator('#reader-position').textContent(),/^1 \/ /);assert.equal(await p.locator('.reader-content').evaluate(e=>getComputedStyle(e).fontSize),before);
  });
  await check('个人排版覆盖保留自选书库范围，GUI 配置保持保存',async()=>{
-  await tap();await p.locator('#reader-back').click();await p.locator('#more-tools').click();await p.locator('#settings').click();await p.locator('[name=globalVelaOverride]').check();await p.locator('#dialog-submit').click();await p.locator('[data-view=write]').click();await p.locator('[data-view=reader]').click();await p.locator('.reader-library').waitFor();/* the reader is a lazy chunk */assert.equal(await p.locator('[data-read]').count(),1);assert.equal(await p.locator('[data-read=outside]').count(),1);
+  await tap();await p.locator('#reader-back').click();await p.locator('#more-tools').click();await p.locator('#settings').click();await p.locator('[name=globalVelaOverride]').check();await p.locator('#dialog-submit').click();await selectAppView(p,'write');await selectAppView(p,'reader');await p.locator('.reader-library').waitFor();/* the reader is a lazy chunk */assert.equal(await p.locator('[data-read]').count(),1);assert.equal(await p.locator('[data-read=outside]').count(),1);
  });
  await check('上下模式保留页数与行距，标题前留空并保持正文',async()=>{
   await p.locator('#more-tools').click();await p.locator('#settings').click();await p.locator('[name=readingMode]').selectOption('scroll');await p.locator('#dialog-submit').click();await p.locator('[data-read=outside]').click();await readerReady(p);assert.match(await p.locator('#reader-position').textContent(),/^1 \/ (?:[2-9]|[1-9]\d+)$/);assert.equal(await p.locator('.reader-content').textContent(),novel);assert.ok(await p.locator('.reader-section-title').first().evaluate(e=>parseFloat(getComputedStyle(e).marginTop))>0);

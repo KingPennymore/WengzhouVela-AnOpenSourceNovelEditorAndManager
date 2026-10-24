@@ -4,7 +4,7 @@ html[data-startup] #startup-screen{position:fixed;inset:0;z-index:1000;display:g
 #startup-screen::before{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(var(--startup-veil),var(--startup-veil)),var(--startup-bg);transition:opacity 260ms cubic-bezier(.4,0,.2,1)}
 .startup-brand{display:flex;flex-direction:column;align-items:center;gap:18px;animation:vela-logo-enter 260ms cubic-bezier(.2,.8,.2,1) both}
 .startup-brand svg{display:block;width:88px;height:88px;border-radius:22px;background:var(--startup-accent);color:var(--startup-paper)}
-.startup-brand span{font-family:'HarmonyOS Sans SC','Microsoft YaHei',sans-serif;font-size:18px;letter-spacing:.22em;padding-left:.22em;font-weight:500}
+.startup-brand span{font-family:var(--app-font-family,'HarmonyOS Sans SC','Microsoft YaHei',sans-serif);font-size:18px;letter-spacing:.22em;padding-left:.22em;font-weight:500}
 html[data-startup=loading] #app{opacity:0;pointer-events:none}
 /* Keep document chrome visible; only the body waits until the logo has gone. */
 html[data-startup] #app :is(#editor,#preview,#start-page,#glossary-panel,#subscriptions-view,#reader-view,#github-view){visibility:hidden!important;content-visibility:hidden}

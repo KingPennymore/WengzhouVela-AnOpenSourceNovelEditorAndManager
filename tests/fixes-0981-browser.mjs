@@ -1,3 +1,4 @@
+import {selectAppView} from './navigation-helper.mjs';
 import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {existsSync} from 'node:fs';
@@ -36,14 +37,14 @@ try{
   await check('a theme switch starts the cross-fade in the same update and the GitHub page background fades with the workspace',async()=>{
     const shift=await page.evaluate(()=>{document.querySelector('#theme').click();return document.documentElement.classList.contains('theme-shift');});assert.equal(shift,true);
     await themeShiftDone(page);await page.evaluate(()=>document.querySelector('#theme').click());await themeShiftDone(page);
-    await page.locator('[data-view=github]').click();await page.locator('#github-view').waitFor();
+    await selectAppView(page,'github');await page.locator('#github-view').waitFor();
     assert.equal(await page.locator('#github-view').evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)');
     // No visible scrolling container paints its own background (ArkWeb does not repaint those during the fade).
     const scrollers=()=>page.evaluate(()=>[...document.querySelectorAll('*')].filter(e=>{const c=getComputedStyle(e);return /(auto|scroll)/.test(c.overflowY+c.overflowX)&&c.backgroundColor!=='rgba(0, 0, 0, 0)'&&e.checkVisibility()&&!e.closest('dialog,.cm-tooltip,.selection-menu,.selection-more');}).map(e=>e.id||e.className));
     assert.deepEqual(await scrollers(),[],'GitHub page');
-    await page.locator('[data-view=write]').click();await page.waitForSelector('.cm-editor');assert.deepEqual(await scrollers(),[],'editor page');
-    await page.locator('[data-view=reader]').click();await page.locator('.reader-library').waitFor();assert.deepEqual(await scrollers(),[],'reader library');
-    await page.locator('[data-view=write]').click();await page.waitForSelector('.cm-editor');
+    await selectAppView(page,'write');await page.waitForSelector('.cm-editor');assert.deepEqual(await scrollers(),[],'editor page');
+    await selectAppView(page,'reader');await page.locator('.reader-library').waitFor();assert.deepEqual(await scrollers(),[],'reader library');
+    await selectAppView(page,'write');await page.waitForSelector('.cm-editor');
   });
   await check('the “更多” list of the selection menu stays open',async()=>{
     await page.evaluate(()=>{const v=velaEditorView,i=v.state.doc.toString().indexOf('望着远处');v.dispatch({selection:{anchor:i,head:i+4},scrollIntoView:true});v.focus();});

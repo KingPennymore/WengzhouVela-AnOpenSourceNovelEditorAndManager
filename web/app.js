@@ -1,3 +1,14 @@
+import {applyFontPreference,normalizeFontName} from './app-core/system-fonts.mjs';
+import {mountFontSettings} from './app-core/font-settings.mjs';
+import { WorkspaceSession, bindSessionLifecycle } from './app-core/workspace-session.mjs';
+import { createAppCommands, bindAppShortcuts } from './app-core/command-bus.mjs';
+import { layoutShell as layoutAppShell } from './app-core/shell-layout.mjs';
+import { bindPlatformEnvironment } from './app-core/platform-environment.mjs';
+import {
+  loadWorkspace,
+  createDocumentSession,
+  prepareWorkspace,
+} from './app-core/workspace-startup.mjs';
 import {renderVelaEditor} from './vela-view.mjs';
 import {mountComponentDownloads} from './component-download-view.mjs';
 import {checkAppUpdates} from './update-view.mjs';
@@ -33,11 +44,11 @@ import DOMPurify from 'dompurify';
 import Writer from '../vendor/acode-writer/src/core.js';
 import {indentedLineWrapping} from '../vendor/acode/src/cm/indentedLineWrapping.ts';
 import {scrollPastEndCustom} from '../vendor/acode/src/cm/scrollPastEnd.ts';
-import {newDocument,validateWorkspace,chapterPosition,normalizeText,fileName,fileKind,documentKind,repoPath,MAX_TEXT_BYTES} from './model.mjs';
+import {newDocument,chapterPosition,normalizeText,fileName,fileKind,documentKind,repoPath,MAX_TEXT_BYTES} from './model.mjs';
 import {GitHub,deviceLogin} from './github.mjs';
 import {Gitee} from './gitee.mjs';
-import {native,transport,readWorkspace,readWorkspaceAsync,saveWorkspace,saveWorkspaceAsync,primeWorkspaceBaseline,exportText,exportBinary,openAuthorization,readEnvironment} from './platform.mjs';
-import {guide,isOriginalDemo,previousGuideHashes} from './guide.mjs';
+import {native,transport,readWorkspace,saveWorkspace,saveWorkspaceAsync,exportText,exportBinary,openAuthorization,readEnvironment} from './platform.mjs';
+import {guide} from './guide.mjs';
 import {shortcuts,matchesKey} from './shortcuts.mjs';
 import {SidebarLayout} from './sidebars.mjs';
 import {reconcilePanel,textInfoCache} from './document-panels.mjs';
@@ -49,7 +60,7 @@ import {syncTextEqual,preserveVelaPositions,mergeVelaTexts} from './vela-sync.mj
 import {initI18n,setLanguage,t} from './i18n.mjs';
 import {fullWidthIndent,paragraphNewline} from './indent.mjs';
 import {ProjectService} from './project-service.mjs';
-import {projectBackend,recoverBrowserProjects} from './project-backend.mjs';
+import {projectBackend} from './project-backend.mjs';
 import {paragraphSelection} from './selection.mjs';
 import {parseCsv,writeCsv,csvDelimiter} from './csv.mjs';
 import {decodeFileText} from './file-text.mjs';
@@ -78,7 +89,7 @@ import {glossaryPaths,glossaryTerms,parseGlossary,glossaryText,createGlossary} f
 import {renderGlossary,selectGlossaryEntry} from './glossary-view.mjs';
 import {renderGlossaryPanel} from './glossary-panel.mjs';
 import {applyFileOperation,restoreFile,itemPaths,copyDestination,basename,parentPath,within} from './file-manager.mjs';
-import {DocumentService,diffLines} from './document-service.mjs';
+import {diffLines} from './document-service.mjs';
 import {EditorIndex} from './editor-index.mjs';
 import {EditingTools} from './editing-view.mjs';
 import {commitPlan} from './sync-plan.mjs';
@@ -107,9 +118,9 @@ const md=new MarkdownIt({html:false,linkify:false,breaks:true});
 // Local previews do not fetch remote images or open links inside the privileged WebView.
 md.use(taskLists);md.use(markdownMath);
 md.renderer.rules.image=(tokens,i,_options,env)=>{const token=tokens[i],src=token.attrGet('src')||'',alt=token.content||'图片',guideImage=guideIconImage(src,alt,esc);if(guideImage)return guideImage;if(/^data:image\/(png|jpeg|gif|webp|avif);base64,[A-Za-z0-9+/=]+$/.test(src))return `<img src="${src}" alt="${esc(alt)}">`;const path=relativeResource(env.path||'',src);return path?`<span class="workspace-image" data-workspace-image="${esc(path)}">[图片：${esc(alt)}]</span>`:`<span>[外部图片：${esc(alt)}]</span>`;};
-let workspace,view,index,indexDoc,indexSettings='',saveTimer,statsTimer,toastTimer,outlineRevision='',documents,indexService,editing,outlineLimit=200;
+let workspace,view,index,indexDoc,indexSettings='',statsTimer,toastTimer,outlineRevision='',documents,indexService,editing,outlineLimit=200;
 let account=null,repositories=[],selectedRepo=null,selectedBranch='',selectedPath='',loadEpoch=0;
-let isPreview=false,dirty=false,bootFailed=false,dialogHandler=null,dialogCancel=null,dialogBusy=false,dialogVersion=0;
+let isPreview=false,dialogHandler=null,dialogCancel=null,dialogBusy=false,dialogVersion=0;
 let dialogReturnFocus=null,dialogSubmitLabel='确定',dialogDisabledFields=[];
 // pdf.js (PdfPreview) and the reader are lazy chunks (web/lazy.mjs); their instances are created on first use.
 let texCompiler,texPreview,PdfPreview,createTexPreview,Reader,createReader;
@@ -146,8 +157,25 @@ let fileClipboard=null;
 const sourceRendering=new Compartment(),gutters=new Compartment(),formatEnv=new Compartment(),pluginExtras=new Compartment(),projectReadonly=new Compartment(),completer=new Compartment(),pluginKeys=new Compartment(),languages=new Compartment(),systemTheme=matchMedia('(prefers-color-scheme: dark)');
 const editorStates=new Map();
 const editorIndexes=new WeakMap();
-let workspaceSaveTimer=null;
-let backgroundSavePromise=null,backgroundSaveAgain=false;
+const session = new WorkspaceSession({
+  locked: () => projectLocked,
+  animating: () => !!sidebars.frame,
+  flush: () => {
+    if (documents) flushFormats();
+  },
+  write: () => (documents ? documents.save() : (saveWorkspace(workspace), true)),
+  writeAsync: async () =>
+    documents
+      ? documents.saveAsync(saveWorkspaceAsync)
+      : (await saveWorkspaceAsync(workspace), true),
+  report: (message, changed) => {
+    status(message, changed);
+    renderTabDirty();
+  },
+  changed: () => projects?.changed(),
+  toast,
+  fail,
+});
 const current=()=>workspace.documents.find(d=>d.id===workspace.activeId);
 async function openExtensionDocument(id,{selection,chapter,object,collection,signal}={}){
  signal?.throwIfAborted();const doc=workspace.documents.find(d=>d.id===id);if(!doc)throw Object.assign(Error('文稿不存在。'),{code:'E_NOT_FOUND'});
@@ -172,48 +200,23 @@ function renderSyncStatus(){const doc=workspace?.documents.find(d=>d.id===worksp
 function activeUndoDepth(){return isPreview&&documentKind(current())==='MAP'?$('#preview').mapHistoryDepth?.().undo||0:view?undoDepth(view.state):0;}
 function activeRedoDepth(){return isPreview&&documentKind(current())==='MAP'?$('#preview').mapHistoryDepth?.().redo||0:view?redoDepth(view.state):0;}
 function status(message,changed=false){$('#save-state').textContent=message;$('#save-state').classList.toggle('dirty',changed);}
-function save(show=false){
-  if(projectLocked)return false;
-  clearTimeout(workspaceSaveTimer);workspaceSaveTimer=null;
-  clearTimeout(saveTimer);saveTimer=null;
-  if(bootFailed)return false;
-  try{if(documents)flushFormats();const clean=documents?documents.save():(saveWorkspace(workspace),true);dirty=!clean;status(clean?'已保存到本机':'未保存',!clean);renderTabDirty();if(show&&clean)toast('文件已保存到本机');projects?.changed();return clean;}
-  catch(e){dirty=true;status('保存失败 · 请导出备份',true);fail(new Error('保存失败：'+e.message));return false;}
+function save(show = false) {
+  return session.save(show);
 }
-function saveBackground(){
-  if(projectLocked||bootFailed)return Promise.resolve(false);
-  if(backgroundSavePromise){backgroundSaveAgain=true;return backgroundSavePromise;}
-  backgroundSavePromise=(async()=>{
-    try{
-      if(documents)flushFormats();
-      const clean=documents?await documents.saveAsync(saveWorkspaceAsync):(await saveWorkspaceAsync(workspace),true);
-      dirty=!clean;status(clean?'已保存到本机':'未保存',!clean);renderTabDirty();projects?.changed();
-      return clean;
-    }catch(e){dirty=true;status('保存失败 · 请手动保存',true);fail(new Error('后台保存失败：'+e.message));return false;}
-  })();
-  backgroundSavePromise.finally(()=>{backgroundSavePromise=null;if(backgroundSaveAgain){backgroundSaveAgain=false;scheduleSave(0);}});
-  return backgroundSavePromise;
+function scheduleSave(delay = 1200) {
+  session.scheduleSave(delay);
 }
-function scheduleSave(delay=1200){dirty=true;status('未保存',true);renderTabDirty();clearTimeout(saveTimer);saveTimer=setTimeout(()=>runScheduledSave('content'),delay);}
-// Background saves wait for sidebar motion to finish. Explicit save, leaving
-// the app and switching away from edited content retain synchronous save guards.
-async function runScheduledSave(kind){
-  if(kind==='content')saveTimer=null;else workspaceSaveTimer=null;
-  // Another sidebar animation may have started since navigation scheduled this
-  // save. A timer delay alone does not keep synchronous storage out of its frames.
-  if(sidebars.frame){
-    const timer=setTimeout(()=>runScheduledSave(kind),50);
-    if(kind==='content')saveTimer=timer;else workspaceSaveTimer=timer;
-    return;
-  }
-  await saveBackground();
+function scheduleWorkspaceSave() {
+  session.scheduleWorkspaceSave();
 }
-function scheduleWorkspaceSave(){clearTimeout(workspaceSaveTimer);workspaceSaveTimer=setTimeout(()=>runScheduledSave('workspace'),300);}
-window.wenzhouSave=()=>{rememberPosition(workspace?.activeId,view?.state);return save();};
-window.addEventListener('pagehide',()=>{rememberPosition(workspace?.activeId,view?.state);if(dirty||workspaceSaveTimer!==null||backgroundSavePromise||documents?.dirty.size)save();});
-document.addEventListener('visibilitychange',()=>{if(document.hidden){const moved=rememberPosition(workspace?.activeId,view?.state);if(moved||dirty||workspaceSaveTimer!==null||backgroundSavePromise)save();}});
-window.addEventListener('blur',()=>{if(dirty||workspaceSaveTimer!==null||backgroundSavePromise)save();});
-window.addEventListener('beforeunload',e=>{if((dirty||workspaceSaveTimer!==null||backgroundSavePromise)&&!save()){e.preventDefault();e.returnValue='';}});
+const sessionLifecycle = bindSessionLifecycle(
+  window,
+  document,
+  session,
+  () => rememberPosition(workspace?.activeId, view?.state),
+  () => !!documents?.dirty.size,
+);
+window.wenzhouSave = sessionLifecycle.save;
 function ensureIndex(){const doc=view.state.doc,writer=documentKind(current())==='TEX'?{...projectWriter(workspace,current()),tex:true}:projectWriter(workspace,current()),settings=JSON.stringify(writer);if(doc!==indexDoc||settings!==indexSettings||!index){if(!indexService||indexService.doc!==doc||settings!==indexSettings){const cached=editorIndexes.get(doc);indexService=cached?.settings===settings&&cached.service.doc===doc?cached.service:new EditorIndex(doc,writer);}editorIndexes.set(doc,{settings,service:indexService});index=indexService.value;indexDoc=doc;indexSettings=settings;outlineRevision='';}return index;}
 function renderOutline(section){
   const idx=ensureIndex(),query=$('#chapter-search').value.trim().toLowerCase();
@@ -222,7 +225,7 @@ function renderOutline(section){
   const active=section?.row??-1,list=$('#outline-list');if(list.dataset.activeRow===String(active)&&list.dataset.activeRevision===outlineRevision)return;list.dataset.activeRow=String(active);list.dataset.activeRevision=outlineRevision;
   list.querySelectorAll('[data-row]').forEach(b=>b.classList.toggle('active',Number(b.dataset.row)===section?.row));
 }
-function renderTabDirty(){renderSyncStatus();document.querySelectorAll('.document-tab').forEach(tab=>{const id=tab.querySelector('[data-tab]')?.dataset.tab,marker=tab.querySelector('.tab-dirty');if(marker)marker.textContent=documents?.dirty.has(id)||id===workspace.activeId&&dirty?'●':'';});}
+function renderTabDirty(){renderSyncStatus();document.querySelectorAll('.document-tab').forEach(tab=>{const id=tab.querySelector('[data-tab]')?.dataset.tab,marker=tab.querySelector('.tab-dirty');if(marker)marker.textContent=documents?.dirty.has(id)||id===workspace.activeId&&session.dirty?'●':'';});}
 const planningPreview=()=>!home&&pageName==='write'&&isPreview&&['OUTLINE','MAP'].includes(documentKind(current()));
 function updateStats(){
   renderSyncStatus();
@@ -417,7 +420,7 @@ function renderDocuments(){
   const docs=workspace.documents.filter(d=>!allPaths.has(sidecarTarget(documentPath(d)))&&(!query||documentPath(d).toLowerCase().includes(query)||documentTextInfo(d).includes(query)));
   $('#doc-count').textContent=workspace.documents.length;
   $('#selected-folder').textContent=selectedFolder;$('#file-sort').value=workspace.settings.filesSort||'name';$('#paste-file').disabled=!fileClipboard;
-  reconcilePanel($('#document-tabs'),workspace.openIds.map(id=>workspace.documents.find(d=>d.id===id)).filter(Boolean).map(d=>`<div class="document-tab ${d.id===workspace.activeId?'active':''}"><button class="tab-open" role="tab" aria-selected="${d.id===workspace.activeId}" data-tab="${esc(d.id)}"><span class="file-kind">${(documentKind(d)==='OUTLINE'?'PCS':documentKind(d)==='MAP'?'VLMP':fileIcon(documentKind(d)))}</span><strong>${esc(d.name)}</strong><span class="tab-dirty">${d.id===workspace.activeId&&dirty?'●':''}</span></button><button class="tab-close" data-close="${esc(d.id)}" title="关闭 ${esc(d.name)} (Ctrl+W)" aria-label="关闭 ${esc(d.name)}">×</button></div>`).join(''));
+  reconcilePanel($('#document-tabs'),workspace.openIds.map(id=>workspace.documents.find(d=>d.id===id)).filter(Boolean).map(d=>`<div class="document-tab ${d.id===workspace.activeId?'active':''}"><button class="tab-open" role="tab" aria-selected="${d.id===workspace.activeId}" data-tab="${esc(d.id)}"><span class="file-kind">${(documentKind(d)==='OUTLINE'?'PCS':documentKind(d)==='MAP'?'VLMP':fileIcon(documentKind(d)))}</span><strong>${esc(d.name)}</strong><span class="tab-dirty">${d.id===workspace.activeId&&session.dirty?'●':''}</span></button><button class="tab-close" data-close="${esc(d.id)}" title="关闭 ${esc(d.name)} (Ctrl+W)" aria-label="关闭 ${esc(d.name)}">×</button></div>`).join(''));
   const revision=JSON.stringify([workspace.storage?.id,workspace.folders,workspace.entries,workspace.settings.filesSort,workspace.settings.language,docs.map(doc=>[doc.id,doc.name,documentPath(doc),documentKind(doc),doc.updatedAt,doc.text.length,documentTextInfo(doc).count(),!!doc.remote,gitFileState(workspace,doc)])]);
   if(revision===fileListRevision){renderDocumentSelection();return;}fileListRevision=revision;
   if(workspace.storage?.id||workspace.folders?.length||workspace.entries?.length){reconcilePanel($('#doc-list'),folderTree(workspace,docs,esc,selectedFolder,workspace.settings.filesSort));renderTabDirty();return;}
@@ -446,7 +449,7 @@ function switchDocument(id){
   if(!mapNavigating&&current()?.id!==id)mapTrail=[];
   selectionMenu.hide();$('#preview').odfDispose?.();
   if(!workspace.documents.some(d=>d.id===id))return;
-  if(view){editorStates.delete(workspace.activeId);editorStates.set(workspace.activeId,view.state);if(dirty&&!save())return;if(workspace.activeId!==id)rememberPosition(workspace.activeId,view.state);while(editorStates.size>8)editorStates.delete(editorStates.keys().next().value);}
+  if(view){editorStates.delete(workspace.activeId);editorStates.set(workspace.activeId,view.state);if(session.dirty&&!save())return;if(workspace.activeId!==id)rememberPosition(workspace.activeId,view.state);while(editorStates.size>8)editorStates.delete(editorStates.keys().next().value);}
   $('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);
   const alreadyOpen=workspace.openIds.includes(id);if(!alreadyOpen)workspace.openIds.push(id);
   workspace.activeId=id;const doc=current();if(!doc)return;
@@ -458,7 +461,7 @@ function switchDocument(id){
   updateEditorVisibility();if(alreadyOpen)renderDocumentSelection();else renderDocuments();updateStats();if(isPreview)renderPreview();scheduleWorkspaceSave();if(pageName!=='write'||document.body.dataset.page!=='write')showView('write');else sidebars.update();plugins?.emit('switch-file',plugins.activeFile);
 }
 function closeDocument(id){
-  if(dirty&&!save())return;if(workspace.activeId!==id)rememberPosition(id,editorStates.get(id));
+  if(session.dirty&&!save())return;if(workspace.activeId!==id)rememberPosition(id,editorStates.get(id));
   const position=workspace.openIds.indexOf(id);if(position<0)return;
   workspace.openIds=workspace.openIds.filter(open=>open!==id);
   if(workspace.activeId===id){if(workspace.openIds.length)switchDocument(workspace.openIds[Math.min(position,workspace.openIds.length-1)]);else showHome();}else{renderDocuments();save();}
@@ -470,6 +473,7 @@ function updateGlossaryPanel(){
   renderGlossaryPanel(root,terms,{escape:esc,onClose:()=>{workspace.settings.glossaryPanel=false;updateGlossaryPanel();save();},onOpen:path=>{const doc=workspace.documents.find(d=>documentPath(d)===path);if(doc)switchDocument(doc.id);}});
 }
 function updateEditorVisibility(){
+  ui.editorContext(pageName,home);
   extensionContext.changed();
   document.body.classList.toggle('start-open',home&&pageName==='write');
   updateGlossaryPanel();const planning=planningPreview();document.body.dataset.planning=planning?documentKind(current()):'';const detail=$('#outline-toggle');if(planning&&!detail.planningOriginal){detail.planningOriginal={html:detail.innerHTML,title:detail.title,label:detail.getAttribute('aria-label')};detail.innerHTML=icon('info');detail.title=t('显示详情');detail.setAttribute('aria-label',t('显示详情'));}else if(!planning&&detail.planningOriginal){detail.innerHTML=detail.planningOriginal.html;detail.title=detail.planningOriginal.title;detail.setAttribute('aria-label',detail.planningOriginal.label);delete detail.planningOriginal;}
@@ -484,7 +488,7 @@ function renderDisplayOptions(){
 }
 $('#display-options').onclick=e=>{if(e.target.closest('[data-native-html]')){openNativeHtml();return;}const mode=e.target.closest('[data-display]');if(mode){$('#preview').odfDispose?.();if(mode.dataset.display==='source'&&['OUTLINE','MAP'].includes(documentKind(current()))&&view.state.doc.toString()!==current().text)view.setState(makeState(current()));$('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);isPreview=mode.dataset.display==='preview';if(['OUTLINE','MAP'].includes(documentKind(current())))view.dispatch({effects:sourceRendering.reconfigure(isPreview?[]:sourceRenderExtensions(current()))});updateEditorVisibility();if(isPreview)renderPreview();else{activateLanguage(current());view.focus();}}if(e.target.closest('[data-format]')){const doc=current();openModal('文件类型',`<label>编辑格式<select name="kind">${[['','按扩展名识别'],['TXT','纯文本'],['MD','Markdown'],['HTML','HTML'],['CSV','CSV 表格'],['VELA','VELA 工作区配置'],['GLY','术语库'],['OUTLINE','大纲'],['MAP','地图'],['TEX','LaTeX'],['CODE','代码']].map(([value,label])=>`<option value="${value}" ${value===(doc.kind||'')?'selected':''}>${label}</option>`).join('')}</select></label>`,f=>{doc.kind=f.get('kind')||undefined;isPreview=['CSV','VELA','GLY','VODT','PLUGIN','OUTLINE','MAP'].includes(documentKind(doc));refreshFileType(doc);save();});}};
 function showHome(){
-  if(view){if(dirty&&!save())return;$('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);editorStates.set(workspace.activeId,view.state);rememberPosition(workspace.activeId,view.state);view.destroy();view=null;}
+  if(view){if(session.dirty&&!save())return;$('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);editorStates.set(workspace.activeId,view.state);rememberPosition(workspace.activeId,view.state);view.destroy();view=null;}
   ui.close();selectionMenu.hide();$('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);$('#preview').odfDispose?.();document.body.classList.remove('focus');
   workspace.activeId=null;home=true;isPreview=false;index=null;$('#current-name').textContent='启动页';$('#start-page').hidden=false;$('#start-page').dataset.panel='actions';updateEditorVisibility();renderHome();renderDocuments();updateStats();showView('write');setSidebar('outline',false);save();plugins?.emit('switch-file',null);
 }
@@ -587,27 +591,8 @@ $('#format-tools').addEventListener('mousedown',e=>{if(!e.target.closest('select
 // Toolbar faces: letter glyphs for type styles, line icons for the rest; names and shortcuts are in aria-label/title.
 for(const [id,name] of [['md-bold','bold'],['md-italic','italic'],['md-strike','strike'],['md-code','code'],['md-heading','heading'],['md-list','listBullet'],['md-task','listTask'],['md-quote','blockQuote'],['format-strong','bold'],['format-emphasis','emphasis'],['format-center','alignCenter'],['format-right','alignRight'],['format-clear','clearFormat'],['format-ruby','ruby'],['format-image','image']])$('#'+id).innerHTML=icon(name);
 for(const button of document.querySelectorAll('#markdown-tools button,#format-tools button'))if(!button.title&&button.getAttribute('aria-label'))button.title=button.getAttribute('aria-label');
-// Editor chrome (docs/FRONTEND-PROPOSAL.md, level B). Wide windows: document tools join the tab row and the quick
-// actions move into the status bar. Narrow windows: a tools row above the text and the bottom quick bar, within thumb reach.
-// Called from the viewport handler before later declarations run, so it keeps no module-level state of its own.
-// The toolbars scroll inside the bar while the view switch stays visible at its end.
-function layoutShell(){
-  let tools=document.getElementById('document-tools'),actions=document.querySelector('.status-actions');
-  if(!tools){tools=document.createElement('div');tools.id='document-tools';tools.className='document-tools';const scroller=document.createElement('div');scroller.className='document-tools-scroll';tools.append(scroller);}
-  if(!actions){actions=document.createElement('div');actions.className='status-actions';actions.setAttribute('role','group');actions.setAttribute('aria-label','快捷操作');}
-  const scroller=tools.querySelector('.document-tools-scroll'),display=document.getElementById('display-options'),rowbar=document.querySelector('.file-rowbar'),wide=innerWidth>900,mode=wide?'wide':'narrow';
-  if(document.body.dataset.shell!==mode){
-    for(const id of ['markdown-tools','format-tools','plugin-document-toolbar']){const element=document.getElementById(id);if(element)scroller.append(element);}
-    if(wide)rowbar.append(tools);else document.querySelector('.paper').insertBefore(tools,document.getElementById('editor'));
-    const quickbar=document.querySelector('.quickbar'),status=document.querySelector('.statusbar');
-    if(wide){status.insertBefore(actions,status.querySelector('.status-right'));actions.append(...quickbar.childNodes);}
-    else{quickbar.append(...actions.childNodes);actions.remove();}
-    document.body.classList.toggle('wide-shell',wide);document.body.dataset.shell=mode;
-  }
-  const toolbars=[...scroller.children].some(child=>!child.hidden&&child.childElementCount);
-  // On narrow windows a document without formatting tools keeps the view switch in the tab row instead of an extra row.
-  const displayHome=wide||toolbars?tools:rowbar;if(display&&display.parentElement!==displayHome)displayHome.append(display);
-  tools.hidden=!!home||!toolbars&&!tools.contains(display)||!toolbars&&!display?.childElementCount;
+function layoutShell() {
+  layoutAppShell(document, innerWidth, !!home);
 }
 const formatCommand=run=>()=>{if(!view||!richTextEnabled(current())||formatBlocked())return;if(run(view)===false)toast('请先选中要设置格式的文字。');renderFormatTools();view.focus();};
 $('#format-strong').onclick=formatCommand(v=>toggleInline(v,'strong'));
@@ -637,13 +622,13 @@ $('#dialog').addEventListener('close',()=>{if($('#dialog').open)return;const act
 $('#dialog-form').addEventListener('invalid',e=>{e.target.scrollIntoView({block:'nearest'});},true);
 $('#dialog-form').onsubmit=async e=>{e.preventDefault();if(dialogBusy)return;const version=dialogVersion,data=new FormData(e.target),focused=document.activeElement;let failed=false;$('#dialog-error').textContent='';$('#dialog').removeAttribute('aria-describedby');setDialogBusy(true);try{const result=await dialogHandler?.(data);if(version===dialogVersion&&result!==false){dialogCancel=null;$('#dialog').close();}}catch(err){failed=true;if(version===dialogVersion){$('#dialog-error').textContent=t(err.message);$('#dialog').setAttribute('aria-describedby','dialog-error');}else fail(err);}finally{if(version===dialogVersion){setDialogBusy(false);if(failed&&focused?.isConnected&&focused.closest('#dialog-body'))focused.focus({preventScroll:true});}}};
 $('#dialog-form').addEventListener('submit',()=>{const check=$('#dialog-body [name=updateChecks]');if(check)workspace.settings.updateChecks=check.checked;});
-function addDocument(doc){if(projectLocked)throw new Error('项目正在提交，请稍后新建文件。');doc.path=uniquePath(doc.path||(selectedFolder?selectedFolder+'/':'')+doc.name,itemPaths(workspace));doc.name=doc.path.split('/').at(-1);workspace.documents.unshift(doc);switchDocument(doc.id);includeNewReadingFile(workspace,doc);for(const item of workspace.documents.filter(d=>documentKind(d)==='VELA'&&d.id!==workspace.activeId))editorStates.delete(item.id);save();showView('write');plugins?.emit('new-file',plugins.file(doc));return doc;}
+function addDocument(doc){const format=documentSourceProvider(doc.name);if(format&&documentKind(doc)!=='VODT'){doc.kind='PLUGIN';doc.formatId=format.id;}if(projectLocked)throw new Error('项目正在提交，请稍后新建文件。');doc.path=uniquePath(doc.path||(selectedFolder?selectedFolder+'/':'')+doc.name,itemPaths(workspace));doc.name=doc.path.split('/').at(-1);workspace.documents.unshift(doc);switchDocument(doc.id);includeNewReadingFile(workspace,doc);for(const item of workspace.documents.filter(d=>documentKind(d)==='VELA'&&d.id!==workspace.activeId))editorStates.delete(item.id);save();showView('write');plugins?.emit('new-file',plugins.file(doc));return doc;}
 $('#new-doc').onclick=()=>{
  openModal('新建文件',newFileHtml(workspace,selectedFolder,esc),form=>{const name=fileName(form.get('name')),folder=form.get('folder');assertNewFile(workspace,name,folder);selectedFolder=folder;const template=form.has('skeleton')&&templatesFor(name).some(o=>o.id==='format')?'format':'empty';addDocument(newDocument(name,templateText(name,template,projectConfig(workspace,{name,path:(folder?folder+'/':'')+name})?.config?.formats)));});bindNewFile($('#dialog-body'),workspace);
 };
 $('#doc-search').oninput=renderDocuments;
 $('#doc-list').onclick=e=>{if(projectLocked)return;const lazy=e.target.closest('[data-project-file]');if(lazy){const path=lazy.dataset.projectFile;openLazyProjectDocument(path).then(()=>{if(innerWidth<=600&&current()&&documentPath(current())===path&&!home)setSidebar('library',false);}).catch(fail);return;}const pathMenu=e.target.closest('[data-path-menu]');if(pathMenu){e.preventDefault();e.stopPropagation();fileMenu(pathMenu.dataset.pathMenu,pathMenu.dataset.directory==='true');return;}const folder=e.target.closest('[data-folder]');if(folder){selectedFolder=folder.dataset.folder;$('#selected-folder').textContent=selectedFolder;$('#doc-list').querySelectorAll('summary').forEach(el=>el.classList.toggle('selected-folder',el.dataset.folder===selectedFolder));}const doc=e.target.closest('[data-doc]');if(doc){selectedFolder=parentPath(documentPath(workspace.documents.find(d=>d.id===doc.dataset.doc)));loadSubscriptionDocument(workspace.documents.find(d=>d.id===doc.dataset.doc)).then(()=>{switchDocument(doc.dataset.doc);if(innerWidth<=600&&current()?.id===doc.dataset.doc&&!home)setSidebar('library',false);}).catch(fail);}const menu=e.target.closest('[data-menu]');if(menu)documentMenu(menu.dataset.menu);};
-$('#refresh-folder').onclick=async()=>{try{if(dirty&&!save())return;if(!native){renderDocuments();toast('工作区已刷新');return;}const result=await transport('refreshFolder');if(view){view.destroy();view=null;}editorStates.clear();adoptFolder(workspace,result);showHome();projects.changed('external');toast('工作区已刷新');}catch(error){fail(error);}};
+$('#refresh-folder').onclick=async()=>{try{if(session.dirty&&!save())return;if(!native){renderDocuments();toast('工作区已刷新');return;}const result=await transport('refreshFolder');if(view){view.destroy();view=null;}editorStates.clear();adoptFolder(workspace,result);showHome();projects.changed('external');toast('工作区已刷新');}catch(error){fail(error);}};
 $('#new-folder').onclick=()=>newFolder(selectedFolder);
 function newFolder(parent=''){openModal(t('新建文件夹'),`<label>${t('文件夹名称')}<input name="name" required maxlength="160" autofocus></label>${folderPickerHtml(workspace,{selected:parent,escape:esc})}<label class="checkbox"><input name="workspace" type="checkbox">${t('同时建立作品设置')}</label>`,f=>{const folder=f.get('folder'),name=repoPath(f.get('name')),path=repoPath((folder?folder+'/':'')+name);if(name.includes('/'))throw Error(t('文件夹名称不能包含斜杠。'));if(itemPaths(workspace).has(path))throw new Error('此路径已存在。');const previous=JSON.stringify(workspace),parts=path.split('/');workspace.folders=[...new Set([...(workspace.folders||[]),...parts.map((_,i)=>parts.slice(0,i+1).join('/'))])];if(f.has('workspace')){const config=createVelaV2(basename(path)),defaults=globalConfig(workspace)?.config?.workspaceDefaults;for(const key of ['editor','reader','chapters'])if(defaults?.[key])config[key]=structuredClone(defaults[key]);if(defaults?.reading?.layout)config.reading.layout=structuredClone(defaults.reading.layout);const doc=newDocument('.vela',velaText(config));doc.path=path+'/.vela';workspace.documents.push(doc);}if(!save()){workspace=JSON.parse(previous);throw new Error('文件夹创建失败。');}selectedFolder=path;renderDocuments();});bindFolderPicker($('#dialog-body'));}
 
@@ -774,9 +759,18 @@ function showPaletteEditor(id='',from=workspace.settings.palette){
 function cycleTheme(){const dark=!workspace.settings.dark,system=environment?.dark??systemTheme.matches;applyTheme(dark===system?'system':dark?'dark':'light');save();}
 $('#theme').onclick=cycleTheme;
 systemTheme.addEventListener('change',()=>{if(workspace?.settings.theme==='system')applyTheme();});
-function applyEnvironment(value){environment=value;document.body.dataset.platform=value?.platform||'browser';ui.environment(value);for(const edge of ['top','bottom','left','right'])document.documentElement.style.setProperty('--safe-'+edge,Math.max(0,Number(value?.[edge]||0))+'px');if(workspace?.settings.theme==='system')applyTheme();sidebars.update(false);}
-window.addEventListener('wenzhouEnvironment',e=>applyEnvironment(e.detail));
-if(environment)applyEnvironment(environment);
+bindPlatformEnvironment(window, document, environment, (value) => {
+  environment = value;
+  ui.environment(value);
+  if (workspace?.settings.theme === 'system') applyTheme();
+  sidebars.update(false);
+});
+function applyWorkspaceFont() {
+  applyFontPreference(document, workspace?.settings.fontFamily);
+  const reflow = () => {view?.requestMeasure();reader?.layout();};
+  reflow();
+  document.fonts.ready.then(reflow);
+}
 function setFontSize(value,persist=true){const size=Math.max(10,Math.min(40,Math.round(Number.isFinite(value)?value:16)));textFontSize=size;if(persist){const project=current()&&documentKind(current())!=='VELA'?projectConfig(workspace,current()):null;if(project?.config){const config=project.rawConfig||project.config;config.editor={...config.editor,fontSize:size};project.doc.text=velaText(config);project.doc.updatedAt=Date.now();editorStates.delete(project.doc.id);}else workspace.settings.fontSize=size;}document.documentElement.style.setProperty('--editor-font-size',size+'px');view?.requestMeasure();if(isPreview&&current()&&documentKind(current())==='HTML')renderPreview();}
 if(!native||['android','windows'].includes(environment?.platform))bindTextZoom($('.paper'),()=>textFontSize,setFontSize,()=>{save();toast('文字字号 '+textFontSize+' px');});
 window.wenzhouNativeScale=factor=>{if(planningPreview())return;if(!workspace||!Number.isFinite(factor)||factor<=0)return;if(pageName==='reader'&&reader?.id){reader.setSize(reader.size*factor);workspace.readerSizes={...workspace.readerSizes,[reader.id]:reader.size};}else if(pageName==='write')setFontSize(textFontSize*factor);save();};
@@ -791,7 +785,8 @@ document.querySelectorAll('.quickbar button').forEach(b=>b.addEventListener('mou
 $('#quick-git').onclick=()=>gitDocument();
 $('#settings').onclick=()=>{
   const s=workspace.settings.writer;
-  openModal('编辑器设置',`<label>语言<select name="language"><option value="zh-CN" ${workspace.settings.language!=='en'?'selected':''}>简体中文</option><option value="en" ${workspace.settings.language==='en'?'selected':''}>English</option></select></label><label>外观<select name="theme">${[['system','跟随系统'],['light','浅色模式'],['dark','深色模式']].map(([value,label])=>`<option value="${value}" ${workspace.settings.theme===value?'selected':''}>${label}</option>`).join('')}</select></label><fieldset class="palette-options"><legend>配色方案</legend>${allPalettes().map(p=>`<label class="palette-choice${p.custom?' custom':''}"><input type="radio" name="palette" value="${p.id}" ${p.id===workspace.settings.palette?'checked':''}><span class="palette-swatches"><i style="background:${p.light.accent}"></i><i style="background:${p.light.soft}"></i><i style="background:${p.dark.paper}"></i></span><span>${esc(p.name)}</span>${p.custom?`<button type="button" class="text-button palette-edit" data-edit-palette="${p.id}" aria-label="编辑配色 ${esc(p.name)}">编辑</button>`:''}</label>`).join('')}${customPalettes().length<MAX_CUSTOM_PALETTES?'<button type="button" class="palette-add" id="new-palette">＋ 自定义配色</button>':''}</fieldset><label>文字字号<input type="number" name="fontSize" min="10" max="40" value="${textFontSize}" required></label><label>阅读方式<select name="readingMode"><option value="scroll" ${workspace.settings.readingMode==='scroll'?'selected':''}>上下滑动</option><option value="pages" ${workspace.settings.readingMode==='pages'?'selected':''}>左右翻页</option><option value="double" ${workspace.settings.readingMode==='double'?'selected':''}>双页阅读</option></select></label><label class="checkbox"><input name="globalVelaOverride" type="checkbox" ${globalConfig(workspace)?.config?.reader?.appearancePolicy==='personal'?'checked':''}>统一使用我的阅读排版</label><p><button type="button" class="secondary" id="edit-global-vela">编辑全局 .vela</button></p><label class="checkbox"><input name="autoNouns" type="checkbox" ${workspace.settings.autoNouns!==false?'checked':''}>正文名词候选补全</label><small>本地推测人名、地名等候选，不自动加入术语库。</small><label class="checkbox"><input name="glossaryPanel" type="checkbox" ${workspace.settings.glossaryPanel?'checked':''}>正文与术语库同屏</label><label class="checkbox"><input name="highlightTerms" type="checkbox" ${workspace.settings.highlightTerms?'checked':''}>正文术语高亮与释义</label><label class="checkbox"><input name="novelLineNumbers" type="checkbox" ${workspace.settings.novelLineNumbers?'checked':''}>小说模式显示行号</label><label class="checkbox"><input name="richText" type="checkbox" ${workspace.settings.richText?'checked':''}>TXT 格式工具<small>粗体、着重号、注音、插图和样式；格式另存为同名 .vela 旁注，TXT 正文不变</small></label><label>字数规则<select name="countMode"><option value="nonspace" ${s.countMode==='nonspace'?'selected':''}>非空白字符（含标点）</option><option value="letters" ${s.countMode==='letters'?'selected':''}>仅文字与数字</option></select></label><label class="checkbox"><input name="includeHeading" type="checkbox" ${s.includeHeading?'checked':''}>字数包含章节标题</label><p>自动识别标准中英章节标题；额外模板保存在工作区 .vela 配置中。</p><label>GitHub OAuth Client ID<input name="clientId" value="${esc(workspace.settings.clientId||'')}" placeholder="OAuth App Client ID"><small>可留空并使用个人访问令牌。应用内不需要 Client Secret。</small></label><div class="notice">文舟 ${environment?.version||(environment?.platform==='android'?__VELA_HARMONY_VERSION__+'-android.1':__VELA_HARMONY_VERSION__)}<br>开源小说创作 / 阅读工具</div><p><button type="button" class="secondary" id="create-vela" ${workspace.documents.some(doc=>documentKind(doc)==='VELA'&&documentPath(doc)!==GLOBAL_VELA_PATH&&configFolder(documentPath(doc))===currentScope())?'disabled':''}>创建 .vela 配置</button></p><p><button type="button" class="secondary" id="backup-all">导出全部文稿备份</button> <button type="button" class="secondary" id="restore-backup">恢复文稿备份</button> <button type="button" class="secondary" id="show-licenses">开源许可</button>${native?'<button type="button" class="secondary" id="check-updates">检查更新</button><label class="checkbox"><input name="updateChecks" type="checkbox" '+(workspace.settings.updateChecks!==false?'checked':'')+'>自动检查更新</label>':''}</p>`,f=>{const configPriorityChanged=(globalConfig(workspace)?.config?.reader?.appearancePolicy==='personal')!==f.has('globalVelaOverride');workspace.settings.writer=chapterSettings({...s,titleTemplates:[],countMode:f.get('countMode'),includeHeading:f.has('includeHeading')});workspace.settings.clientId=f.get('clientId').trim();workspace.settings.language=f.get('language');if(environment?.platform==='windows')workspace.settings.updateChecks=f.has('updateChecks');workspace.settings.readingMode=f.get('readingMode');workspace.settings.autoNouns=f.has('autoNouns');workspace.settings.glossaryPanel=f.has('glossaryPanel');workspace.settings.highlightTerms=f.has('highlightTerms');{const lines=f.has('novelLineNumbers');if(lines!==!!workspace.settings.novelLineNumbers){workspace.settings.novelLineNumbers=lines;refreshGutters();}}workspace.settings.richText=f.has('richText');editorStates.clear();if(current())refreshFileType(current());ensureGlobalVela();const global=globalConfig(workspace);if(global?.config){global.config.reader={...global.config.reader,appearancePolicy:f.has('globalVelaOverride')?'personal':'project',mode:f.get('readingMode')};global.doc.text=velaText(global.config);global.doc.updatedAt=Date.now();}workspace.settings.palette=f.get('palette')||'pine';setLanguage(workspace.settings.language);reader?.localize();if(home)renderHome();applyTheme(f.get('theme'));setFontSize(Number(f.get('fontSize')));index=null;save();updateStats();reader?.layout();if(pageName==='reader'&&configPriorityChanged)reader.home();if(pageName==='subscriptions')subscriptions.render();});
+  openModal('编辑器设置',`<label>语言<select name="language"><option value="zh-CN" ${workspace.settings.language!=='en'?'selected':''}>简体中文</option><option value="en" ${workspace.settings.language==='en'?'selected':''}>English</option></select></label><label>外观<select name="theme">${[['system','跟随系统'],['light','浅色模式'],['dark','深色模式']].map(([value,label])=>`<option value="${value}" ${workspace.settings.theme===value?'selected':''}>${label}</option>`).join('')}</select></label><fieldset class="palette-options"><legend>配色方案</legend>${allPalettes().map(p=>`<label class="palette-choice${p.custom?' custom':''}"><input type="radio" name="palette" value="${p.id}" ${p.id===workspace.settings.palette?'checked':''}><span class="palette-swatches"><i style="background:${p.light.accent}"></i><i style="background:${p.light.soft}"></i><i style="background:${p.dark.paper}"></i></span><span>${esc(p.name)}</span>${p.custom?`<button type="button" class="text-button palette-edit" data-edit-palette="${p.id}" aria-label="编辑配色 ${esc(p.name)}">编辑</button>`:''}</label>`).join('')}${customPalettes().length<MAX_CUSTOM_PALETTES?'<button type="button" class="palette-add" id="new-palette">＋ 自定义配色</button>':''}</fieldset><label>文字字号<input type="number" name="fontSize" min="10" max="40" value="${textFontSize}" required></label><label>阅读方式<select name="readingMode"><option value="scroll" ${workspace.settings.readingMode==='scroll'?'selected':''}>上下滑动</option><option value="pages" ${workspace.settings.readingMode==='pages'?'selected':''}>左右翻页</option><option value="double" ${workspace.settings.readingMode==='double'?'selected':''}>双页阅读</option></select></label><label class="checkbox"><input name="globalVelaOverride" type="checkbox" ${globalConfig(workspace)?.config?.reader?.appearancePolicy==='personal'?'checked':''}>统一使用我的阅读排版</label><p><button type="button" class="secondary" id="edit-global-vela">编辑全局 .vela</button></p><label class="checkbox"><input name="autoNouns" type="checkbox" ${workspace.settings.autoNouns!==false?'checked':''}>正文名词候选补全</label><small>本地推测人名、地名等候选，不自动加入术语库。</small><label class="checkbox"><input name="glossaryPanel" type="checkbox" ${workspace.settings.glossaryPanel?'checked':''}>正文与术语库同屏</label><label class="checkbox"><input name="highlightTerms" type="checkbox" ${workspace.settings.highlightTerms?'checked':''}>正文术语高亮与释义</label><label class="checkbox"><input name="novelLineNumbers" type="checkbox" ${workspace.settings.novelLineNumbers?'checked':''}>小说模式显示行号</label><label class="checkbox"><input name="richText" type="checkbox" ${workspace.settings.richText?'checked':''}>TXT 格式工具<small>粗体、着重号、注音、插图和样式；格式另存为同名 .vela 旁注，TXT 正文不变</small></label><label>字数规则<select name="countMode"><option value="nonspace" ${s.countMode==='nonspace'?'selected':''}>非空白字符（含标点）</option><option value="letters" ${s.countMode==='letters'?'selected':''}>仅文字与数字</option></select></label><label class="checkbox"><input name="includeHeading" type="checkbox" ${s.includeHeading?'checked':''}>字数包含章节标题</label><p>自动识别标准中英章节标题；额外模板保存在工作区 .vela 配置中。</p><label>GitHub OAuth Client ID<input name="clientId" value="${esc(workspace.settings.clientId||'')}" placeholder="OAuth App Client ID"><small>可留空并使用个人访问令牌。应用内不需要 Client Secret。</small></label><div class="notice">文舟 ${environment?.version||(environment?.platform==='android'?__VELA_HARMONY_VERSION__+'-android.1':__VELA_HARMONY_VERSION__)}<br>开源小说创作 / 阅读工具</div><p><button type="button" class="secondary" id="create-vela" ${workspace.documents.some(doc=>documentKind(doc)==='VELA'&&documentPath(doc)!==GLOBAL_VELA_PATH&&configFolder(documentPath(doc))===currentScope())?'disabled':''}>创建 .vela 配置</button></p><p><button type="button" class="secondary" id="backup-all">导出全部文稿备份</button> <button type="button" class="secondary" id="restore-backup">恢复文稿备份</button> <button type="button" class="secondary" id="show-licenses">开源许可</button>${native?'<button type="button" class="secondary" id="check-updates">检查更新</button><label class="checkbox"><input name="updateChecks" type="checkbox" '+(workspace.settings.updateChecks!==false?'checked':'')+'>自动检查更新</label>':''}</p>`,f=>{const configPriorityChanged=(globalConfig(workspace)?.config?.reader?.appearancePolicy==='personal')!==f.has('globalVelaOverride');workspace.settings.writer=chapterSettings({...s,titleTemplates:[],countMode:f.get('countMode'),includeHeading:f.has('includeHeading')});workspace.settings.clientId=f.get('clientId').trim();workspace.settings.language=f.get('language');workspace.settings.fontFamily=normalizeFontName(f.get('fontFamily'));applyWorkspaceFont();if(environment?.platform==='windows')workspace.settings.updateChecks=f.has('updateChecks');workspace.settings.readingMode=f.get('readingMode');workspace.settings.autoNouns=f.has('autoNouns');workspace.settings.glossaryPanel=f.has('glossaryPanel');workspace.settings.highlightTerms=f.has('highlightTerms');{const lines=f.has('novelLineNumbers');if(lines!==!!workspace.settings.novelLineNumbers){workspace.settings.novelLineNumbers=lines;refreshGutters();}}workspace.settings.richText=f.has('richText');editorStates.clear();if(current())refreshFileType(current());ensureGlobalVela();const global=globalConfig(workspace);if(global?.config){global.config.reader={...global.config.reader,appearancePolicy:f.has('globalVelaOverride')?'personal':'project',mode:f.get('readingMode')};global.doc.text=velaText(global.config);global.doc.updatedAt=Date.now();}workspace.settings.palette=f.get('palette')||'pine';setLanguage(workspace.settings.language);reader?.localize();if(home)renderHome();applyTheme(f.get('theme'));setFontSize(Number(f.get('fontSize')));index=null;save();updateStats();reader?.layout();if(pageName==='reader'&&configPriorityChanged)reader.home();if(pageName==='subscriptions')subscriptions.render();});
+  mountFontSettings($('#dialog-body'),workspace.settings.fontFamily,{native,transport,window});
   organizeSettings($('#dialog-body'));
   if($('#check-updates'))$('#check-updates').onclick=()=>checkWindowsUpdates(true);
   // A palette radio inside a label: the edit button must not select it; both buttons replace the settings dialog.
@@ -805,7 +800,7 @@ $('#settings').onclick=()=>{
 };
 
 function showView(name){
-  if(dirty&&!save())return;if(name!=='write')$('#preview').odfDispose?.();ui.close();pageName=name;document.body.dataset.page=name;document.body.classList.toggle('start-open',home&&name==='write');
+  if(session.dirty&&!save())return;if(name!=='write')$('#preview').odfDispose?.();ui.close();pageName=name;ui.editorContext(pageName,home);document.body.dataset.page=name;document.body.classList.toggle('start-open',home&&name==='write');
   document.querySelectorAll('[data-view]').forEach(b=>{b.classList.toggle('active',b.dataset.view===name);if(b.dataset.view===name)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});
   for(const page of ['write','github','subscriptions','reader'])$('#'+page+'-view').hidden=page!==name;
   $('#sidebar-logout').disabled=!account;$('#add-glossary').disabled=name!=='write'||home||isPreview;
@@ -814,7 +809,10 @@ function showView(name){
   if(name==='reader'){indexService=null;index=null;indexDoc=null;setSidebar('library',false);ensureReader().then(reader=>{if(pageName==='reader')reader.home();}).catch(error=>chunkFailure($('#reader-view'),error,()=>showView('reader')));}else{reader?.leave();updateEditorVisibility();if(name==='write'&&isPreview&&isComponentDocument(current()))renderPreview();}
   sidebars.update();
 }
-document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>showView(b.dataset.view));$('#github-shortcut').onclick=()=>showView('github');$('#sidebar-logout').onclick=logout;
+document.querySelectorAll('[data-view]').forEach(button=>button.onclick=()=>{
+  if(button.dataset.view==='write'&&pageName==='write'&&!home){ui.toggleEditorChrome();return;}
+  showView(button.dataset.view);
+});$('#github-shortcut').onclick=()=>showView('github');$('#sidebar-logout').onclick=logout;
 
 $('#github-view').addEventListener('click',e=>{if(e.target.closest('[data-return-write]'))showView('write');if(e.target.closest('[data-toggle-theme]'))cycleTheme();});
 let githubOffline=false;
@@ -945,18 +943,52 @@ function commitDocument(suggestRepo,suggestBranch){
   if(remote)$('#read-remote').onclick=async()=>{try{if(await openRemote(remote.repo,remote.branch,remote.path))closeModal();}catch(e){$('#dialog-error').textContent=e.message;}};
 }
 
-function runAction(id){if(id==='md-bold'&&!$('#format-tools').hidden)id='format-strong';if(pageName==='reader'&&!['outline-toggle','settings','theme','mobile-library','commands','quick-git','plugins'].includes(id))return false;if(id==='toggle-display'){if(!home)togglePreview();return true;}if(id==='close-active'){if(current())closeDocument(current().id);return true;}const button=$('#'+id);if(button&&!button.disabled)button.click();return true;}
-for(const [id,,keys,label] of shortcuts){const button=$('#'+id);if(button){button.title=`${label} (${keys})`;button.setAttribute('aria-keyshortcuts',keys.replaceAll('+','+'));}}
-document.addEventListener('keydown',e=>{if(e.altKey&&e.key==='ArrowLeft'&&isPreview&&documentKind(current())==='MAP'&&mapBack()){e.preventDefault();return;}if(pageName==='reader'&&!(e.ctrlKey||e.metaKey))return;
-  if(e.defaultPrevented||e.isComposing||$('#dialog').open||e.target.closest('.plugin-page'))return;
-  if(e.key==='Escape'&&home&&pageName==='write'&&$('#start-page').dataset.panel==='recent'){e.preventDefault();setStartPanel($('#start-page'),'actions');return;}
-  const inField=e.target.closest('input,textarea,select');
-  if(inField&&!inField.matches('[data-cell-row]'))return;
-  if((e.ctrlKey||e.metaKey)&&e.shiftKey&&e.key.toLowerCase()==='f'){e.preventDefault();editing.search();return;}
-  if((e.ctrlKey||e.metaKey)&&e.altKey&&e.key.toLowerCase()==='b'){e.preventDefault();editing.bookmark();return;}
-  if((e.ctrlKey||e.metaKey)&&!e.altKey&&['+','=','-','0'].includes(e.key)){e.preventDefault();e.stopPropagation();if(pageName==='reader'){if(reader?.id){reader.setSize(e.key==='0'?16:reader.size+(['+','='].includes(e.key)?1:-1));workspace.readerSizes={...workspace.readerSizes,[reader.id]:reader.size};save();}return;}setFontSize(e.key==='0'?16:textFontSize+(['+','='].includes(e.key)?1:-1));save();return;}
-  const shortcut=shortcuts.find(([,key])=>matchesKey(e,key));if(shortcut){e.preventDefault();e.stopPropagation();runAction(shortcut[0]);}
-},true);
+const commands = createAppCommands(
+  shortcuts.map(([id]) => id),
+  {
+    page: () => pageName,
+    home: () => home,
+    formatToolsVisible: () => !$('#format-tools').hidden,
+    togglePreview,
+    closeActive: () => {
+      const doc = current();
+      if (doc) closeDocument(doc.id);
+    },
+    button: (id) => document.getElementById(id),
+  },
+);
+function runAction(id) {
+  return commands.execute(id);
+}
+bindAppShortcuts(document, {
+  shortcuts,
+  matchesKey,
+  button: (id) => document.getElementById(id),
+  page: () => pageName,
+  mapBack: () => isPreview && documentKind(current()) === 'MAP' && mapBack(),
+  dialogOpen: () => $('#dialog').open,
+  escapeHome: () => {
+    if (!home || pageName !== 'write' || $('#start-page').dataset.panel !== 'recent') return false;
+    setStartPanel($('#start-page'), 'actions');
+    return true;
+  },
+  search: () => editing.search(),
+  bookmark: () => editing.bookmark(),
+  zoom: (key) => {
+    const size = (value) => (key === '0' ? 16 : value + (['+', '='].includes(key) ? 1 : -1));
+    if (pageName === 'reader') {
+      if (reader?.id) {
+        reader.setSize(size(reader.size));
+        workspace.readerSizes = { ...workspace.readerSizes, [reader.id]: reader.size };
+        save();
+      }
+      return;
+    }
+    setFontSize(size(textFontSize));
+    save();
+  },
+  execute: runAction,
+});
 $('#commands').onclick=()=>{
   const group=(name,list)=>list.map(item=>({...item,group:name}));
   const items=[...group('文稿与导出',[{name:'链接到大纲节点…',key:'',run:()=>linkOutlineSelection()},{name:'本地历史与恢复',key:'',run:showLocalHistory},{name:'导出章节文本…',key:'',run:showChapterExport},{name:'复制本章文本',key:'',run:copyCurrentChapter},{name:'导出全书为 HTML（保留格式）',key:'',run:exportBookHtml},{name:'导出 EPUB…',key:'',run:()=>showEpubExport()}]),...group('TXT 格式',[{name:(workspace.settings.richText?'关闭':'开启')+' TXT 格式工具（本机）',key:'',run:()=>{workspace.settings.richText=!workspace.settings.richText;save();updateEditorVisibility();toast(workspace.settings.richText?'TXT 格式工具已开启：粗体、着重号、居中，格式另存为同名 .vela 旁注。':'TXT 格式工具已关闭；已有格式仍会显示。');}},{name:'格式待确认…',key:'',run:showFormatReview},{name:'注音…',key:'',run:showRubyDialog},{name:'插入插图…',key:'',run:()=>showImageDialog()},{name:'管理样式…',key:'',run:()=>showStyleManager()}]),...group('外观',[{name:'自定义配色…',key:'',run:()=>showPaletteEditor()}]),...group('写作工具',editing?.commands()||[]),...group('界面与快捷键',shortcuts.map(([id,,key,name])=>({name,key,run:()=>runAction(id)}))),...group('插件',[...(plugins?.commands.values()||[])].map(command=>({name:command.title,key:command.shortcut||'',run:()=>plugins.execute(command.name)})))];
@@ -1126,7 +1158,7 @@ async function loadSubscriptionDocument(doc,attempt=0){
 
 function adoptProjectState(candidate,receipt={}){
   const previous=workspace,active=workspace.activeId,affected=new Set([...(receipt.changed||[]),...(receipt.removed||[])].map(entry=>entry.entryId)),activeChanged=affected.has(active)||candidate.documents.find(d=>d.id===active)?.text!==previous.documents.find(d=>d.id===active)?.text;
-  if(activeChanged&&view){view.destroy();view=null;}workspace=candidate;documents.committedProject();for(const id of editorStates.keys())if(affected.has(id)||!workspace.documents.some(d=>d.id===id))editorStates.delete(id);index=null;indexDoc=null;outlineRevision='';dirty=false;
+  if(activeChanged&&view){view.destroy();view=null;}workspace=candidate;documents.committedProject();for(const id of editorStates.keys())if(affected.has(id)||!workspace.documents.some(d=>d.id===id))editorStates.delete(id);index=null;indexDoc=null;outlineRevision='';session.dirty=false;
   if(activeChanged){if(workspace.activeId&&workspace.documents.some(d=>d.id===workspace.activeId))switchDocument(workspace.activeId);else showHome();}renderDocuments();updateStats();if(isPreview&&current())renderPreview();status('已保存到本机');renderTabDirty();
 }
 async function hydratePlanningDocuments({paths=null,outlineOnly=false}={}){
@@ -1152,19 +1184,15 @@ async function openProjectDocument(path,read,args={}){
   if(projectLocked)throw new Error('项目正在提交，请稍后打开文稿。');let doc=workspace.documents.find(d=>documentPath(d)===path);if(!doc){doc=newDocument(basename(path),read.text);doc.text=read.text;doc.path=path;doc.id=workspace.pluginProject?.entries[path]||doc.id;workspace.documents.push(doc);documents.register(doc);}if(args.format){doc.kind=args.format.kind;doc.formatId=args.format.formatId;}switchDocument(doc.id);if(args.selection&&view)view.dispatch({selection:{anchor:args.selection.from,head:args.selection.to},scrollIntoView:true});if(args.focus!==false)view?.focus();return {documentId:doc.id,revision:read.revision};
 }
 async function boot(){try{
-  await recoverBrowserProjects();
-  const raw=await readWorkspaceAsync();
-  if(raw){workspace=validateWorkspace(JSON.parse(raw));primeWorkspaceBaseline(workspace);}else{const doc=newDocument('操作指南.md',guide);workspace={version:1,documents:[doc],openIds:[doc.id],activeId:doc.id,settings:{theme:'system'}};}
+  workspace=await loadWorkspace();
+  applyWorkspaceFont();
   gh=workspace.settings?.gitProvider==='gitee'?new Gitee(transport):new GitHub(transport);
-  workspace.settings={language:'zh-CN',readingMode:'scroll',theme:'system',palette:'pine',fontSize:16,clientId:'',...workspace.settings,writer:chapterSettings(workspace.settings?.writer)};
-  documents=new DocumentService({workspace:()=>workspace,write:saveWorkspace});for(const doc of workspace.documents)documents.register(doc);
+  documents=createDocumentSession(()=>workspace);
   editing=new EditingTools({workspace:()=>workspace,current,view:()=>view,documents,index:()=>view&&ensureIndex(),matcher:()=>chapterMatcher(projectWriter(workspace,current())),invalidate:id=>editorStates.delete(id),scope:currentScope,modal:openModal,close:closeModal,escape:esc,open:switchDocument,jump,save,toast,fail,split:()=>{workspace.settings.splitPreview=!workspace.settings.splitPreview;if(!isPreview)togglePreview();else updateEditorVisibility();save();}});
-  if(!['system','light','dark'].includes(workspace.settings.theme))workspace.settings.theme='system';
-  preparePaths(workspace);
-  if(native){const folder=await transport('initializeStorage');if(folder.storage.id){adoptFolder(workspace,folder,{migrate:!workspace.storage?.id});preparePaths(workspace);}else workspace.storage=folder.storage;}
-  for(const doc of workspace.documents){const demo=await isOriginalDemo(doc);if(demo||doc.name==='未命名小说.txt'&&!doc.remote&&doc.text.startsWith('文舟操作指南\n')){const old=documentPath(doc),target=(parentPath(old)?parentPath(old)+'/':'')+(demo?'操作指南.md':'操作指南.txt');doc.path=uniquePath(target,new Set([...itemPaths(workspace)].filter(path=>path!==old)));doc.name=basename(doc.path);if(demo)doc.text=guide;editorStates.delete(doc.id);}}
-  for(const doc of workspace.documents.filter(doc=>/^操作指南\.(txt|md)$/i.test(doc.name)&&!doc.remote)){const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(doc.text))),b=>b.toString(16).padStart(2,'0')).join('');if(previousGuideHashes.includes(hash)){const old=documentPath(doc),target=(parentPath(old)?parentPath(old)+'/':'')+'操作指南.md';doc.path=uniquePath(target,new Set([...itemPaths(workspace)].filter(path=>path!==old)));doc.name=basename(doc.path);doc.text=guide;doc.updatedAt=Date.now();editorStates.delete(doc.id);}}
-  workspace.settings.writer=chapterSettings({...workspace.settings.writer,titleTemplates:[]});
+  await prepareWorkspace(workspace,{
+    initializeStorage:native?()=>transport('initializeStorage'):null,
+    invalidate:id=>editorStates.delete(id),
+  });
   projects=new ProjectService({workspace:()=>workspace,current,platform:environment?.platform||'browser',confirm:(title,message)=>pluginDialog(title,message,'confirm'),fail,prepare:candidate=>documents.prepareProject(candidate),lock:async()=>{if(view?.composing)throw new Error('请先完成输入法组合输入，再执行项目操作。');if(!save())throw new Error('请先保存或导出当前文稿。');projectLocked=true;document.body.classList.add('project-busy');if(view)view.dispatch({effects:projectReadonly.reconfigure(EditorState.readOnly.of(true))});return ()=>{projectLocked=false;document.body.classList.remove('project-busy');for(const [id,state] of editorStates)editorStates.set(id,state.update({effects:projectReadonly.reconfigure(EditorState.readOnly.of(false))}).state);if(view)view.dispatch({effects:projectReadonly.reconfigure(EditorState.readOnly.of(false))});};},adopt:adoptProjectState,openDocument:openProjectDocument,userGesture:()=>!plugins?.loadingId&&(native||navigator.userActivation?.isActive),pluginAssets:id=>plugins?.records.find(record=>record.manifest.id===id)?.files||{},pluginAsset:(id,path)=>plugins?.records.find(record=>record.manifest.id===id)?.files[path]},projectBackend(()=>workspace,environment?.platform));await projects.ready();await hydratePlanningDocuments({outlineOnly:true});
   plugins=new PluginRuntime({sidebarViews,context:extensionContext,tasks:extensionTasks,documentKind,openDocument:openExtensionDocument,navigatePlanning:spec=>{const api=$('#preview').planningApi;if(!planningPreview()||!api)throw Object.assign(Error('请先打开规划预览。'),{code:'E_UNSUPPORTED'});return api.navigate(spec);},planningSnapshot:()=>{if(!planningPreview())throw Object.assign(Error('请先打开规划预览。'),{code:'E_UNSUPPORTED'});return $('#preview').planningApi?.snapshot();},applyPlanning:applyExtensionPlanning,components:()=>texCompiler.assets,beforeComponentChange:async()=>{if(texCompiler.pending)throw Error('请等待当前编译结束。');await texCompiler.dispose();},projects,documentHistory:doc=>documents.history(doc),configuration:doc=>projectConfig(workspace,doc)?.config,documentInfo:doc=>({...documents.receipt(doc),historyCount:documents.history(doc).length}),chapters:doc=>Writer.buildIndex(doc.text,projectWriter(workspace,doc),chapterMatcher(projectWriter(workspace,doc))).sections,compileTex:(doc,options)=>texCompiler.compile(doc,options),getView:()=>view,getDoc:current,getFiles:()=>workspace.documents,setText:(id,text)=>{if(projectLocked)throw new Error('项目正在提交，请稍后编辑。');const doc=workspace.documents.find(doc=>doc.id===id);if(!doc)throw new Error('文稿不存在');if(new TextEncoder().encode(text).length>MAX_TEXT_BYTES)throw new Error('文件超过 8 MB');if(doc.id===workspace.activeId&&view)view.dispatch({changes:{from:0,to:view.state.doc.length,insert:text}});else{documents.change(doc,text,[],{important:true});editorStates.delete(id);}if(!save())throw new Error('保存失败');if(isPreview&&id===workspace.activeId)renderPreview();return true;},addFile:(name,text)=>addDocument(newDocument(fileName(name),text)),toast,fail,refreshCommands:refreshPluginCommands,ui:pluginUi,message:(title,message)=>pluginDialog(title,message,'alert'),confirm:(title,message)=>pluginDialog(title,message,'confirm'),prompt:(title,value)=>pluginDialog(title,'','prompt',value)});
   initI18n(workspace.settings.language);
@@ -1187,13 +1215,13 @@ async function boot(){try{
   if(initialDoc)switchDocument(initialDoc.id);else showHome();
   window.velaStartup?.reveal();
   // Persist startup migrations before exposing the workspace; geometry reads stay batched.
-  if(workspaceSaveTimer!==null)save();
+  if(session.pendingWorkspaceSave)save();
   sidebars.update(false);performance.mark('vela:content-ready');
   const pluginBoot=plugins.boot().catch(error=>toast('插件读取失败：'+error.message));
   window.velaReady=true;performance.mark('vela:interactive');
   await pluginBoot;
   if(native){try{const user=await gh.user();account=user;$('#sidebar-logout').disabled=false;$('#account-label').textContent=gitName()+' · '+user.login;repositories=await gh.repositories();}catch{if(workspace.githubCache?.login&&(workspace.githubCache.provider||'github')===gh.provider){account={login:workspace.githubCache.login};repositories=workspace.githubCache.repositories||[];githubOffline=true;$('#sidebar-logout').disabled=false;$('#account-label').textContent=account.login+' · '+t('离线');}}}
-}catch(e){bootFailed=true;window.velaStartup?.dismiss();$('#editor').innerHTML=`<div class="blank"><h2>无法读取本地文稿</h2><p>${esc(e.message)}</p><p>原始数据已保留，请勿清除应用数据。可先导出原始文件进行恢复。</p><button id="recover-data" class="primary">导出原始数据</button></div>`;$('#recover-data').onclick=()=>exportText('文舟-恢复数据.json',readWorkspace()||'').catch(fail);document.querySelectorAll('button').forEach(b=>{if(b.id!=='recover-data')b.disabled=true;});}}
+}catch(e){session.bootFailed=true;window.velaStartup?.dismiss();$('#editor').innerHTML=`<div class="blank"><h2>无法读取本地文稿</h2><p>${esc(e.message)}</p><p>原始数据已保留，请勿清除应用数据。可先导出原始文件进行恢复。</p><button id="recover-data" class="primary">导出原始数据</button></div>`;$('#recover-data').onclick=()=>exportText('文舟-恢复数据.json',readWorkspace()||'').catch(fail);document.querySelectorAll('button').forEach(b=>{if(b.id!=='recover-data')b.disabled=true;});}}
 window.wenzhouBack=()=>{
  if(closeAppChoices())return true;
  if($('#dialog').open){closeModal();return true;}

@@ -220,3 +220,21 @@
   }
   @media(prefers-reduced-motion:reduce) {#dialog[aria-busy=true] #dialog-submit::before {animation:none}}
 }
+@layer app {
+  .font-settings {display:flex;flex-direction:column;gap:10px;min-width:0;margin:0;padding:12px;border:1px solid var(--hairline);border-radius:var(--radius)}
+  .font-settings select {width:100%}
+  .font-settings small {line-height:1.6;overflow-wrap:anywhere}
+  #dialog .font-settings-preview {margin:0;padding:12px;border-radius:var(--radius);background:var(--soft);font-size:18px;line-height:1.8;overflow-wrap:anywhere}
+}
+@layer app {
+  .topbar .page-navigation .nav-item.editor-emphasis {width:48px;min-width:48px;height:44px}
+  .topbar .page-navigation .nav-item.editor-emphasis svg {width:26px;height:26px}
+  .global-tools .menu-shortcut {display:none}
+  body:is([data-editor-chrome=compact],[data-editor-chrome=wide]) .global-tools>#export-doc {display:flex}
+  @media(max-width:600px) {
+    .topbar .page-navigation .nav-item.editor-emphasis {width:44px;min-width:44px}
+  }
+  @media(max-width:360px) {
+    body[data-editor-chrome=compact] .breadcrumb>.nav-separator {display:none}
+  }
+}
