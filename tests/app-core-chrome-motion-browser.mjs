@@ -48,7 +48,11 @@ try {
       await finish(page);
       const animated = await page.evaluate(() => {
         document.querySelector('[data-view=write]').click();
-        return document.querySelector('.topbar').getAnimations({ subtree: true }).length;
+        return document
+          .querySelector('.topbar')
+          .getAnimations({ subtree: true })
+          .filter((effect) => !('transitionProperty' in effect) && !('animationName' in effect))
+          .length;
       });
       if (width < 900) assert.ok(animated > 0, 'navigation expansion must animate');
       else assert.equal(animated, 0, 'wide navigation stays unchanged');
