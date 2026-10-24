@@ -188,7 +188,7 @@ const stages={
       const uploaded=new Map((await remote()).map(asset=>[asset.name,asset]));
       for(const name of assets){const asset=uploaded.get(name),file=`${ctx.release}/${name}`;if(!asset||asset.size!==size(file)||asset.digest!=='sha256:'+sha256(file))throw Error('GitHub 上的文件与本地不一致：'+name);}
       say(`  ✓ GitHub 上 ${assets.length} 个文件的大小与 SHA-256 一致`);
-      await exec('gh',['release','edit',ctx.tag,'--repo',repo,'--draft=false','--latest']);
+      await exec('gh',['release','edit',ctx.tag,'--repo',repo,'--draft=false','--latest','--notes-file',notes]);
     }
     const catalogFiles=['catalog.json','catalog.json.sig','SHA256SUMS-catalog.txt'].map(name=>`dist/releases/catalog/${name}`);
     const catalog=await exec('gh',['release','view','catalog','--repo',repo,'--json','tagName'],{capture:true,quiet:true,allowFail:true,readOnly:true});
@@ -197,7 +197,7 @@ const stages={
   },
   async 'mirror-gitee'(ctx){
     const assets=(releaseAssets(ctx)||expectedAssets(ctx)).filter(name=>ctx.dryRun||size(`${ctx.release}/${name}`)<=config.gitee.attachmentLimit);
-    await giteeMirror(ctx,{tag:ctx.tag,folder:ctx.release,names:assets.filter(name=>!name.endsWith('-source.zip')),title:`Vela ${ctx.version}`,notes:`${ctx.metadata}/release-notes-${ctx.version}.md`,sums:`SHA256SUMS-${ctx.version}.txt`});
+    await giteeMirror(ctx,{tag:ctx.tag,folder:ctx.release,names:assets,title:`Vela ${ctx.version}`,notes:`${ctx.metadata}/release-notes-${ctx.version}.md`,sums:`SHA256SUMS-${ctx.version}.txt`});
     await giteeMirror(ctx,{tag:'catalog',folder:'dist/releases/catalog',names:['catalog.json','catalog.json.sig','SHA256SUMS-catalog.txt'],title:'文舟组件目录',notes:null,sums:'SHA256SUMS-catalog.txt',replace:true});
   },
   async restore(ctx){
@@ -255,7 +255,7 @@ function externalPlan(ctx,selected){
   }
   if(selected.includes('mirror-gitee')){
     const {owner,repository}=config.gitee;
-    for(const name of assets.filter(name=>!name.endsWith('-source.zip')&&(!existsSync(`${ctx.release}/${name}`)||size(`${ctx.release}/${name}`)<=config.gitee.attachmentLimit)))items.push(`Gitee ${owner}/${repository} ${ctx.tag}：上传 ${name}${sized(name)}`);
+    for(const name of assets.filter(name=>!existsSync(`${ctx.release}/${name}`)||size(`${ctx.release}/${name}`)<=config.gitee.attachmentLimit))items.push(`Gitee ${owner}/${repository} ${ctx.tag}：上传 ${name}${sized(name)}`);
     items.push(`Gitee ${owner}/${repository} catalog：替换 catalog.json、catalog.json.sig、SHA256SUMS-catalog.txt`);
   }
   return items;

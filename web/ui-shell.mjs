@@ -1,6 +1,7 @@
 import {reducedMotion} from './motion.mjs';
 import {t} from './i18n.mjs';
 import {EditorChrome} from './app-core/editor-chrome.mjs';
+import {ChromeMotion,MenuMotion} from './app-core/chrome-motion.mjs';
 
 export function platformProfile(environment,search='') {
   const platform=environment?.platform;
@@ -13,6 +14,7 @@ export function platformProfile(environment,search='') {
 export class UIShell {
   constructor(environment) {
     this.editorChrome=new EditorChrome();
+    this.chromeMotion=new ChromeMotion(reducedMotion);
     this.toolbar=document.querySelector('.toolbar');
     this.menu=document.createElement('div');
     this.menu.id='toolbar-overflow';this.menu.hidden=true;
@@ -22,6 +24,7 @@ export class UIShell {
       const heading=document.createElement('div');heading.className='toolbar-menu-heading';heading.setAttribute('role','presentation');heading.textContent=title;group.append(heading);this.groups[id]=group;this.menu.append(group);
     }
     document.body.append(this.menu);
+    this.menuMotion=new MenuMotion(this.menu,reducedMotion);
     const global=document.createElement('div');global.className='global-tools';this.globalTools=global;
     global.append(document.querySelector('#outline-toggle'));
     this.toggle=document.createElement('button');this.toggle.id='more-tools';
@@ -35,11 +38,11 @@ export class UIShell {
     this.allTools=[...this.contextual,...this.secondary];
     for(const button of this.allTools){const label=document.createElement('span');label.className='menu-label';label.textContent=button.getAttribute('aria-label');button.append(label);}
     for(const [id,key] of [['search-editor','Ctrl F'],['commands','Ctrl Shift K']]){const hint=document.createElement('kbd');hint.className='menu-shortcut';hint.textContent=key;hint.setAttribute('aria-hidden','true');document.getElementById(id).append(hint);}
-    this.toggle.onclick=()=>this.menu.hidden?this.open():this.close(true);
+    this.toggle.onclick=()=>this.toggle.getAttribute('aria-expanded')==='true'?this.close(true):this.open();
     this.menu.addEventListener('click',event=>{if(event.target.closest('button'))this.close();});
     document.addEventListener('pointerdown',event=>{if(!this.menu.contains(event.target)&&!this.toggle.contains(event.target))this.close();});
     document.addEventListener('keydown',event=>{
-      if(this.menu.hidden)return;
+      if(this.toggle.getAttribute('aria-expanded')!=='true')return;
       if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();this.close(true);return;}
       if(['ArrowDown','ArrowUp','Home','End'].includes(event.key)){
         event.preventDefault();const items=this.menuItems(),index=items.indexOf(document.activeElement);
@@ -51,11 +54,13 @@ export class UIShell {
     this.environment(environment);
   }
   environment(value){this.value=value;document.body.dataset.ui=platformProfile(value,location.search);this.layout();}
-  editorContext(page,home){if(this.editorChrome.context(page,home))this.layout();}
-  toggleEditorChrome(){if(innerWidth<900&&this.editorChrome.toggle())this.layout();}
+  editorContext(page,home){if(this.editorChrome.context(page,home))this.layout({animate:innerWidth<900});}
+  toggleEditorChrome(){if(innerWidth<900&&this.editorChrome.toggle())this.layout({animate:true});}
   // Plugin top-toolbar buttons: the first two stay visible on wide screens, the rest use the existing overflow menu.
   setPluginActions(buttons){if(this.pluginActions?.length===buttons.length&&buttons.every((button,i)=>button===this.pluginActions[i]))return;this.pluginActions=buttons;this.layout();}
-  layout(){
+  layout({animate=false}={}){
+    this.chromeMotion.cancel();
+    const before=animate?this.chromeMotion.capture([...document.querySelectorAll('.page-navigation [data-view],.global-tools>button,#search-editor,#add-glossary,#export-doc')]):null;
     const focused=this.menu.contains(document.activeElement)||(this.pluginActions||[]).includes(document.activeElement)?document.activeElement:null;
     const groupFor=id=>['search-editor','add-glossary','export-doc'].includes(id)?this.groups.document:['focus-toggle','theme'].includes(id)?this.groups.layout:id==='plugins'?this.groups.extensions:this.groups.app;
     const wide=innerWidth>=900,compact=!wide&&this.editorChrome.compact;
@@ -80,6 +85,7 @@ export class UIShell {
     this.readingInsets();
     if(focused?.isConnected&&!focused.disabled&&!focused.closest('[hidden]'))focused.focus({preventScroll:true});
     document.querySelector('#app').style.setProperty('--shell-top',document.querySelector('.topbar').offsetHeight+'px');
+    this.chromeMotion.play(before);
   }
   readingInsets(){
     const style=document.documentElement.style,left=Number(this.value?.left)||0,right=Number(this.value?.right)||0,width=innerWidth-left-right;
@@ -94,8 +100,8 @@ export class UIShell {
     style.setProperty('--reader-header-height',Math.max(44,Number(this.value?.top)||0,padding+44,cutout?cutout.bottom+4:0)+'px');
   }
   menuItems(){return [...this.menu.querySelectorAll('button')].filter(button=>!button.disabled&&!button.hidden&&!button.closest('[hidden]')&&button.getClientRects().length);}
-  open(){this.groups.document.hidden=(this.editorChrome.active&&(innerWidth>=900||this.editorChrome.compact))||document.body.classList.contains('start-open')||document.body.dataset.page!=='write';this.menu.hidden=false;this.toggle.setAttribute('aria-expanded','true');this.menuItems()[0]?.focus();}
-  close(focus=false){this.menu.hidden=true;this.toggle.setAttribute('aria-expanded','false');if(focus)this.toggle.focus();}
+  open(){this.groups.document.hidden=(this.editorChrome.active&&(innerWidth>=900||this.editorChrome.compact))||document.body.classList.contains('start-open')||document.body.dataset.page!=='write';this.menuMotion.setVisible(true);this.toggle.setAttribute('aria-expanded','true');this.menuItems()[0]?.focus();}
+  close(focus=false){this.toggle.setAttribute('aria-expanded','false');this.menuMotion.setVisible(false);if(focus)this.toggle.focus();}
 }
 
 // Keep every control in one form, so category navigation never discards unsaved settings.

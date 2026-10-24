@@ -17,7 +17,9 @@
   .sidebar-view-bar>button {width:36px;height:36px;min-height:36px;padding:0;display:grid;place-items:center}
 
   /* Keep common actions in place; group less frequent commands by purpose. */
-  #toolbar-overflow {width:max-content;min-width:min(176px,calc(100vw - 24px));max-width:calc(100vw - 24px);max-height:calc(var(--app-height,100dvh) - var(--shell-top,60px) - var(--safe-top,0px) - 20px);overflow:auto;overscroll-behavior:contain;padding:8px}
+  #toolbar-overflow {z-index:1000;width:max-content;min-width:min(176px,calc(100vw - 24px));max-width:calc(100vw - 24px);max-height:calc(var(--app-height,100dvh) - var(--shell-top,60px) - var(--safe-top,0px) - 20px);overflow:auto;overscroll-behavior:contain;padding:8px}
+  #toolbar-overflow:not([hidden]),#toolbar-overflow:not([hidden]) button {animation:none}
+  .chrome-motion-ghost {position:fixed;z-index:999;display:flex;align-items:center;justify-content:center;pointer-events:none}
   .toolbar-menu-group+.toolbar-menu-group,.planning-menu-group+.planning-menu-group {border-top:1px solid var(--hairline);margin-top:6px;padding-top:6px}
   .toolbar-menu-group[hidden]+.toolbar-menu-group,.planning-menu-group[hidden]+.planning-menu-group {border-top:0;margin-top:0;padding-top:0}
   .toolbar-menu-heading {padding:8px 10px 4px;color:var(--muted);font-size:11px;line-height:1.5;font-weight:400;white-space:nowrap}

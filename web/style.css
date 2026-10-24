@@ -8,6 +8,7 @@
 @layer reset, tokens, app, state;
 @layer reset{
 *{box-sizing:border-box}
+html{-webkit-tap-highlight-color:transparent}
 /* !important: hidden wins over every display rule, in any layer. */
 [hidden]{display:none!important}
 }
