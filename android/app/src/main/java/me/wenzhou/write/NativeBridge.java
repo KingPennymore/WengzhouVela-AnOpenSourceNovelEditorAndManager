@@ -16,7 +16,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicLong;
 import javax.net.ssl.HttpsURLConnection;
 
-/** No API ever returns the stored token. Only fixed provider origins accept credentials. */
+/** No API ever returns the stored token. Credentials are isolated by provider and canonical server. */
 final class NativeBridge {
     private final MainActivity activity;
     private final byte[] capability;
@@ -98,9 +98,10 @@ final class NativeBridge {
     private Object dispatch(String operation, JSONObject data, long generation) throws Exception {
         if (projects.busy && Arrays.asList("manageFiles", "restoreTrash", "writeWorkspaceFiles").contains(operation)) throw ProjectFiles.fail("E_CONFLICT", "项目正在提交，请稍后重试。");
         String provider = data.optString("provider", "github");
-        if (!provider.equals("github") && !provider.equals("gitee")) throw new IOException("不支持此代码托管平台。");
-        String origin = provider.equals("gitee") ? "https://gitee.com/api/v5" : "https://api.github.com";
-        CredentialStore store = provider.equals("gitee") ? giteeCredentials : credentials;
+        if (!provider.equals("github") && !provider.equals("gitee") && !provider.equals("gitea")) throw new IOException("不支持此代码托管平台。");
+        String server = provider.equals("gitea") ? GiteaServer.normalize(data.optString("server")) : "";
+        String origin = provider.equals("gitea") ? server + "/api/v1" : provider.equals("gitee") ? "https://gitee.com/api/v5" : "https://api.github.com";
+        CredentialStore store = provider.equals("gitea") ? new CredentialStore(activity, GiteaServer.credentialKey(server)) : provider.equals("gitee") ? giteeCredentials : credentials;
         switch (operation) {
             case "listSystemFonts": return SystemFontCatalog.list();
             case "clipboardWrite": {
@@ -136,15 +137,15 @@ final class NativeBridge {
                 files.readPreviewResource(data.optString("path"), true);
                 if (data.optBoolean("embedded")) return new android.net.Uri.Builder().scheme("https").authority("wenzhou-preview.local").path("/"+data.optString("path")).appendQueryParameter("html","true").appendQueryParameter("fontSize",Integer.toString(Math.max(10,Math.min(40,data.optInt("fontSize",16))))).appendQueryParameter("dark",Boolean.toString(data.optBoolean("dark"))).build().toString();
                 activity.previewHtml(data.optString("path"), data.optBoolean("dark"), data); return true;
-            case "writeWorkspaceFiles": return files.writeFiles(array(data, "files"), array(data, "folders"));
-            case "appearance": activity.appearance(data.optBoolean("dark"), data.optString("background")); return true;
+            case "writeWorkspaceFiles": return files.writeFiles(array(data, "files"), array(data, "folders"), array(data, "deletions"));
+            case "appearance": activity.appearance(data); return true;
             case "fullscreen": activity.fullscreen(data.optBoolean("enabled")); return true;
             case "openAuth": activity.openAuthorization(); return true;
-            case "connection": return request(origin + (provider.equals("gitee") ? "/emojis" : ""), "GET", null, "");
+            case "connection": return request(origin + (provider.equals("gitea") ? "/version" : provider.equals("gitee") ? "/emojis" : ""), "GET", null, "");
             case "publicApi": case "api": {
                 String path = data.optString("path"), method = data.optString("method", "GET");
                 if (!path.matches("^/(user(?:\\?.*|$)|user/repos(?:\\?.*|$)|repos/[\\w.-]+/[\\w.-]+(?:/.*|\\?.*|$))")
-                    || path.matches("(?s).*[\\r\\n\\\\#].*") || path.contains("..")) throw new IOException("不允许的 GitHub 请求路径。");
+                    || path.matches("(?s).*[\\r\\n\\\\#].*") || path.contains("..") || path.split("\\?", 2)[0].matches("(?i).*%(2e|5c).*")) throw new IOException("不允许的 GitHub 请求路径。");
                 if (!Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE").contains(method)) throw new IOException("不支持此请求方法。");
                 if (operation.equals("publicApi") && (!method.equals("GET") || !path.startsWith("/repos/"))) throw new IOException("Public repository reads only.");
                 String token = store.read();
@@ -164,7 +165,7 @@ final class NativeBridge {
             }
             case "logout": synchronized (authLock) { if (generation == authGeneration.get()) store.clear(); } return true;
             case "oauth": {
-                if (!provider.equals("github")) throw new IOException("Gitee 请使用个人访问令牌登录。");
+                if (!provider.equals("github")) throw new IOException("此平台请使用个人访问令牌登录。");
                 String path = data.optString("path");
                 if (!path.equals("/login/device/code") && !path.equals("/login/oauth/access_token")) throw new IOException("不允许的授权地址。");
                 JSONObject response = request("https://github.com" + path, "POST", data.optJSONObject("body"), "");
@@ -217,7 +218,7 @@ final class NativeBridge {
             return new JSONObject().put("status", status).put("body", result);
         } catch (IOException network) {
             if (network.getMessage() != null && network.getMessage().startsWith("代码托管服务响应")) throw network;
-            throw new IOException("无法连接 GitHub，请检查设备网络或代理后重试。");
+            throw new IOException("无法连接代码托管服务，请检查设备网络或代理后重试。");
         } finally { connection.disconnect(); }
     }
     static byte[] readStream(InputStream input, int limit) throws IOException {

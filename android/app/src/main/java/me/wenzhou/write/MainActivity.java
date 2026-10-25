@@ -8,11 +8,13 @@ import android.content.pm.ApplicationInfo;
 import android.content.res.Configuration;
 import android.database.Cursor;
 import android.graphics.Color;
+import android.graphics.drawable.ColorDrawable;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.OpenableColumns;
 import android.view.View;
+import android.view.ViewTreeObserver;
 import android.webkit.WebChromeClient;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -46,7 +48,7 @@ public final class MainActivity extends Activity {
     private volatile String environment = "{}";
     private Insets systemInsets = Insets.NONE;
     private final java.util.List<android.graphics.Rect> cutouts = new java.util.ArrayList<>();
-    private boolean keyboardVisible, pageReady;
+    private boolean keyboardVisible, pageReady, pageVisible;
     private String pickerId, pickerOperation;
     private JSONObject pickerData;
 
@@ -54,8 +56,21 @@ public final class MainActivity extends Activity {
         super.onCreate(saved);
         WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
         if (Build.VERSION.SDK_INT >= 29) { getWindow().setNavigationBarContrastEnforced(false); getWindow().setStatusBarContrastEnforced(false); }
-        root = new FrameLayout(this); root.setBackgroundColor(Color.rgb(238, 243, 239));
+        root = new FrameLayout(this);
         setContentView(root);
+        // Paint the last workspace colours before the page exists, and keep the system splash up until the page's first
+        // frame (its startup screen draws the same mark in the same place), so a cold start never shows a light frame.
+        int launch = launchColor();
+        paint(launchDark, launch);
+        View content = findViewById(android.R.id.content);
+        content.getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener() {
+            @Override public boolean onPreDraw() {
+                if (!pageVisible) return false;
+                content.getViewTreeObserver().removeOnPreDrawListener(this);
+                return true;
+            }
+        });
+        root.postDelayed(this::showPage, 2000);
         try { bridge = new NativeBridge(this, capability); }
         catch (Exception error) { new AlertDialog.Builder(this).setTitle("无法读取文稿").setMessage("内部文件已保留，请勿清除应用数据。" + NativeBridge.message(error)).setPositiveButton("关闭", (dialog, which) -> finish()).show(); return; }
         web = new WebView(this) {
@@ -88,7 +103,7 @@ public final class MainActivity extends Activity {
         settings.setSupportZoom(false); settings.setBuiltInZoomControls(false); settings.setDisplayZoomControls(false);
         settings.setTextZoom(100); settings.setMediaPlaybackRequiresUserGesture(true);
         web.setOnGenericMotionListener((view, event) -> { float factor = TextZoom.factor(event); if (factor == 1) return false; web.evaluateJavascript("window.wenzhouNativeScale&&window.wenzhouNativeScale(" + factor + ")", null); return true; });
-        web.setBackgroundColor(Color.rgb(238, 243, 239));
+        web.setBackgroundColor(launch);
         WebView.setWebContentsDebuggingEnabled((getApplicationInfo().flags & ApplicationInfo.FLAG_DEBUGGABLE) != 0);
         web.addJavascriptInterface(bridge, "WenzhouAndroid");
         WebViewAssetLoader assets = new WebViewAssetLoader.Builder().addPathHandler("/assets/", new WebViewAssetLoader.AssetsPathHandler(this)).build();
@@ -119,7 +134,8 @@ public final class MainActivity extends Activity {
                 }
                 return true;
             }
-            @Override public void onPageFinished(WebView view, String url) { if (PAGE.equals(url)) { pageReady = true; publishEnvironment(); } }
+            @Override public void onPageCommitVisible(WebView view, String url) { showPage(); }
+            @Override public void onPageFinished(WebView view, String url) { if (PAGE.equals(url)) { pageReady = true; publishEnvironment(); } showPage(); }
         });
         ViewCompat.setOnApplyWindowInsetsListener(root, (view, insets) -> {
             systemInsets = insets.getInsets(WindowInsetsCompat.Type.systemBars() | WindowInsetsCompat.Type.displayCutout());
@@ -192,12 +208,43 @@ public final class MainActivity extends Activity {
         catch (Exception impossible) { return; }
         if (pageReady) web.evaluateJavascript("window.dispatchEvent(new CustomEvent('wenzhouEnvironment',{detail:" + environment + "}))", null);
     }
-    void appearance(boolean dark, String background) {
+    private static final int LIGHT = Color.rgb(238, 243, 239), DARK = Color.rgb(22, 30, 26);
+    private boolean launchDark;
+    private static int color(String value, int fallback) { return value != null && value.matches("#[0-9a-fA-F]{6}") ? Color.parseColor(value) : fallback; }
+    /** The startup screen's colour: the page background under web/startup.css's 10% black (light) or 7% white (dark) veil. */
+    private static int veiled(int color, boolean dark) {
+        int[] channels = { Color.red(color), Color.green(color), Color.blue(color) };
+        for (int i = 0; i < 3; i++) channels[i] = Math.round(dark ? channels[i] + (255 - channels[i]) * .07f : channels[i] * .9f);
+        return Color.rgb(channels[0], channels[1], channels[2]);
+    }
+    /** Resolves the saved theme the way web/startup.js does, so the native window matches the page's first frame. */
+    private int launchColor() {
+        android.content.SharedPreferences saved = getSharedPreferences("appearance", MODE_PRIVATE);
+        boolean system = (getResources().getConfiguration().uiMode & Configuration.UI_MODE_NIGHT_MASK) == Configuration.UI_MODE_NIGHT_YES;
+        String theme = saved.getString("theme", "system");
+        launchDark = "dark".equals(theme) || !"light".equals(theme) && system;
+        return veiled(color(saved.getString(launchDark ? "night" : "light", null), launchDark ? DARK : LIGHT), launchDark);
+    }
+    private void showPage() {
+        if (pageVisible) return;
+        pageVisible = true; root.invalidate();
+    }
+    private void paint(boolean dark, int color) {
+        getWindow().setBackgroundDrawable(new ColorDrawable(color));
+        root.setBackgroundColor(color); if (web != null) web.setBackgroundColor(color);
+        androidx.core.view.WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(getWindow(), root);
+        controller.setAppearanceLightStatusBars(!dark); controller.setAppearanceLightNavigationBars(!dark);
+    }
+    void appearance(JSONObject data) {
+        boolean dark = data.optBoolean("dark");
+        int color = color(data.optString("background"), dark ? DARK : LIGHT);
+        String theme = data.optString("theme"), light = data.optString("light"), night = data.optString("night");
         runOnUiThread(() -> {
-            int color = background.matches("#[0-9a-fA-F]{6}") ? Color.parseColor(background) : dark ? Color.rgb(22, 30, 26) : Color.rgb(238, 243, 239);
-            root.setBackgroundColor(color); web.setBackgroundColor(color);
-            androidx.core.view.WindowInsetsControllerCompat controller = WindowCompat.getInsetsController(getWindow(), root);
-            controller.setAppearanceLightStatusBars(!dark); controller.setAppearanceLightNavigationBars(!dark);
+            paint(dark, color);
+            if (!java.util.Arrays.asList("light", "dark", "system").contains(theme) || !light.matches("#[0-9a-fA-F]{6}") || !night.matches("#[0-9a-fA-F]{6}")) return;
+            getSharedPreferences("appearance", MODE_PRIVATE).edit().putString("theme", theme).putString("light", light).putString("night", night).apply();
+            // Android 13+ remembers which splash theme the next cold start uses; Android 12 always uses the manifest theme.
+            if (Build.VERSION.SDK_INT >= 33) getSplashScreen().setSplashScreenTheme("dark".equals(theme) ? R.style.WenzhouDarkTheme : "light".equals(theme) ? R.style.WenzhouLightTheme : R.style.WenzhouTheme);
         });
     }
     void fullscreen(boolean enabled) {

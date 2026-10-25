@@ -139,11 +139,33 @@ export class WorkspaceStorage{
     for(const file of [this.workspace,this.cache,path.join(this.base,'workspace-store','previous.json')]){try{const raw=fs.existsSync(file)?this.read(file,64*1024*1024).toString('utf8'):'';if(raw.startsWith('{"store":')){const store=JSON.parse(raw).store;for(const name of [...Object.values(store.texts||{}),...Object.values(store.histories||{})])keep.add(name);}}catch{return;}}
     for(const name of fs.readdirSync(folder))if(name!=='previous.json'&&!keep.has(name))fs.rmSync(path.join(folder,name),{force:true,recursive:true});
   }
-  writeFiles(files,folders=[]){
-    if(!Array.isArray(files)||!Array.isArray(folders)||files.length+folders.length>5000)throw new Error('仓库目录过大。');const seen=new Set();let total=0;
+  writeFiles(files,folders=[],deletions=[]){
+    if(!Array.isArray(files)||!Array.isArray(folders)||!Array.isArray(deletions)||files.length+folders.length+deletions.length>5000)throw new Error('仓库目录过大。');const seen=new Set();let total=0;
     const values=files.map(file=>{this.target(file.path);if(typeof file.data!=='string'||!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$/.test(file.data)||seen.has(file.path.toLowerCase()))throw new Error('文件编码或同名路径无效。');seen.add(file.path.toLowerCase());const bytes=Buffer.from(file.data,'base64');total+=bytes.length;if(bytes.length>MAX||total>64*1024*1024)throw new Error('仓库文件超出大小限制。');return {path:file.path,bytes};});
     for(const folder of folders){this.target(folder);if(seen.has(folder.toLowerCase()))throw new Error('文件与文件夹同名。');}
-    return this.transaction(tx=>{for(const folder of folders)tx.mkdir(this.target(folder));for(const file of values)tx.write(this.target(file.path),file.bytes);const result=this.scan();tx.write(this.cache,JSON.stringify({version:1,...result}));return result;});
+    const old=this.metadata(),records=this.records();
+    if(records.length+deletions.length>100)throw new Error('回收站已有较多项目，请先清理后再同步删除。');
+    const removed=deletions.map(item=>{
+      const file=this.target(item.path),key=item.path.toLowerCase();
+      if(seen.has(key)||folders.some(folder=>folder.toLowerCase()===key)||typeof item.expectedData!=='string'||item.expectedData.length>12*1024*1024)throw new Error('删除路径重复或缺少本地版本。');
+      seen.add(key);const bytes=this.read(file);total+=bytes.length;
+      if(total>64*1024*1024||bytes.toString('base64')!==item.expectedData||typeof item.expectedText==='string'&&decodeText(bytes)!==item.expectedText)throw new Error('本地文件已变化，未执行同步删除：'+item.path);
+      return {...item,file,id:randomUUID()};
+    });
+    return this.transaction(tx=>{
+      for(const item of removed){
+        if(this.read(item.file).toString('base64')!==item.expectedData)throw new Error('本地文件已变化，未执行同步删除：'+item.path);
+        const documents=old.documents.filter(doc=>(doc.path||doc.name)===item.path);
+        records.push({id:item.id,path:item.path,directory:false,createdAt:Date.now(),documents,repositories:[]});
+        tx.copy(item.file,path.join(this.base,'trash-payload',item.id));tx.remove(item.file);
+        old.documents=old.documents.filter(doc=>(doc.path||doc.name)!==item.path);
+        if(old.pluginProject)for(const field of ['entries','textFiles'])if(old.pluginProject[field])delete old.pluginProject[field][item.path];
+      }
+      if(removed.length){tx.write(this.trash,JSON.stringify(records));tx.write(this.cache,JSON.stringify(old));}
+      for(const folder of folders)tx.mkdir(this.target(folder));
+      for(const file of values)tx.write(this.target(file.path),file.bytes);
+      const result=this.scan();tx.write(this.cache,JSON.stringify({version:1,...result}));return result;
+    });
   }
   records(){return this.json(this.trash,[]);}
   listTrash(){return this.records().map(({id,path,directory,createdAt})=>({id,path,name:path.split('/').at(-1),directory,createdAt}));}

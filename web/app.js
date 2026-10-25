@@ -1,3 +1,11 @@
+import {sameRepository} from './sync-repository.mjs';
+import {SyncWorkflow} from './sync-workflow.mjs';
+import {switchRepositoryBranch,inspectBranchAttachments} from './repository-navigation.mjs';
+import {showSyncCleanup} from './sync-cleanup.mjs';
+import {syncTarget,syncTargetMarkup} from './sync-target.mjs';
+import {syncBlobCache} from './sync-blob-cache.mjs';
+import {createGitClient,providerOptions,serverField,showTokenLogin} from './git-login.mjs';
+import {gitIdentity,gitHostKey,sameGitHost} from './git-host.mjs';
 import {applyFontPreference,normalizeFontName} from './app-core/system-fonts.mjs';
 import {mountFontSettings} from './app-core/font-settings.mjs';
 import { WorkspaceSession, bindSessionLifecycle } from './app-core/workspace-session.mjs';
@@ -45,9 +53,8 @@ import Writer from '../vendor/acode-writer/src/core.js';
 import {indentedLineWrapping} from '../vendor/acode/src/cm/indentedLineWrapping.ts';
 import {scrollPastEndCustom} from '../vendor/acode/src/cm/scrollPastEnd.ts';
 import {newDocument,chapterPosition,normalizeText,fileName,fileKind,documentKind,repoPath,MAX_TEXT_BYTES} from './model.mjs';
-import {GitHub,deviceLogin} from './github.mjs';
-import {Gitee} from './gitee.mjs';
-import {native,transport,readWorkspace,saveWorkspace,saveWorkspaceAsync,exportText,exportBinary,openAuthorization,readEnvironment} from './platform.mjs';
+import {GitHub} from './github.mjs';
+import {native,transport,readWorkspace,saveWorkspace,saveWorkspaceAsync,exportText,exportBinary,readEnvironment} from './platform.mjs';
 import {guide} from './guide.mjs';
 import {shortcuts,matchesKey} from './shortcuts.mjs';
 import {SidebarLayout} from './sidebars.mjs';
@@ -69,7 +76,7 @@ import {csvTable} from './csv-view.mjs';
 import {palettes,applyPalette,paletteFor,allPalettes,customPalettes,setCustomPalettes,derivePalette,paletteWarnings,validateCustomPalette,paletteBase,newPaletteId,MAX_CUSTOM_PALETTES} from './palettes.mjs';
 import {newFileHtml,bindNewFile,assertNewFile} from './new-file.mjs';
 import {folderPickerHtml,bindFolderPicker} from './folder-picker.mjs';
-import {initMotion,beginThemeShift} from './motion.mjs';
+import {initMotion,crossfadeTheme} from './motion.mjs';
 import {inlineMarkup,lineMarkup,relativeResource,taskLists} from './markdown-tools.mjs';
 import {bindTextZoom} from './gestures.mjs';
 import {PluginRuntime} from './plugins.mjs';
@@ -83,7 +90,7 @@ import {epubFileName,MAX_COVER_BYTES,COVER_TYPES} from './epub-names.mjs';
 import {loadOutlineView,loadMapView,loadPdfPreview,loadReader,loadEpubExport,loadLatexEditor,chunkFailure} from './lazy.mjs';
 import {readPluginZip,fromBase64} from './plugin-package.mjs';
 import {documentPath,uniquePath,preparePaths,adoptFolder,folderTree,gitFileState} from './workspace.mjs';
-import {applyRemoteFile,repositoryFolder,applyRepository,resolveRepositoryConflict} from './git-workspace.mjs';
+import {applyRemoteFile,repositoryFolder,resolveRepositoryConflict} from './git-workspace.mjs';
 import {chapterSettings,chapterMatcher} from './chapters.mjs';
 import {glossaryPaths,glossaryTerms,parseGlossary,glossaryText,createGlossary} from './glossary.mjs';
 import {renderGlossary,selectGlossaryEntry} from './glossary-view.mjs';
@@ -92,14 +99,12 @@ import {applyFileOperation,restoreFile,itemPaths,copyDestination,basename,parent
 import {diffLines} from './document-service.mjs';
 import {EditorIndex} from './editor-index.mjs';
 import {EditingTools} from './editing-view.mjs';
-import {commitPlan} from './sync-plan.mjs';
-import {previewDownload as showDownloadPreview} from './sync-download.mjs';
+import {previewCommit} from './sync-commit.mjs';
 import {conflictMarkup,bindConflict} from './sync-conflicts.mjs';
 import {SyncActivity} from './sync-status.mjs';
 import {bindViewport} from './viewport.mjs';
 import {editorSearch} from './search-panel.mjs';
-import {diffMarkup,bindDiffPreviews} from './sync-preview.mjs';
-import {textFingerprint} from './document-service.mjs';
+import {diffMarkup} from './sync-preview.mjs';
 import {readSidecar,sidecarRecord,buildRecord,resolveRecord,recordEmpty,sidecarPath,sidecarTarget,imagePath} from './rich-text.mjs';
 import {richTextExtensions,formatsOf,setFormats,toggleInline,toggleAlign,toggleBlock,clearStyles,clearFormats,applyStyle,styleAt,setRuby,rubyAt,insertImage,updateImage,blockStyleAt,settleReview,isFormatActive,formatStyles,imageLoader} from './rich-text-editor.mjs';
 import {resolveStyles,validateStyles,STYLE_FIELDS,STYLE_LABELS,BUILTIN_STYLES,paragraphStyle} from './rich-text-styles.mjs';
@@ -113,7 +118,8 @@ for(const id of ['home-button','commands','plugins','check-update'])$('#'+id).in
 for(const [id,name] of Object.entries({'quick-save':'save','quick-undo':'undo','quick-redo':'redo','quick-top':'top','quick-bottom':'bottom','quick-chapter-top':'chapterTop','quick-chapter-bottom':'chapterBottom','quick-git':'git'})) {$('#'+id+' span').innerHTML=icon(name);$('#'+id).setAttribute('aria-label',$('#'+id).title);}
 document.querySelectorAll('[data-view]').forEach(b=>b.innerHTML=icon(b.dataset.view)+(b.dataset.view==='subscriptions'?'<i class="update-dot" hidden></i>':''));
 let gh=new GitHub(transport);
-const gitName=()=>gh.provider==='gitee'?'Gitee':'GitHub';
+const gitName=()=>gh.provider==='gitea'?'Gitea':gh.provider==='gitee'?'Gitee':'GitHub';
+const setGitServer=()=>{if(gh.provider==='gitea'){gh=createGitClient(transport,'gitea',$('#gitea-instance')?.value||gh.server);workspace.settings.giteaServer=gh.server;save();}};
 const md=new MarkdownIt({html:false,linkify:false,breaks:true});
 // Local previews do not fetch remote images or open links inside the privileged WebView.
 md.use(taskLists);md.use(markdownMath);
@@ -196,10 +202,31 @@ function toast(message){$('#toast').textContent=message;$('#toast').hidden=false
 function toastLater(message){if($('#toast').hidden)toast(message);else setTimeout(()=>toastLater(message),600);}
 function fail(error){toast(error.message||String(error));}
 const syncActivity=new SyncActivity(()=>renderSyncStatus());
-function renderSyncStatus(){const doc=workspace?.documents.find(d=>d.id===workspace.activeId),root=$('#sync-state');if(!root)return;root.hidden=!doc?.remote&&!syncActivity.items.has(doc?.id);if(!root.hidden){root.textContent=syncActivity.label(doc.id,doc.remote?.lastSyncedText!==doc.text);root.title=root.textContent;root.dataset.state=syncActivity.items.get(doc.id)?.state||'idle';}}
+const syncWorkflow = new SyncWorkflow({
+  workspace: () => workspace, save, openModal, escape: esc,
+  checkpoint: doc => documents.checkpoint(doc),
+  readFile: native ? path => transport('readWorkspaceFile', {path}) : null,
+  writeFiles: native ? payload => transport('writeWorkspaceFiles', payload) : null,
+  adopt: materialized => {
+    if(view){view.destroy();view=null;}
+    editorStates.clear();adoptFolder(workspace,materialized);
+  },
+  changed: () => {projects.changed('sync');renderSyncStatus();},
+});
+const syncBusy = () => syncWorkflow.active || syncActivity.busy;
+function renderSyncStatus(){
+  const doc=workspace?.documents.find(d=>d.id===workspace.activeId),root=$('#sync-state');
+  if(!root)return;
+  const label=doc?.remote?syncActivity.label(doc.id,!syncTextEqual(documentPath(doc),doc.remote.lastSyncedText,doc.text),doc.remote):'未关联远端';
+  root.hidden=!doc?.remote&&!syncActivity.items.has(doc?.id);
+  root.textContent=label;
+  root.title=[label,syncTarget(doc?.remote),doc?.remote?.syncedAt?'上次同步：'+new Date(doc.remote.syncedAt).toLocaleString():'','远端是否有新修改，需要刷新或拉取后确认。'].join('\n');
+  root.dataset.state=syncActivity.items.get(doc?.id)?.state||'idle';
+}
+
 function activeUndoDepth(){return isPreview&&documentKind(current())==='MAP'?$('#preview').mapHistoryDepth?.().undo||0:view?undoDepth(view.state):0;}
 function activeRedoDepth(){return isPreview&&documentKind(current())==='MAP'?$('#preview').mapHistoryDepth?.().redo||0:view?redoDepth(view.state):0;}
-function status(message,changed=false){$('#save-state').textContent=message;$('#save-state').classList.toggle('dirty',changed);}
+function status(message,changed=false){$('#save-state').textContent=message;$('#save-state').classList.toggle('dirty',changed);renderSyncStatus();}
 function save(show = false) {
   return session.save(show);
 }
@@ -726,17 +753,30 @@ async function checkWindowsUpdates(visible=false){
 }
 window.addEventListener('resize',()=>{if(workspace&&pageName==='write'){if(innerWidth<=600&&document.body.classList.contains('show-library')&&document.body.classList.contains('show-outline'))setSidebar('library',false,false);updateEditorVisibility();view?.requestMeasure();}});
 
+// The last painted look and the newest system-bar request; a later switch cancels a delayed bar update.
+let themeLook='',appearanceToken=0;
 function applyTheme(mode=workspace.settings.theme){
   workspace.settings.theme=mode;
   const dark=mode==='dark'||mode==='system'&&(environment?.dark??systemTheme.matches);
-  if(dark!==document.body.classList.contains('dark'))beginThemeShift();
-  workspace.settings.dark=dark;document.body.classList.toggle('dark',dark);workspace.settings.palette=applyPalette(document.body,workspace.settings.palette,dark);
-  window.velaStartup?.remember(workspace.settings,{light:paletteFor(workspace.settings.palette,false).colors,dark:paletteFor(workspace.settings.palette,true).colors});
-  const follows=!dark===(environment?.dark??systemTheme.matches),label=(mode==='system'?`跟随系统（${dark?'深色':'浅色'}），`:'')+`切换到${dark?'浅色':'深色'}模式${follows?'（跟随系统）':''}`;
-  const menuLabel=$('#theme .menu-label');$('#theme').innerHTML=icon(dark?'sun':'theme');if(menuLabel)$('#theme').append(menuLabel);$('#theme').title=label+' (Ctrl+Alt+T)';$('#theme').setAttribute('aria-label',label);
-  const githubTheme=$('[data-toggle-theme]');if(githubTheme){githubTheme.innerHTML=icon(dark?'sun':'theme');githubTheme.title=label;githubTheme.setAttribute('aria-label',label);}
-  if(native)transport('appearance',{dark,background:paletteFor(workspace.settings.palette,dark).colors.bg,foreground:paletteFor(workspace.settings.palette,dark).colors.text}).catch(fail);
-  if(isPreview&&current()&&documentKind(current())==='HTML')renderPreview();
+  workspace.settings.dark=dark;
+  // Only a real colour change cross-fades; re-applying the same look (settings saved, system event) stays instant.
+  const look=dark+JSON.stringify(paletteFor(workspace.settings.palette,dark).colors),starting=!themeLook,changed=look!==themeLook;themeLook=look;
+  const paint=()=>{
+    document.body.classList.toggle('dark',dark);workspace.settings.palette=applyPalette(document.body,workspace.settings.palette,dark);
+    window.velaStartup?.remember(workspace.settings,{light:paletteFor(workspace.settings.palette,false).colors,dark:paletteFor(workspace.settings.palette,true).colors});
+    const follows=!dark===(environment?.dark??systemTheme.matches),label=(mode==='system'?`跟随系统（${dark?'深色':'浅色'}），`:'')+`切换到${dark?'浅色':'深色'}模式${follows?'（跟随系统）':''}`;
+    const menuLabel=$('#theme .menu-label');$('#theme').innerHTML=icon(dark?'sun':'theme');if(menuLabel)$('#theme').append(menuLabel);$('#theme').title=label+' (Ctrl+Alt+T)';$('#theme').setAttribute('aria-label',label);
+    const githubTheme=$('[data-toggle-theme]');if(githubTheme){githubTheme.innerHTML=icon(dark?'sun':'theme');githubTheme.title=label;githubTheme.setAttribute('aria-label',label);}
+    if(isPreview&&current()&&documentKind(current())==='HTML')renderPreview();
+  };
+  // Native bars cannot fade, so they switch shortly after the page fade starts. `theme` and both backgrounds let the
+  // native shell paint the next cold start in the right colour before this page has loaded.
+  const token=++appearanceToken,bars=(delay=0)=>{
+    if(!native)return;
+    const colors=value=>paletteFor(workspace.settings.palette,value).colors,send=()=>{if(token===appearanceToken)transport('appearance',{dark,background:colors(dark).bg,foreground:colors(dark).text,theme:mode,light:colors(false).bg,night:colors(true).bg}).catch(fail);};
+    if(delay)setTimeout(send,delay);else send();
+  };
+  if(changed&&!starting)crossfadeTheme(paint).then(bars);else{paint();bars();}
 }
 /** Create or edit a custom palette: three colours per mode with a live preview and readability notes. */
 function showPaletteEditor(id='',from=workspace.settings.palette){
@@ -785,9 +825,11 @@ document.querySelectorAll('.quickbar button').forEach(b=>b.addEventListener('mou
 $('#quick-git').onclick=()=>gitDocument();
 $('#settings').onclick=()=>{
   const s=workspace.settings.writer;
-  openModal('编辑器设置',`<label>语言<select name="language"><option value="zh-CN" ${workspace.settings.language!=='en'?'selected':''}>简体中文</option><option value="en" ${workspace.settings.language==='en'?'selected':''}>English</option></select></label><label>外观<select name="theme">${[['system','跟随系统'],['light','浅色模式'],['dark','深色模式']].map(([value,label])=>`<option value="${value}" ${workspace.settings.theme===value?'selected':''}>${label}</option>`).join('')}</select></label><fieldset class="palette-options"><legend>配色方案</legend>${allPalettes().map(p=>`<label class="palette-choice${p.custom?' custom':''}"><input type="radio" name="palette" value="${p.id}" ${p.id===workspace.settings.palette?'checked':''}><span class="palette-swatches"><i style="background:${p.light.accent}"></i><i style="background:${p.light.soft}"></i><i style="background:${p.dark.paper}"></i></span><span>${esc(p.name)}</span>${p.custom?`<button type="button" class="text-button palette-edit" data-edit-palette="${p.id}" aria-label="编辑配色 ${esc(p.name)}">编辑</button>`:''}</label>`).join('')}${customPalettes().length<MAX_CUSTOM_PALETTES?'<button type="button" class="palette-add" id="new-palette">＋ 自定义配色</button>':''}</fieldset><label>文字字号<input type="number" name="fontSize" min="10" max="40" value="${textFontSize}" required></label><label>阅读方式<select name="readingMode"><option value="scroll" ${workspace.settings.readingMode==='scroll'?'selected':''}>上下滑动</option><option value="pages" ${workspace.settings.readingMode==='pages'?'selected':''}>左右翻页</option><option value="double" ${workspace.settings.readingMode==='double'?'selected':''}>双页阅读</option></select></label><label class="checkbox"><input name="globalVelaOverride" type="checkbox" ${globalConfig(workspace)?.config?.reader?.appearancePolicy==='personal'?'checked':''}>统一使用我的阅读排版</label><p><button type="button" class="secondary" id="edit-global-vela">编辑全局 .vela</button></p><label class="checkbox"><input name="autoNouns" type="checkbox" ${workspace.settings.autoNouns!==false?'checked':''}>正文名词候选补全</label><small>本地推测人名、地名等候选，不自动加入术语库。</small><label class="checkbox"><input name="glossaryPanel" type="checkbox" ${workspace.settings.glossaryPanel?'checked':''}>正文与术语库同屏</label><label class="checkbox"><input name="highlightTerms" type="checkbox" ${workspace.settings.highlightTerms?'checked':''}>正文术语高亮与释义</label><label class="checkbox"><input name="novelLineNumbers" type="checkbox" ${workspace.settings.novelLineNumbers?'checked':''}>小说模式显示行号</label><label class="checkbox"><input name="richText" type="checkbox" ${workspace.settings.richText?'checked':''}>TXT 格式工具<small>粗体、着重号、注音、插图和样式；格式另存为同名 .vela 旁注，TXT 正文不变</small></label><label>字数规则<select name="countMode"><option value="nonspace" ${s.countMode==='nonspace'?'selected':''}>非空白字符（含标点）</option><option value="letters" ${s.countMode==='letters'?'selected':''}>仅文字与数字</option></select></label><label class="checkbox"><input name="includeHeading" type="checkbox" ${s.includeHeading?'checked':''}>字数包含章节标题</label><p>自动识别标准中英章节标题；额外模板保存在工作区 .vela 配置中。</p><label>GitHub OAuth Client ID<input name="clientId" value="${esc(workspace.settings.clientId||'')}" placeholder="OAuth App Client ID"><small>可留空并使用个人访问令牌。应用内不需要 Client Secret。</small></label><div class="notice">文舟 ${environment?.version||(environment?.platform==='android'?__VELA_HARMONY_VERSION__+'-android.1':__VELA_HARMONY_VERSION__)}<br>开源小说创作 / 阅读工具</div><p><button type="button" class="secondary" id="create-vela" ${workspace.documents.some(doc=>documentKind(doc)==='VELA'&&documentPath(doc)!==GLOBAL_VELA_PATH&&configFolder(documentPath(doc))===currentScope())?'disabled':''}>创建 .vela 配置</button></p><p><button type="button" class="secondary" id="backup-all">导出全部文稿备份</button> <button type="button" class="secondary" id="restore-backup">恢复文稿备份</button> <button type="button" class="secondary" id="show-licenses">开源许可</button>${native?'<button type="button" class="secondary" id="check-updates">检查更新</button><label class="checkbox"><input name="updateChecks" type="checkbox" '+(workspace.settings.updateChecks!==false?'checked':'')+'>自动检查更新</label>':''}</p>`,f=>{const configPriorityChanged=(globalConfig(workspace)?.config?.reader?.appearancePolicy==='personal')!==f.has('globalVelaOverride');workspace.settings.writer=chapterSettings({...s,titleTemplates:[],countMode:f.get('countMode'),includeHeading:f.has('includeHeading')});workspace.settings.clientId=f.get('clientId').trim();workspace.settings.language=f.get('language');workspace.settings.fontFamily=normalizeFontName(f.get('fontFamily'));applyWorkspaceFont();if(environment?.platform==='windows')workspace.settings.updateChecks=f.has('updateChecks');workspace.settings.readingMode=f.get('readingMode');workspace.settings.autoNouns=f.has('autoNouns');workspace.settings.glossaryPanel=f.has('glossaryPanel');workspace.settings.highlightTerms=f.has('highlightTerms');{const lines=f.has('novelLineNumbers');if(lines!==!!workspace.settings.novelLineNumbers){workspace.settings.novelLineNumbers=lines;refreshGutters();}}workspace.settings.richText=f.has('richText');editorStates.clear();if(current())refreshFileType(current());ensureGlobalVela();const global=globalConfig(workspace);if(global?.config){global.config.reader={...global.config.reader,appearancePolicy:f.has('globalVelaOverride')?'personal':'project',mode:f.get('readingMode')};global.doc.text=velaText(global.config);global.doc.updatedAt=Date.now();}workspace.settings.palette=f.get('palette')||'pine';setLanguage(workspace.settings.language);reader?.localize();if(home)renderHome();applyTheme(f.get('theme'));setFontSize(Number(f.get('fontSize')));index=null;save();updateStats();reader?.layout();if(pageName==='reader'&&configPriorityChanged)reader.home();if(pageName==='subscriptions')subscriptions.render();});
+  openModal('编辑器设置',`<label>语言<select name="language"><option value="zh-CN" ${workspace.settings.language!=='en'?'selected':''}>简体中文</option><option value="en" ${workspace.settings.language==='en'?'selected':''}>English</option></select></label><label>外观<select name="theme">${[['system','跟随系统'],['light','浅色模式'],['dark','深色模式']].map(([value,label])=>`<option value="${value}" ${workspace.settings.theme===value?'selected':''}>${label}</option>`).join('')}</select></label><fieldset class="palette-options"><legend>配色方案</legend>${allPalettes().map(p=>`<label class="palette-choice${p.custom?' custom':''}"><input type="radio" name="palette" value="${p.id}" ${p.id===workspace.settings.palette?'checked':''}><span class="palette-swatches"><i style="background:${p.light.accent}"></i><i style="background:${p.light.soft}"></i><i style="background:${p.dark.paper}"></i></span><span>${esc(p.name)}</span>${p.custom?`<button type="button" class="text-button palette-edit" data-edit-palette="${p.id}" aria-label="编辑配色 ${esc(p.name)}">编辑</button>`:''}</label>`).join('')}${customPalettes().length<MAX_CUSTOM_PALETTES?'<button type="button" class="palette-add" id="new-palette">＋ 自定义配色</button>':''}</fieldset><label>文字字号<input type="number" name="fontSize" min="10" max="40" value="${textFontSize}" required></label><label>阅读方式<select name="readingMode"><option value="scroll" ${workspace.settings.readingMode==='scroll'?'selected':''}>上下滑动</option><option value="pages" ${workspace.settings.readingMode==='pages'?'selected':''}>左右翻页</option><option value="double" ${workspace.settings.readingMode==='double'?'selected':''}>双页阅读</option></select></label><label class="checkbox"><input name="globalVelaOverride" type="checkbox" ${globalConfig(workspace)?.config?.reader?.appearancePolicy==='personal'?'checked':''}>统一使用我的阅读排版</label><p><button type="button" class="secondary" id="edit-global-vela">编辑全局 .vela</button></p><label class="checkbox"><input name="autoNouns" type="checkbox" ${workspace.settings.autoNouns!==false?'checked':''}>正文名词候选补全</label><small>本地推测人名、地名等候选，不自动加入术语库。</small><label class="checkbox"><input name="glossaryPanel" type="checkbox" ${workspace.settings.glossaryPanel?'checked':''}>正文与术语库同屏</label><label class="checkbox"><input name="highlightTerms" type="checkbox" ${workspace.settings.highlightTerms?'checked':''}>正文术语高亮与释义</label><label class="checkbox"><input name="novelLineNumbers" type="checkbox" ${workspace.settings.novelLineNumbers?'checked':''}>小说模式显示行号</label><label class="checkbox"><input name="richText" type="checkbox" ${workspace.settings.richText?'checked':''}>TXT 格式工具<small>粗体、着重号、注音、插图和样式；格式另存为同名 .vela 旁注，TXT 正文不变</small></label><label>字数规则<select name="countMode"><option value="nonspace" ${s.countMode==='nonspace'?'selected':''}>非空白字符（含标点）</option><option value="letters" ${s.countMode==='letters'?'selected':''}>仅文字与数字</option></select></label><label class="checkbox"><input name="includeHeading" type="checkbox" ${s.includeHeading?'checked':''}>字数包含章节标题</label><p>自动识别标准中英章节标题；额外模板保存在工作区 .vela 配置中。</p><div class="notice">文舟 ${environment?.version||(environment?.platform==='android'?__VELA_HARMONY_VERSION__+'-android.1':__VELA_HARMONY_VERSION__)}<br>开源小说创作 / 阅读工具</div><p><button type="button" class="secondary" id="create-vela" ${workspace.documents.some(doc=>documentKind(doc)==='VELA'&&documentPath(doc)!==GLOBAL_VELA_PATH&&configFolder(documentPath(doc))===currentScope())?'disabled':''}>创建 .vela 配置</button></p><p><button type="button" class="secondary" id="backup-all">导出全部文稿备份</button> <button type="button" class="secondary" id="restore-backup">恢复文稿备份</button> <button type="button" class="secondary" id="show-licenses">开源许可</button>${native?'<button type="button" class="secondary" id="check-updates">检查更新</button><label class="checkbox"><input name="updateChecks" type="checkbox" '+(workspace.settings.updateChecks!==false?'checked':'')+'>自动检查更新</label>':''}</p>`,f=>{const configPriorityChanged=(globalConfig(workspace)?.config?.reader?.appearancePolicy==='personal')!==f.has('globalVelaOverride');workspace.settings.writer=chapterSettings({...s,titleTemplates:[],countMode:f.get('countMode'),includeHeading:f.has('includeHeading')});workspace.settings.language=f.get('language');workspace.settings.fontFamily=normalizeFontName(f.get('fontFamily'));applyWorkspaceFont();if(environment?.platform==='windows')workspace.settings.updateChecks=f.has('updateChecks');workspace.settings.readingMode=f.get('readingMode');workspace.settings.autoNouns=f.has('autoNouns');workspace.settings.glossaryPanel=f.has('glossaryPanel');workspace.settings.highlightTerms=f.has('highlightTerms');{const lines=f.has('novelLineNumbers');if(lines!==!!workspace.settings.novelLineNumbers){workspace.settings.novelLineNumbers=lines;refreshGutters();}}workspace.settings.richText=f.has('richText');editorStates.clear();if(current())refreshFileType(current());ensureGlobalVela();const global=globalConfig(workspace);if(global?.config){global.config.reader={...global.config.reader,appearancePolicy:f.has('globalVelaOverride')?'personal':'project',mode:f.get('readingMode')};global.doc.text=velaText(global.config);global.doc.updatedAt=Date.now();}workspace.settings.palette=f.get('palette')||'pine';setLanguage(workspace.settings.language);reader?.localize();if(home)renderHome();applyTheme(f.get('theme'));setFontSize(Number(f.get('fontSize')));index=null;save();updateStats();reader?.layout();if(pageName==='reader'&&configPriorityChanged)reader.home();if(pageName==='subscriptions')subscriptions.render();});
   mountFontSettings($('#dialog-body'),workspace.settings.fontFamily,{native,transport,window});
+  const cleanup=document.createElement('p');cleanup.innerHTML='<button type="button" class="secondary" id="cleanup-redundant">清除冗余文件</button>';$('#dialog-body').append(cleanup);
   organizeSettings($('#dialog-body'));
+  $('#cleanup-redundant').onclick=()=>showSyncCleanup({workspace,client:gh,connected:!!account,native,workflow:syncWorkflow,busy:syncBusy,save,openModal,escape:esc,toast,applied:async()=>{restorePulledEditor('write');if(!save())throw Error('清理后关联信息保存失败，请刷新工作区。');}});
   if($('#check-updates'))$('#check-updates').onclick=()=>checkWindowsUpdates(true);
   // A palette radio inside a label: the edit button must not select it; both buttons replace the settings dialog.
   $('#dialog-body').querySelectorAll('[data-edit-palette]').forEach(button=>button.onclick=event=>{event.preventDefault();showPaletteEditor(button.dataset.editPalette);});
@@ -819,51 +861,51 @@ let githubOffline=false;
 const githubTopbar=()=>`<div class="github-topbar"><button class="secondary" data-return-write="true">← 返回编辑器</button><div class="button-row"><span>${gitName()} 仓库管理</span><button data-toggle-theme="true" title="${workspace.settings.dark?'切换到浅色模式':'切换到深色模式'}" aria-label="${workspace.settings.dark?'切换到浅色模式':'切换到深色模式'}">${icon(workspace.settings.dark?'sun':'theme')}</button></div></div>`;
 function renderGitHub(){
   const root=$('#github-view');
-  if(!account){root.innerHTML=`${githubTopbar()}<div class="empty-state"><div class="large-icon">${icon('github')}</div><h2>连接 ${gitName()}</h2><label>代码托管平台<select id="git-provider" aria-label="代码托管平台"><option value="github" ${gh.provider==='github'?'selected':''}>GitHub</option><option value="gitee" ${gh.provider==='gitee'?'selected':''}>Gitee</option></select></label><p>浏览与创建仓库、管理分支、读取文件并提交修改。</p><div class="button-row"><button class="primary" id="token-login">使用访问令牌</button><button class="secondary" id="device-login" ${gh.provider==='gitee'?'hidden':''}>设备授权登录</button><button class="secondary" id="check-connection">检测连接</button></div><p class="description">${native?(environment?.platform==='android'?'令牌使用 Android Keystore 加密保存在应用内部。':environment?.platform==='windows'?'令牌使用 Windows 安全存储加密保存在应用内部。':'令牌保存在鸿蒙安全资产存储中。'):'浏览器预览的令牌仅保留在内存中，刷新后需重新登录。'}</p></div>`;$('#git-provider').onchange=e=>{gh=e.target.value==='gitee'?new Gitee(transport):new GitHub(transport);renderGitHub();};$('#device-login').onclick=loginDevice;$('#token-login').onclick=loginToken;$('#check-connection').onclick=checkGitHubConnection;return;}
+  if(!account){root.innerHTML=`${githubTopbar()}<div class="empty-state"><div class="large-icon">${icon('github')}</div><h2>连接 ${gitName()}</h2><div class="git-login-fields"><label>代码托管平台<select id="git-provider" aria-label="代码托管平台">${providerOptions(gh.provider)}</select></label>${serverField(gh.provider,workspace.settings.giteaServer,esc,'instance')}</div><p>浏览与创建仓库、管理分支、读取文件并提交修改。</p><div class="button-row"><button class="primary" id="token-login">使用访问令牌</button><button class="secondary" id="check-connection">检测连接</button></div><p class="description">${native?(environment?.platform==='android'?'令牌使用 Android Keystore 加密保存在应用内部。':environment?.platform==='windows'?'令牌使用 Windows 安全存储加密保存在应用内部。':'令牌保存在鸿蒙安全资产存储中。'):'浏览器预览的令牌仅保留在内存中，刷新后需重新登录。'}</p></div>`;$('#git-provider').onchange=e=>{gh=createGitClient(transport,e.target.value,workspace.settings.giteaServer);renderGitHub();};$('#token-login').onclick=()=>{try{setGitServer();loginToken();}catch(error){fail(error);}};$('#check-connection').onclick=()=>{try{setGitServer();checkGitHubConnection();}catch(error){fail(error);}};return;}
   if(selectedRepo){renderRepository();return;}
-  root.innerHTML=`${githubTopbar()}<header class="page-header"><div><span class="page-kicker">${gitName().toUpperCase()} / ${esc(account.login)}</span><h1>仓库 <span class="count-badge">${repositories.length}</span></h1></div><div class="account-actions"><button class="secondary" id="refresh-repos">刷新</button><button class="primary" id="create-repo">＋ 新建仓库</button><button class="secondary" id="commit-workspace">提交整个工作区</button><button class="secondary" id="logout">退出登录</button></div></header><label class="search-box" style="max-width:400px;margin-bottom:24px">${icon('search')}<input id="repo-search" aria-label="搜索仓库" placeholder="搜索仓库名称…"></label><div id="repo-grid" class="repo-grid"></div>`;
+  root.innerHTML=`${githubTopbar()}<header class="page-header"><div><span class="page-kicker">${gitName().toUpperCase()} / ${esc(account.login)}${gh.server?' / '+esc(gh.server):''}</span><h1>仓库 <span class="count-badge">${repositories.length}</span></h1></div><div class="account-actions"><button class="secondary" id="refresh-repos">刷新</button><button class="primary" id="create-repo">＋ 新建仓库</button><button class="secondary" id="commit-workspace">提交整个工作区</button><button class="secondary" id="logout">退出登录</button></div></header><label class="search-box" style="max-width:400px;margin-bottom:24px">${icon('search')}<input id="repo-search" aria-label="搜索仓库" placeholder="搜索仓库名称…"></label><div id="repo-grid" class="repo-grid"></div>`;
   if(githubOffline){const notice=document.createElement('p');notice.className='notice';notice.textContent=t('当前显示缓存的仓库列表；网络恢复后请刷新，写入操作暂不可用。');root.querySelector('.page-header').after(notice);$('#create-repo').disabled=true;$('#commit-workspace').disabled=true;}
   const list=()=>{$('#repo-grid').innerHTML=repositories.filter(r=>r.full_name.toLowerCase().includes($('#repo-search').value.toLowerCase())).map(r=>`<button class="repo-card" data-repo="${esc(r.full_name)}"><strong>⑂ ${esc(r.full_name)}</strong><p>${esc(r.description||'还没有仓库简介。')}</p><small>${r.private?'私有':'公开'} · ${esc(r.default_branch)}${r.archived?' · 已归档':''}</small></button>`).join('')||'<p class="blank">暂无仓库，或没有匹配结果。</p>';};list();$('#repo-search').oninput=list;
   $('#repo-grid').onclick=e=>{const b=e.target.closest('[data-repo]');if(b){selectedRepo=repositories.find(r=>r.full_name===b.dataset.repo);selectedBranch=selectedRepo.default_branch;selectedPath='';renderRepository();}};
   $('#refresh-repos').onclick=()=>loadRepositories();$('#create-repo').onclick=createRepository;$('#logout').onclick=logout;$('#commit-workspace').onclick=()=>commitWholeWorkspace().catch(fail);
 }
-async function loadRepositories(){const epoch=++loadEpoch;$('#github-view').innerHTML=githubTopbar()+'<p class="loading">正在读取 '+gitName()+' 仓库…</p>';try{const list=await gh.repositories();if(epoch!==loadEpoch)return;repositories=list;githubOffline=false;workspace.githubCache={provider:gh.provider,login:account.login,checkedAt:Date.now(),repositories:list.slice(0,500).map(({full_name,name,description,default_branch,private:isPrivate,archived,permissions})=>({full_name,name,description,default_branch,private:isPrivate,archived,permissions}))};save();renderGitHub();}catch(e){if(epoch!==loadEpoch)return;githubOffline=true;if(workspace.githubCache?.login===account?.login&&(workspace.githubCache.provider||'github')===gh.provider)repositories=workspace.githubCache.repositories;renderGitHub();fail(e);}}
-async function signedIn(user){workspace.settings.gitProvider=gh.provider;save();githubOffline=false;account=user;$('#sidebar-logout').disabled=false;$('#account-label').textContent=gitName()+' · '+user.login;selectedRepo=null;showView('github');await loadRepositories();}
+async function loadRepositories(){const epoch=++loadEpoch;$('#github-view').innerHTML=githubTopbar()+'<p class="loading">正在读取 '+gitName()+' 仓库…</p>';try{const list=await gh.repositories();if(epoch!==loadEpoch)return;repositories=list;githubOffline=false;workspace.githubCache={...gitIdentity(gh),login:account.login,checkedAt:Date.now(),repositories:list.slice(0,500).map(({full_name,name,description,default_branch,private:isPrivate,archived,permissions})=>({full_name,name,description,default_branch,private:isPrivate,archived,permissions}))};save();renderGitHub();}catch(e){if(epoch!==loadEpoch)return;githubOffline=true;if(workspace.githubCache?.login===account?.login&&sameGitHost(workspace.githubCache,gh))repositories=workspace.githubCache.repositories;renderGitHub();fail(e);}}
+async function signedIn(user){workspace.settings.gitProvider=gh.provider;if(gh.provider==='gitea')workspace.settings.giteaServer=gh.server;save();githubOffline=false;account=user;$('#sidebar-logout').disabled=false;$('#account-label').textContent=gitName()+' · '+user.login;selectedRepo=null;showView('github');await loadRepositories();}
 async function checkGitHubConnection(){
   openModal('检测 '+gitName()+' 连接','<p>正在检测连接…</p>',null,{noSubmit:true});
-  try{const result=await transport('connection',{provider:gh.provider});if(result.status!==200)throw new Error(gitName()+' 返回 HTTP '+result.status+'，请检查网络后重试。');$('#dialog-body').textContent=gitName()+' 连接正常，可以继续登录。';}
+  try{const result=await transport('connection',gitIdentity(gh));if(result.status!==200)throw new Error(gitName()+' 返回 HTTP '+result.status+'，请检查网络后重试。');$('#dialog-body').textContent=gitName()+' 连接正常，可以继续登录。';}
   catch(e){$('#dialog-body').textContent='连接检测未通过。';$('#dialog-error').textContent=e.message;}
 }
-function loginToken(){openModal('使用访问令牌登录',`<label>代码托管平台<select name="provider"><option value="github" ${gh.provider==='github'?'selected':''}>GitHub</option><option value="gitee" ${gh.provider==='gitee'?'selected':''}>Gitee</option></select></label><label>个人访问令牌<input name="token" type="password" autocomplete="off" required></label><small>GitHub 令牌需授予仓库 Contents 读写和 Metadata 读取权限；Gitee 私人令牌需授予 user_info 和 projects 权限。令牌由平台安全存储保存，不会写入文稿或日志。</small>`,async f=>{const token=f.get('token').trim(),provider=f.get('provider');if(!token)throw new Error('请输入令牌。');const user=await transport('login',{token,provider});gh=provider==='gitee'?new Gitee(transport):new GitHub(transport);$('#dialog-body input').value='';await signedIn(user);},{label:'验证并登录'});}
-function loginDevice(){
-  if(!native){openModal('GitHub 设备授权','<p>设备授权请在文舟应用中使用。浏览器预览可以使用个人访问令牌。</p>',()=>{setTimeout(loginToken,0);},{label:'使用访问令牌'});return;}
-  openModal('登录 GitHub',`<label>OAuth Client ID<input name="clientId" required value="${esc(workspace.settings.clientId||'')}" placeholder="填写已启用 Device Flow 的 Client ID"></label><small>在 GitHub 开发者设置中注册 OAuth App 并启用 Device Flow。只填写 Client ID，无需 Client Secret。本次授权请求 repo 与 read:user 权限。</small>`,async f=>{const id=f.get('clientId').trim();if(!id)throw new Error('请填写 Client ID。');workspace.settings.clientId=id;save();setTimeout(()=>runDeviceLogin(id),0);},{label:'获取授权码'});
-}
-async function runDeviceLogin(id){
-  const abort=new AbortController();
-  openModal('在 GitHub 确认登录','<p>正在获取设备授权码…</p>',null,{noSubmit:true,cancel:()=>abort.abort()});
-  try{await deviceLogin(transport,id,code=>{
-    if(abort.signal.aborted)return;
-    $('#dialog-body').innerHTML=`<p>请在 GitHub 页面输入以下授权码：</p><strong id="device-code">${esc(code.user_code)}</strong><button type="button" class="primary" id="open-auth">打开 GitHub 授权页面 ↗</button><p>请在 ${Math.ceil(code.expires_in/60)} 分钟内完成确认。完成后会自动登录。</p>`;$('#open-auth').onclick=()=>openAuthorization().catch(fail);
-  },abort.signal);if(abort.signal.aborted)return;const user=await gh.user();dialogCancel=null;$('#dialog').close();await signedIn(user);}catch(e){if(!abort.signal.aborted)$('#dialog-error').textContent=e.message;}
-}
-async function logout(){try{await transport('logout',{provider:gh.provider});loadEpoch++;account=null;githubOffline=false;delete workspace.githubCache;save();$('#sidebar-logout').disabled=true;repositories=[];selectedRepo=null;$('#account-label').textContent='连接 GitHub / Gitee';renderGitHub();toast('已退出，设备上的文稿保留。');}catch(e){fail(e);}}
+function loginToken(){showTokenLogin({client:gh,server:workspace.settings.giteaServer,transport,openModal,escape:esc,signedIn:async(user,client)=>{gh=client;await signedIn(user);}});}
+async function logout(){try{if(syncBusy())throw Error('正在同步，请稍后退出。');await transport('logout',gitIdentity(gh));await syncBlobCache.clear();loadEpoch++;account=null;githubOffline=false;delete workspace.githubCache;save();$('#sidebar-logout').disabled=true;repositories=[];selectedRepo=null;$('#account-label').textContent='连接 GitHub / Gitee / Gitea';renderGitHub();toast('已退出，设备上的文稿保留。');}catch(e){fail(e);}}
 function createRepository(){openModal('新建 '+gitName()+' 仓库','<label>仓库名称<input name="name" pattern="[A-Za-z0-9_.-]+" required placeholder="my-writing"></label><label>简介<textarea name="description" rows="2" maxlength="350"></textarea></label><label class="checkbox"><input name="private" type="checkbox" checked>设为私有仓库</label><small>将在当前账号下新建仓库并初始化 README。</small>',async f=>{await gh.createRepository(f.get('name').trim(),f.get('description'),f.has('private'));await loadRepositories();},{label:'创建仓库'});}
 async function renderRepository(){
   const repo=selectedRepo,epoch=++loadEpoch,root=$('#github-view');if(!repo)return;
-  root.innerHTML=`${githubTopbar()}<header class="page-header"><div><button class="text-button" id="back-repos">← 返回仓库列表</button><h1>${esc(repo.name)}</h1><p>${esc(repo.full_name)} · ${repo.private?'私有仓库':'公开仓库'}</p></div><div class="button-row"><button class="secondary" id="repo-pull">拉取整个仓库</button><button class="secondary" id="repo-settings">仓库设置</button><button class="secondary" id="repo-commit-workspace">提交整个工作区</button><button class="primary" id="repo-commit">提交当前文件</button></div></header><div class="repo-toolbar"><label>分支 <select id="branch-select" aria-label="选择分支"><option>${esc(selectedBranch)}</option></select></label><button class="secondary" id="create-branch">＋ 新建分支</button><button class="secondary" id="refresh-files">刷新</button><button class="secondary" id="repo-history">提交记录</button></div><div class="remote-selection-tools"><button id="remote-multi" class="secondary">多选</button><button id="remote-select-all" class="secondary" hidden>全选本页</button><button id="remote-pull-selected" class="primary" hidden>拉取选中项</button><span id="remote-selected-count"></span><button id="remote-cancel-selection" class="secondary" hidden>取消多选</button></div><p class="path-label">${esc(selectedPath||'/')}</p><div class="file-list" id="file-list"><p class="loading">正在读取文件…</p></div>`;
+  root.innerHTML=`${githubTopbar()}<header class="page-header"><div><button class="text-button" id="back-repos">← 返回仓库列表</button><h1>${esc(repo.name)}</h1><p>${esc(repo.full_name)} · ${repo.private?'私有仓库':'公开仓库'}</p></div><div class="button-row"><button class="secondary" id="repo-pull">拉取整个仓库</button><button class="secondary" id="repo-settings">仓库设置</button><button class="secondary" id="repo-commit-workspace">提交整个工作区</button><button class="primary" id="repo-commit">提交当前文件</button></div></header><div class="repo-toolbar"><label>分支 <select id="branch-select" aria-label="选择分支"><option>${esc(selectedBranch)}</option></select></label><button class="secondary" id="create-branch">＋ 新建分支</button><button class="secondary" id="refresh-files">刷新</button><button class="secondary" id="repo-history">提交记录</button></div>${syncTargetMarkup({...gitIdentity(gh),repo:repo.full_name,branch:selectedBranch},repositoryFolder(workspace,repo.full_name,gh.provider,gh.server,selectedBranch),esc)}<div class="remote-selection-tools"><button id="remote-multi" class="secondary">多选</button><button id="remote-select-all" class="secondary" hidden>全选本页</button><button id="remote-pull-selected" class="primary" hidden>拉取选中项</button><span id="remote-selected-count"></span><button id="remote-cancel-selection" class="secondary" hidden>取消多选</button></div><p class="path-label">${esc(selectedPath||'/')}</p><div class="file-list" id="file-list"><p class="loading">正在读取文件…</p></div>`;
   $('#back-repos').onclick=()=>{loadEpoch++;selectedRepo=null;renderGitHub();};$('#refresh-files').onclick=renderRepository;
   $('#repo-history').onclick=()=>showGitHistory(repo.full_name,selectedBranch);$('#repo-commit-workspace').onclick=()=>commitWholeWorkspace(repo.full_name,selectedBranch).catch(fail);$('#repo-commit').onclick=()=>commitDocument(repo.full_name,selectedBranch);$('#repo-pull').onclick=()=>pullWholeRepository();
-  $('#repo-settings').onclick=()=>openModal('仓库设置',`<label>仓库名称<input name="name" required pattern="[A-Za-z0-9_.-]+" value="${esc(repo.name)}"></label><label>简介<textarea name="description" rows="3">${esc(repo.description||'')}</textarea></label><small>修改会直接更新 GitHub 仓库的名称与简介。</small>`,async f=>{const old=repo.full_name;const updated=await gh.updateRepository(old,{name:f.get('name').trim(),description:f.get('description')});for(const d of workspace.documents)if((d.remote?.provider||'github')===gh.provider&&d.remote?.repo===old)d.remote.repo=updated.full_name;for(const item of workspace.repositories||[])if((item.provider||'github')===gh.provider&&item.repo===old)item.repo=updated.full_name;save();repositories=repositories.map(r=>r.full_name===old?updated:r);selectedRepo=updated;renderRepository();},{label:'保存到 GitHub'});
+  $('#repo-settings').onclick=()=>openModal('仓库设置',`<label>仓库名称<input name="name" required pattern="[A-Za-z0-9_.-]+" value="${esc(repo.name)}"></label><label>简介<textarea name="description" rows="3">${esc(repo.description||'')}</textarea></label><small>修改会直接更新 ${gitName()} 仓库的名称与简介。</small>`,async f=>{const old=repo.full_name;const updated=await gh.updateRepository(old,{name:f.get('name').trim(),description:f.get('description')});for(const d of workspace.documents)if(sameGitHost(d.remote,gh)&&d.remote?.repo===old)d.remote.repo=updated.full_name;for(const item of workspace.repositories||[])if(sameGitHost(item,gh)&&item.repo===old)item.repo=updated.full_name;save();repositories=repositories.map(r=>r.full_name===old?updated:r);selectedRepo=updated;renderRepository();},{label:'保存到 '+gitName()});
   if(githubOffline||repo.permissions?.push===false||repo.archived){for(const selector of ['#repo-commit','#repo-commit-workspace','#create-branch']){const button=root.querySelector(selector);button.disabled=true;button.title=repo.archived?'仓库已归档':'当前账号只有读取权限';}}if(githubOffline||repo.permissions?.admin===false||repo.archived){$('#repo-settings').disabled=true;$('#repo-settings').title='此操作需要仓库管理权限';}
-  $('#create-branch').onclick=()=>openModal('新建分支',`<p>从 ${esc(selectedBranch)} 创建分支。</p><label>分支名称<input name="name" placeholder="draft/chapter-one" required></label>`,async f=>{await gh.createBranch(repo.full_name,selectedBranch,f.get('name'));selectedBranch=f.get('name').trim();selectedPath='';renderRepository();},{label:'创建分支'});
-  $('#branch-select').onchange=e=>{selectedBranch=e.target.value;selectedPath='';renderRepository();};
+  $('#create-branch').onclick=()=>openModal('新建分支',`<p>从 ${esc(selectedBranch)} 创建分支。</p><label>分支名称<input name="name" placeholder="draft/chapter-one" required></label>`,async f=>{if(syncBusy())throw Error('正在同步，请稍后创建分支。');await gh.createBranch(repo.full_name,selectedBranch,f.get('name'));renderRepository();toast('分支已创建，可在分支列表中选择。');},{label:'创建分支'});
+  $('#branch-select').onchange=async e=>{
+    const next=e.target.value,select=e.target,client=gh,source=workspace,branch=selectedBranch;
+    const target={...gitIdentity(client),repo:repo.full_name,branch};
+    select.value=branch;select.disabled=true;
+    try{
+      if(syncBusy())throw Error('正在同步，请等待完成后再切换分支。');
+      if(!save())throw Error('本地保存失败，未切换分支。');
+      const attachmentChanges=await inspectBranchAttachments(source,target,native?path=>transport('readWorkspaceFile',{path}):null);
+      if(source!==workspace||client!==gh||selectedRepo!==repo||selectedBranch!==branch)return;
+      switchRepositoryBranch({workspace,target,next,attachmentChanges,busy:syncBusy,save,openModal,escape:esc,
+        apply:nextBranch=>{selectedBranch=nextBranch;selectedPath='';remoteSelection.clear();remoteSelecting=false;renderRepository();}});
+    }catch(error){fail(error);}finally{if(select.isConnected)select.disabled=false;}
+  };
   try{
     const [branches,contents]=await Promise.all([gh.branches(repo.full_name),gh.contents(repo.full_name,selectedBranch,selectedPath)]);
     if(epoch!==loadEpoch)return;
     $('#branch-select').innerHTML=branches.map(b=>`<option value="${esc(b.name)}" ${b.name===selectedBranch?'selected':''}>${esc(b.name)}</option>`).join('');
     if(!Array.isArray(contents))throw new Error('当前路径不是文件夹。');
-    if(remoteSelectionRepo!==gh.provider+'/'+repo.full_name+'/'+selectedBranch){remoteSelection.clear();remoteSelecting=false;remoteSelectionRepo=gh.provider+'/'+repo.full_name+'/'+selectedBranch;}
+    if(remoteSelectionRepo!==gitHostKey(gh)+'/'+repo.full_name+'/'+selectedBranch){remoteSelection.clear();remoteSelecting=false;remoteSelectionRepo=gitHostKey(gh)+'/'+repo.full_name+'/'+selectedBranch;}
     contents.sort((a,b)=>(a.type===b.type?a.name.localeCompare(b.name):a.type==='dir'?-1:1));
     $('#file-list').innerHTML=(selectedPath?'<div class="file-row"><button data-parent="true">↰ 上级目录</button></div>':'')+contents.map((f,i)=>`<div class="file-row" data-remote-row="${i}"><input type="checkbox" data-remote-select="${i}" aria-label="选择 ${esc(f.name)}" hidden><button data-file="${i}">${f.type==='dir'?'▱':'≡'} ${esc(f.name)}</button><small>${f.type==='dir'?'文件夹':Math.ceil(f.size/1024)+' KB'}</small>${f.type==='dir'?`<button data-browse="${i}" aria-label="打开 ${esc(f.name)}">↳</button>`:''}${f.type==='file'?`<button data-delete="${i}" title="删除远端文件" aria-label="删除 ${esc(f.name)}">×</button>`:''}</div>`).join('');
     setupRemoteSelection(contents);if(githubOffline||repo.permissions?.push===false||repo.archived)root.querySelectorAll('[data-delete]').forEach(button=>button.disabled=true);
@@ -879,7 +921,7 @@ async function renderRepository(){
   }catch(e){if(epoch===loadEpoch)$('#file-list').innerHTML=`<p class="error" style="padding:16px">${esc(e.message)}</p>`;}
 }
 function toggleRemoteFile(file){remoteSelecting=true;if(remoteSelection.has(file.path))remoteSelection.delete(file.path);else remoteSelection.set(file.path,file);renderRemoteSelection();}
-function renderRemoteSelection(){document.querySelectorAll('[data-remote-select]').forEach(input=>{input.hidden=!remoteSelecting;input.checked=remoteSelection.has(input.dataset.remotePath);input.closest('.file-row').classList.toggle('selected',input.checked);});for(const id of ['remote-select-all','remote-pull-selected','remote-cancel-selection'])if($('#'+id))$('#'+id).hidden=!remoteSelecting;if($('#remote-pull-selected'))$('#remote-pull-selected').disabled=!remoteSelection.size;if($('#remote-selected-count'))$('#remote-selected-count').textContent=remoteSelecting?t('已选 ')+remoteSelection.size:'';}
+function renderRemoteSelection(){if($('#file-list'))$('#file-list').dataset.selecting=String(remoteSelecting);if($('#remote-multi'))$('#remote-multi').hidden=remoteSelecting;if($('#remote-selected-count'))$('#remote-selected-count').hidden=!remoteSelecting;document.querySelectorAll('[data-remote-select]').forEach(input=>{input.hidden=!remoteSelecting;input.checked=remoteSelection.has(input.dataset.remotePath);input.closest('.file-row').classList.toggle('selected',input.checked);});for(const id of ['remote-select-all','remote-pull-selected','remote-cancel-selection'])if($('#'+id))$('#'+id).hidden=!remoteSelecting;if($('#remote-pull-selected'))$('#remote-pull-selected').disabled=!remoteSelection.size;if($('#remote-selected-count'))$('#remote-selected-count').textContent=remoteSelecting?t('已选 ')+remoteSelection.size:'';}
 function setupRemoteSelection(contents){
   const list=$('#file-list');let timer,start;window.__remoteHoldClick=false;
   list.querySelectorAll('[data-remote-select]').forEach(input=>{input.dataset.remotePath=contents[Number(input.dataset.remoteSelect)].path;input.onchange=()=>toggleRemoteFile(contents[Number(input.dataset.remoteSelect)]);});
@@ -887,8 +929,8 @@ function setupRemoteSelection(contents){
   $('#remote-multi').onclick=()=>{remoteSelecting=true;renderRemoteSelection();};$('#remote-select-all').onclick=()=>{remoteSelecting=true;for(const file of contents)remoteSelection.set(file.path,file);renderRemoteSelection();};$('#remote-cancel-selection').onclick=()=>{remoteSelection.clear();remoteSelecting=false;renderRemoteSelection();};$('#remote-pull-selected').onclick=()=>pullWholeRepository([...remoteSelection.keys()]);renderRemoteSelection();
 }
 async function openRemote(repo,branch,path){
-  const provider=gh.provider,client=gh,before=workspace.documents.find(d=>(d.remote?.provider||'github')===provider&&d.remote?.repo.toLowerCase()===repo.toLowerCase()&&d.remote.path===path);
-  const file=await syncActivity.run(before?.id||provider+'/'+repo+'/'+path,()=>client.readFile(repo,branch,path));if(!save())throw Error('请先保存当前文稿。');
+  const client=gh,host=gitIdentity(client),before=workspace.documents.find(d=>sameRepository(d.remote,{...host,repo,branch})&&d.remote.path===path);
+  const file=await syncActivity.run(before?.id||gitHostKey(client)+'/'+repo+'/'+path,()=>client.readFile(repo,branch,path));if(!save())throw Error('请先保存当前文稿。');
   const remoteText=normalizeText(file.text),merged=before?mergeVelaTexts(path,before.remote?.lastSyncedText,before.text,remoteText):null;
   if(before&&merged===null&&!syncTextEqual(path,before.text,remoteText)&&!syncTextEqual(path,before.remote?.lastSyncedText,before.text)){
     const local=before.text;let resolved;
@@ -896,26 +938,26 @@ async function openRemote(repo,branch,path){
       await syncActivity.run(before.id,async()=>{
         if(!syncTextEqual(path,before.text,local))throw Error('预览后本地文稿已变化，请重新拉取。');
         const text=preserveVelaPositions(path,resolved(),before.text);if(new TextEncoder().encode(text).length>MAX_TEXT_BYTES)throw Error('合并后的文件超过 8 MB。');
-        documents.checkpoint(before);documents.change(before,text);before.remote={provider,repo,branch,path,sha:file.sha,lastSyncedText:remoteText};
+        documents.checkpoint(before);documents.change(before,text);before.remote={...host,repo,branch,path,sha:file.sha,lastSyncedText:remoteText,syncedAt:Date.now()};
         editorStates.delete(before.id);if(view&&workspace.activeId===before.id){view.setState(makeState(before));index=null;updateStats();if(isPreview)renderPreview();}
-        resolveRepositoryConflict(workspace,{provider,repo,branch,path,sha:file.sha,text:remoteText});
+        resolveRepositoryConflict(workspace,{...host,repo,branch,path,sha:file.sha,text:remoteText});
         renderDocuments();if(!save())throw Error('合并结果保存失败，请导出备份。');
       });
     },{label:'保存合并结果'});resolved=bindConflict($('#dialog-body'),{base:before.remote?.lastSyncedText,local,remote:remoteText,escape:esc});return false;
   }
-  const doc=applyRemoteFile(workspace,{provider,repo,branch,path,text:merged??preserveVelaPositions(path,remoteText,before?.text),remoteText,sha:file.sha},workspace.repositories?.find(item=>(item.provider||'github')===provider&&item.repo.toLowerCase()===repo.toLowerCase())?.folder||'');
-  resolveRepositoryConflict(workspace,{provider,repo,branch,path,sha:file.sha,text:remoteText});
+  const doc=applyRemoteFile(workspace,{...host,repo,branch,path,text:merged??preserveVelaPositions(path,remoteText,before?.text),remoteText,sha:file.sha},workspace.repositories?.find(item=>sameRepository(item,{...host,repo,branch}))?.folder||'');
+  resolveRepositoryConflict(workspace,{...host,repo,branch,path,sha:file.sha,text:remoteText});
   editorStates.delete(doc.id);if(view&&workspace.activeId===doc.id){view.setState(makeState(doc));index=null;updateStats();if(isPreview)renderPreview();}renderDocuments();if(!save())throw Error('拉取后本地保存失败，请导出备份。');renderSyncStatus();toast(before?'已更新远端文件':'已拉取远端文件');return true;
 }
 function pullWholeRepository(selection=null){
-  const repo=selectedRepo,branch=selectedBranch;if(!repo)return;
+  const repo=selectedRepo,branch=selectedBranch,client=gh;if(!repo)return;
   if(!native||!workspace.storage?.id){toast('请在应用中拉取仓库文件。');return;}
-  const folder=repositoryFolder(workspace,repo.full_name,gh.provider),abort=new AbortController();
-  openModal(selection?'拉取选中项':'拉取整个仓库',`${selection?'<p>'+selection.length+' 个选中项（文件夹包含全部子项）</p>':''}<p>${esc(repo.full_name)} / ${esc(branch)}</p><p>保存到当前工作区的“${esc(folder)}”文件夹。再次拉取会覆盖此仓库的同路径文件；本地独有文件保留。</p><p id="pull-progress"></p><button type="button" class="secondary" id="cancel-pull" hidden>取消拉取</button>`,async()=>{
+  const folder=repositoryFolder(workspace,repo.full_name,gh.provider,gh.server,branch),abort=new AbortController();
+  openModal(selection?'拉取选中项':'拉取整个仓库',`${selection?'<p>'+selection.length+' 个选中项（文件夹包含全部子项）</p>':''}<p>${esc(repo.full_name)} / ${esc(branch)}</p><p>保存到当前工作区的“${esc(folder)}”文件夹。随后预览新增、修改和远端删除项；本地独有文件保留。</p><p id="pull-progress"></p><button type="button" class="secondary" id="cancel-pull" hidden>取消拉取</button>`,async()=>{
     if(!save())throw new Error('请先保存当前文稿。');
     $('#cancel-pull').hidden=false;
-    const result=await gh.pullRepository(repo.full_name,branch,{selection,signal:abort.signal,onProgress:p=>{$('#pull-progress').textContent=`拉取 ${p.done} / ${p.total} ${p.path}`;}});
-    previewDownload(result,folder,async selected=>{await materializeDownload(selected,folder);restorePulledEditor('github');if(!save())throw new Error('文件已拉取，但关联信息保存失败，请刷新工作区。');remoteSelection.clear();remoteSelecting=false;renderRepository();toast(`已拉取 ${selected.files.length} 个文件到 ${folder}`);});return false;
+    const result=await syncWorkflow.run(()=>client.pullRepository(repo.full_name,branch,{selection,signal:abort.signal,onProgress:p=>{$('#pull-progress').textContent=`处理 ${p.done} / ${p.total} · 复用 ${p.reused||0} · 下载 ${p.downloaded||0} ${p.path}`;}}));
+    await previewDownload(result,folder,async selected=>{await materializeDownload(selected,folder);restorePulledEditor('github');if(!save())throw new Error('文件已拉取，但关联信息保存失败，请刷新工作区。');remoteSelection.clear();remoteSelecting=false;renderRepository();toast(`已拉取 ${selected.files.length} 个文件到 ${folder}${selected.deletions?.length?'，'+selected.deletions.length+' 个旧文件已移入回收站':''}`);},client);return false;
   },{label:'拉取到工作区',cancel:()=>abort.abort()});
   $('#cancel-pull').onclick=()=>abort.abort();
 }
@@ -925,19 +967,19 @@ async function showGitHistory(repo,branch,page=1){
     $('#history-prev').onclick=()=>showGitHistory(repo,branch,page-1);$('#history-next').onclick=()=>showGitHistory(repo,branch,page+1);
   }catch(error){fail(error);}
 }
-function gitDocument(){if(!current()){showView('github');return;}if(!account){showView('github');toast('连接 GitHub 后，即可关联仓库并提交文稿。');return;}commitDocument();}
+function gitDocument(){if(!current()){showView('github');return;}if(!account){showView('github');toast('连接代码托管平台后，即可关联仓库并提交文稿。');return;}commitDocument();}
 function commitDocument(suggestRepo,suggestBranch){
   if(!account){showView('github');return;}
   if(!repositories.length){showView('github');toast('请先新建或获得一个可写仓库。');return;}
-  const doc=current();if(!doc){showView('write');showHome();toast('请先打开需要提交的文件。');return;}const remote=(doc.remote?.provider||'github')===gh.provider?doc.remote:null;
+  const doc=current();if(!doc){showView('write');showHome();toast('请先打开需要提交的文件。');return;}const remote=sameGitHost(doc.remote,gh)?doc.remote:null;
   const initialRepo=suggestRepo||remote?.repo||repositories[0].full_name;
   const initialBranch=suggestBranch||remote?.branch||repositories.find(r=>r.full_name===initialRepo)?.default_branch||'main';
-  openModal('提交文稿到 '+gitName(),`<p>将提交“${esc(doc.name)}”的当前内容。</p><label>仓库<select name="repo" id="commit-repo">${repositories.map(r=>`<option value="${esc(r.full_name)}" ${r.full_name===initialRepo?'selected':''}>${esc(r.full_name)}${r.private?'（私有）':''}</option>`).join('')}</select></label><label>分支<input name="branch" id="commit-branch" required value="${esc(initialBranch)}"></label><label>文件路径<input name="path" required value="${esc(remote?.path||doc.name)}"></label><label>提交说明<input name="message" required value="${esc('更新 '+doc.name)}"></label><small>只提交此文稿。已关联文件使用上次读取的版本；同名远端文件不会被自动覆盖。发生冲突时，可以拉取后逐段合并。</small>${remote?'<p><button type="button" class="secondary" id="read-remote">拉取并处理修改</button></p>':''}`,async f=>{
+  openModal('提交文稿到 '+gitName(),`<p>将提交“${esc(doc.name)}”的当前内容。</p><label>仓库<select name="repo" id="commit-repo">${repositories.map(r=>`<option value="${esc(r.full_name)}" ${r.full_name===initialRepo?'selected':''}>${esc(r.full_name)}${r.private?'（私有）':''}</option>`).join('')}</select></label><label>分支<input name="branch" id="commit-branch" required value="${esc(initialBranch)}"></label><label>文件路径<input name="path" required value="${esc(remote?.path||doc.name)}"></label><label>提交说明<input name="message" required value="${esc('更新 '+doc.name)}"></label><small>${remote?.deleted?'远端已删除此文件，本次提交将重新创建。':''}只提交此文稿。已关联文件使用上次读取的版本；同名远端文件不会被自动覆盖。发生冲突时，可以拉取后逐段合并。</small>${remote?'<p><button type="button" class="secondary" id="read-remote">拉取并处理修改</button></p>':''}`,async f=>{
     if(!save())throw new Error('本地保存失败，请先导出备份。');
     const repo=f.get('repo'),branch=f.get('branch').trim(),path=repoPath(f.get('path'));
-    const sha=remote&&remote.repo===repo&&remote.branch===branch&&remote.path===path?remote.sha:undefined;
+    const sha=remote&&!remote.deleted&&remote.repo===repo&&remote.branch===branch&&remote.path===path?remote.sha:undefined;
     const text=doc.text,message=f.get('message'),before=sha?(remote.lastSyncedText??await gh.blobText(repo,sha)):'';
-    openModal('确认提交变更',`<p data-user-content>${esc(repo)} / ${esc(branch)} / ${esc(path)}</p>${diffMarkup(before,text,esc)}<p data-user-content>${esc(message)}</p>`,async()=>{if(!syncTextEqual(path,doc.text,text))throw Error('预览后文件已变化，请重新生成提交预览。');const submittedText=doc.text;const result=await syncActivity.run(doc.id,()=>gh.commit({repo,branch,path,sha,text:submittedText,message}));doc.remote={provider:gh.provider,repo,branch,path,sha:result.content.sha,lastSyncedText:submittedText};save();renderDocuments();toast('文稿已提交到 '+repo+' / '+branch+' · '+result.commit?.sha?.slice(0,8));},{label:'提交到 '+gitName()});return false;
+    openModal('确认提交变更',`${syncTargetMarkup({...gitIdentity(gh),repo,branch,path},undefined,esc)}${diffMarkup(before,text,esc)}<p data-user-content>${esc(message)}</p>`,async()=>{if(!syncTextEqual(path,doc.text,text))throw Error('预览后文件已变化，请重新生成提交预览。');const submittedText=doc.text;const result=await syncActivity.run(doc.id,()=>gh.commit({repo,branch,path,sha,text:submittedText,message}));doc.remote={...gitIdentity(gh),repo,branch,path,sha:result.content.sha,lastSyncedText:submittedText,syncedAt:Date.now()};save();renderDocuments();toast('文稿已提交到 '+repo+' / '+branch+' · '+result.commit?.sha?.slice(0,8));},{label:'提交到 '+gitName()});return false;
   },{label:'提交到 '+gitName()});
   $('#commit-repo').onchange=e=>{$('#commit-branch').value=repositories.find(r=>r.full_name===e.target.value)?.default_branch||'main';};
   if(remote)$('#read-remote').onclick=async()=>{try{if(await openRemote(remote.repo,remote.branch,remote.path))closeModal();}catch(e){$('#dialog-error').textContent=e.message;}};
@@ -1085,14 +1127,16 @@ async function commitWholeWorkspace(repo=selectedRepo?.full_name||'',branch=sele
   openModal('提交整个工作区',`<p>${t('工作区')}：<span data-user-content>${esc(folder||'/')}</span> · ${docs.length+others.length} ${t('文件')}</p><label>${t('仓库')}<select name="repo" required>${repositories.map(item=>`<option value="${esc(item.full_name)}" ${item.full_name===repo?'selected':''}>${esc(item.full_name)}</option>`).join('')}</select></label><label>${t('分支')}<input name="branch" required value="${esc(branch||repositories.find(item=>item.full_name===repo)?.default_branch||repositories[0]?.default_branch||'main')}"></label><label>${t('仓库目录')}<input name="prefix" placeholder="${t('留空提交到仓库根目录')}"></label><label>${t('提交说明')}<input name="message" required value="Update workspace"></label><p>${t('包含配置、文稿和附件；同路径文件覆盖，仓库其他文件保留。')}</p>`,async form=>{
     if(!save())throw new Error('请先保存文稿。');const files=docs.map(doc=>({path:documentPath(doc).slice(folder?folder.length+1:0),text:doc.text}));for(const entry of others){if(!native)throw new Error('浏览器不能读取此附件，请在应用中提交。');files.push({path:entry.path.slice(folder?folder.length+1:0),data:await transport('readWorkspaceFile',{path:entry.path})});}
     await showCommitPreview({repo:form.get('repo'),branch:form.get('branch').trim(),prefix:form.get('prefix').trim(),folder,files,message:form.get('message')});return false;
-  },{label:t('提交到 GitHub')});
+  },{label:t('提交到 '+gitName())});
 }
 function ensureGlobalVela(){
   const existing=globalConfig(workspace);if(existing)return existing.doc;
   const config=createVelaV2('全局默认配置',{global:true});
   const doc=newDocument(GLOBAL_VELA_PATH,velaText(config));doc.path=GLOBAL_VELA_PATH;workspace.documents.push(doc);renderDocuments();return doc;
 }
-async function showCommitPreview(options){const head=await gh.request(gh.base(options.repo)+'/git/ref/heads/'+encodeURIComponent(options.branch));const expectedHead=head.object.sha;const association=workspace.repositories?.find(item=>(item.provider||'github')===gh.provider&&item.folder===options.folder&&item.repo===options.repo&&item.branch===options.branch&&(item.prefix||'')===options.prefix),plan=commitPlan(options.files,association,{baseText:file=>{const doc=workspace.documents.find(doc=>documentPath(doc)===(options.folder?options.folder+'/':'')+file.path),remote=doc?.remote;return (remote?.provider||'github')===gh.provider&&remote?.repo?.toLowerCase()===options.repo.toLowerCase()&&remote.branch===options.branch&&remote.path===(options.prefix?options.prefix+'/':'')+file.path?remote.lastSyncedText:undefined;}}),labels={new:'新增',modified:'修改',unchanged:'未变化',deleted:'删除远端文件'};openModal('确认提交变更',`<p>${esc(options.repo)} / ${esc(options.branch)}</p><p>仅提交勾选的文件。个人配置、缓存和凭据文件默认不包含。</p><div class="sync-files">${plan.map((item,i)=>`<label class="checkbox"><input name="commitFiles" type="checkbox" value="${i}" ${['new','modified'].includes(item.state)?'checked':''}><span>${esc(item.file.path)}<small>${labels[item.state]}</small></span></label>${typeof item.file.text==='string'||item.file.delete?`<details data-diff="${i}"><summary>对照内容</summary><div></div></details>`:'<small>二进制附件</small>'}`).join('')}</div><label>提交说明<input name="message" required value="${esc(options.message)}"></label>`,async form=>{const files=form.getAll('commitFiles').map(value=>plan[Number(value)].file);if(!files.length)throw Error('请选择变更。');if(association?.conflicts?.length)throw Error('仍有本地与远端冲突，请先拉取并处理这些文件：'+association.conflicts.join('、'));for(const file of files){const local=workspace.documents.find(doc=>documentPath(doc)===(options.folder?options.folder+'/':'')+file.path);if(typeof file.text==='string'){if(!local||!syncTextEqual(file.path,local.text,file.text))throw Error('预览后文件已变化，请重新生成提交预览。');file.text=local.text;}}const ids=files.map(file=>workspace.documents.find(doc=>documentPath(doc)===(options.folder?options.folder+'/':'')+file.path)?.id).filter(Boolean);const result=await ids.reduceRight((action,id)=>()=>syncActivity.run(id,action),()=>gh.commitWorkspace({...options,files,message:form.get('message'),expectedHead:association?.commit||expectedHead}))();const baseFiles={...association?.baseFiles};for(const file of files){if(file.delete)delete baseFiles[file.path];else baseFiles[file.path]={hash:textFingerprint(file.text??file.data),sha:result.files?.find(entry=>entry.path===(options.prefix?options.prefix+'/':'')+file.path)?.sha};}workspace.repositories=(workspace.repositories||[]).filter(item=>item.folder!==options.folder||(item.provider||'github')!==gh.provider);workspace.repositories.push({provider:gh.provider,repo:options.repo,branch:options.branch,folder:options.folder,prefix:options.prefix,commit:result.sha,baseFiles});for(const file of files.filter(file=>!file.delete&&typeof file.text==='string')){const doc=workspace.documents.find(doc=>documentPath(doc)===(options.folder?options.folder+'/':'')+file.path);if(doc)doc.remote={provider:gh.provider,repo:options.repo,branch:options.branch,path:(options.prefix?options.prefix+'/':'')+file.path,sha:baseFiles[file.path]?.sha||'',lastSyncedText:file.text};}save();toast('工作区已提交到 '+gitName()+'。');},{label:'提交选中变更'});bindDiffPreviews($('#dialog-body'),plan,async item=>{const sha=association?.baseFiles?.[item.file.path]?.sha;if(sha)return gh.blobText(options.repo,sha);try{return (await gh.readFile(options.repo,expectedHead,(options.prefix?options.prefix+'/':'')+item.file.path)).text;}catch(error){if(error.status===404)return '';throw error;}},esc);}
+function showCommitPreview(options){
+  return previewCommit(options,{workspace,client:gh,activity:syncActivity,openModal,escape:esc,save,toast});
+}
 $('#add-glossary').onclick=()=>addSelectionToGlossary();
 function addSelectionToGlossary(selectionText,sourceDoc=current()){
   const doc=sourceDoc,range=view?.state.selection.main;if(!doc||selectionText===undefined&&(!range||range.empty)){toast('请先选中要加入术语库的词汇。');return;}
@@ -1125,15 +1169,19 @@ function renderVela(){
     if(old.text!==text){workspace.configBackups={...workspace.configBackups,[old.id]:[...(workspace.configBackups?.[old.id]||[]),{text:strip(old.text),createdAt:Date.now()}].slice(-5)};}view.dispatch({changes:{from:0,to:view.state.doc.length,insert:text}});if(!save())throw new Error('保存失败');index=null;renderVela();toast('工作区配置已保存');}});
 }
 function restorePulledEditor(page){const preview=isPreview;if(workspace.activeId&&!home){switchDocument(workspace.activeId);isPreview=preview;updateEditorVisibility();if(isPreview)renderPreview();}else{showHome();}renderDocuments();showView(page);}
-function previewDownload(result,folder,onApply){showDownloadPreview({workspace,result,folder,onApply,openModal,escape:esc,checkpoint:doc=>documents.checkpoint(doc),save});}
-async function materializeDownload(result,folder){const association=workspace.repositories?.find(item=>(item.provider||'github')===(result.provider||'github')&&item.repo.toLowerCase()===result.repo.toLowerCase()),oldCommit=association?.commit;if(native){const materialized=await transport('writeWorkspaceFiles',{files:result.files.map(file=>({path:folder+'/'+file.path,data:file.data})),folders:[folder,...result.folders.map(path=>folder+'/'+path)]});if(view){view.destroy();view=null;}editorStates.clear();adoptFolder(workspace,materialized);}else if(result.files.some(file=>file.text===null))throw Error('二进制附件请在应用中拉取。');applyRepository(workspace,result,folder);if(result.keptConflicts?.length){const tracked=workspace.repositories.find(item=>(item.provider||'github')===(result.provider||'github')&&item.repo.toLowerCase()===result.repo.toLowerCase());tracked.commit=oldCommit;tracked.pendingCommit=result.commit;tracked.conflicts=result.keptConflicts;}else{const tracked=workspace.repositories.find(item=>(item.provider||'github')===(result.provider||'github')&&item.repo.toLowerCase()===result.repo.toLowerCase());if(tracked){tracked.conflicts=[];delete tracked.pendingCommit;}}projects.changed('sync');}
+function previewDownload(result,folder,onApply,client=gh){
+  return syncWorkflow.preview(result,folder,onApply,client);
+}
+function materializeDownload(result,folder){
+  return syncWorkflow.materialize(result,folder);
+}
 async function pullSubscription(item){
   let abort;
   openModal('拉取文件',`<p data-user-content>${esc(item.repo)}</p>${item.snapshot.vela?'<label class="checkbox"><input name="readingOnly" type="checkbox" checked>仅拉取阅读清单</label>':''}<p>保存到内部文件夹；对应 .vela 配置会同时保留，同路径文件覆盖。</p><p id="subscription-pull-path" data-user-content></p><progress id="subscription-pull-progress" max="1" value="0" hidden></progress><button type="button" id="subscription-pull-cancel" class="secondary" hidden>取消拉取</button>`,async form=>{
     if(!save())throw new Error('请先保存当前文稿。');abort=new AbortController();const folder='Subscriptions/'+item.repo;$('#subscription-pull-cancel').hidden=false;$('#subscription-pull-progress').hidden=false;
     try{const client=new GitHub((_operation,payload)=>transport('publicApi',payload)),only=item.snapshot.vela&&form.has('readingOnly'),snapshot=only?await subscriptions.api.snapshot(item.repo,abort.signal):item.snapshot;
-      const result=await client.pullRepository(item.repo,snapshot.branch,{signal:abort.signal,selection:only?[...snapshot.configs.map(config=>config.path),...snapshot.files.map(file=>file.path)]:null,includeDependencies:true,onProgress:p=>{const progress=$('#subscription-pull-progress');if(progress){progress.max=Math.max(1,p.total);progress.value=p.done;$('#subscription-pull-path').textContent=`${p.done} / ${p.total} · ${folder}/${p.path}`;}}});
-      abort.signal.throwIfAborted();previewDownload(result,folder,async selected=>{await materializeDownload(selected,folder);for(const file of selected.files){const doc=workspace.documents.find(doc=>documentPath(doc)===folder+'/'+file.path);if(doc){doc.subscription={repo:item.repo,path:file.path,sha:file.sha,loadedSha:file.sha,contentHash:await textHash(doc.text)};editorStates.delete(doc.id);}}restorePulledEditor('subscriptions');save();toast('文件已拉取到内部文件夹。');});return false;
+      const result=await syncWorkflow.run(()=>client.pullRepository(item.repo,snapshot.branch,{signal:abort.signal,selection:only?[...snapshot.configs.map(config=>config.path),...snapshot.files.map(file=>file.path)]:null,includeDependencies:true,onProgress:p=>{const progress=$('#subscription-pull-progress');if(progress){progress.max=Math.max(1,p.total);progress.value=p.done;$('#subscription-pull-path').textContent=`${p.done} / ${p.total} · ${folder}/${p.path}`;}}}));
+      abort.signal.throwIfAborted();await previewDownload(result,folder,async selected=>{await materializeDownload(selected,folder);for(const file of selected.files){const doc=workspace.documents.find(doc=>documentPath(doc)===folder+'/'+file.path);if(doc){doc.subscription={repo:item.repo,path:file.path,sha:file.sha,loadedSha:file.sha,contentHash:await textHash(doc.text)};editorStates.delete(doc.id);}}restorePulledEditor('subscriptions');save();toast('文件已拉取到内部文件夹。');},client);return false;
     }finally{if($('#subscription-pull-cancel'))$('#subscription-pull-cancel').hidden=true;}
   },{label:t('拉取文件')});
   $('#subscription-pull-cancel').onclick=()=>abort?.abort();
@@ -1186,7 +1234,7 @@ async function openProjectDocument(path,read,args={}){
 async function boot(){try{
   workspace=await loadWorkspace();
   applyWorkspaceFont();
-  gh=workspace.settings?.gitProvider==='gitee'?new Gitee(transport):new GitHub(transport);
+  try{gh=createGitClient(transport,workspace.settings?.gitProvider,workspace.settings?.giteaServer);}catch{gh=new GitHub(transport);}
   documents=createDocumentSession(()=>workspace);
   editing=new EditingTools({workspace:()=>workspace,current,view:()=>view,documents,index:()=>view&&ensureIndex(),matcher:()=>chapterMatcher(projectWriter(workspace,current())),invalidate:id=>editorStates.delete(id),scope:currentScope,modal:openModal,close:closeModal,escape:esc,open:switchDocument,jump,save,toast,fail,split:()=>{workspace.settings.splitPreview=!workspace.settings.splitPreview;if(!isPreview)togglePreview();else updateEditorVisibility();save();}});
   await prepareWorkspace(workspace,{
@@ -1220,7 +1268,7 @@ async function boot(){try{
   const pluginBoot=plugins.boot().catch(error=>toast('插件读取失败：'+error.message));
   window.velaReady=true;performance.mark('vela:interactive');
   await pluginBoot;
-  if(native){try{const user=await gh.user();account=user;$('#sidebar-logout').disabled=false;$('#account-label').textContent=gitName()+' · '+user.login;repositories=await gh.repositories();}catch{if(workspace.githubCache?.login&&(workspace.githubCache.provider||'github')===gh.provider){account={login:workspace.githubCache.login};repositories=workspace.githubCache.repositories||[];githubOffline=true;$('#sidebar-logout').disabled=false;$('#account-label').textContent=account.login+' · '+t('离线');}}}
+  if(native){try{const user=await gh.user();account=user;$('#sidebar-logout').disabled=false;$('#account-label').textContent=gitName()+' · '+user.login;repositories=await gh.repositories();}catch{if(workspace.githubCache?.login&&sameGitHost(workspace.githubCache,gh)){account={login:workspace.githubCache.login};repositories=workspace.githubCache.repositories||[];githubOffline=true;$('#sidebar-logout').disabled=false;$('#account-label').textContent=account.login+' · '+t('离线');}}}
 }catch(e){session.bootFailed=true;window.velaStartup?.dismiss();$('#editor').innerHTML=`<div class="blank"><h2>无法读取本地文稿</h2><p>${esc(e.message)}</p><p>原始数据已保留，请勿清除应用数据。可先导出原始文件进行恢复。</p><button id="recover-data" class="primary">导出原始数据</button></div>`;$('#recover-data').onclick=()=>exportText('文舟-恢复数据.json',readWorkspace()||'').catch(fail);document.querySelectorAll('button').forEach(b=>{if(b.id!=='recover-data')b.disabled=true;});}}
 window.wenzhouBack=()=>{
  if(closeAppChoices())return true;

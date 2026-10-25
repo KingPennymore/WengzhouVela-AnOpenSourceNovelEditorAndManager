@@ -1,3 +1,4 @@
+import { normalizeGiteaServer, giteaCredentialKey } from './GiteaServer';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { common, abilityAccessCtrl } from '@kit.AbilityKit';
 import { rcp } from '@kit.RemoteCommunicationKit';
@@ -11,7 +12,7 @@ import { Runtime } from './Runtime';
 import { listSystemFonts } from './SystemFonts';
 import { HtmlPreviewSession, ReaderLayout } from './HtmlPreviewSession';
 import { PreviewResource } from './PreviewResource';
-import { WorkspaceFiles, BinaryWorkspaceFile } from './WorkspaceFiles';
+import { WorkspaceFiles, BinaryWorkspaceFile, SyncDeletion } from './WorkspaceFiles';
 import { hydrateWorkspace } from './WorkspaceStore';
 import { lockWorkspace, unlockWorkspace, saveWorkspaceBackground } from './WorkspaceSave';
 import { decodeFileText, decodedFileName, encodeFileText } from './FileText';
@@ -27,6 +28,7 @@ interface BridgeRequest {
   body?: Object;
   token?: string;
   provider?: string;
+  server?: string;
   purpose?: string;
   name?: string;
   text?: string;
@@ -40,7 +42,11 @@ interface BridgeRequest {
   language?: string;
   background?: string;
   foreground?: string;
+  theme?: string;
+  light?: string;
+  night?: string;
   files?: BinaryWorkspaceFile[];
+  deletions?: SyncDeletion[];
   folders?: string[];
   action?: string;
   destination?: string;
@@ -320,22 +326,24 @@ export class NativeBridge {
         await Runtime.mainWindow.getUIContext().getRouter().pushUrl({ url: 'pages/HtmlPreview' });
         return this.success(true);
       }
-      if (operation === 'writeWorkspaceFiles') return this.success(this.workspaceFiles.writeFiles(data.files || [], data.folders || []));
+      if (operation === 'writeWorkspaceFiles') return this.success(this.workspaceFiles.writeFiles(data.files || [], data.folders || [], data.deletions || []));
       const provider: string = data.provider || 'github';
-      if (provider !== 'github' && provider !== 'gitee') throw new Error('不支持此代码托管平台。');
-      const origin: string = provider === 'gitee' ? 'https://gitee.com/api/v5' : 'https://api.github.com';
+      if (provider !== 'github' && provider !== 'gitee' && provider !== 'gitea') throw new Error('不支持此代码托管平台。');
+      const server: string = provider === 'gitea' ? normalizeGiteaServer(data.server || '') : '';
+      const credentialKey: string = provider === 'gitea' ? giteaCredentialKey(server) : provider;
+      const origin: string = provider === 'gitea' ? server + '/api/v1' : provider === 'gitee' ? 'https://gitee.com/api/v5' : 'https://api.github.com';
       if (operation === 'connection') {
-        return this.success(await this.request(origin + (provider === 'gitee' ? '/emojis' : ''), 'GET', undefined));
+        return this.success(await this.request(origin + (provider === 'gitea' ? '/version' : provider === 'gitee' ? '/emojis' : ''), 'GET', undefined));
       }
       if (operation === 'api' || operation === 'publicApi') {
         const path = data.path || '';
-        // Fixed origin, no arbitrary proxy URLs or credential access from the page.
+        // Canonical HTTPS instance and restricted API paths; never follow redirects with credentials.
         if (!/^\/(user(?:\?|$)|user\/repos(?:\?|$)|repos\/[\w.-]+\/[\w.-]+(?:\/|\?|$))/.test(path)
-          || /[\r\n\\#]/.test(path) || path.includes('..')) {
+          || /[\r\n\\#]/.test(path) || path.includes('..') || /%(2e|5c)/i.test(path.split('?')[0])) {
           throw new Error('不允许的 GitHub 请求路径。');
         }
         if (operation === 'publicApi' && ((data.method || 'GET') !== 'GET' || !path.startsWith('/repos/'))) throw new Error('Public repository reads only.');
-        const token = await this.loadToken(provider);
+        const token = await this.loadToken(credentialKey);
         if (!token && operation !== 'publicApi') {
           const empty: EmptyBody = { message: 'Not signed in' };
           const unauthorized: ApiResult = { status: 401, body: empty };
@@ -351,7 +359,7 @@ export class NativeBridge {
         const user = await this.request(origin + '/user', 'GET', undefined, token);
         if (user.status !== 200) throw loginStatusError(user.status);
         if (generation !== this.authGeneration) throw new Error('登录已取消。');
-        await this.storeToken(token, provider, generation);
+        await this.storeToken(token, credentialKey, generation);
         if (generation !== this.authGeneration) throw new Error('登录已取消。');
         return this.success(user.body);
       }
@@ -361,19 +369,19 @@ export class NativeBridge {
         // could restore a credential after logout has already reported success.
         await this.credentialWrite(async () => {
           const query: asset.AssetMap = new Map();
-          query.set(asset.Tag.ALIAS, this.credentialAlias(provider));
+          query.set(asset.Tag.ALIAS, this.credentialAlias(credentialKey));
           try {
             await asset.remove(query);
           } catch (error) {
             const failure = operationError(error as Object, 'credentials');
             if (failure.code !== 24000002) throw failure;
           }
-          this.tokens.set(provider, '');
+          this.tokens.set(credentialKey, '');
         });
         return this.success(true);
       }
       if (operation === 'oauth') {
-        if (provider !== 'github') throw new Error('Gitee 请使用个人访问令牌登录。');
+        if (provider !== 'github') throw new Error('此平台请使用个人访问令牌登录。');
         const path = data.path || '';
         if (path !== '/login/device/code' && path !== '/login/oauth/access_token') {
           throw new Error('不允许的授权地址。');
@@ -458,6 +466,7 @@ export class NativeBridge {
       }
       if (operation === 'appearance') {
         await Runtime.applyAppearance(data.dark === true, data.background, data.foreground);
+        Runtime.remember(data.theme, data.light, data.night);
         return this.success(true);
       }
       if (operation === 'fullscreen') {

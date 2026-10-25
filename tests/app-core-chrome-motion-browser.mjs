@@ -56,6 +56,31 @@ try {
       });
       if (width < 900) assert.ok(animated > 0, 'navigation expansion must animate');
       else assert.equal(animated, 0, 'wide navigation stays unchanged');
+      if (width < 900) {
+        const direction = await page.evaluate(() => {
+          const frames = (element) =>
+            element
+              .getAnimations()
+              .find((item) => !('transitionProperty' in item) && !('animationName' in item))
+              ?.effect.getKeyframes();
+          return {
+            arriving: frames(document.querySelector('[data-view=github]'))?.[0].transform,
+            departing: frames(
+              document.querySelector('.chrome-motion-ghost[data-source=search-editor]'),
+            )?.at(-1).transform,
+          };
+        });
+        assert.equal(
+          direction.arriving,
+          'translateX(-40px)',
+          'left buttons slide right when expanding',
+        );
+        assert.equal(
+          direction.departing,
+          'translateX(40px)',
+          'right buttons slide right when hiding',
+        );
+      }
       await finish(page);
       if (width < 900) {
         assert.equal(await page.locator('body').getAttribute('data-editor-chrome'), 'expanded');
@@ -66,9 +91,80 @@ try {
           );
         });
         assert.equal(exit, true);
+        const direction = await page.evaluate(() => {
+          const frames = (element) =>
+            element
+              .getAnimations()
+              .find((item) => !('transitionProperty' in item) && !('animationName' in item))
+              ?.effect.getKeyframes();
+          return {
+            arriving: frames(document.querySelector('#search-editor'))?.[0].transform,
+            departing: frames(
+              document.querySelector('.chrome-motion-ghost[data-source=nav-github]'),
+            )?.at(-1).transform,
+            clipped: [...document.querySelectorAll('.chrome-motion-ghost')].every(
+              (ghost) =>
+                ghost.parentElement.classList.contains('chrome-motion-clip') &&
+                ghost.parentElement.inert,
+            ),
+          };
+        });
+        assert.equal(direction.arriving, 'translateX(40px)', 'right actions slide left into place');
+        assert.equal(
+          direction.departing,
+          'translateX(-40px)',
+          'left buttons slide left when collapsing',
+        );
+        assert.equal(direction.clipped, true, 'departing icons stay clipped to their own group');
         await finish(page);
         assert.equal(await page.locator('body').getAttribute('data-editor-chrome'), 'compact');
         assert.equal(await page.locator('.chrome-motion-ghost').count(), 0);
+        assert.equal(await page.locator('.chrome-motion-clip').count(), 0);
+        if (width === 320 && theme === 'light') {
+          const continuity = await page.evaluate(() => {
+            const effects = () =>
+              [
+                ...document.querySelector('.topbar').getAnimations({ subtree: true }),
+                ...[...document.querySelectorAll('.chrome-motion-ghost')].flatMap((item) =>
+                  item.getAnimations(),
+                ),
+              ].filter(
+                (effect) => !('transitionProperty' in effect) && !('animationName' in effect),
+              );
+            document.querySelector('[data-view=write]').click();
+            for (const effect of effects()) {
+              effect.pause();
+              effect.currentTime = 60;
+            }
+            const ghost = document.querySelector('.chrome-motion-ghost[data-source=search-editor]');
+            const before = {
+              x: ghost.getBoundingClientRect().x,
+              opacity: Number(getComputedStyle(ghost).opacity),
+            };
+            document.querySelector('[data-view=write]').click();
+            for (const effect of effects()) {
+              effect.pause();
+              effect.currentTime = 0;
+            }
+            const button = document.querySelector('#search-editor');
+            const after = {
+              x: button.getBoundingClientRect().x,
+              opacity: Number(getComputedStyle(button).opacity),
+            };
+            for (const effect of effects()) effect.play();
+            return { before, after };
+          });
+          assert.ok(continuity.before.opacity > 0 && continuity.before.opacity < 1);
+          assert.ok(
+            Math.abs(continuity.before.x - continuity.after.x) < 1,
+            'reversing preserves icon position',
+          );
+          assert.ok(
+            Math.abs(continuity.before.opacity - continuity.after.opacity) < 0.01,
+            'reversing preserves icon opacity',
+          );
+          await finish(page);
+        }
         await page.evaluate(() => {
           for (let i = 0; i < 4; i++) document.querySelector('[data-view=write]').click();
         });
@@ -84,9 +180,7 @@ try {
       assert.ok(
         await page.evaluate(() => {
           const menu = document.querySelector('#toolbar-overflow');
-          const item = menu
-            .querySelector('[data-menu-group=layout] button')
-            .getBoundingClientRect();
+          const item = menu.getBoundingClientRect();
           const search = document.querySelector('.vela-search-panel').getBoundingClientRect();
           const left = Math.max(item.left, search.left),
             right = Math.min(item.right, search.right);

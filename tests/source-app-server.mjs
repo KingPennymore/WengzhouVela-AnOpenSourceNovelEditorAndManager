@@ -16,7 +16,8 @@ export async function startSourceAppServer({port=0}={}){
   // throwaway release signing keys for tests; release builds define none.
   const outdir=path.resolve('.source-app-server'),app=await build({entryPoints:['web/app.js'],bundle:true,write:false,format:'esm',splitting:true,outdir,entryNames:'[name]',chunkNames:'chunks/[name]-[hash]',target:'chrome105',define:{__VELA_HARMONY_VERSION__:JSON.stringify(pkg.harmonyVersion||pkg.version),__VELA_TEST_RELEASE_KEYS__:process.env.VELA_TEST_RELEASE_KEYS||'[]'}});
   const assets=new Map([...app.outputFiles.map(file=>['/'+path.relative(outdir,file.path).split(path.sep).join('/'),file.contents]),...await Promise.all(workers.map(name=>bundle(name)))]);
-  const mapped=[['/katex.min.css','node_modules/katex/dist/katex.min.css'],['/fonts/','node_modules/katex/dist/fonts/'],['/pdf/cmaps/','node_modules/pdfjs-dist/cmaps/'],['/pdf/fonts/','node_modules/pdfjs-dist/standard_fonts/']];
+  // web/git-host.mjs re-exports the Windows bridge's dependency-free validator, which lives outside web/.
+  const mapped=[['/windows/git-host.mjs','windows/git-host.mjs'],['/katex.min.css','node_modules/katex/dist/katex.min.css'],['/fonts/','node_modules/katex/dist/fonts/'],['/pdf/cmaps/','node_modules/pdfjs-dist/cmaps/'],['/pdf/fonts/','node_modules/pdfjs-dist/standard_fonts/']];
   const roots=[path.resolve('web'),path.resolve('entry/src/main/resources/rawfile/web'),path.resolve('dist/web')];
   const inside=(root,file)=>file.startsWith(root+path.sep);
   const server=http.createServer(async(req,res)=>{

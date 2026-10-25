@@ -29,7 +29,7 @@ public final class PortInstrumentation extends Instrumentation {
                 @Override public File getFilesDir() { return directory; }
                 @Override public File getNoBackupFilesDir() { return new File(directory, "no-backup"); }
             };
-            credentials(); workspace(); workspaceDelta(); rollback(); crashRecovery(); htmlResources(); textZoom(); projects(); archiveImports();
+            credentials(); giteaCredentials(); workspace(); workspaceDelta(); syncDeletion(); rollback(); crashRecovery(); htmlResources(); textZoom(); projects(); archiveImports();
             result.putString("results", new JSONObject().put("passed", passed.length()).put("checks", passed).toString());
             finish(Activity.RESULT_OK, result);
         } catch (Throwable error) { result.putString("failure", error.getClass().getSimpleName() + ": " + error.getMessage()); finish(Activity.RESULT_CANCELED, result); }
@@ -60,6 +60,39 @@ public final class PortInstrumentation extends Instrumentation {
         catch (java.io.IOException expected) { require(expected.getMessage().contains("外部修改"), "External edits must be reported: " + expected.getMessage()); }
         require(text(new File(root, "书/甲.txt")).equals("外部"), "A refused delta must keep the external edit");
         passed.put("Incremental workspace saves: changed texts, rename, delete, history, stale base and external edits");
+    }
+    private void syncDeletion() throws Exception {
+        File own = new File(directory, "sync-" + UUID.randomUUID()); Files.createDirectories(own.toPath());
+        Context context = new ContextWrapper(getTargetContext()) { @Override public File getFilesDir() { return own; } };
+        WorkspaceFiles files = new WorkspaceFiles(context); files.scan();
+        String original = android.util.Base64.encodeToString("旧稿".getBytes(StandardCharsets.UTF_8), android.util.Base64.NO_WRAP);
+        files.writeFiles(new JSONArray().put(new JSONObject().put("path", "old.txt").put("data", original)), new JSONArray());
+        String originalId = files.scan().getJSONArray("documents").getJSONObject(0).getString("id");
+        JSONObject deletion = new JSONObject().put("path", "old.txt").put("expectedData", original).put("expectedText", "旧稿");
+        files.writeFiles(new JSONArray().put(new JSONObject().put("path", "new.txt").put("data", "bmV3")), new JSONArray(), new JSONArray().put(deletion));
+        JSONArray trash = files.listTrash(); require(trash.length() == 1, "Sync deletion must create a trash record");
+        files.restoreTrash(trash.getJSONObject(0).getString("id"), false);
+        JSONArray docs = files.scan().getJSONArray("documents"); boolean stable = false;
+        for (int i = 0; i < docs.length(); i++) if (docs.getJSONObject(i).getString("path").equals("old.txt")) stable = docs.getJSONObject(i).getString("id").equals(originalId);
+        require(stable, "Trash restore must retain document ID");
+        deletion.put("expectedText", "预览后修改");
+        try { files.writeFiles(new JSONArray(), new JSONArray(), new JSONArray().put(deletion)); require(false, "Stale preview must be refused"); } catch (java.io.IOException expected) { }
+        require(files.listTrash().length() == 0, "Rejected deletion must not change trash");
+        passed.put("Sync deletion: atomic trash move, stable-ID restore and stale-preview protection");
+    }
+    private void giteaCredentials() throws Exception {
+        String canonical = GiteaServer.normalize(" HTTPS://Git.Example.com:00443/team/ ");
+        require(canonical.equals("https://git.example.com/team"), "Gitea instance normalization");
+        String firstKey = GiteaServer.credentialKey(canonical), secondKey = GiteaServer.credentialKey("https://git.example.com/other");
+        require(!firstKey.equals(secondKey), "Gitea subpaths must have distinct credential keys");
+        CredentialStore first = new CredentialStore(fixture, firstKey), second = new CredentialStore(fixture, secondKey);
+        first.write("first-gitea-fixture"); second.write("second-gitea-fixture");
+        require(first.read().equals("first-gitea-fixture") && second.read().equals("second-gitea-fixture"), "Gitea instance credentials must remain separate");
+        first.clear(); require(second.read().equals("second-gitea-fixture"), "Logout must not clear another Gitea instance"); second.clear();
+        for (String value : new String[]{"http://git.example.com", "https://user@git.example.com", "https://git.example.com/a/../b", "https://git.example.com/%2e%2e", "https://git.example.com:0"}) {
+            try { GiteaServer.normalize(value); require(false, "Ambiguous Gitea addresses must be refused"); } catch (java.io.IOException expected) { }
+        }
+        passed.put("Gitea instance URL validation and isolated encrypted credentials");
     }
     private void credentials() throws Exception {
         CredentialStore store = new CredentialStore(fixture);

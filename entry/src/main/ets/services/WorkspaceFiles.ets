@@ -15,6 +15,7 @@ interface FolderConfig { current: string; default: string; roots: FolderRoot[]; 
 interface PluginIndex { entries: Record<string, string>; textFiles?: Record<string, boolean>; }
 interface SavedWorkspace { pluginProject?: PluginIndex; version: number; storage?: StorageInfo; documents: StoredDocument[]; folders?: string[]; repositories?: RepositoryLink[]; }
 export interface BinaryWorkspaceFile { path: string; data: string; }
+export interface SyncDeletion { path: string; expectedData: string; expectedText?: string; }
 export interface TrashItem { id: string; path: string; directory: boolean; createdAt: number; }
 interface ChangedText { id: string; relative: string; text: string; }
 interface TrashRecord extends TrashItem { workspaceId: string; documents: StoredDocument[]; repositories: RepositoryLink[]; }
@@ -288,7 +289,8 @@ export class WorkspaceFiles {
     catch (_) { return; }
     for (const name of fs.listFileSync(folder)) if (!keep.has(name)) { try { fs.unlinkSync(folder + '/' + name); } catch (_) { /* retried on the next save */ } }
   }
-  writeFiles(files: BinaryWorkspaceFile[], folders: string[]): FolderState {
+  writeFiles(files: BinaryWorkspaceFile[], folders: string[], deletions: SyncDeletion[] = []): FolderState {
+    if (files.length + folders.length + deletions.length > 5000) throw new Error('仓库超过 5000 个文件与目录。');
     const seen: string[] = [];
     let total = 0;
     for (const file of files) {
@@ -298,9 +300,23 @@ export class WorkspaceFiles {
       if (file.data.length > 12 * 1024 * 1024 || total > 96 * 1024 * 1024) throw new Error('仓库文件超过本次拉取大小限制。');
     }
     for (const folder of folders) this.target(folder);
+    const root = this.getRoot();
+    if (!root) throw new Error('工作区未初始化。');
+    const old = this.cache(), before = JSON.stringify(old), records = this.trashRecords(), previousTrash = JSON.stringify(records);
+    if (records.length + deletions.length > 100) throw new Error('回收站已有较多项目，请先清理后再同步删除。');
+    const payloads: string[] = [];
+    for (const item of deletions) {
+      const path = this.target(item.path);
+      if (seen.includes(item.path) || folders.includes(item.path) || typeof item.expectedData !== 'string' || item.expectedData.length > 12 * 1024 * 1024) throw new Error('删除路径重复或缺少本地版本。');
+      seen.push(item.path); total += item.expectedData.length;
+      const bytes = this.readBytes(path, 8 * 1024 * 1024), encoded = bytes.byteLength === 0 ? '' : new util.Base64Helper().encodeToStringSync(bytes);
+      if (total > 96 * 1024 * 1024 || encoded !== item.expectedData || typeof item.expectedText === 'string' && decodeFileText(bytes) !== item.expectedText) throw new Error('本地文件已变化，未执行同步删除：' + item.path);
+      const id = util.generateRandomUUID(); payloads.push(this.trashPayload(id));
+      records.push({ id: id, workspaceId: root.id, path: item.path, directory: false, createdAt: Date.now(), documents: old.documents.filter(doc => (doc.path || doc.name) === item.path), repositories: [] });
+    }
     const staging = this.filesDirectory() + '/pull-' + util.generateRandomUUID();
     fs.mkdirSync(staging);
-    const existed: boolean[] = [], written: number[] = [];
+    const existed: boolean[] = [], written: number[] = [], removed: number[] = [];
     try {
       for (let i = 0; i < files.length; i++) {
         const path = this.target(files[i].path);
@@ -308,6 +324,21 @@ export class WorkspaceFiles {
         if (existed[i]) this.writeBytes(staging + '/old-' + i, this.readBytes(path, 8 * 1024 * 1024));
         this.writeBytes(staging + '/new-' + i, files[i].data === '' ? new Uint8Array(0) : new util.Base64Helper().decodeSync(files[i].data));
       }
+      // Publish recovery locations before moving files so an interrupted pull keeps discoverable trash records.
+      if (deletions.length) this.text(this.trashPath(), JSON.stringify(records));
+      for (let i = 0; i < deletions.length; i++) {
+        const item = deletions[i];
+        if (this.readFileBase64(item.path) !== item.expectedData) throw new Error('本地文件已变化，未执行同步删除：' + item.path);
+        fs.renameSync(this.target(item.path), payloads[i]); removed.push(i);
+        old.documents = old.documents.filter(doc => (doc.path || doc.name) !== item.path);
+        if (old.pluginProject) {
+          const entries: Record<string, string> = {}, texts: Record<string, boolean> = {};
+          for (const key of Object.keys(old.pluginProject.entries)) if (key !== item.path) entries[key] = old.pluginProject.entries[key];
+          if (old.pluginProject.textFiles) for (const key of Object.keys(old.pluginProject.textFiles)) if (key !== item.path) texts[key] = old.pluginProject.textFiles[key];
+          old.pluginProject.entries = entries; old.pluginProject.textFiles = texts;
+        }
+      }
+      if (deletions.length) this.text(this.cachePath(root.id), JSON.stringify(old));
       for (const folder of folders) { const path = this.target(folder); if (!fs.accessSync(path)) fs.mkdirSync(path, true); }
       for (let i = 0; i < files.length; i++) {
         const path = this.target(files[i].path); this.parent(path);
@@ -320,6 +351,8 @@ export class WorkspaceFiles {
         if (existed[i]) this.atomic(path, this.readBytes(staging + '/old-' + i, 8 * 1024 * 1024));
         else if (fs.accessSync(path)) fs.unlinkSync(path);
       }
+      for (const i of removed.reverse()) fs.renameSync(payloads[i], this.target(deletions[i].path));
+      if (deletions.length) { this.text(this.cachePath(root.id), before); this.text(this.trashPath(), previousTrash); }
       throw error as Error;
     } finally { fs.rmdirSync(staging); }
   }

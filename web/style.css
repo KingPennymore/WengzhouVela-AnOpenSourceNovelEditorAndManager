@@ -14,7 +14,7 @@ html{-webkit-tap-highlight-color:transparent}
 }
 @layer tokens{
 /* Design tokens of all four stylesheets, in their original order. */
-:root{--bg:#eef3ef;--panel:#f4f8f5;--paper:#fcfefc;--text:#28372f;--muted:#66776c;--line:#d9e5dc;--accent:#23744e;--soft:#e3f0e7;--selection:#70b58b66;--shadow:0 16px 50px #10203028;--success:#26794f;--warning:#986315;--error:#b3412c;--danger:#b53f3f}
+:root{--bg:#eef3ef;--panel:#f4f8f5;--paper:#fcfefc;--text:#28372f;--muted:#607167;--line:#d9e5dc;--accent:#23744e;--soft:#e3f0e7;--selection:#70b58b66;--shadow:0 16px 50px #10203028;--success:#26794f;--warning:#986315;--error:#b3412c;--danger:#b53f3f}
 body.dark{--bg:#161e1a;--panel:#1c2821;--paper:#202e25;--text:#d5e5db;--muted:#96ac9e;--line:#35483c;--accent:#8ad0a8;--soft:#2e4838;--shadow:0 16px 50px #0006;--success:#7bb69d;--warning:#dcad5b;--error:#d67865;--danger:#d26e6e}
 :root{--editor-font-size:16px;--safe-top:env(safe-area-inset-top,0px);--safe-bottom:env(safe-area-inset-bottom,0px);--safe-left:env(safe-area-inset-left,0px);--safe-right:env(safe-area-inset-right,0px)}
 :root{--control:36px;--radius:8px;--shell-top:52px;--footer-height:80px;--ui-font:13px;--panel-spacing:16px;--ui-shadow:0 12px 36px #0002}

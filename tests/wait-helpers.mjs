@@ -28,5 +28,5 @@ export async function readerIdle(page,{timeout=10000}={}){
   await page.waitForFunction(()=>!document.querySelector('[data-position-pending]'),null,{timeout});
 }
 
-// The theme cross-fade (web/motion.mjs beginThemeShift) is over.
-export const themeShiftDone=page=>page.waitForFunction(()=>!document.documentElement.classList.contains('theme-shift'));
+// The theme cross-fade (web/motion.mjs crossfadeTheme) is over.
+export const themeShiftDone=page=>page.waitForFunction(()=>!document.documentElement.classList.contains('theme-switching'));

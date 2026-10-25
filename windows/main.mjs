@@ -1,7 +1,8 @@
 import {app,BrowserWindow,ipcMain,protocol,session,nativeTheme,safeStorage,dialog,net,shell,Menu,screen,clipboard} from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
-import {randomUUID} from 'node:crypto';
+import {randomUUID,createHash} from 'node:crypto';
+import {gitApiBase} from './git-host.mjs';
 import {listSystemFonts} from './system-fonts.mjs';
 import {fileURLToPath} from 'node:url';
 import {WorkspaceStorage,decodeText,atomic,mime} from './storage.mjs';
@@ -18,6 +19,18 @@ const VERSION=(()=>{try{return JSON.parse(fs.readFileSync(path.join(directory,'p
 // QA accepts an isolated explicitly supplied data directory; normal runs use Electron userData.
 if(qa){if(!process.env.VELA_QA_DATA||!path.isAbsolute(process.env.VELA_QA_DATA))throw new Error('QA requires an absolute isolated data directory.');app.setPath('userData',process.env.VELA_QA_DATA);}
 protocol.registerSchemesAsPrivileged([{scheme:'vela',privileges:{standard:true,secure:true,supportFetchAPI:true,stream:true,corsEnabled:true}}]);
+// The next window opens in the startup screen's colour (the page background under its 10% black / 7% white veil, see
+// web/startup.css), so a dark workspace never shows a light window before the page has painted.
+const hex=/^#[\da-f]{6}$/i,veiled=(color,dark)=>'#'+[1,3,5].map(i=>{const c=parseInt(color.slice(i,i+2),16);return Math.round(dark?c+(255-c)*.07:c*.9).toString(16).padStart(2,'0');}).join('');
+function launchBackground(){
+  let saved={};try{saved=JSON.parse(fs.readFileSync(path.join(files.base,'appearance.json'),'utf8'))||{};}catch{}
+  const dark=saved.theme==='dark'||saved.theme!=='light'&&nativeTheme.shouldUseDarkColors,color=dark?saved.night:saved.light;
+  return veiled(hex.test(color||'')?color:dark?'#161e1a':'#eef3ef',dark);
+}
+function rememberAppearance(data){
+  if(!['light','dark','system'].includes(data.theme)||!hex.test(data.light||'')||!hex.test(data.night||''))return;
+  try{atomic(path.join(files.base,'appearance.json'),Buffer.from(JSON.stringify({theme:data.theme,light:data.light,night:data.night})));}catch{/* Launch colours are cosmetic. */}
+}
 let main,files,backgroundSave,github,projectFiles,downloads,closePluginPreviews,closing=false,readerSession;const readerOptions=new Map();const previews=new Set();
 const assets=app.isPackaged?path.join(process.resourcesPath,'web'):path.resolve(directory,'../dist/web');
 const icon=app.isPackaged?path.join(process.resourcesPath,'icon.png'):path.resolve(directory,'../AppScope/resources/base/media/app_icon_1024.png');
@@ -29,15 +42,15 @@ function secureWindow(window){
   window.webContents.setWindowOpenHandler(()=>({action:'deny'}));window.webContents.on('will-attach-webview',event=>event.preventDefault());window.webContents.on('will-navigate',(event,url)=>{if(url!==PAGE)event.preventDefault();});
   window.webContents.session.setPermissionRequestHandler((_web,_permission,callback)=>callback(false));window.webContents.session.setPermissionCheckHandler(()=>false);
 }
-async function request(url,method,body,token){
-  const parsed=new URL(url);if(!['api.github.com','github.com','gitee.com'].includes(parsed.hostname)||parsed.protocol!=='https:'||parsed.port||parsed.username||parsed.password)throw new Error('不允许的请求地址。');
+async function request(url,method,body,token,host={}){
+  const parsed=new URL(url);if((host.provider==='gitea'?!url.startsWith(gitApiBase(host)+'/'):!['api.github.com','github.com','gitee.com'].includes(parsed.hostname)||!!parsed.port)||parsed.protocol!=='https:'||parsed.username||parsed.password)throw new Error('不允许的请求地址。');
   const headers={Accept:'application/json','Content-Type':'application/json','User-Agent':'Vela-Windows/'+VERSION};if(token){headers.Authorization='Bearer '+token;}if(token&&parsed.hostname==='api.github.com'){headers.Accept='application/vnd.github+json';headers['X-GitHub-Api-Version']='2022-11-28';}
   const response=await net.fetch(url,{method,headers,body:body?JSON.stringify(body):undefined,redirect:'error',signal:AbortSignal.timeout(30000),bypassCustomProtocolHandlers:true});
   const chunks=[];let bytes=0;for await(const chunk of response.body||[]){bytes+=chunk.byteLength;if(bytes>16*1024*1024)throw new Error('GitHub 响应过大。');chunks.push(Buffer.from(chunk));}
   const text=Buffer.concat(chunks).toString('utf8');let value=null;try{if(text)value=JSON.parse(text);}catch{if(response.ok)throw new Error('GitHub 响应格式异常。');value={};}return {status:response.status,body:value};
 }
 function credentials(){
-  const fileFor=provider=>path.join(files.base,provider==='gitee'?'gitee-token.dat':'github-token.dat');return {
+  const fileFor=provider=>path.join(files.base,provider.startsWith('gitea:')?'gitea-'+createHash('sha256').update(provider).digest('hex')+'-token.dat':provider==='gitee'?'gitee-token.dat':'github-token.dat');return {
     read:(provider='github')=>{const file=fileFor(provider);if(!fs.existsSync(file))return '';if(!safeStorage.isEncryptionAvailable())throw new Error('Windows 安全凭据存储不可用。');return safeStorage.decryptString(fs.readFileSync(file));},
     write:(token,provider='github')=>{const file=fileFor(provider);if(!safeStorage.isEncryptionAvailable())throw new Error('Windows 安全凭据存储不可用。');atomic(file,safeStorage.encryptString(token));},
     clear:(provider='github')=>{const file=fileFor(provider);if(fs.existsSync(file))fs.unlinkSync(file);}
@@ -86,11 +99,11 @@ async function dispatch(operation,data){
     case 'manageFiles':return files.manage(data.action,data.path,data.destination);
     case 'listTrash':return files.listTrash();
     case 'restoreTrash':return files.restoreTrash(data.id,data.permanent===true);
-    case 'writeWorkspaceFiles':return files.writeFiles(data.files||[],data.folders||[]);
+    case 'writeWorkspaceFiles':return files.writeFiles(data.files||[],data.folders||[],data.deletions||[]);
     case 'readWorkspaceFile':return files.read(files.target(data.path)).toString('base64');
     case 'readWorkspaceAsset':return files.asset(data.path);
     case 'previewHtml':return previewHtml(data);
-    case 'appearance':if(/^#[\da-f]{6}$/i.test(data.background))main.setBackgroundColor(data.background);return true;
+    case 'appearance':if(/^#[\da-f]{6}$/i.test(data.background))main.setBackgroundColor(data.background);rememberAppearance(data);return true;
     case 'fullscreen':main.setFullScreen(data.enabled===true);return true;
     case 'openAuth':await shell.openExternal('https://github.com/login/device');return true;
     case 'openRelease':if(typeof data.url!=='string'||!/^https:\/\/(github\.com\/KingPennymore\/WengzhouVela-AnOpenSourceNovelEditorAndManager|gitee\.com\/kingpennymore\/wenzhou-vela-mirror-repository)\/releases\/tag\/[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/.test(data.url))throw Error('发布地址无效。');await shell.openExternal(data.url);return true;
@@ -114,7 +127,7 @@ if(!qa&&!app.requestSingleInstanceLock())app.quit();else{
   editorSession.protocol.handle('vela',request=>{const url=new URL(request.url);return url.hostname==='asset'?projectFiles.resource(request):url.hostname==='editor'&&url.pathname.startsWith('/imports/')&&request.method==='GET'?downloads.response(url):assetResponse(url);});editorSession.protocol.handle('https',request=>previewResponse(new URL(request.url),{},true));
   Menu.setApplicationMenu(null);
   const stateFile=path.join(files.base,'window.json');let previous={};try{previous=JSON.parse(fs.readFileSync(stateFile,'utf8'))||{};}catch{}const displays=[screen.getPrimaryDisplay(),...screen.getAllDisplays()],bounds=windowBounds(previous,displays),area=screen.getDisplayMatching(bounds).workArea;
-  main=new BrowserWindow({title:'Vela 文舟',...bounds,minWidth:Math.min(720,area.width),minHeight:Math.min(480,area.height),show:!qa,icon,backgroundColor:'#eef3ef',webPreferences:{partition:'persist:vela-editor',preload:path.join(directory,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});secureWindow(main);main.setMenu(null);if(previous.maximized)main.maximize();const remember=()=>{try{if(!main.isDestroyed()&&!main.isFullScreen())atomic(stateFile,Buffer.from(JSON.stringify({...main.getNormalBounds(),maximized:main.isMaximized()})));}catch{/* Window geometry must not prevent document saving. */}};let boundsTimer;for(const event of ['resize','move','maximize','unmaximize'])main.on(event,()=>{clearTimeout(boundsTimer);boundsTimer=setTimeout(remember,250);});
+  main=new BrowserWindow({title:'Vela 文舟',...bounds,minWidth:Math.min(720,area.width),minHeight:Math.min(480,area.height),show:!qa,icon,backgroundColor:launchBackground(),webPreferences:{partition:'persist:vela-editor',preload:path.join(directory,'preload.cjs'),nodeIntegration:false,contextIsolation:true,sandbox:true,webSecurity:true}});secureWindow(main);main.setMenu(null);if(previous.maximized)main.maximize();const remember=()=>{try{if(!main.isDestroyed()&&!main.isFullScreen())atomic(stateFile,Buffer.from(JSON.stringify({...main.getNormalBounds(),maximized:main.isMaximized()})));}catch{/* Window geometry must not prevent document saving. */}};let boundsTimer;for(const event of ['resize','move','maximize','unmaximize'])main.on(event,()=>{clearTimeout(boundsTimer);boundsTimer=setTimeout(remember,250);});
   main.webContents.on('before-input-event',(event,input)=>{if(input.key==='F11'){event.preventDefault();if(input.type==='keyDown'&&!input.isAutoRepeat)main.setFullScreen(!main.isFullScreen());}});
   screen.on('display-metrics-changed',()=>{if(!main.isDestroyed()&&!main.isMaximized()&&!main.isFullScreen())main.setBounds(windowBounds(main.getBounds(),[screen.getPrimaryDisplay(),...screen.getAllDisplays()]));});
   closePluginPreviews=attachProjectUI(projectFiles,main,{qa,icon});

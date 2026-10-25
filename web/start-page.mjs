@@ -4,7 +4,7 @@ const actions=[
   ['new-doc','newFile','新建文件','开始新的文稿或工作区文件'],
   ['import-doc','import','导入文件','从设备添加文稿与阅读文件'],
   ['recent','recent','最近文件','继续查看或编辑已有文件'],
-  ['quick-git','github','Git 仓库','连接 GitHub / Gitee，管理与同步文件'],
+  ['quick-git','github','Git 仓库','连接 GitHub / Gitee / Gitea，管理与同步文件'],
   ['guide','guide','操作指南','了解文舟的功能与使用方法'],
   ['commands','commands','命令与快捷键','查找操作与键盘快捷键'],
   ['plugins','plugins','插件与组件','安装、启停和管理扩展功能'],

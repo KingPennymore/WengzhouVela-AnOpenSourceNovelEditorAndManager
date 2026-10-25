@@ -332,8 +332,9 @@ final class WorkspaceFiles {
         JSONObject texts = store.optJSONObject("texts"); String name = texts == null ? null : texts.optString(docId, null);
         return name != null && storeFile(name).exists() ? storeText(name) : null;
     }
-    synchronized JSONObject writeFiles(JSONArray files, JSONArray folders) throws Exception {
-        if (files.length() + folders.length() > 5000) throw new IOException("仓库超过 5000 个文件与目录。");
+    synchronized JSONObject writeFiles(JSONArray files, JSONArray folders) throws Exception { return writeFiles(files, folders, new JSONArray()); }
+    synchronized JSONObject writeFiles(JSONArray files, JSONArray folders, JSONArray deletions) throws Exception {
+        if (files.length() + folders.length() + deletions.length() > 5000) throw new IOException("仓库超过 5000 个文件与目录。");
         Set<String> seen = new HashSet<>(); long total = 0;
         List<byte[]> bytes = new ArrayList<>();
         for (int i = 0; i < files.length(); i++) {
@@ -346,7 +347,27 @@ final class WorkspaceFiles {
             bytes.add(content);
         }
         for (int i = 0; i < folders.length(); i++) { String path = folders.getString(i); target(path); if (seen.contains(path)) throw new IOException("文件和目录路径冲突。"); }
+        JSONObject old = metadata(); JSONArray records = trashRecords();
+        if (records.length() + deletions.length() > 100) throw new IOException("回收站已有较多项目，请先清理后再同步删除。");
+        for (int i = 0; i < deletions.length(); i++) {
+            JSONObject item = deletions.getJSONObject(i); String path = item.getString("path");
+            if (!seen.add(path) || !item.has("expectedData") || item.getString("expectedData").length() > 12 * 1024 * 1024) throw new IOException("删除路径重复或缺少本地版本。");
+            for (int j = 0; j < folders.length(); j++) if (path.equals(folders.getString(j))) throw new IOException("文件与文件夹同名。");
+            byte[] current = read(target(path), FileText.MAX_BYTES); total += current.length * 4L / 3;
+            if (total > 96 * 1024 * 1024 || !Base64.encodeToString(current, Base64.NO_WRAP).equals(item.getString("expectedData")) || item.has("expectedText") && !FileText.decode(current).equals(item.getString("expectedText"))) throw new IOException("本地文件已变化，未执行同步删除：" + path);
+        }
         try (Transaction tx = new Transaction()) {
+            for (int i = 0; i < deletions.length(); i++) {
+                String path = deletions.getJSONObject(i).getString("path"), trashId = UUID.randomUUID().toString();
+                if (!readFileBase64(path).equals(deletions.getJSONObject(i).getString("expectedData"))) throw new IOException("本地文件已变化，未执行同步删除：" + path);
+                JSONArray docs = array(old, "documents"), removed = new JSONArray(), kept = new JSONArray();
+                for (int j = 0; j < docs.length(); j++) { JSONObject doc = docs.getJSONObject(j); (documentPath(doc).equals(path) ? removed : kept).put(doc); }
+                records.put(new JSONObject().put("id", trashId).put("workspaceId", id).put("path", path).put("directory", false).put("createdAt", System.currentTimeMillis()).put("documents", removed).put("repositories", new JSONArray()));
+                old.put("documents", kept); JSONObject index = old.optJSONObject("pluginProject");
+                if (index != null) for (String field : new String[]{"entries", "textFiles"}) if (index.optJSONObject(field) != null) index.getJSONObject(field).remove(path);
+                tx.move(target(path), trashPayload(trashId));
+            }
+            if (deletions.length() > 0) { tx.write(trash, utf8(records.toString())); tx.write(cache, utf8(old.toString())); }
             for (int i = 0; i < folders.length(); i++) tx.mkdir(target(folders.getString(i)));
             for (int i = 0; i < files.length(); i++) {
                 File file = target(files.getJSONObject(i).getString("path"));

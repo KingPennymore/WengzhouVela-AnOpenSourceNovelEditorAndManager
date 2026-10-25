@@ -8,11 +8,18 @@ android {
         applicationId 'me.wenzhou.write'
         minSdk 26
         targetSdk 36
-        versionCode 1090906
-        versionName '0.9.9.6-android.1'
+        versionCode 1090907
+        versionName '0.9.9.7-android.1'
         testInstrumentationRunner 'me.wenzhou.write.PortInstrumentation'
     }
     buildTypes {
+        trial {
+            initWith debug
+            applicationIdSuffix '.trial'
+            versionNameSuffix '-trial'
+            signingConfig signingConfigs.debug
+            matchingFallbacks = ['debug']
+        }
         release {
             minifyEnabled false
         }
@@ -38,7 +45,7 @@ def prepareEditor = tasks.register('prepareEditor', Exec) {
     inputs.dir '../../vendor/wasmtex'
     inputs.dir '../../vendor/jieba'
     inputs.dir '../../components'
-    inputs.files '../../package.json', '../../package-lock.json', '../../scripts/build-android.mjs', '../../scripts/build.mjs', '../../scripts/tex-assets.mjs', '../../scripts/frontend-state.mjs', '../../scripts/build-guide.mjs', '../../scripts/package-ebook-component.mjs', '../../docs/USER-GUIDE.md', '../../vendor/acode/LICENSE', '../../vendor/acode-writer/LICENSE'
+    inputs.files '../../windows/git-host.mjs', '../../package.json', '../../package-lock.json', '../../scripts/build-android.mjs', '../../scripts/build.mjs', '../../scripts/tex-assets.mjs', '../../scripts/frontend-state.mjs', '../../scripts/build-guide.mjs', '../../scripts/package-ebook-component.mjs', '../../docs/USER-GUIDE.md', '../../vendor/acode/LICENSE', '../../vendor/acode-writer/LICENSE'
     inputs.file '../APACHE-2.0.txt'
     outputs.dir 'src/main/assets/web'
 }

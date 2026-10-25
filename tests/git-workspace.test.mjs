@@ -3,13 +3,14 @@ import assert from 'node:assert/strict';
 import {GitHub} from '../web/github.mjs';
 import {applyRemoteFile,applyRepository,repositoryFolder} from '../web/git-workspace.mjs';
 
-test('相同仓库和文件路径再次拉取覆盖同一文档，不混淆不同仓库或不同目录',()=>{
+test('不同分支的同名文稿使用独立 ID，相同分支再次拉取才更新原文档',()=>{
   const workspace={documents:[],openIds:[]};
   const first=applyRemoteFile(workspace,{repo:'a/book',branch:'main',path:'one/book.md',text:'旧',sha:'old'});
   const changed=applyRemoteFile(workspace,{repo:'a/book',branch:'draft',path:'one/book.md',text:'新',sha:'new'});
-  assert.equal(changed.id,first.id);assert.equal(workspace.documents.length,1);assert.equal(changed.text,'新');assert.equal(changed.remote.sha,'new');
+  assert.notEqual(changed.id,first.id);assert.equal(first.text,'旧');assert.equal(workspace.documents.length,2);assert.equal(changed.text,'新');assert.equal(changed.remote.sha,'new');
+  const again=applyRemoteFile(workspace,{repo:'a/book',branch:'draft',path:'one/book.md',text:'再改',sha:'next'});assert.equal(again.id,changed.id);assert.equal(first.text,'旧');
   applyRemoteFile(workspace,{repo:'b/book',branch:'main',path:'one/book.md',text:'其他仓库',sha:'x'});
-  applyRemoteFile(workspace,{repo:'a/book',branch:'main',path:'two/book.md',text:'不同目录',sha:'y'});assert.equal(workspace.documents.length,3);
+  applyRemoteFile(workspace,{repo:'a/book',branch:'main',path:'two/book.md',text:'不同目录',sha:'y'});assert.equal(workspace.documents.length,4);
 });
 test('整仓库内容取自同一提交，保留目录和二进制，截断树逐级读取完整目录',async()=>{
   const calls=[],progress=[],data=Buffer.from('中文').toString('base64');
@@ -25,7 +26,7 @@ test('取消、超限及子模块使完整拉取失败，失败前不写工作�
   const controller=new AbortController();controller.abort();let requests=0;const github=new GitHub(async()=>{requests++;});await assert.rejects(github.pullRepository('a/b','main',{signal:controller.signal}),/取消/);assert.equal(requests,0);
 });
 test('整仓库落盘后的文档与 Git 关联合并，不产生同名副本且保留原打开文档 ID',()=>{
-  const workspace={documents:[{id:'original',name:'a.md',path:'a.md',text:'旧',remote:{repo:'a/book',path:'chapters/a.md'}},{id:'scanned',name:'a.md',path:'book/chapters/a.md',text:'新',remote:null}],openIds:['original'],folders:[]};
+  const workspace={documents:[{id:'original',name:'a.md',path:'a.md',text:'旧',remote:{repo:'a/book',branch:'main',path:'chapters/a.md'}},{id:'scanned',name:'a.md',path:'book/chapters/a.md',text:'新',remote:null}],openIds:['original'],folders:[]};
   const result={repo:'a/book',branch:'main',commit:'c',folders:['chapters'],files:[{path:'chapters/a.md',text:'新',sha:'s'}]};applyRepository(workspace,result,'book');
   assert.equal(workspace.documents.length,1);assert.equal(workspace.documents[0].id,'original');assert.equal(workspace.documents[0].path,'book/chapters/a.md');assert.equal(workspace.documents[0].text,'新');assert.equal(repositoryFolder(workspace,'a/book'),'book');
 });

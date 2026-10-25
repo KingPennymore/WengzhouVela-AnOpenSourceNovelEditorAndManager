@@ -48,7 +48,7 @@ try{
     await p.reload();await p.waitForFunction(()=>document.querySelector('#chapter-count').textContent==='3 章');assert.equal(JSON.parse((await saved()).documents.find(doc=>doc.path==='.vela').text).chapters.templates.length,2);assert.equal(await p.locator('#chapter-count').textContent(),'3 章');
   });
   await check('访问令牌按钮优先高亮，齿轮图标居中且在窄屏保持等比',async()=>{
-    await p.locator('#quick-git').click();assert.equal(await p.locator('#token-login').evaluate(el=>el.classList.contains('primary')),true);assert.equal(await p.locator('#device-login').evaluate(el=>el.classList.contains('primary')),false);await p.locator('[data-return-write]').click();
+    await p.locator('#quick-git').click();assert.equal(await p.locator('#token-login').evaluate(el=>el.classList.contains('primary')),true);assert.equal(await p.locator('#device-login').count(),0);await p.locator('[data-return-write]').click();
     for(const width of [1440,390]){await p.setViewportSize({width,height:900});await p.locator('#more-tools').click();const shape=await p.locator('#settings svg').evaluate(svg=>{const box=svg.getBBox(),r=svg.getBoundingClientRect();return {x:box.x,y:box.y,width:box.width,height:box.height,ratio:r.width/r.height,circles:svg.querySelectorAll('circle').length};});assert.ok(Math.abs(shape.width-shape.height)<.02);assert.ok(Math.abs(shape.x+shape.width/2-12)<.02);assert.ok(Math.abs(shape.ratio-1)<.001);assert.equal(shape.circles,1);await p.screenshot({path:`test-results/file-manager-040-${width}.png`});await p.locator('#more-tools').click();}
   });
   await check('旧指南自动更名保留正文，用户自己的未命名小说不更名',async()=>{

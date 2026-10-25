@@ -60,8 +60,8 @@ export class UIShell {
   // Plugin top-toolbar buttons: the first two stay visible on wide screens, the rest use the existing overflow menu.
   setPluginActions(buttons){if(this.pluginActions?.length===buttons.length&&buttons.every((button,i)=>button===this.pluginActions[i]))return;this.pluginActions=buttons;this.layout();}
   layout({animate=false}={}){
-    this.chromeMotion.cancel();
     const before=animate?this.chromeMotion.capture([...document.querySelectorAll('.page-navigation [data-view],.global-tools>button,#search-editor,#add-glossary,#export-doc')]):null;
+    this.chromeMotion.cancel();
     const focused=this.menu.contains(document.activeElement)||(this.pluginActions||[]).includes(document.activeElement)?document.activeElement:null;
     const groupFor=id=>['search-editor','add-glossary','export-doc'].includes(id)?this.groups.document:['focus-toggle','theme'].includes(id)?this.groups.layout:id==='plugins'?this.groups.extensions:this.groups.app;
     const wide=innerWidth>=900,compact=!wide&&this.editorChrome.compact;
@@ -108,7 +108,7 @@ export class UIShell {
 // Keep every control in one form, so category navigation never discards unsaved settings.
 export function organizeSettings(root) {
   document.querySelector('#dialog').classList.add('settings-dialog');
-  const groups=[['外观与语言',['language','theme','fontFamily','palette']],['编辑',['fontSize','autoNouns','glossaryPanel','highlightTerms','novelLineNumbers','richText','countMode','includeHeading']],['阅读',['readingMode','globalVelaOverride','edit-global-vela']],['工作区配置',['create-vela']],['GitHub',['clientId']],['备份与应用',['backup-all','show-licenses','check-updates','updateChecks']]];
+  const groups=[['外观与语言',['language','theme','fontFamily','palette']],['编辑',['fontSize','autoNouns','glossaryPanel','highlightTerms','novelLineNumbers','richText','countMode','includeHeading']],['阅读',['readingMode','globalVelaOverride','edit-global-vela']],['工作区配置',['create-vela','cleanup-redundant']],['备份与应用',['backup-all','show-licenses','check-updates','updateChecks']]];
   const original=[...root.children],nav=document.createElement('nav');nav.className='settings-navigation';nav.setAttribute('aria-label',t('设置分类'));
   const content=document.createElement('div');content.className='settings-content';
   const activate=index=>{[...nav.children].forEach((button,i)=>{if(i===index)button.setAttribute('aria-current','location');else button.removeAttribute('aria-current');});};

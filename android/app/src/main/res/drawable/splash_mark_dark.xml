@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Launch mark for Android 12+ splash screens. The 108 viewport is drawn at 288dp, so the 33-unit square is 88dp:
+     the same size, corner radius and centre as #startup-screen's mark in web/startup.css, which replaces it seamlessly. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="108dp" android:height="108dp" android:viewportWidth="108" android:viewportHeight="108">
+<path android:fillColor="#8AD0A8" android:pathData="M45.75,37.5H62.25A8.25,8.25 0,0 1,70.5,45.75V62.25A8.25,8.25 0,0 1,62.25,70.5H45.75A8.25,8.25 0,0 1,37.5,62.25V45.75A8.25,8.25 0,0 1,45.75,37.5Z"/>
+<path android:fillColor="#202E25" android:pathData="M43.859,59.672L64.484,59.672L58.641,65.516L49.531,65.516ZM53.828,42.312L53.828,57.094L44.891,57.094ZM56.578,45.406L64.656,57.094L56.578,57.094Z"/>
+</vector>

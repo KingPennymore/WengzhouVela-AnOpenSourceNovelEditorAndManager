@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="WenzhouLightTheme" parent="WenzhouLightBase">
+        <item name="android:windowSplashScreenBackground">#D6DBD7</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_mark_light</item>
+    </style>
+    <style name="WenzhouDarkTheme" parent="WenzhouDarkBase">
+        <item name="android:windowSplashScreenBackground">#262E2A</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/splash_mark_dark</item>
+    </style>
+</resources>

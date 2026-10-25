@@ -134,8 +134,10 @@ dialog::backdrop{background:#0b140f73;backdrop-filter:blur(4px)}
 #toolbar-overflow button:hover{background:var(--accent-tint);color:var(--accent)}
 #toast{border-radius:999px;padding:11px 20px;box-shadow:var(--elev-3);font-weight:500;letter-spacing:.2px}
 .update-dot{background:var(--accent)}
-/* Theme changes cross-fade colors instead of snapping. !important: for 0.4 s this replaces every element's own transition. */
-html.theme-shift *,html.theme-shift *::before,html.theme-shift *::after{transition:background-color .4s ease,border-color .4s ease,color .4s ease,fill .4s ease,stroke .4s ease,box-shadow .4s ease!important}
+/* Theme changes cross-fade one snapshot of the page (motion.mjs crossfadeTheme). Elements must not run their own colour
+   transitions underneath it, or text and its background pass through the same grey and pseudo-elements jump ahead. */
+html.theme-switching *,html.theme-switching *::before,html.theme-switching *::after{transition:none!important}
+::view-transition-old(root),::view-transition-new(root){animation-duration:.16s;animation-timing-function:ease}
 @media(prefers-reduced-motion:no-preference){.nav-indicator.ready{transition:transform .42s var(--ease-spring),width .42s var(--ease-spring),height .42s var(--ease-out),opacity var(--dur) ease}
 .toolbar button:active:not(:disabled),.page-navigation button:active,.global-tools button:active,.quickbar button:active:not(:disabled),#mobile-library:active,.primary:active:not(:disabled),.secondary:active:not(:disabled),.tab-close:active,.reader-header button:active,.display-options button:active,.dialog-heading button:active{transform:scale(.92)}
 .repo-card:hover,.recent-files>button:hover,.reader-book:hover,.start-stat:hover{transform:translateY(-2px)}

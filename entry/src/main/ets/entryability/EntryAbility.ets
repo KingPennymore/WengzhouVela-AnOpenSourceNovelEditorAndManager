@@ -8,7 +8,8 @@ export default class EntryAbility extends UIAbility {
     stage.getMainWindow().then(async (main: window.Window) => {
       Runtime.mainWindow = main;
       await main.setWindowLayoutFullScreen(false);
-      await Runtime.applyAppearance(Runtime.environment.dark);
+      // The window takes last session's colours before the page exists, so a dark workspace never opens light.
+      try { await Runtime.restore(this.context); } catch (_) { await Runtime.applyAppearance(Runtime.environment.dark); }
       main.on('avoidAreaChange', () => Runtime.updateInsets());
       main.on('windowSizeChange', () => Runtime.updateInsets());
       await stage.loadContent('pages/Index');

@@ -3,7 +3,7 @@ import { url, util } from '@kit.ArkTS';
 import { common } from '@kit.AbilityKit';
 import { fileIo as fs } from '@kit.CoreFileKit';
 import { NativeBridge } from '../services/NativeBridge';
-import { Runtime } from '../services/Runtime';
+import { Runtime, LAUNCH_BACKGROUND } from '../services/Runtime';
 
 @Entry
 @Component
@@ -17,6 +17,8 @@ struct Index {
   @State consented: boolean = false;
   @State showFullPolicy: boolean = false;
   @State policyText: string = '';
+  // Not `background`: that name collides with the component's .background() attribute method.
+  @StorageProp(LAUNCH_BACKGROUND) launchBackground: string = '#d6dbd7';
 
   aboutToAppear(): void {
     this.bridge.context = this.getUIContext().getHostContext() as common.UIAbilityContext;
@@ -165,6 +167,7 @@ struct Index {
       Web({ src: 'https://wenzhou-editor.local/web/index.html', controller: this.controller })
         .width('100%')
         .height('100%')
+        .backgroundColor(this.launchBackground)
         .onControllerAttached(() => { Runtime.controller = this.controller; })
         .javaScriptAccess(true)
         .domStorageAccess(true)

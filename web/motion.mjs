@@ -87,24 +87,23 @@ function savedPulse(){
   }).observe(state,{attributes:true,attributeFilter:['class']});
 }
 
-// Theme changes cross-fade colors. The class must be on <html> in the same style update as the new theme, so
-// applyTheme() calls beginThemeShift() before toggling; the observer only covers other code that toggles `dark`.
-let themeTimer=0;
-export function beginThemeShift(){
-  if(reducedMotion()||document.documentElement.dataset.startup)return;
-  document.documentElement.classList.add('theme-shift');clearTimeout(themeTimer);
-  themeTimer=setTimeout(()=>document.documentElement.classList.remove('theme-shift'),480);
-}
-function themeCrossfade(){
-  let last=document.body.classList.contains('dark');
-  new MutationObserver(()=>{
-    const dark=document.body.classList.contains('dark');
-    if(dark!==last&&!document.documentElement.classList.contains('theme-shift'))beginThemeShift();
-    last=dark;
-  }).observe(document.body,{attributes:true,attributeFilter:['class']});
+// Theme changes cross-fade a snapshot of the whole page instead of transitioning every element: per-element colour
+// transitions skipped ::before/::after, let nested text lag its background and passed both through the same grey.
+// Without View Transitions (or with reduced motion) the look switches at once, which cannot flicker either.
+// Resolves with the delay before the system bars should follow, so they change once the fade is under way.
+let themeSwitch=0;
+export function crossfadeTheme(update){
+  const root=document.documentElement;
+  if(reducedMotion()||root.dataset.startup||!document.startViewTransition){update();return Promise.resolve(0);}
+  // The class goes on before the snapshot so no element starts its own colour transition on either side of it.
+  const id=++themeSwitch;let transition;root.classList.add('theme-switching');
+  try{transition=document.startViewTransition(update);}
+  catch{root.classList.remove('theme-switching');update();return Promise.resolve(0);}
+  transition.finished.finally(()=>{if(id===themeSwitch)root.classList.remove('theme-switching');});
+  return transition.ready.then(()=>80,()=>0);
 }
 
 export function initMotion(){
-  navIndicator();viewTransitions();tabEntrances();savedPulse();themeCrossfade();
+  navIndicator();viewTransitions();tabEntrances();savedPulse();
   document.body.classList.add('motion-ready');
 }

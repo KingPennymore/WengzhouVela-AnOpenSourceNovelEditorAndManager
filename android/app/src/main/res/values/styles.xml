@@ -1,12 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="WenzhouTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+    <!-- Window backgrounds are the startup screen's colour (page background under the veil in web/startup.css),
+         so the launch window, the native window and the first web frame are one colour. -->
+    <style name="WenzhouLightBase" parent="android:style/Theme.Material.Light.NoActionBar">
         <item name="android:fontFamily">sans</item>
         <item name="android:windowActionModeOverlay">true</item>
         <item name="android:colorAccent">#23744E</item>
-        <item name="android:windowBackground">#EEF3EF</item>
+        <item name="android:windowBackground">#D6DBD7</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
         <item name="android:windowLightStatusBar">true</item>
     </style>
+    <style name="WenzhouDarkBase" parent="android:style/Theme.Material.NoActionBar">
+        <item name="android:fontFamily">sans</item>
+        <item name="android:windowActionModeOverlay">true</item>
+        <item name="android:colorAccent">#8AD0A8</item>
+        <item name="android:windowBackground">#262E2A</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+    </style>
+    <style name="WenzhouLightTheme" parent="WenzhouLightBase" />
+    <style name="WenzhouDarkTheme" parent="WenzhouDarkBase" />
+    <!-- Follows the system; MainActivity tells Android 13+ which of the explicit themes the next splash uses. -->
+    <style name="WenzhouTheme" parent="WenzhouLightTheme" />
 </resources>

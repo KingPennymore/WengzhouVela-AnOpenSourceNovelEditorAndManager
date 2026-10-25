@@ -35,7 +35,7 @@ try{
     assert.equal((await stored(page)).settings.theme,'system','back to the system look means following the system');
   });
   await check('a theme switch starts the cross-fade in the same update and the GitHub page background fades with the workspace',async()=>{
-    const shift=await page.evaluate(()=>{document.querySelector('#theme').click();return document.documentElement.classList.contains('theme-shift');});assert.equal(shift,true);
+    const shift=await page.evaluate(()=>{document.querySelector('#theme').click();return document.documentElement.classList.contains('theme-switching');});assert.equal(shift,true);
     await themeShiftDone(page);await page.evaluate(()=>document.querySelector('#theme').click());await themeShiftDone(page);
     await selectAppView(page,'github');await page.locator('#github-view').waitFor();
     assert.equal(await page.locator('#github-view').evaluate(el=>getComputedStyle(el).backgroundColor),'rgba(0, 0, 0, 0)');

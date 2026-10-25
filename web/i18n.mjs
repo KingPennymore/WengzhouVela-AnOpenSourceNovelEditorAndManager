@@ -12,8 +12,103 @@ Object.assign(dictionary,{
  '立即拉取？':'Pull now?', '订阅已添加。是否现在拉取仓库文件？取消后可在订阅详情中手动拉取。':'Subscription added. Pull repository files now? You can cancel and pull later from its details.',
  '使用全局 .vela 覆盖区域配置':'Override regional configurations with global .vela','编辑全局 .vela':'Edit global .vela','全局阅读配置':'Global reading configuration','工作区配置':'Workspace configuration','名称与章节':'Name and chapters','阅读排版':'Reading typography','行距':'Line spacing','上边距':'Top margin','下边距':'Bottom margin','左边距':'Left margin','右边距':'Right margin','第一章 航程':'Chapter 1 Voyage','文字与留白共同构成阅读节奏。调整排版后，阅读页面会使用这些设置。':'Text and space shape the rhythm of reading. The reader will use this typography.','清空选择':'Clear selection','文件不存在':'File missing','每行一个模板，使用 {序号}、{标题} 或 {number}、{title}。':'One template per line. Use {number} and {title} placeholders.', '行距须在 1–3.5 之间。':'Line spacing must be between 1 and 3.5.','阅读边距须在 0–240 px 之间。':'Margins must be between 0 and 240 px.'
 });
+Object.assign(dictionary,{'已同步远端 · 与上次版本一致':'Synced remotely · matches last version','清除冗余文件':'Clean up redundant files','查看保存状态与同步目标':'View save status and sync target','未关联远端':'No remote linked','远端目标':'Remote target','保存与同步状态':'Save and sync status','确认清理冗余文件':'Review redundant files','扫描并预览':'Scan and preview'});
 Object.assign(dictionary,planningTranslations);
-export function t(value){if(language!=='en')return value;const direct=dictionary[value];if(direct)return direct;return value.replace(/^(.+) 必须是对象。$/,'$1 must be an object.').replace(/^(.+) 必须是字符串。$/,'$1 must be a string.').replace(/^(.+) 必须是有限数字。$/,'$1 must be a finite number.').replace(/^(.+) 必须为布尔值。$/,'$1 must be a boolean.').replace(/^(.+) 超出允许范围。$/,'$1 is out of range.').replace(/^(.+) 不支持此值。$/,'Unsupported value for $1.').replace(/^(.+) 数量无效。$/,'Invalid count for $1.').replace(/^文舟 (\d+\.\d+\.\d+)/,'Vela $1').replace(/到文件顶部/g,'File start').replace(/到文件底部/g,'File end').replace(/到章节顶部/g,'Chapter start').replace(/到章节底部/g,'Chapter end').replace(/查找与替换/g,'Find and replace').replace(/保存 \(/g,'Save (').replace(/撤回 \(/g,'Undo (').replace(/重做 \(/g,'Redo (').replace(/字 · 行/g,'characters · line').replace(/^(\d+) 章$/,'$1 chapters').replace(/^本章 (\d+) 字 · 全文 (\d+) 字$/,'Chapter $1 chars · Total $2 chars').replace(/^行 (\d+)，列 (\d+)$/,'Ln $1, Col $2').replace(/^选中 (\d+) 字$/,'$1 selected chars').replace(/^关闭 (.*) \(Ctrl\+W\)$/,'Close $1 (Ctrl+W)').replace(/^(.+) 文稿操作$/,'$1 actions').replace(/^(.+) 文件操作$/,'$1 file actions').replace(/^第 (\d+) 页$/,'Page $1').replace(/^文字字号 (\d+) px$/,'Font size $1 px');}
+// Gitea and repository sync messages.
+Object.assign(dictionary,{
+ "请稍后重试":"Please try again later",
+ "GitHub 返回的数据格式不正确。":"GitHub returned data in an unexpected format.",
+ "列表超过 10000 条，请缩小仓库范围。":"The list exceeds 10,000 items. Narrow the repository scope.",
+ "无效的 Git SHA":"Invalid Git SHA",
+ "文件无法作为文本预览":"This file cannot be previewed as text",
+ "请输入分支名称。":"Enter a branch name.",
+ "仅支持 8 MB 以内的 UTF-8 文本文件。":"Only UTF-8 text files up to 8 MB are supported.",
+ "GitHub 未提供可读取的文本内容。":"GitHub did not return readable text.",
+ "此文件是二进制文件，无法作为文稿打开。":"This is a binary file and cannot be opened as a document.",
+ "请填写提交说明。":"Enter a commit message.",
+ "单次提交文稿不能超过 8 MB。":"A single committed document cannot exceed 8 MB.",
+ "工作区须包含 1–5000 个文件。":"A workspace must contain 1–5000 files.",
+ "工作区含重复文件路径。":"The workspace contains duplicate file paths.",
+ "工作区文件不能超过 8 MB。":"Workspace files cannot exceed 8 MB.",
+ "一次工作区提交不能超过 64 MB。":"A workspace commit cannot exceed 64 MB.",
+ "远端分支已变化。":"The remote branch has changed.",
+ "GitHub 未返回有效的设备授权码。":"GitHub did not return a valid device code.",
+ "已取消登录。":"Sign-in cancelled.",
+ "你已拒绝本次授权。":"You declined this authorization.",
+ "设备授权失败。":"Device authorization failed.",
+ "设备授权码已过期，请重新登录。":"The device code expired. Sign in again.",
+ "远端更新":"Remote update",
+ "配置修改可自动合并":"Configuration changes can be merged automatically",
+ "相同":"Identical",
+ "仅本地修改 · 保留":"Local changes only · kept",
+ "本地修改 · 请选择处理方式":"Local changes · choose how to resolve",
+ "未勾选的文件保留本地内容。拉取不会自动打开文稿。":"Unselected files keep their local content. Pulling does not open documents.",
+ "此文件需要保留，请刷新并核对本地内容：":"This file must be kept. Refresh and check the local content:",
+ "本地文稿已变化，请重新拉取。":"The local document has changed. Pull again.",
+ "合并后的文件超过 8 MB。":"The merged file exceeds 8 MB.",
+ "备份本地历史失败，未写入拉取文件。":"Backing up local history failed; pulled files were not written.",
+ "此文件正在同步，请稍后重试。":"This file is syncing. Try again shortly.",
+ "使用访问令牌登录":"Sign in with an access token",
+ "在该 Gitea 站点的用户设置中生成令牌，授予用户信息读取和仓库读写权限；在应用内新建仓库还需用户写权限。":"Generate a token in the user settings of this Gitea site with user read and repository read/write permissions. Creating repositories in the app also requires user write permission.",
+ "Gitea 仓库目录无效或超过 5000 项，工作区未修改。":"The Gitea repository tree is invalid or exceeds 5000 items. The workspace was not changed.",
+ "Gitea 目录分页不完整，工作区未修改。":"Gitea returned an incomplete directory listing. The workspace was not changed.",
+ "Gitea 返回的数据格式不正确。":"Gitea returned data in an unexpected format.",
+ "Gitea 列表过大，请缩小仓库范围。":"The Gitea list is too large. Narrow the repository scope.",
+ "工作区文件超过提交大小限制。":"Workspace files exceed the commit size limit.",
+ "没有可提交的变更。":"There are no changes to commit.",
+ "附件不可读":"Attachment unreadable",
+ "正在同步，请等待完成后再切换分支。":"Syncing. Wait for it to finish before switching branches.",
+ "本地保存失败，未切换分支。":"Saving locally failed; the branch was not switched.",
+ "切换分支前确认":"Confirm before switching branches",
+ "切换仅改变仓库浏览目标，不会将当前文稿重新关联到新分支，也不会自动拉取或提交。":"Switching only changes which branch you browse. It does not relink the current documents to the new branch, and nothing is pulled or committed automatically.",
+ "保留本地变更并切换":"Keep local changes and switch",
+ "请选择 1–5000 个文件或文件夹。":"Select 1–5000 files or folders.",
+ "已取消拉取，工作区未修改。":"Pull cancelled. The workspace was not changed.",
+ "GitHub 目录列表不完整，工作区未修改。":"GitHub returned an incomplete directory listing. The workspace was not changed.",
+ "仓库超过 5000 个文件与目录，工作区未修改。":"The repository has more than 5000 files and folders. The workspace was not changed.",
+ "仓库目录无效或超过 5000 项，工作区未修改。":"The repository tree is invalid or exceeds 5000 items. The workspace was not changed.",
+ "选中的路径已不存在：":"The selected path no longer exists:",
+ "仓库存在重复路径。":"The repository contains duplicate paths.",
+ "仓库包含子模块，暂时无法完整拉取，工作区未修改。":"The repository contains submodules and cannot be pulled completely yet. The workspace was not changed.",
+ "仓库文件超过 8 MB：":"Repository file exceeds 8 MB:",
+ "仓库超过 64 MB，工作区未修改。":"The repository exceeds 64 MB. The workspace was not changed.",
+ "无法读取仓库文件：":"Cannot read repository file:",
+ "仓库文件超过限制：":"Repository file exceeds the limit:",
+ "仓库文件大小不一致：":"Repository file size mismatch:",
+ "依赖文件超过限制：":"Dependency exceeds the limit:",
+ "依赖资源超过拉取限制。":"Dependencies exceed the pull limit.",
+ "下载缓存清理失败，请重试。":"Clearing the download cache failed. Try again.",
+ "扫描已关联仓库中远端已删除的旧文件。仅确认未修改的文件可移入回收站，本地独有文稿保留。":"Scan linked repositories for old files deleted remotely. Only files confirmed unmodified can be moved to the trash; local-only documents are kept.",
+ "正在同步，请完成后再清理。":"Syncing. Finish before cleaning up.",
+ "下载缓存已清理，文稿保留。":"Download cache cleared; documents kept.",
+ "请先保存本地文稿。":"Save local documents first.",
+ "仅处理远端已删除的旧文件；未勾选项继续保留。":"Only old files deleted remotely are handled; unselected items are kept.",
+ "远端已删除 · 本地保留（勾选将重新上传）":"Deleted remotely · kept locally (select to upload again)",
+ "请选择变更。":"Select changes.",
+ "仍有本地与远端冲突，请先拉取并处理这些文件：":"Local and remote conflicts remain. Pull and resolve these files first:",
+ "预览后文件已变化，请重新生成提交预览。":"Files changed after the preview. Generate the commit preview again.",
+ "此文件夹已关联其他仓库或分支，请使用独立文件夹。":"This folder is linked to another repository or branch. Use a separate folder.",
+ "本地路径属于其他分支，请使用独立文件夹。":"This local path belongs to another branch. Use a separate folder.",
+ "删除预览超过大小限制。":"The deletion preview exceeds the size limit.",
+ "缺少附件同步版本。":"The attachment sync revision is missing.",
+ "附件已在本地修改。":"The attachment was modified locally.",
+ "工作区根目录":"Workspace root",
+ "工作区已提交到 Gitee。":"Workspace committed to Gitee.",
+ "工作区已提交到 Gitea。":"Workspace committed to Gitea.",
+ "正在同步，请等待完成后重试。":"Syncing. Wait for it to finish and try again.",
+ "工作区已切换，请重新扫描。":"The workspace changed. Scan again.",
+ "远端分支在预览后已变化，请重新拉取。工作区未修改。":"The remote branch changed after the preview. Pull again. The workspace was not changed.",
+ "附件和回收站同步请在应用中操作。":"Sync attachments and the trash in the app.",
+ "请输入有效的 HTTPS Gitea 服务器地址，例如 https://git.example.com。":"Enter a valid HTTPS Gitea server address, for example https://git.example.com.",
+ "Gitea 服务器地址的端口或路径无效。":"The Gitea server address has an invalid port or path.",
+ "不支持此代码托管平台。":"This code hosting platform is not supported.",
+ "不允许的代码托管请求路径。":"This code hosting request path is not allowed.",
+});
+
+export function t(value){if(language!=='en')return value;const direct=dictionary[value];if(direct)return direct;
+ // A fixed message followed by a path or name, e.g. "选中的路径已不存在：a/b.txt".
+ const label=/^([^：]+：)(.+?)(。工作区未修改。)?$/.exec(value);if(label&&dictionary[label[1]])return dictionary[label[1]]+' '+label[2]+(label[3]?'. The workspace was not changed.':'');
+return value.replace(/^(.+) 必须是对象。$/,'$1 must be an object.').replace(/^(.+) 必须是字符串。$/,'$1 must be a string.').replace(/^(.+) 必须是有限数字。$/,'$1 must be a finite number.').replace(/^(.+) 必须为布尔值。$/,'$1 must be a boolean.').replace(/^(.+) 超出允许范围。$/,'$1 is out of range.').replace(/^(.+) 不支持此值。$/,'Unsupported value for $1.').replace(/^(.+) 数量无效。$/,'Invalid count for $1.').replace(/^文舟 (\d+\.\d+\.\d+)/,'Vela $1').replace(/到文件顶部/g,'File start').replace(/到文件底部/g,'File end').replace(/到章节顶部/g,'Chapter start').replace(/到章节底部/g,'Chapter end').replace(/查找与替换/g,'Find and replace').replace(/保存 \(/g,'Save (').replace(/撤回 \(/g,'Undo (').replace(/重做 \(/g,'Redo (').replace(/字 · 行/g,'characters · line').replace(/^(\d+) 章$/,'$1 chapters').replace(/^本章 (\d+) 字 · 全文 (\d+) 字$/,'Chapter $1 chars · Total $2 chars').replace(/^行 (\d+)，列 (\d+)$/,'Ln $1, Col $2').replace(/^选中 (\d+) 字$/,'$1 selected chars').replace(/^关闭 (.*) \(Ctrl\+W\)$/,'Close $1 (Ctrl+W)').replace(/^(.+) 文稿操作$/,'$1 actions').replace(/^(.+) 文件操作$/,'$1 file actions').replace(/^第 (\d+) 页$/,'Page $1').replace(/^文字字号 (\d+) px$/,'Font size $1 px');}
 export const getLanguage=()=>language;
 const skip=element=>element?.closest('.cm-editor,#preview:not(.vela-preview),[data-user-content],#license-text,.plugin-page-body,.doc-info strong,.tab-open strong,.reader-book strong,.reader-book small,#current-name,.chapter,.repo-card strong,.repo-card p,.reader-content');
 // Mutations only re-translate the changed subtrees; in Chinese t() is the identity and setLanguage() already restored
@@ -81,4 +176,23 @@ Object.assign(dictionary, {
  '已读取本机可用字体。':'Fonts available on this device are ready.',
  '系统未提供可选字体，仍可使用默认或跟随系统。':'No selectable fonts were provided. You can still use Vela default or the system font.',
  '未能读取字体列表，可重试或选择跟随系统字体。':'Could not read the font list. Retry or choose the system font.',
+});
+
+Object.assign(dictionary, {
+ '连接 GitHub / Gitee / Gitea':'Connect GitHub / Gitee / Gitea',
+ '连接 GitHub / Gitee / Gitea，管理与同步文件':'Connect GitHub / Gitee / Gitea to manage and sync files',
+ 'Gitea 服务器地址':'Gitea server address',
+ '填写 HTTPS 站点地址，可包含端口和部署子目录。':'Enter an HTTPS site address, including its port and deployment subpath if needed.',
+ '在该 Gitea 站点的用户设置中生成令牌，授予用户信息读取和仓库读写权限；在应用内新建仓库还需用户写权限。令牌由平台安全存储保存，不会写入文稿或日志。':'Generate a token in your Gitea user settings with user read and repository write access. Creating repositories also needs user write access. Tokens are kept in secure platform storage, outside documents and logs.'
+});
+
+Object.assign(dictionary, {
+ '本地与上次同步版本一致':'Local content matches the last synced version',
+ '远端已删除 · 本地保留':'Deleted remotely · Kept locally',
+ '应用选中变更':'Apply selected changes',
+ '远端已删除 · 勾选后移入回收站':'Deleted remotely · Select to move to trash',
+ '远端已删除 · 本地有修改，保留':'Deleted remotely · Local edits are kept',
+ '远端已删除 · 无法确认本地版本，保留':'Deleted remotely · Unverified local content is kept',
+ '此路径属于其他分支或仓库 · 保留':'This path belongs to another branch or repository · Kept locally',
+ '远端删除项默认不勾选。只有确认未修改的文件可以移入回收站，本地独有文件保留。':'Remote deletions are unchecked by default. Only verified unchanged files can be moved to trash. Local-only files are kept.'
 });

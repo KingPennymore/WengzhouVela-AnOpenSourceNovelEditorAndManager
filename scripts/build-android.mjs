@@ -7,6 +7,8 @@ import {createHash} from 'node:crypto';
 
 const root=dirname(dirname(fileURLToPath(import.meta.url)));
 process.chdir(root);
+const trial=process.argv.includes('--trial');
+if(trial&&process.argv.includes('--release'))throw new Error('试用版与正式发布版不能同时构建。');
 if(process.argv.includes('--lite'))process.env.VELA_BUILD_FLAVOR='lite';
 if(process.argv.includes('--assets-only')){
   await import('./build.mjs');
@@ -31,19 +33,19 @@ if(process.argv.includes('--assets-only')){
   const env={...process.env,ANDROID_HOME:sdk,ANDROID_SDK_ROOT:sdk,...(java?{JAVA_HOME:java}:{} )};
   await writeFile('android/local.properties',`sdk.dir=${sdk.replaceAll('\\','/')}\n`);
   const release=process.argv.includes('--release');
-  const command=release?'assembleRelease':'assembleDebug';
+  const command=trial?'assembleTrial':release?'assembleRelease':'assembleDebug';
   const child=process.platform==='win32'
     ?spawn('cmd.exe',['/d','/s','/c',`gradlew.bat --no-daemon --console=plain ${command}`],{cwd:join(root,'android'),env,stdio:'inherit'})
     :spawn('./gradlew',['--no-daemon','--console=plain',...command.split(' ')],{cwd:join(root,'android'),env,stdio:'inherit'});
   const code=await new Promise((resolve,reject)=>{child.on('error',reject);child.on('exit',resolve);});
   if(code!==0)throw new Error('安卓构建失败，请查看上方错误。');
-  const variant=release?'release':'debug',name=(await readFile('android/app/build.gradle','utf8')).match(/versionName '([^']+)'/)[1];
+  const variant=trial?'trial':release?'release':'debug',name=(await readFile('android/app/build.gradle','utf8')).match(/versionName '([^']+)'/)[1];
   const source=`android/app/build/outputs/apk/${variant}/app-${variant}${release?'-unsigned':''}.apk`;
   await mkdir('dist',{recursive:true});
   const suffix=process.env.VELA_BUILD_FLAVOR==='lite'?'-lite':'';
-  const target=`dist/Vela-${name}${suffix}-${release?'release-unsigned':'debug'}.apk`;
+  const target=`dist/Vela-${name}${suffix}-${trial?'trial':release?'release-unsigned':'debug'}.apk`;
   await cp(source,target);
   const bytes=await readFile(target);
-  await writeFile(`dist/android-${variant}${suffix}.json`,JSON.stringify({version:name,package:'me.wenzhou.write',variant,flavor:suffix?'lite':'full',signed:!release,file:target.split('/').at(-1),bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')},null,2));
-  console.log('安卓 APK：'+target+(release?'（未签名）':'（调试签名）'));
+  await writeFile(`dist/android-${variant}${suffix}.json`,JSON.stringify({version:name+(trial?'-trial':''),package:'me.wenzhou.write'+(trial?'.trial':''),variant,flavor:suffix?'lite':'full',signed:!release,file:target.split('/').at(-1),bytes:bytes.length,sha256:createHash('sha256').update(bytes).digest('hex')},null,2));
+  console.log('安卓 APK：'+target+(release?'（未签名）':trial?'（试用签名，可与正式版共存）':'（调试签名）'));
 }

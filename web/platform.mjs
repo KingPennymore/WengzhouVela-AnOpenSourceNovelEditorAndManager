@@ -1,7 +1,6 @@
 export const native = typeof window !== 'undefined' && !!window.WenzhouNative;
+import {gitIdentity, gitHostKey, gitApiBase, validateGitApiPath} from './git-host.mjs';
 const sessionTokens=new Map();
-const providerOf=payload=>{const provider=payload.provider||'github';if(!['github','gitee'].includes(provider))throw Error('不支持此代码托管平台。');return provider;};
-const apiOrigin=provider=>provider==='gitee'?'https://gitee.com/api/v5':'https://api.github.com';
 export async function transport(operation,payload={}) {
   if(native) {
     const raw=await window.WenzhouNative.call(operation,JSON.stringify(payload));
@@ -12,30 +11,31 @@ export async function transport(operation,payload={}) {
     if(!response.ok) throw Object.assign(new Error(response.error || `设备操作失败${response.code?'（错误码 '+response.code+'）':''}。`),typeof response.code==='string'?{code:response.code,details:response.details||{},retryable:!!response.retryable}:{});
     return response.value;
   }
-  const provider=providerOf(payload),origin=apiOrigin(provider),sessionToken=sessionTokens.get(provider)||'';
+  const {provider}=gitIdentity(payload),key=gitHostKey(payload),origin=gitApiBase(payload),sessionToken=sessionTokens.get(key)||'';
   if(operation==='oauth') throw new Error('设备授权请在文舟应用中使用。浏览器预览可使用个人访问令牌登录。');
   if(operation==='connection') {
-    const result=await fetch(origin+(provider==='gitee'?'/emojis':''),{redirect:'error',signal:AbortSignal.timeout(30000)});
+    const result=await fetch(origin+(provider==='gitea'?'/version':provider==='gitee'?'/emojis':''),{redirect:'error',signal:AbortSignal.timeout(30000)});
     return {status:result.status,body:{}};
   }
-  if(operation==='logout') {sessionTokens.delete(provider);return true;}
+  if(operation==='logout') {sessionTokens.delete(key);return true;}
   if(operation==='login') {
     const token=payload.token?.trim();
     if(!token||token.length>4096||/\s/.test(token))throw new Error('访问令牌格式不正确。');
     const result=await fetch(origin+'/user',{headers:headers(token,provider),redirect:'error',signal:AbortSignal.timeout(30000)});
     if(!result.ok) throw new Error(result.status===401?'访问令牌无效或已过期（HTTP 401）。':result.status===403?'令牌验证受限（HTTP 403），请检查令牌授权、组织策略或请求速率限制。':`令牌验证失败（HTTP ${result.status}），请检查网络后重试。`);
-    const user=await result.json();sessionTokens.set(provider,token);
+    const user=await result.json();sessionTokens.set(key,token);
     return user;
   }
   if(operation==='api'||operation==='publicApi') {
+    validateGitApiPath(payload.path);
     if(operation==='publicApi'&&(!/^\/repos\/[\w.-]+\/[\w.-]+(?:[/?]|$)/.test(payload.path)||/[\r\n\\#]/.test(payload.path)||payload.path.includes('..')||payload.method!=='GET'))throw new Error('不允许的 GitHub 请求路径。');
     if(!sessionToken&&operation!=='publicApi') return {status:401,body:{}};
-    const result=await fetch(origin+payload.path,{method:payload.method,headers:sessionToken?headers(sessionToken,provider):{Accept:provider==='gitee'?'application/json':'application/vnd.github+json'},body:payload.body ? JSON.stringify(payload.body):undefined,redirect:'error',signal:AbortSignal.timeout(30000)});
+    const result=await fetch(origin+payload.path,{method:payload.method,headers:sessionToken?headers(sessionToken,provider):{Accept:provider!=='github'?'application/json':'application/vnd.github+json'},body:payload.body ? JSON.stringify(payload.body):undefined,redirect:'error',signal:AbortSignal.timeout(30000)});
     return {status:result.status,body:result.status===204?null:await result.json()};
   }
   throw new Error('当前环境不支持此操作。');
 }
-function headers(token,provider='github') { if(provider==='gitee')return {'Authorization':`Bearer ${token}`,'Accept':'application/json','Content-Type':'application/json'};return {'Authorization':`Bearer ${token}`,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'}; }
+function headers(token,provider='github') { if(provider!=='github')return {'Authorization':`Bearer ${token}`,'Accept':'application/json','Content-Type':'application/json'};return {'Authorization':`Bearer ${token}`,'Accept':'application/vnd.github+json','X-GitHub-Api-Version':'2022-11-28','Content-Type':'application/json'}; }
 export function readWorkspace() { return native ? window.WenzhouNative.readWorkspace() : localStorage.getItem('wenzhou.workspace'); }
 // Native saves are incremental when the shell offers writeWorkspaceDelta (docs/WORKSPACE-STORAGE.md): only texts and
 // local histories that differ from the last state the shell confirmed are sent, with the rest of the workspace as a

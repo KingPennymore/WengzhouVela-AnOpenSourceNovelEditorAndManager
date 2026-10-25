@@ -1,7 +1,7 @@
 {
   "name": "wenzhou-harmonyos",
-  "version": "0.9.9-6",
-  "harmonyVersion": "0.9.9.6",
+  "version": "0.9.9-7",
+  "harmonyVersion": "0.9.9.7",
   "private": true,
   "description": "文舟 Vela：HarmonyOS NEXT / Android / Windows 开源小说创作与阅读工具",
   "scripts": {
@@ -39,7 +39,8 @@
     "typecheck:core": "tsc -p jsconfig.core.json",
     "lint:core": "eslint web/app-core tests/app-core*.mjs eslint.config.mjs --max-warnings 0 scripts/check-core.mjs",
     "format:core": "prettier --write \"web/app-core/**/*.mjs\" \"tests/app-core*.mjs\" eslint.config.mjs scripts/check-core.mjs jsconfig.core.json .prettierrc.json docs/adr/*.md",
-    "format:core:check": "prettier --check \"web/app-core/**/*.mjs\" \"tests/app-core*.mjs\" eslint.config.mjs scripts/check-core.mjs jsconfig.core.json .prettierrc.json docs/adr/*.md"
+    "format:core:check": "prettier --check \"web/app-core/**/*.mjs\" \"tests/app-core*.mjs\" eslint.config.mjs scripts/check-core.mjs jsconfig.core.json .prettierrc.json docs/adr/*.md",
+    "test:gitea": "node --test tests/gitea.test.mjs && node tests/gitea-browser.mjs"
   },
   "dependencies": {
     "@codemirror/autocomplete": "^6.20.0",

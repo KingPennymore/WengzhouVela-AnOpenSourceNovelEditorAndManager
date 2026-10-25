@@ -20,6 +20,7 @@
   #toolbar-overflow {z-index:1000;width:max-content;min-width:min(176px,calc(100vw - 24px));max-width:calc(100vw - 24px);max-height:calc(var(--app-height,100dvh) - var(--shell-top,60px) - var(--safe-top,0px) - 20px);overflow:auto;overscroll-behavior:contain;padding:8px}
   #toolbar-overflow:not([hidden]),#toolbar-overflow:not([hidden]) button {animation:none}
   .chrome-motion-ghost {position:fixed;z-index:999;display:flex;align-items:center;justify-content:center;pointer-events:none}
+  .chrome-motion-clip {position:fixed;z-index:999;overflow:hidden;pointer-events:none;contain:layout paint}
   .toolbar-menu-group+.toolbar-menu-group,.planning-menu-group+.planning-menu-group {border-top:1px solid var(--hairline);margin-top:6px;padding-top:6px}
   .toolbar-menu-group[hidden]+.toolbar-menu-group,.planning-menu-group[hidden]+.planning-menu-group {border-top:0;margin-top:0;padding-top:0}
   .toolbar-menu-heading {padding:8px 10px 4px;color:var(--muted);font-size:11px;line-height:1.5;font-weight:400;white-space:nowrap}
@@ -222,6 +223,55 @@
   }
   @media(prefers-reduced-motion:reduce) {#dialog[aria-busy=true] #dialog-submit::before {animation:none}}
 }
+
+/* Repository controls use the same surfaces and colors, with room for long names and touch targets. */
+@layer app {
+  #github-view :is(.page-header,.page-header>div,.repo-toolbar,.file-list,.repo-grid,.repo-card) {min-width:0}
+  #github-view :is(h1,.page-header p,.repo-card strong,.repo-card p,.repo-card small) {overflow-wrap:anywhere}
+  #github-view [data-file] {min-width:0;text-align:left;justify-content:flex-start;overflow-wrap:anywhere}
+  #github-view .repo-toolbar label {min-width:0}
+  #github-view .repo-toolbar select {max-width:100%;text-overflow:ellipsis}
+  @media(max-width:899px) {
+    #github-view {padding:18px clamp(12px,3vw,24px) 28px}
+    #github-view .github-topbar {gap:8px;margin-bottom:18px;padding-bottom:12px}
+    #github-view .github-topbar>.button-row {flex-wrap:nowrap;gap:6px;min-width:0}
+    #github-view .github-topbar span {overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    #github-view [data-toggle-theme] {flex:none;width:40px;min-height:44px;padding:0}
+    #github-view .page-header {flex-direction:column;align-items:stretch;gap:16px;margin-bottom:18px}
+    #github-view h1 {margin:10px 0 6px;font-size:22px;line-height:1.4}
+    #github-view .page-header p {margin:0;line-height:1.6}
+    #github-view .page-kicker {display:block;line-height:1.6}
+    #github-view .page-header>:is(.account-actions,.button-row) {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;width:100%}
+    #github-view :is(.page-header,.repo-toolbar,.remote-selection-tools,.empty-state) button {min-width:0;min-height:44px;padding:9px 10px;line-height:1.5;white-space:normal;overflow-wrap:anywhere}
+    #github-view #repo-pull {order:0}
+    #github-view #repo-commit {order:1}
+    #github-view #repo-commit-workspace {order:2}
+    #github-view #repo-settings {order:3}
+    #github-view #back-repos {justify-content:flex-start;padding-left:0}
+    #github-view .repo-toolbar {display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;align-items:stretch}
+    #github-view .repo-toolbar label {grid-column:1/-1;display:grid;grid-template-columns:auto minmax(0,1fr);align-items:center;gap:12px;font-size:12px;color:var(--muted)}
+    #github-view #branch-select {min-width:0;width:100%;min-height:44px;box-sizing:border-box;font-size:14px}
+    #github-view .sync-target {margin:14px 0;padding:10px 12px;font-size:11px;line-height:1.6}
+    #github-view .remote-selection-tools {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    #github-view #remote-multi {justify-self:start;min-width:72px}
+    #github-view #remote-selected-count {font-size:12px;color:var(--muted);align-self:center}
+    #github-view .path-label {margin:14px 0 0;line-height:1.6}
+    #github-view .file-list {margin-top:10px}
+    #github-view .file-row {padding:8px 10px;gap:2px 8px}
+    #github-view .file-row[data-remote-row] {display:grid;grid-template-columns:minmax(0,1fr) 44px;grid-template-areas:'name action' 'meta action'}
+    #github-view .file-row [data-file] {grid-area:name;padding:5px 0;min-height:28px;line-height:1.6}
+    #github-view .file-row small {grid-area:meta;line-height:1.5;padding-bottom:4px}
+    #github-view .file-row :is([data-delete],[data-browse]) {grid-area:action;width:44px;height:44px;padding:0;align-self:center;justify-self:end}
+    #github-view .file-row [data-remote-select] {grid-area:select;margin:0;align-self:center;justify-self:center;width:20px;height:20px}
+    #github-view #file-list[data-selecting=true] .file-row[data-remote-row] {grid-template-columns:24px minmax(0,1fr) 44px;grid-template-areas:'select name action' 'select meta action'}
+    #github-view [data-parent] {min-height:44px}
+    #github-view .repo-grid {grid-template-columns:repeat(auto-fit,minmax(min(100%,240px),1fr));gap:10px}
+    #github-view .repo-card {padding:16px;min-height:128px}
+    #github-view .repo-card small {max-width:100%;white-space:normal;box-sizing:border-box}
+    #github-view .empty-state {margin:16px auto;padding:24px 16px}
+    #github-view .empty-state .button-row {display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+  }
+}
 @layer app {
   .font-settings {display:flex;flex-direction:column;gap:10px;min-width:0;margin:0;padding:12px;border:1px solid var(--hairline);border-radius:var(--radius)}
   .font-settings select {width:100%}
@@ -239,4 +289,27 @@
   @media(max-width:360px) {
     body[data-editor-chrome=compact] .breadcrumb>.nav-separator {display:none}
   }
+}
+
+@layer app {
+  #github-view .git-login-fields {display:grid;gap:12px;width:min(100%,380px);margin:0 auto;text-align:left}
+  #github-view .git-login-fields>label:not([hidden]) {display:flex;flex-direction:column;gap:6px;min-width:0}
+  #github-view .git-login-fields :is(input,select) {width:100%;min-width:0;box-sizing:border-box}
+  #github-view .git-login-fields small {line-height:1.6;overflow-wrap:anywhere;color:var(--muted)}
+  #github-view .page-kicker {overflow-wrap:anywhere}
+}
+
+@layer app {
+  .sync-files .checkbox {align-items:flex-start}
+  .sync-files .checkbox>span {min-width:0;overflow-wrap:anywhere}
+  .sync-files small {display:block;line-height:1.6;color:var(--muted);overflow-wrap:anywhere}
+  .sync-files input:disabled+span {color:var(--muted)}
+  .sync-files>section {padding:8px 0;border-bottom:1px solid var(--hairline)}
+}
+
+@layer app {
+  .sync-target {display:grid;gap:4px;margin:12px 0;padding:12px 14px;border:1px solid var(--hairline);border-radius:var(--radius,6px);background:var(--soft);font-size:12px;overflow-wrap:anywhere}
+  .sync-target strong {font-weight:500;color:var(--muted)}
+  .sync-target small {color:var(--muted)}
+  .toolbar>#save-state,.toolbar>#sync-state {display:none}
 }
