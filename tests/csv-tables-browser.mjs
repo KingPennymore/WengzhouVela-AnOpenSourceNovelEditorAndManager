@@ -52,7 +52,7 @@ try {
     const page = await context.newPage(),
       errors = [];
     page.on('pageerror', (error) => errors.push(error.message));
-    const saved = () => page.evaluate(() => JSON.parse(localStorage.getItem('wenzhou.workspace')));
+    const saved = () => page.evaluate(() => { window.wenzhouSave(); return JSON.parse(localStorage.getItem('wenzhou.workspace')); });
     const fits = async () =>
       assert.ok(
         await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1),

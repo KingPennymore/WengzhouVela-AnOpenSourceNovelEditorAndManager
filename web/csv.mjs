@@ -6,4 +6,7 @@ export function parseCsv(source, delimiter = csvDelimiter(source)) {
   if (model.error) throw Object.assign(Error(model.error), { line: model.line, column: model.column, offset: model.offset });
   return model.rows;
 }
-export function writeCsv(rows, delimiter = ',') { return rows.map(row => row.map(value => csvValue(value, delimiter)).join(delimiter)).join('\n'); }
+export function writeCsv(rows, delimiter = ',') { return rows.map((row, index) => {
+  const text = row.map(value => csvValue(value, delimiter)).join(delimiter);
+  return text === '' && index === rows.length - 1 ? '""' : text;
+}).join('\n'); }

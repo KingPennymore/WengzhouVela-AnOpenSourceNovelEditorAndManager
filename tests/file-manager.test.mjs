@@ -1,7 +1,16 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {applyFileOperation,restoreFile,copyDestination} from '../web/file-manager.mjs';
+import {applyFileOperation,restoreFile,copyDestination,fileOperationCopy,fileViewTarget} from '../web/file-manager.mjs';
 const fixture=()=>({documents:[{id:'book',name:'全书.txt',path:'小说/全书.txt',text:'正文',remote:{repo:'me/book'}},{id:'other',name:'旁.txt',path:'小说2/旁.txt',text:'旁文'}],folders:['小说','小说/空目录','小说2'],entries:[{path:'小说/封面.png',name:'封面.png',editable:false}],repositories:[{repo:'me/book',folder:'小说',branch:'main',commit:'abc'}],openIds:['book','other'],activeId:'book'});
+
+test('File operations reuse immutable text and preserve the nearest open editor',()=>{
+  const before=fixture(),candidate=fileOperationCopy(before);applyFileOperation(candidate,'delete','小说');
+  assert.equal(before.documents.length,2);assert.equal(before.repositories.length,1);
+  assert.equal(candidate.trash[0].documents[0].text,before.documents[0].text);
+  assert.equal(fileViewTarget(candidate.documents,'book',before.openIds),'other');
+  assert.equal(fileViewTarget(before.documents,'book',before.openIds),'book');
+  assert.equal(fileViewTarget([],'book',before.openIds),null);
+});
 test('目录移动保留文稿 ID、关联、附件和空目录，复制获得独立文稿',()=>{
   const w=fixture();applyFileOperation(w,'move','小说','成稿/第一部');
   assert.equal(w.documents.find(d=>d.id==='book').path,'成稿/第一部/全书.txt');assert.equal(w.repositories[0].folder,'成稿/第一部');assert.equal(w.entries[0].path,'成稿/第一部/封面.png');assert.ok(w.folders.includes('成稿/第一部/空目录'));assert.equal(w.documents.find(d=>d.id==='other').path,'小说2/旁.txt');

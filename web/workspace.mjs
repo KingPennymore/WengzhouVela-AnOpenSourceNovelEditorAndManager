@@ -16,7 +16,7 @@ export function preparePaths(workspace){
   return workspace;
 }
 export function adoptFolder(workspace,result,{migrate=false}={}){
-  const old=workspace.documents,active=workspace.activeId,documents=result.documents.map(doc=>({...doc}));
+  const old=workspace.documents,active=workspace.activeId,byId=new Map(old.map(doc=>[doc.id,doc])),documents=result.documents.map(doc=>{const previous=byId.get(doc.id);return previous&&previous.text===doc.text?Object.assign(previous,doc):{...doc};});
   if(migrate){
     const paths=new Set([...(result.entries||[]).map(entry=>entry.path),...documents.map(documentPath)]);
     for(const original of old){

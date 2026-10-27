@@ -4,6 +4,16 @@ import {documentPath,uniquePath} from './workspace.mjs';
 export const within=(parent,path)=>path===parent||path.startsWith(parent+'/');
 export const basename=path=>path.split('/').at(-1);
 export const parentPath=path=>path.split('/').slice(0,-1).join('/');
+// File operations mutate containers and path metadata, never manuscript strings or histories.
+export function fileOperationCopy(workspace) {
+  return { ...workspace, documents: workspace.documents.map(doc => ({ ...doc })), folders: [...(workspace.folders || [])], entries: [...(workspace.entries || [])], repositories: (workspace.repositories || []).map(repo => ({ ...repo })), trash: [...(workspace.trash || [])], ...(workspace.pluginProject ? { pluginProject: { ...workspace.pluginProject, entries: { ...workspace.pluginProject.entries }, textFiles: { ...workspace.pluginProject.textFiles } } } : {}) };
+}
+export function fileViewTarget(documents, activeId, openIds) {
+  const live = new Set(documents.map(doc => doc.id));
+  if (live.has(activeId)) return activeId;
+  const at = openIds.indexOf(activeId);
+  return [...openIds.slice(at + 1), ...openIds.slice(0, Math.max(0, at)).reverse()].find(id => live.has(id)) || null;
+}
 export function itemPaths(workspace){return new Set([...workspace.documents.map(documentPath),...(workspace.folders||[]),...(workspace.entries||[]).map(item=>item.path)]);}
 export function copyDestination(workspace,path,folder=parentPath(path)){
   const candidate=(folder?folder+'/':'')+basename(path);
@@ -45,8 +55,9 @@ export function applyFileOperation(workspace,action,path,destination='') {
     workspace.folders=[...new Set(workspace.folders)];
   }
   if(workspace.pluginProject)for(const field of ['entries','textFiles']){const values=workspace.pluginProject[field]||{},next={...values};for(const [key,value] of Object.entries(values))if(within(path,key)){if(action!=='copy')delete next[key];if(action!=='delete')next[destination+key.slice(path.length)]=field==='entries'&&action==='copy'?crypto.randomUUID():value;}workspace.pluginProject[field]=next;}
-  workspace.openIds=workspace.openIds.filter(id=>workspace.documents.some(doc=>doc.id===id));
-  if(!workspace.documents.some(doc=>doc.id===workspace.activeId))workspace.activeId=null;
+  const live=new Set(workspace.documents.map(doc=>doc.id));
+  workspace.openIds=workspace.openIds.filter(id=>live.has(id));
+  if(!live.has(workspace.activeId))workspace.activeId=null;
 }
 export function restoreFile(workspace,id,permanent=false){
   const item=(workspace.trash||[]).find(item=>item.id===id);if(!item)throw new Error('回收站项目不存在。');

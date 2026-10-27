@@ -91,7 +91,7 @@ export class WorkspaceFiles {
   }
   private readText(path: string): string {
     const bytes = this.readBytes(path, 8 * 1024 * 1024);
-    return decodeFileText(bytes);
+    return decodeFileText(bytes, path);
   }
   private relative(value: string): string {
     if (!value || value.startsWith('/') || /[\\\x00-\x1f]/.test(value) || value.split('/').some(part => !part || part === '.' || part === '..') || value.endsWith('.wenzhou-tmp')) {
@@ -310,7 +310,7 @@ export class WorkspaceFiles {
       if (seen.includes(item.path) || folders.includes(item.path) || typeof item.expectedData !== 'string' || item.expectedData.length > 12 * 1024 * 1024) throw new Error('删除路径重复或缺少本地版本。');
       seen.push(item.path); total += item.expectedData.length;
       const bytes = this.readBytes(path, 8 * 1024 * 1024), encoded = bytes.byteLength === 0 ? '' : new util.Base64Helper().encodeToStringSync(bytes);
-      if (total > 96 * 1024 * 1024 || encoded !== item.expectedData || typeof item.expectedText === 'string' && decodeFileText(bytes) !== item.expectedText) throw new Error('本地文件已变化，未执行同步删除：' + item.path);
+      if (total > 96 * 1024 * 1024 || encoded !== item.expectedData || typeof item.expectedText === 'string' && decodeFileText(bytes, item.path) !== item.expectedText) throw new Error('本地文件已变化，未执行同步删除：' + item.path);
       const id = util.generateRandomUUID(); payloads.push(this.trashPayload(id));
       records.push({ id: id, workspaceId: root.id, path: item.path, directory: false, createdAt: Date.now(), documents: old.documents.filter(doc => (doc.path || doc.name) === item.path), repositories: [] });
     }
@@ -364,7 +364,7 @@ export class WorkspaceFiles {
     const mime = html ? 'text/html' : previewMime(relative);
     let bytes = this.readBytes(this.target(relative), 8 * 1024 * 1024);
     if (mime.startsWith('text/') || mime === 'image/svg+xml' || mime === 'application/json') {
-      let text = decodeFileText(bytes);
+      let text = decodeFileText(bytes, relative);
       if (mime === 'text/html') {
         text = text.replace(/(<meta\b[^>]*charset\s*=\s*["']?)[a-z0-9_-]+/gi, '$1utf-8');
         if (!/<meta\b[^>]*name\s*=\s*["']?viewport\b/i.test(text)) {

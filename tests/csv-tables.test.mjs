@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { EditorState, EditorSelection } from '@codemirror/state';
 import { history, undo, redo } from '@codemirror/commands';
 import { csvColumnName } from '../web/csv-view.mjs';
-import { parseCsvModel, setCsvCell, insertCsvRow, csvColumns, deleteCsvRows, reorderCsvRows } from '../web/csv-model.mjs';
+import { parseCsvModel, patchCsvModel, setCsvCell, insertCsvRow, csvColumns, deleteCsvRows, reorderCsvRows, replaceCells, MAX_CSV_CELLS } from '../web/csv-model.mjs';
 import { decodeFileText } from '../web/file-text.mjs';
 import { decodeContent, encodeContent } from '../web/model.mjs';
 // csv-grid pulls in motion.mjs, which reads matchMedia when it loads.
@@ -99,6 +99,56 @@ test('TSV extension and explicit delimiters survive editing, RFC quoting remains
   for (const delimiter of [',', ';', '\t'])
     assert.deepEqual(parseCsv(writeCsv(rows, delimiter), delimiter), rows);
   assert.throws(() => parseCsv(','.repeat(200000)), /200000/);
+});
+
+test('Empty terminal records survive clearing, adding, pasting, deleting columns and sorting', () => {
+  assert.deepEqual(parseCsv(writeCsv([['a'], ['']], '\t'), '\t'), [['a'], ['']], 'clipboard preserves the last empty row');
+  for (const eol of ['\n', '\r\n']) {
+    const source = '\uFEFFsep=,' + eol + 'a' + eol + 'b', model = parseCsvModel(source, ',');
+    const cleared = applyChanges(source, setCsvCell(model, 1, 0, ''));
+    assert.equal(cleared, '\uFEFFsep=,' + eol + 'a' + eol + '""');
+    assert.deepEqual(parseCsv(cleared), [['a'], ['']]);
+    const added = applyChanges(source, insertCsvRow(model, 2));
+    assert.deepEqual(parseCsv(added), [['a'], ['b'], ['']]);
+    assert.equal(parseCsvModel(added, ',').format.trailingNewline, false);
+    const pasted = applyChanges(source, replaceCells(model, [{ row: 2, column: 0, value: '' }]));
+    assert.deepEqual(parseCsv(pasted), [['a'], ['b'], ['']]);
+  }
+  assert.deepEqual(parseCsv(applyChanges('', insertCsvRow(parseCsvModel('', ','), 0))), [[''], ['']]);
+  const twoColumns = 'a,b\nc,';
+  assert.deepEqual(parseCsv(applyChanges(twoColumns, csvColumns(parseCsvModel(twoColumns, ','), 'delete', 0))), [['b'], ['']]);
+  const blankFirst = '\na';
+  assert.deepEqual(parseCsv(applyChanges(blankFirst, reorderCsvRows(parseCsvModel(blankFirst, ','), [1, 0]))), [['a'], ['']]);
+  const blankBeforeLast = 'a\n\nb';
+  assert.deepEqual(parseCsv(applyChanges(blankBeforeLast, deleteCsvRows(parseCsvModel(blankBeforeLast, ','), 2))), [['a'], ['']]);
+});
+
+test('Clearing the full 200,000-cell selection works for both tall and wide tables', () => {
+  for (const delimiter of ['\n', ',']) {
+    const source = Array(MAX_CSV_CELLS).fill('1').join(delimiter), model = parseCsvModel(source, ',');
+    const entries = Array.from({ length: MAX_CSV_CELLS }, (_, i) => ({ row: delimiter === '\n' ? i : 0, column: delimiter === ',' ? i : 0, value: '' }));
+    const changes = replaceCells(model, entries);
+    assert.ok(changes.length < 16, 'large edits use bounded spans instead of 200,000 text tree replacements');
+    const state = EditorState.create({ doc: source }).update({ changes }).state;
+    const after = parseCsvModel(state.doc.toString(), ',');
+    assert.equal(after.error, undefined);
+    assert.equal(after.cells, MAX_CSV_CELLS);
+    assert.equal(after.rows.length, model.rows.length);
+    assert.equal(after.columns, model.columns);
+    assert.ok(after.rows.every(row => row.every(value => value === '')));
+  }
+});
+
+test('Small CSV edits reuse decoded rows and preserve exact span offsets', () => {
+  const source = '\uFEFFsep=,\r\na,"b"\r\n\uFEFFkeep,d\r\nz,q\r\n', model = parseCsvModel(source, ',');
+  const changes = setCsvCell(model, 0, 1, 'long\n"value'), text = applyChanges(source, changes), next = patchCsvModel(model, changes, text);
+  assert.deepEqual(next, parseCsvModel(text, ','));
+  assert.equal(next.rows[1], model.rows[1]); assert.equal(next.rows[2], model.rows[2]);
+  const bomChange = setCsvCell(next, 1, 1, 'new'), bomText = applyChanges(text, bomChange);
+  assert.deepEqual(patchCsvModel(next, bomChange, bomText), parseCsvModel(bomText, ','));
+  assert.equal(patchCsvModel(model, insertCsvRow(model, 1), applyChanges(source, insertCsvRow(model, 1))), null);
+  const columns = csvColumns(model, 'insert', 1);
+  assert.ok(columns.every(c => c.from === c.to && c.insert === ','), 'inserting a column does not reserialize existing fields');
 });
 
 test('Linked paths can cross folders inside the workspace but never escape it or fetch URLs', () => {

@@ -23,6 +23,20 @@ async function fixture(t){
 }
 const baselineOf=(value,saveId)=>({saveId,storage:value.storage.id,texts:new Map(value.documents.map(doc=>[doc.id,doc.text])),histories:new Map(Object.entries(value.localHistory||{}).map(([id,list])=>[id,{list,length:list.length}]))});
 
+test('HarmonyOS CSV delta saves and conflict detection preserve BOM and CRLF',async t=>{
+  const f=await fixture(t),text='\uFEFF姓名\t备注\r\n甲\t原文\r\n';
+  const value={version:1,storage:f.folder.storage,documents:[{id:'csv',name:'数据.TSV',path:'数据.TSV',text,updatedAt:1,remote:null}]};
+  f.full({...value,saveId:'csv0'});
+  value.documents[0].text=text.replace('原文','改稿');
+  f.service.saveDelta(JSON.stringify(workspaceDelta(value,baselineOf({...value,documents:[{...value.documents[0],text}]},'csv0'),'csv1')));
+  assert.equal(fs.readFileSync(f.file('数据.TSV'),'utf8'),value.documents[0].text);
+  assert.equal(f.service.scan().documents[0].text,value.documents[0].text);
+  const baseline=baselineOf(value,'csv1');
+  fs.writeFileSync(f.file('数据.TSV'),value.documents[0].text.slice(1));
+  value.documents[0].text=text.replace('原文','再改');
+  assert.throws(()=>f.service.saveDelta(JSON.stringify(workspaceDelta(value,baseline,'csv2'))),/外部修改/);
+});
+
 test('HarmonyOS delta: changed texts, rename, delete, history; previous text and .bak generation kept',async t=>{
   const f=await fixture(t),docs=[['a','书/甲.txt','甲'],['b','书/乙.txt','乙'],['c','丙.txt','丙']].map(([id,p,text])=>({id,name:p.split('/').at(-1),path:p,text,updatedAt:1,remote:null}));
   const value={version:1,storage:f.folder.storage,documents:docs,folders:['书'],localHistory:{a:[{text:'旧',createdAt:1}]}};f.full({...value,saveId:'s0'});const base=baselineOf(value,'s0');

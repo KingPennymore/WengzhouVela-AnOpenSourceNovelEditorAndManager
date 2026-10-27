@@ -414,3 +414,56 @@
   #display-options button {font-size:var(--editor-toolbar-font-size)}
   @media(max-width:600px){.csv-toolbar select {width:80px}}
 }
+@layer app {
+  #dialog.trash-dialog {width:min(860px,calc(100vw - 24px));max-width:860px}
+  .trash-dialog #dialog-body {padding:0;min-height:0;overflow:hidden}
+  .trash-manager {display:flex;flex-direction:column;min-width:0;max-height:68vh;color:var(--text)}
+  .trash-intro {display:flex;align-items:center;gap:14px;padding:12px 0 18px;border-bottom:1px solid var(--hairline)}
+  .trash-emblem {display:grid;place-items:center;flex:none;width:48px;height:48px;border-radius:var(--radius);background:var(--soft);color:var(--accent)}
+  .trash-emblem svg {width:24px;height:24px}.trash-intro>div {flex:1;min-width:0}.trash-intro strong {font-size:15px;font-weight:500}.trash-intro p {margin:5px 0 0;font-size:12px;color:var(--muted)}
+  #trash-total {color:var(--muted);font-size:12px;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .trash-toolbar {display:flex;align-items:center;gap:8px;padding:14px 0 10px}
+  .trash-search {display:flex;align-items:center;flex:1;min-width:100px;gap:8px;margin:0;padding:0 10px;border:1px solid var(--hairline);border-radius:var(--radius);background:var(--soft)}
+  .trash-search svg {flex:none;width:18px;height:18px;color:var(--muted)}
+  .trash-search input {flex:1;min-width:0;width:100%;margin:0;padding:10px 0;border:0;box-shadow:none;background:transparent;min-height:44px;font-size:13px}
+  .trash-toolbar button {flex:none;min-height:44px;padding:8px 10px;gap:6px;white-space:nowrap;font-size:12px}.trash-toolbar button svg {width:18px;height:18px}
+  .trash-selection {display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 0;color:var(--muted);font-size:12px}
+  .trash-selection label {display:flex;align-items:center;gap:8px;margin:0;min-height:36px}.trash-manager input[type=checkbox] {width:18px;height:18px;min-height:18px;flex:none;margin:0;accent-color:var(--accent)}
+  .trash-list {min-height:120px;overflow:auto;overscroll-behavior:contain;border-block:1px solid var(--hairline);background:transparent}
+  .trash-item {display:flex;align-items:center;gap:12px;padding:8px 0;border-bottom:1px solid var(--hairline);min-width:0}.trash-item:last-child {border-bottom:0}.trash-item.is-selected {background:var(--accent-tint)}
+  .trash-item-select {display:flex;align-items:center;gap:12px;flex:1;min-width:0;margin:0;min-height:48px;cursor:pointer}
+  .trash-kind {display:grid;place-items:center;width:36px;height:40px;flex:none;background:var(--soft);color:var(--accent);border:1px solid var(--hairline);border-radius:var(--radius);font-size:10px}
+  .trash-kind svg {width:20px;height:20px}.trash-item-name {min-width:0;display:flex;flex-direction:column;gap:4px}.trash-item-name strong {font-size:13px;font-weight:500;overflow-wrap:anywhere}.trash-item-name small {font-size:11px;color:var(--muted);overflow-wrap:anywhere}
+  .trash-item time {font-size:11px;color:var(--muted);flex:none;white-space:nowrap;font-variant-numeric:tabular-nums}.trash-item-actions {display:flex;gap:2px;flex:none}.trash-item-actions button {width:44px;height:44px;min-height:44px;padding:10px;background:transparent;color:var(--muted)}
+  .trash-item-actions button:hover {color:var(--accent);background:var(--soft)}.trash-item-actions button[data-permanent]:hover {color:var(--danger,var(--text))}.trash-item-actions svg {width:20px;height:20px}
+  .trash-confirm {display:flex;align-items:center;gap:8px;padding:12px;margin-top:12px;border:1px solid var(--line);border-radius:var(--radius);background:var(--soft);flex:none}.trash-confirm>div {flex:1}.trash-confirm strong {font-size:13px}.trash-confirm p {margin:4px 0 0;color:var(--muted);font-size:12px}.trash-confirm button {min-height:44px;white-space:nowrap;font-size:12px}
+  .trash-empty {display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;padding:48px 12px;color:var(--muted)}.trash-empty svg {width:32px;height:32px}.trash-empty strong {font-size:13px;font-weight:400}
+  #trash-progress,#trash-error {margin:8px 0 0;white-space:pre-wrap;font-size:12px}#trash-progress:empty,#trash-error:empty {display:none}
+  .trash-manager :is(button,input):focus-visible {outline:2px solid var(--accent);outline-offset:-2px}
+  .quickbar:has(.csv-bottom-actions) .csv-bottom-actions>button {width:44px;min-width:44px;flex-basis:44px;min-height:44px}
+  .quickbar:has(.csv-bottom-actions) #csv-zoom {width:52px;min-width:52px;flex-basis:52px;font-variant-numeric:tabular-nums}
+  @media(max-width:600px) {
+    .trash-manager {max-height:72vh}.trash-intro {gap:10px;padding-top:4px}.trash-intro strong {font-size:14px}.trash-emblem {width:40px;height:40px}.trash-intro p {line-height:1.5}
+    .trash-toolbar {flex-wrap:wrap}.trash-search {flex-basis:100%}.trash-toolbar>button {flex:1;justify-content:center}.trash-selection label {min-height:44px}
+    .trash-item {gap:4px;flex-wrap:wrap;padding:8px 0}.trash-item-select {gap:8px;flex-basis:calc(100% - 90px)}.trash-item time {order:3;width:100%;padding-left:26px;font-size:10px}.trash-item-actions {margin-left:auto}
+    .trash-confirm {flex-wrap:wrap}.trash-confirm>div {flex-basis:100%}.trash-confirm button {flex:1}
+  }
+}
+@layer app {
+  #dialog.trash-dialog #dialog-body {padding:0 20px}
+  #dialog.trash-dialog .trash-manager svg {fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+  #dialog.trash-dialog :is(.trash-search,.trash-item-select,.trash-selection label) {display:flex;flex-direction:row;align-items:center;margin:0}
+  #dialog.trash-dialog .trash-search {padding:0 10px;gap:8px}
+  #dialog.trash-dialog .trash-item-select {flex:1;min-width:0;gap:12px}
+  #dialog.trash-dialog .trash-item-name {display:flex;flex-direction:column;min-width:0;gap:4px}
+  #dialog.trash-dialog .trash-selection label {gap:8px;width:auto}
+  @media(max-width:600px){#dialog.trash-dialog #dialog-body {padding:0 12px}#dialog.trash-dialog .trash-item-select {flex-basis:calc(100% - 92px);gap:8px}}
+}
+@layer app {
+  @media(max-width:600px){
+    #dialog.trash-dialog .trash-item {display:grid;grid-template-columns:minmax(0,1fr) auto;gap:4px 8px;padding:10px 0}
+    #dialog.trash-dialog .trash-item-select {grid-column:1;grid-row:1;width:auto}
+    #dialog.trash-dialog .trash-item time {grid-column:1;grid-row:2;width:auto;padding-left:26px}
+    #dialog.trash-dialog .trash-item-actions {grid-column:2;grid-row:1 / span 2;align-self:center}
+  }
+}

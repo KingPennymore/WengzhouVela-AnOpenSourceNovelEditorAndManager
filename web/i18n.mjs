@@ -226,3 +226,14 @@ Object.assign(dictionary, {
  '表格超过 200000 个单元格。':'The table exceeds 200,000 cells.',
  '表格改动重叠。':'Table changes overlap.'
 });
+Object.assign(dictionary, {
+ '找回最近删除的文件':'Recover recently deleted files',
+ '恢复到原位置；永久删除后无法找回。':'Restore to the original location. Permanent deletion cannot be undone.',
+ '搜索回收站':'Search trash','搜索名称或原路径':'Search name or original path',
+ '恢复所选':'Restore selected','永久删除所选':'Delete selected permanently',
+ '全选当前列表':'Select all shown','已删除的文件':'Deleted files','没有匹配的项目':'No matching items',
+ '已选择 {n} 项':'{n} selected','{n} 项':'{n} items',
+ '永久删除选中的 {n} 项？':'Permanently delete {n} selected items?',
+ '此操作无法恢复。':'This action cannot be undone.',
+ '正在处理 {done}/{total}':'Processing {done}/{total}', '已完成 {n} 项':'Completed {n} items'
+});

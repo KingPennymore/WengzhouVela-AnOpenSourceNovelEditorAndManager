@@ -19,6 +19,17 @@ function fixture(t,{emptyCodecResult=false}={}){
   return {create,root,sandbox,blockReads:()=>{blockReads=true;},failOnce:suffix=>{failRename=suffix;}};
 }
 
+test('鸿蒙 CSV/TSV 导入文本的 BOM 与 CRLF 在重复保存及扫描后保持一致',async t=>{
+  const f=fixture(t),service=f.create(),folder=await service.initialize(),text='\uFEFF姓名,备注\r\n甲,原文\r\n';
+  const state={version:1,storage:folder.storage,documents:[{id:'csv',name:'人物.CSV',path:'人物.CSV',text,updatedAt:1,remote:null},{id:'tsv',name:'数据.tsv',path:'数据.tsv',text:text.replaceAll(',', '\t'),updatedAt:1,remote:null}]};
+  service.mirror(JSON.stringify(state));
+  state.documents[0].text=text.replace('原文','改稿');service.mirror(JSON.stringify(state));
+  const resumed=await f.create().initialize();
+  for(const doc of state.documents){assert.equal(resumed.documents.find(d=>d.id===doc.id).text,doc.text);assert.equal(fs.readFileSync(path.join(folder.storage.root,doc.path),'utf8'),doc.text);}
+  fs.writeFileSync(path.join(folder.storage.root,'人物.CSV'),state.documents[0].text.slice(1));
+  assert.throws(()=>service.mirror(JSON.stringify(state)),/外部修改/);
+});
+
 test('鸿蒙空编码结果不会阻断订阅占位文档、下载正文、清空正文及重启恢复',async t=>{
   const f=fixture(t,{emptyCodecResult:true}),service=f.create(),folder=await service.initialize();
   const documents=Array.from({length:54},(_,i)=>({id:'subscription-'+i,name:`文件${i}.txt`,path:`Subscriptions/author/book/测试文件/文件${i}.txt`,text:'',updatedAt:1,remote:null,subscription:{repo:'author/book',path:`测试文件/文件${i}.txt`,sha:'sha-'+i}}));
@@ -60,7 +71,7 @@ test('整仓库批量写入保留二进制，写入中断后恢复已覆盖文�
   const f=fixture(t),service=f.create(),folder=await service.initialize(),base=folder.storage.root;fs.writeFileSync(path.join(base,'a.txt'),'旧');const files=[{path:'a.txt',data:Buffer.from('新').toString('base64')},{path:'b.bin',data:Buffer.from([0,255]).toString('base64')}];f.failOnce('b.bin');assert.throws(()=>service.writeFiles(files,[]),/模拟磁盘/);assert.equal(fs.readFileSync(path.join(base,'a.txt'),'utf8'),'旧');assert.equal(fs.existsSync(path.join(base,'b.bin')),false);service.writeFiles(files,[]);assert.deepEqual(fs.readFileSync(path.join(base,'b.bin')),Buffer.from([0,255]));
 });
 test('内部目录的 UTF-16 CSV 与图片可读取，图片路径不能越界',async t=>{
-  const f=fixture(t),service=f.create(),initial=await service.initialize(),folder=path.join(initial.storage.root,'100%');fs.mkdirSync(folder);fs.writeFileSync(path.join(folder,'人物.CSV'),Buffer.concat([Buffer.from([255,254]),Buffer.from('姓名;身份\n文舟;作者','utf16le')]));fs.writeFileSync(path.join(folder,'封面.png'),Buffer.from([137,80,78,71]));const state=service.scan();assert.equal(state.documents.find(d=>d.name==='人物.CSV').text,'姓名;身份\n文舟;作者');assert.equal(service.readAsset('100%/封面.png'),'data:image/png;base64,iVBORw==');assert.throws(()=>service.readAsset('../封面.png'),/相对路径/);
+  const f=fixture(t),service=f.create(),initial=await service.initialize(),folder=path.join(initial.storage.root,'100%');fs.mkdirSync(folder);fs.writeFileSync(path.join(folder,'人物.CSV'),Buffer.concat([Buffer.from([255,254]),Buffer.from('姓名;身份\n文舟;作者','utf16le')]));fs.writeFileSync(path.join(folder,'封面.png'),Buffer.from([137,80,78,71]));const state=service.scan();assert.equal(state.documents.find(d=>d.name==='人物.CSV').text,'\uFEFF姓名;身份\n文舟;作者');assert.equal(service.readAsset('100%/封面.png'),'data:image/png;base64,iVBORw==');assert.throws(()=>service.readAsset('../封面.png'),/相对路径/);
 });
 test('原生 HTML 资源保留排版和相对路径，统一编码，禁止跨工作区和符号链接读取',async t=>{
   const f=fixture(t),service=f.create(),state=await service.initialize(),base=state.storage.root;

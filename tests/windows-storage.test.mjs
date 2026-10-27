@@ -3,10 +3,57 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import {WorkspaceStorage,relativePath} from '../windows/storage.mjs';
+import {WorkspaceStorage,relativePath,decodeText} from '../windows/storage.mjs';
+import {workspaceDelta} from '../web/platform.mjs';
 import {GitHubBridge} from '../windows/github.mjs';
 const temp=()=>fs.mkdtempSync(path.join(os.tmpdir(),'vela-storage-qa-'));
 const clean=folder=>fs.rmSync(folder,{recursive:true,force:true});
+
+test('Windows trash moves payloads without copying, and rolls back a failed metadata write',()=>{
+  const base=temp(),copy=fs.copyFileSync,rename=fs.renameSync;
+  try{
+    const store=new WorkspaceStorage(base),folder=store.target('资料');fs.mkdirSync(folder);fs.writeFileSync(path.join(folder,'素材.bin'),Buffer.alloc(8*1024*1024));
+    let payloadCopies=0;fs.copyFileSync=(source,...args)=>{if(source===path.join(folder,'素材.bin'))payloadCopies++;return copy(source,...args);};
+    store.manage('delete','资料');assert.equal(payloadCopies,0);const record=store.listTrash()[0];
+    store.restoreTrash(record.id);assert.equal(fs.statSync(path.join(folder,'素材.bin')).size,8*1024*1024);
+    let fail=true;fs.renameSync=(from,to)=>{if(to===store.cache&&fail){fail=false;throw Error('metadata write failed');}return rename(from,to);};
+    assert.throws(()=>store.manage('delete','资料'),/metadata write failed/);
+    assert.equal(fs.existsSync(path.join(folder,'素材.bin')),true);assert.equal(store.listTrash().length,0);
+    assert.equal(fs.readdirSync(store.transactions).length,0);
+  }finally{fs.copyFileSync=copy;fs.renameSync=rename;clean(base);}
+});
+
+test('Windows startup recovers an interrupted rename into the trash',()=>{
+  const base=temp();try{
+    const store=new WorkspaceStorage(base),source=store.target('正文.txt'),payload=path.join(base,'trash-payload','qa-interrupted');
+    fs.writeFileSync(source,'原文');fs.mkdirSync(path.dirname(payload));
+    const transaction=path.join(store.transactions,'qa-interrupted');fs.mkdirSync(transaction);
+    fs.writeFileSync(path.join(transaction,'journal.json'),JSON.stringify({committed:false,items:[{path:'trash-payload/qa-interrupted',moveFrom:'workspaces/Vela/正文.txt'}]}));
+    fs.renameSync(source,payload);new WorkspaceStorage(base);
+    assert.equal(fs.readFileSync(source,'utf8'),'原文');assert.equal(fs.existsSync(payload),false);
+  }finally{clean(base);}
+});
+
+test('CSV/TSV BOM and CRLF survive native reads, full and delta saves without false conflicts',()=>{
+  const base=temp();try{
+    const store=new WorkspaceStorage(base),text='\uFEFF姓名,备注\r\n甲,"原文"\r\n';
+    const state={version:1,...store.scan(),saveId:'csv0',documents:[{id:'csv',name:'人物.CSV',text,updatedAt:1},{id:'tsv',name:'数据.TSV',text:text.replaceAll(',', '\t'),updatedAt:1}]};
+    store.saveWorkspace(JSON.stringify(state));
+    state.documents[0].text=text.replace('原文','改稿');state.saveId='csv1';
+    store.saveWorkspace(JSON.stringify(state));
+    const baseline={saveId:'csv1',storage:state.storage.id,texts:new Map(state.documents.map(d=>[d.id,d.text])),histories:new Map()};
+    state.documents[0].text=text.replace('原文','再改');
+    store.saveWorkspaceDelta(JSON.stringify(workspaceDelta(state,baseline,'csv2')));
+    const reopened=new WorkspaceStorage(base).scan();
+    assert.deepEqual(reopened.documents.map(d=>d.text),state.documents.map(d=>d.text));
+    assert.equal(fs.readFileSync(store.target('人物.CSV'),'utf8'),state.documents[0].text);
+    assert.equal(decodeText(Buffer.from(text),'人物.csv'),text);
+    assert.equal(decodeText(Buffer.from(text),'正文.txt'),text.slice(1));
+    assert.equal(decodeText(Buffer.concat([Buffer.from([255,254]),Buffer.from(text.slice(1),'utf16le')]),'数据.tsv'),text);
+    fs.writeFileSync(store.target('人物.CSV'),state.documents[0].text.slice(1));
+    assert.throws(()=>store.saveWorkspace(JSON.stringify(state)),/外部修改/,'removing the BOM externally is a real file change');
+  }finally{clean(base);}
+});
 test('Windows 同一令牌重复登录与重启后登录不重复写安全存储，失效令牌仍被拒绝',async()=>{
  let token='',writes=0,status=200,requests=0;
  const options={request:async()=>{requests++;return {status,body:{login:'writer'}};},credentials:{read:()=>token,write:value=>{writes++;if(token===value)throw Error('duplicate credential');token=value;},clear:()=>token=''}};

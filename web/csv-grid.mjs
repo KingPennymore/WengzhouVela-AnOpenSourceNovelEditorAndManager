@@ -5,6 +5,7 @@ import { reducedMotion } from './motion.mjs';
 import { t } from './i18n.mjs';
 
 export const CSV_GUTTER = 48, CSV_HEADING = 34;
+const rowHeights = new WeakMap();
 export function prefixSizes(sizes) { const prefix = [0]; for (const size of sizes) prefix.push(prefix.at(-1) + size); return prefix; }
 export function csvAxisAt(prefix, value) {
   let lo = 0, hi = prefix.length - 1;
@@ -16,7 +17,11 @@ export function csvVisibleRange(prefix, offset, size, scale, buffer = 2) {
 }
 export function csvMetrics(rows, columns, widths = [], order = rows.map((_, r) => r)) {
   const sizes = Array.from({ length: columns }, (_, c) => widths[c] || Math.min(320, Math.max(96, 28 + rows.slice(0, 80).reduce((n, row) => Math.max(n, ...String(row[c] || '').split(/\r\n|\r|\n/).map(s => [...s.slice(0, 80)].reduce((sum, ch) => sum + (ch.charCodeAt(0) > 255 ? 14 : 8), 0))), 0))));
-  const heights = order.map(r => 20 + 24 * Math.min(3, rows[r].reduce((n, value) => Math.max(n, String(value).split(/\r\n|\r|\n/).length), 1)));
+  const heights = order.map(r => {
+    const row = rows[r]; let height = rowHeights.get(row);
+    if (height === undefined) { height = 20 + 24 * Math.min(3, row.reduce((n, value) => Math.max(n, String(value).split(/\r\n|\r|\n/).length), 1)); rowHeights.set(row, height); }
+    return height;
+  });
   return { widths: sizes, heights, x: prefixSizes(sizes), y: prefixSizes(heights) };
 }
 
@@ -25,6 +30,7 @@ export class CsvGrid {
   constructor(root, { model, state = {}, readOnly = false, header = false, order, onView = () => {}, onPaint = () => {}, canPan = () => true, onPinch = () => {}, onOverview = () => {} }) {
     Object.assign(this, { root, model, state, readOnly, header, onView, onPaint, onOverview });
     this.order = order || model.rows.map((_, r) => r).filter(r => !header || r !== 0);
+    this.positions = new Map(this.order.map((r, i) => [r, i]));
     this.metrics = csvMetrics(model.rows, model.columns, state.widths, this.order);
     state.plane ||= { x: 0, y: 0, scale: 1 }; this.plane = state.plane;
     this.plane.scale = Math.max(.25, Math.min(3, this.plane.scale));
@@ -55,6 +61,12 @@ export class CsvGrid {
     this.initialize(); this.paint();
   }
   contentSize() { return { width: CSV_GUTTER + this.metrics.x.at(-1), height: CSV_HEADING + this.metrics.y.at(-1) }; }
+  update(model, order) {
+    this.model = model; this.order = order; this.positions = new Map(order.map((r, i) => [r, i]));
+    this.metrics = csvMetrics(model.rows, model.columns, this.state.widths, order);
+    this.root.setAttribute('aria-rowcount', model.rows.length); this.root.setAttribute('aria-colcount', model.columns);
+    this.tiles = null; this.paint();
+  }
   initialize() {
     const width = this.surface.clientWidth;
     if (!width) return;
@@ -74,7 +86,7 @@ export class CsvGrid {
     const index = csvAxisAt(this.metrics.y, y); return { row: this.order[index], column: csvAxisAt(this.metrics.x, x), index };
   }
   rect(row, column) {
-    const index = this.order.indexOf(row); if (index < 0) return null;
+    const index = this.positions.get(row); if (index === undefined) return null;
     return { x: this.plane.x + (CSV_GUTTER + this.metrics.x[column]) * this.plane.scale, y: this.plane.y + (CSV_HEADING + this.metrics.y[index]) * this.plane.scale, width: this.metrics.widths[column] * this.plane.scale, height: this.metrics.heights[index] * this.plane.scale };
   }
   reveal(row, column) {
@@ -113,8 +125,12 @@ export class CsvGrid {
     const size = this.contentSize(), overview = !this.readOnly && scale < (this.state.overviewThreshold || .5);
     this.overview.hidden = !overview; this.stage.hidden = overview;
     if (this.readOnly) { this.space.style.width = size.width + 'px'; this.space.style.height = size.height + 'px'; }
-    // During a pinch reuse the crisp layout and transform only its visible tiles.
-    if (this.gesturing && this.layoutScale && !overview && this.wasOverview === false) {
+    const [visibleR0, visibleR1] = csvVisibleRange(this.metrics.y, y + CSV_HEADING * scale, height, scale, 0),
+      [visibleC0, visibleC1] = csvVisibleRange(this.metrics.x, x + CSV_GUTTER * scale, width, scale, 0);
+    const covered = this.tiles && visibleR0 >= this.tiles.r0 && visibleR1 <= this.tiles.r1 && visibleC0 >= this.tiles.c0 && visibleC1 <= this.tiles.c1;
+    // Transform cached tiles during zoom only while they still cover the viewport.
+    // Panning and zooming beyond the buffer must replenish the virtual window immediately.
+    if (this.gesturing && this.layoutScale && scale !== this.layoutScale && !overview && this.wasOverview === false && covered) {
       this.stage.style.transform = `translate(${x}px,${y}px) scale(${scale / this.layoutScale})`;
       this.rowPin.hidden = true;
       this.onPaint(); return;
@@ -122,7 +138,7 @@ export class CsvGrid {
     this.wasOverview = overview; this.layoutScale = scale;
     this.root.style.setProperty('--csv-zoom', scale); this.stage.style.transform = `translate(${x}px,${y}px)`;
     const [r0, r1] = csvVisibleRange(this.metrics.y, y + CSV_HEADING * scale, height, scale), [c0, c1] = csvVisibleRange(this.metrics.x, x + CSV_GUTTER * scale, width, scale);
-    if (overview) { this.stage.replaceChildren(); this.rowPin.hidden = true; this.drawOverview(this.overview, width, height); }
+    if (overview) { this.tiles = null; this.stage.replaceChildren(); this.rowPin.hidden = true; this.drawOverview(this.overview, width, height); }
     else {
       const fragment = document.createDocumentFragment();
       // Column names are a row of the table now; they pan and zoom with the cells.
@@ -152,6 +168,7 @@ export class CsvGrid {
         fragment.append(line);
       }
       this.stage.replaceChildren(fragment);
+      this.tiles = { r0, r1, c0, c1 };
       this.paintRowPin(r0, r1, scale);
     }
     this.paintMinimap(width, height, size); this.onPaint();

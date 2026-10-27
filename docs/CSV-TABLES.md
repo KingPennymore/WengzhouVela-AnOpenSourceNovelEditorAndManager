@@ -77,7 +77,7 @@ Ctrl+F 或工具栏“查找”打开表内查找。输入时选中第一处命�
 
 编辑只替换受影响的源码片段：改动一个单元格只重写该字段，插入 / 删除行只改那几行，插入 / 删除 / 移动列和粘贴区域合并成一次事务。BOM、CRLF、`sep=` 行、末尾换行和未被改动的引号都原样保留。GitHub / Gitee / Gitea 的拉取与提交按原文传输 CSV/TSV，不再经过 `normalizeText`。
 
-浏览器的文件导入、拖入和远端拉取会保留 UTF-8 BOM。Windows、鸿蒙和安卓的原生工作区扫描目前使用通用文本解码，读盘时会去掉开头的 BOM；在这些外壳上重新打开文件后，BOM 不会保留。CSV 的 CRLF 不受影响。若需要三端原生落盘也保留 BOM，需要原生文件层按 CSV/TSV 扩展名保留 BOM，属于后续改动。
+浏览器导入、远端拉取和 Windows / 鸿蒙 / 安卓原生文件层都按 CSV/TSV 扩展名保留 BOM。原生导入、扫描、整份与增量保存、外部修改比较使用相同的文本表示，重新打开并编辑后仍保留 UTF-8 BOM 和 CRLF。其他文本格式继续沿用原有解码规则。末尾单字段空记录必要时写为 `""`，避免清空格子、追加空行或排序时丢失记录，同时保留原有末尾换行状态。
 
 TXT 导出仍为纯文字。HTML、Markdown、EPUB 导出将引用解析为当前表格的静态快照，不依赖工作区文件路径。
 无法读取的表格在导出中显示缺失说明，并汇总提示；数据只作为文字处理，不执行公式或 HTML。
@@ -85,3 +85,5 @@ TXT 导出仍为纯文字。HTML、Markdown、EPUB 导出将引用解析为当�
 阅读表格放在 Shadow DOM 内，表格文字不进入 TXT 的 `textContent`、字数和书签/搜索偏移。
 
 验证入口：`node --test tests/csv-tables.test.mjs`、`node tests/csv-tables-browser.mjs`、`tests/studio-browser.mjs` 的阅读页检查，以及 `tests/features-browser.mjs`、`tests/workspace-browser.mjs` 的回归。Windows 和安卓的实际外壳另用 `tests/csv-tables-windows.mjs` 与 `tests/android-browser.mjs` 验证。
+
+表格底栏使用新增行、新增列、单元格编辑、适应全表、原始大小及缩放图标。选中格子或行列表头后，新增行插在当前行之后，新增列插在当前列右侧；未选中时追加到末尾。小范围修改复用现有画布和已解析的其他记录，批量粘贴与列操作合并成有界的源码片段，通过原文稿的自动保存及撤销流程提交。

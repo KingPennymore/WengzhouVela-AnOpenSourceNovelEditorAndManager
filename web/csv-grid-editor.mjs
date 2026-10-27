@@ -31,17 +31,18 @@ export const csvGridEditing = {
   },
   selected() {
     const active = this.active || { row: this.grid.order[0] ?? 0, column: 0 }, anchor = this.anchor || active, order = this.grid.order;
-    const first = Math.max(0, order.indexOf(active.row)), last = Math.max(0, order.indexOf(anchor.row));
+    const first = this.grid.positions.get(active.row) ?? 0, last = this.grid.positions.get(anchor.row) ?? 0;
     return { r0: Math.min(first, last), r1: Math.max(first, last), c0: Math.min(active.column, anchor.column), c1: Math.max(active.column, anchor.column) };
   },
-  contains(row, col) { const s = this.selected(), index = this.grid.order.indexOf(row); return index >= s.r0 && index <= s.r1 && col >= s.c0 && col <= s.c1; },
-  select(row, column, extend = false, reveal = false) {
-    if (this.editing) this.attempt(() => this.commit());
+  contains(row, col) { const s = this.selected(), index = this.grid.positions.get(row); return index !== undefined && index >= s.r0 && index <= s.r1 && col >= s.c0 && col <= s.c1; },
+  select(row, column, extend = false, reveal = false, { focus = true } = {}) {
+    if (this.editing) return this.attempt(() => this.commit({ row, column, extend, reveal, focus }));
+    if (!this.grid) return;
     if (!this.grid.order.length) return;
     const next = { row, column: Math.max(0, Math.min(this.model.columns - 1, column)) };
     if (!extend || !this.anchor) this.anchor = { ...next }; this.active = next;
     if (reveal) this.grid.reveal(row, next.column);
-    this.showSelection(); this.grid.surface.focus({ preventScroll: true });
+    this.showSelection(); if (focus) this.grid.surface.focus({ preventScroll: true });
   },
   showSelection() {
     if (!this.grid) return;
@@ -54,11 +55,16 @@ export const csvGridEditing = {
     const cellId = active ? `csv-cell-${active.row}-${active.column}` : null;
     if (cellId && root.querySelector('#' + cellId)) root.querySelector('[role=grid]').setAttribute('aria-activedescendant', cellId); else root.querySelector('[role=grid]').removeAttribute('aria-activedescendant');
     for (const heading of root.querySelectorAll('[data-csv-row],[data-csv-column]')) heading.classList.toggle('csv-active-axis', !!active && (heading.dataset.csvRow !== undefined ? this.contains(Number(heading.dataset.csvRow), active.column) : this.contains(active.row, Number(heading.dataset.csvColumn))));
-    const edit = this.control('edit-cell'); if (edit) edit.disabled = !active || this.ports.readOnly();
+    const edit = this.control('edit-cell'); if (edit) edit.disabled = this.pending || !active || this.ports.readOnly();
     const count = active ? (selection.r1 - selection.r0 + 1) * (selection.c1 - selection.c0 + 1) : 0;
-    let sum = 0, numbers = 0;
-    if (active) for (let i = selection.r0; i <= selection.r1; i++) for (let c = selection.c0; c <= selection.c1; c++) { const v = this.model.rows[this.grid.order[i]]?.[c]?.trim(); if (v && Number.isFinite(Number(v))) { sum += Number(v); numbers++; } }
-    const reference = active ? csvColumnName(active.column) + (this.grid.order.indexOf(active.row) + 1) : t('选择单元格');
+    const key = active ? `${selection.r0}:${selection.r1}:${selection.c0}:${selection.c1}` : '';
+    if (this.selectionStats?.model !== this.model || this.selectionStats?.order !== this.grid.order || this.selectionStats.key !== key) {
+      let sum = 0, numbers = 0;
+      if (active) for (let i = selection.r0; i <= selection.r1; i++) for (let c = selection.c0; c <= selection.c1; c++) { const v = this.model.rows[this.grid.order[i]]?.[c]?.trim(); if (v && Number.isFinite(Number(v))) { sum += Number(v); numbers++; } }
+      this.selectionStats = { model: this.model, order: this.grid.order, key, sum, numbers };
+    }
+    const { sum, numbers } = this.selectionStats;
+    const reference = active ? csvColumnName(active.column) + ((this.grid.positions.get(active.row) ?? 0) + 1) : t('选择单元格');
     root.querySelector('#csv-cell-reference').textContent = reference;
     root.querySelector('.csv-context').textContent = `${reference} · ${this.model.rows.length} × ${this.model.columns}`;
     root.querySelector('#csv-selection-summary').textContent = `${t('选中')} ${count} · ${this.model.rows.length} ${t('行')} × ${this.model.columns} ${t('列')}` + (numbers ? ` · ${t('合计')} ${sum.toLocaleString()} · ${t('平均')} ${(sum / numbers).toLocaleString()}` : '');
@@ -121,12 +127,15 @@ export const csvGridEditing = {
     if (!bottom && box) { const host = this.grid.surface.getBoundingClientRect(), parent = this.ports.root.querySelector('.csv-panel').getBoundingClientRect(); layer.style.left = host.left - parent.left + box.x + 'px'; layer.style.top = host.top - parent.top + box.y + 'px'; layer.style.width = Math.max(180, box.width) + 'px'; } else { layer.style.left = ''; layer.style.top = ''; layer.style.width = ''; }
     layer.style.setProperty('--csv-edit-font', Math.max(14, (parseFloat(getComputedStyle(this.grid.root).fontSize) || 16) * this.grid.plane.scale) + 'px');
   },
-  commit() {
+  commit(selection) {
     if (!this.editing || this.composing) return;
     const draft = this.editing;
     if (draft.source !== this.ports.source()) throw Error(t('表格已变化，请重新打开单元格。'));
     const changes = replaceCells(this.model, [{ row: draft.row, column: draft.column, value: draft.value }]);
-    this.cancelEdit(false); this.apply(changes);
+    this.cancelEdit(false);
+    if (changes.length) return this.apply(changes, selection);
+    if (selection) this.select(selection.row, selection.column, !!selection.extend, selection.reveal !== false, { focus: selection.focus !== false });
+    else this.grid.surface.focus({ preventScroll: true });
   },
   cancelEdit(focus = true) { this.editing = null; this.composing = false; const layer = this.ports.root.querySelector('.csv-editor-layer'); if (layer) layer.hidden = true; if (focus) this.grid?.surface.focus({ preventScroll: true }); },
   entries(value = '') { const s = this.selected(), result = []; for (let i = s.r0; i <= s.r1; i++) for (let c = s.c0; c <= s.c1; c++) result.push({ row: this.grid.order[i], column: c, value }); return result; },
@@ -142,13 +151,14 @@ export const csvGridEditing = {
     this.apply(replaceCells(this.model, entries));
   },
   key(e) {
+    if (this.pending) { if (!e.target.closest('input,textarea,select')) e.preventDefault(); return; }
     if (e.defaultPrevented || e.target.closest('input,select') || e.target.closest('button') && e.key !== 'Escape') return;
     if (this.composing || e.isComposing || e.keyCode === 229) return;
     const ctrl = e.ctrlKey || e.metaKey;
     if (ctrl && e.key.toLowerCase() === 'f') { e.preventDefault(); e.stopPropagation(); this.openFind(); return; }
     if (ctrl && ['z', 'y'].includes(e.key.toLowerCase())) { e.preventDefault(); e.stopPropagation(); this.cancelEdit(false); (e.key.toLowerCase() === 'y' || e.shiftKey ? this.ports.redo : this.ports.undo)?.(); return; }
     if (e.key === 'Escape') { e.preventDefault(); this.cancelEdit(); this.ports.root.querySelector('.csv-context-menu')?.remove(); return; }
-    if (this.editing) { if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab') { e.preventDefault(); this.attempt(() => this.commit()); if (!this.editing) this.navigate(e.key, e.shiftKey); } return; }
+    if (this.editing) { if ((e.key === 'Enter' && !e.shiftKey) || e.key === 'Tab') { e.preventDefault(); const target = this.navigationTarget(e.key, e.shiftKey); this.attempt(() => this.commit(target)); } return; }
     if (e.key === ' ' && !e.repeat) { e.preventDefault(); this.space = true; return; }
     if (ctrl && ['0', '=', '+', '-'].includes(e.key)) { e.preventDefault(); this.grid.zoom(e.key === '0' ? 1 : this.grid.plane.scale * (e.key === '-' ? 1 / 1.2 : 1.2)); return; }
     if (e.shiftKey && (e.key === '!' || e.code === 'Digit1')) { e.preventDefault(); this.grid.fit(); return; }
@@ -162,14 +172,18 @@ export const csvGridEditing = {
     if (e.key === 'F2') { e.preventDefault(); this.editCell(); return; }
     if (!ctrl && !e.altKey && e.key.length === 1) { e.preventDefault(); this.editCell(e.key); }
   },
-  navigate(key, shift) {
+  navigationTarget(key, shift) {
     const order = this.grid.order; if (!order.length) return;
     let index = Math.max(0, order.indexOf(this.active?.row)), c = this.active?.column || 0;
     if (key === 'Tab') { const flat = Math.max(0, Math.min(order.length * this.model.columns - 1, index * this.model.columns + c + (shift ? -1 : 1))); index = Math.floor(flat / this.model.columns); c = flat % this.model.columns; }
     else if (key === 'Enter') index += shift ? -1 : 1;
     else if (key === 'ArrowUp' || key === 'ArrowDown') index += key === 'ArrowUp' ? -1 : 1;
     else c += key === 'ArrowLeft' ? -1 : 1;
-    this.select(order[Math.max(0, Math.min(order.length - 1, index))], c, shift && key.startsWith('Arrow'), true);
+    return { row: order[Math.max(0, Math.min(order.length - 1, index))], column: Math.max(0, Math.min(this.model.columns - 1, c)), extend: shift && key.startsWith('Arrow'), reveal: true };
+  },
+  navigate(key, shift) {
+    const target = this.navigationTarget(key, shift);
+    if (target) this.select(target.row, target.column, target.extend, true);
   },
   menu(event) {
     if (!this.active) return;
@@ -204,7 +218,7 @@ export const csvGridEditing = {
     if (!next) { this.hits = []; if (query) for (const [row, values] of this.model.rows.entries()) for (const [column, value] of values.entries()) if (value.toLocaleLowerCase().includes(query)) this.hits.push({ row, column }); this.hitIndex = -1; }
     const filter = root.querySelector('#csv-filter').checked;
     if (!next && filter) this.refreshGrid();
-    if (this.hits?.length) { this.hitIndex = (this.hitIndex + 1) % this.hits.length; const hit = this.hits[this.hitIndex]; if (this.grid.order.includes(hit.row)) this.select(hit.row, hit.column, false, true); }
+    if (this.hits?.length) { this.hitIndex = (this.hitIndex + 1) % this.hits.length; const hit = this.hits[this.hitIndex]; if (this.grid.order.includes(hit.row)) this.select(hit.row, hit.column, false, true, { focus: false }); }
     root.querySelector('#csv-find-count').textContent = String(this.hits?.length || 0); this.showSelection();
   },
 };

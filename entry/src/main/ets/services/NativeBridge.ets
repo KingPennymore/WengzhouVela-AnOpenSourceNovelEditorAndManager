@@ -455,7 +455,7 @@ export class NativeBridge {
             }
             const imported: ImportedFile = { name: decodedFileName(new fileUri.FileUri(uri).name) };
             const raw = (data.binaryExtensions || []).some(ext => /^\.[a-z0-9]+$/.test(ext) && imported.name.toLowerCase().endsWith(ext));
-            try { if (raw) imported.data = new util.Base64Helper().encodeToStringSync(new Uint8Array(buffer)); else imported.text = decodeFileText(new Uint8Array(buffer)); }
+            try { if (raw) imported.data = new util.Base64Helper().encodeToStringSync(new Uint8Array(buffer)); else imported.text = decodeFileText(new Uint8Array(buffer), imported.name); }
             catch (error) { imported.data = new util.Base64Helper().encodeToStringSync(new Uint8Array(buffer)); }
             files.push(imported);
           } finally {

@@ -96,6 +96,7 @@ import {glossaryPaths,glossaryTerms,parseGlossary,glossaryText,createGlossary} f
 import {renderGlossary,selectGlossaryEntry} from './glossary-view.mjs';
 import {renderGlossaryPanel} from './glossary-panel.mjs';
 import {applyFileOperation,restoreFile,itemPaths,copyDestination,basename,parentPath,within} from './file-manager.mjs';
+import {fileOperationCopy,fileViewTarget} from './file-manager.mjs';
 import {diffLines} from './document-service.mjs';
 import {EditorIndex} from './editor-index.mjs';
 import {EditingTools} from './editing-view.mjs';
@@ -257,6 +258,7 @@ const planningPreview=()=>!home&&pageName==='write'&&isPreview&&['OUTLINE','MAP'
 function updateStats(){
   renderSyncStatus();
   if(!current()||!view){$('#chapter-count').textContent='';$('#word-count').textContent='';$('#current-chapter').textContent='';$('#cursor-position').textContent='';$('#selection-count').textContent='';return;}
+  if(isPreview&&documentKind(current())==='CSV'){$('#chapter-count').textContent='';$('#current-chapter').textContent=t('表格');$('#word-count').textContent='';$('#cursor-position').textContent='';$('#selection-count').textContent='';$('#quick-undo').disabled=activeUndoDepth()===0;$('#quick-redo').disabled=activeRedoDepth()===0;return;}
   if(planningPreview()){$('#chapter-count').textContent='';$('#current-chapter').textContent=t(documentKind(current())==='MAP'?'点绘地图':'剧情与关系');$('#word-count').textContent=$('#preview').planningSummary?.()||'';$('#cursor-position').textContent='';$('#selection-count').textContent='';$('#outline-list').replaceChildren();$('#quick-undo').disabled=activeUndoDepth()===0;$('#quick-redo').disabled=activeRedoDepth()===0;return;}
   if(isComponentDocument(current())&&isPreview){try{const text=componentText(current().text,current().name);$('#word-count').textContent='全文 '+Writer.countText(text).toLocaleString()+' 字';$('#current-chapter').textContent='富文本';$('#cursor-position').textContent='';$('#chapter-count').textContent='';$('#selection-count').textContent='';$('#outline-list').replaceChildren();$('#quick-undo').disabled=activeUndoDepth()===0;$('#quick-redo').disabled=activeRedoDepth()===0;return;}catch{}}
   const idx=ensureIndex(),pos=view.state.selection.main.head,row=view.state.doc.lineAt(pos),section=Writer.sectionAt(idx,row.number-1);
@@ -449,7 +451,7 @@ const gutterExtensions=doc=>documentKind(doc)==='TXT'&&projectConfig(workspace,d
 function refreshGutters(){for(const [id,state] of editorStates){const doc=workspace.documents.find(item=>item.id===id);if(doc)editorStates.set(id,state.update({effects:gutters.reconfigure(gutterExtensions(doc))}).state);}if(view&&current())view.dispatch({effects:gutters.reconfigure(gutterExtensions(current()))});}
 function sourceRenderExtensions(doc){const editor=projectConfig(workspace,doc)?.config?.editor;return [outlineMarkers(()=>projectConfig(workspace,doc)?.config?.formats?.outline?.showEditorMarkers===false?[]:documents?.outlineAnchors.entries(doc)||[],openOutlineMarkers),gutters.of(gutterExtensions(doc)),languages.of(languageFor(doc)),syntaxHighlighting(defaultHighlightStyle),editor?.wrap===false?[]:indentedLineWrapping('same')];}
 function makeState(doc){const editor=projectConfig(workspace,doc)?.config?.editor,position=workspace.editorPositions?.[doc.id];const csvLineBreak=documentKind(doc)==='CSV'?'\n':null;return EditorState.create({doc:doc.text,selection:position?{anchor:Math.min(doc.text.length,position.anchor),head:Math.min(doc.text.length,position.head)}:undefined,extensions:[csvLineBreak?EditorState.lineSeparator.of(csvLineBreak):[],projectReadonly.of(EditorState.readOnly.of(projectLocked)),history(),sourceRendering.of(isPreview&&['OUTLINE','MAP'].includes(documentKind(doc))?[]:sourceRenderExtensions(doc)),documentKind(doc)==='TXT'?[richTextExtensions(loadFormats(doc)),formatEnv.of(formatEnvironment(doc))]:[],pluginExtras.of(plugins?.extensions()||[]),completer.of(editor?.completion===false?[]:completionExtensions(doc,()=>({documents:workspace.documents,autoNouns:workspace.settings.autoNouns,highlightTerms:workspace.settings.highlightTerms,terms:glossaryTerms(workspace,doc),glossary:workspace.writingTools?.glossary||[],snippets:workspace.writingTools?.snippets||[],packages:(plugins?.records||[]).filter(record=>record.enabled).flatMap(record=>(record.texFiles||[]).map(file=>file.path))}))),keymap.of([{key:'Enter',run:v=>documentKind(doc)==='TXT'&&editor?.mode!=='code'?paragraphNewline(v):false,shift:v=>documentKind(doc)==='TXT'&&editor?.mode!=='code'?paragraphNewline(v):false},{key:'Tab',run:v=>editorIndent(v)},{key:'Shift-Tab',run:v=>editorIndent(v,true)},...defaultKeymap,...historyKeymap,...searchKeymap]),pluginKeys.of(keymap.of(plugins?.bindings()||[])),highlightActiveLine(),paragraphSelection(),highlightSelectionMatches(),editorSearch(),EditorView.theme({'.cm-content':{lineHeight:String(editor?.lineHeight||1.8),maxWidth:(editor?.maxWidth||1000)+'px',margin:'0 auto'}}),scrollPastEndCustom(.35),EditorView.contentAttributes.of({'aria-label':'文稿正文','spellcheck':'false'}),EditorView.updateListener.of(update=>{
-  if(update.docChanged){if(!planningPreview()&&(update.view.hasFocus||update.transactions.some(tr=>tr.isUserEvent('input')||tr.isUserEvent('delete')||tr.isUserEvent('undo')||tr.isUserEvent('redo'))))setSidebar('outline',false);const d=current();if(!d)return;const changes=[];update.changes.iterChanges((from,to,_a,_b,insert)=>changes.push({from,to,insert:insert.toString()}));documents.changeTree(d,update.state.doc,changes);if(documents.outlineAnchors.entries(d).length)queueMicrotask(()=>{if(view&&current()?.id===d.id)view.dispatch({effects:outlineMarksChanged.of(null)});});if(indexService&&indexSettings===JSON.stringify(projectWriter(workspace,d))&&indexService.update(update)){index=indexService.value;indexDoc=update.state.doc;outlineRevision='';}scheduleSave();projects?.changed('editor',[documentPath(d)]);plugins?.emit('file-content-changed',plugins.activeFile);if(!statsTimer)statsTimer=setTimeout(()=>{statsTimer=null;updateStats();if(document.body.classList.contains('show-library'))renderDocuments();},200);}
+  if(update.docChanged){if(!planningPreview()&&(update.view.hasFocus||update.transactions.some(tr=>tr.isUserEvent('input')||tr.isUserEvent('delete')||tr.isUserEvent('undo')||tr.isUserEvent('redo'))))setSidebar('outline',false);const d=current();if(!d)return;const changes=[];update.changes.iterChanges((from,to,_a,_b,insert)=>changes.push({from,to,insert:insert.toString()}));documents.changeTree(d,update.state.doc,changes);if(documents.outlineAnchors.entries(d).length)queueMicrotask(()=>{if(view&&current()?.id===d.id)view.dispatch({effects:outlineMarksChanged.of(null)});});if(documentKind(d)!=='CSV'&&indexService&&indexSettings===JSON.stringify(projectWriter(workspace,d))&&indexService.update(update)){index=indexService.value;indexDoc=update.state.doc;outlineRevision='';}scheduleSave();projects?.changed('editor',[documentPath(d)]);plugins?.emit('file-content-changed',plugins.activeFile);if(!statsTimer)statsTimer=setTimeout(()=>{statsTimer=null;updateStats();if(document.body.classList.contains('show-library'))renderDocuments();},200);}
   if(!update.docChanged&&formatsOf(update.state)!==formatsOf(update.startState)){scheduleSave();renderFormatTools();}
   if(update.selectionSet){renderFormatTools();selectionMenu.changed();const range=update.state.selection.main;workspace.editorPositions={...workspace.editorPositions,[workspace.activeId]:{anchor:range.anchor,head:range.head}};if(!update.docChanged)updateStats();}
   if(update.docChanged&&isPreview&&documentKind(current())==='TEX')texPreview?.changed();
@@ -604,7 +606,7 @@ function renderPreview(){const revision=++previewRevision;csvEditor?.dispose();
     else import('./csv-editor.mjs').then(({CsvEditor})=>{
       if(!isPreview||current()!==doc||revision!==previewRevision)return;
       csvEditor=new CsvEditor({root:$('#preview'),doc:current,source:()=>view.state.doc.toString(),
-        readOnly:()=>projectLocked||view.state.readOnly,escape:esc,openModal,save,fail,language:()=>workspace.settings.language,
+        readOnly:()=>projectLocked||view.state.readOnly,escape:esc,openModal,save:scheduleWorkspaceSave,fail,language:()=>workspace.settings.language,
         sourceMode:offset=>{if(isPreview)togglePreview();if(Number.isInteger(offset))view.dispatch({selection:{anchor:Math.min(offset,view.state.doc.length)},scrollIntoView:true});view.focus();},undo:()=>{undo(view);csvEditor.render();},redo:()=>{redo(view);csvEditor.render();},change:changes=>{if(changes.length)view.dispatch({changes,userEvent:'input.csv'});updateStats();}});
       csvEditor.render();
     }).catch(fail);
@@ -654,7 +656,7 @@ $('#editor').addEventListener('click',e=>{const figure=e.target.closest('.vela-f
 $('#preview').addEventListener('click',e=>{if(e.target.closest('a')){e.preventDefault();toast('阅读预览中的外部链接不在应用内打开。');}});
 function openModal(title,html,submit,options={}){
   if(!$('#dialog').open){const origin=document.activeElement;dialogReturnFocus=origin?.closest('#toolbar-overflow')?ui.toggle:origin;}
-  ui.close();$('#dialog').classList.remove('settings-dialog');
+  ui.close();$('#dialog-body').trashDispose?.();$('#dialog').classList.remove('settings-dialog','trash-dialog');
   dialogVersion++;
   if($('#dialog').open)$('#dialog').close();
   $('#dialog-title').textContent=title;$('#dialog-body').innerHTML=html;$('#dialog-error').textContent='';$('#dialog').removeAttribute('aria-describedby');dialogSubmitLabel=options.label||'确定';$('#dialog-submit').hidden=options.noSubmit||false;$('#dialog-submit').classList.toggle('destructive',!!options.destructive);$('#dialog-cancel').textContent=options.noSubmit&&!options.cancel?t('关闭'):t('取消');
@@ -674,7 +676,7 @@ $('#new-doc').onclick=()=>{
 };
 $('#doc-search').oninput=renderDocuments;
 $('#doc-list').onclick=e=>{if(projectLocked)return;const lazy=e.target.closest('[data-project-file]');if(lazy){const path=lazy.dataset.projectFile;openLazyProjectDocument(path).then(()=>{if(innerWidth<=600&&current()&&documentPath(current())===path&&!home)setSidebar('library',false);}).catch(fail);return;}const pathMenu=e.target.closest('[data-path-menu]');if(pathMenu){e.preventDefault();e.stopPropagation();fileMenu(pathMenu.dataset.pathMenu,pathMenu.dataset.directory==='true');return;}const folder=e.target.closest('[data-folder]');if(folder){selectedFolder=folder.dataset.folder;$('#selected-folder').textContent=selectedFolder;$('#doc-list').querySelectorAll('summary').forEach(el=>el.classList.toggle('selected-folder',el.dataset.folder===selectedFolder));}const doc=e.target.closest('[data-doc]');if(doc){selectedFolder=parentPath(documentPath(workspace.documents.find(d=>d.id===doc.dataset.doc)));loadSubscriptionDocument(workspace.documents.find(d=>d.id===doc.dataset.doc)).then(()=>{switchDocument(doc.dataset.doc);if(innerWidth<=600&&current()?.id===doc.dataset.doc&&!home)setSidebar('library',false);}).catch(fail);}const menu=e.target.closest('[data-menu]');if(menu)documentMenu(menu.dataset.menu);};
-$('#refresh-folder').onclick=async()=>{try{if(session.dirty&&!save())return;if(!native){renderDocuments();toast('工作区已刷新');return;}const result=await transport('refreshFolder');if(view){view.destroy();view=null;}editorStates.clear();adoptFolder(workspace,result);showHome();projects.changed('external');toast('工作区已刷新');}catch(error){fail(error);}};
+$('#refresh-folder').onclick=async()=>{try{if(session.needsSave&&!await session.saveBackground())return;if(native){const context=fileViewContext(),result=await transport('refreshFolder');applyFileState(result,{context,persist:false});projects.changed('external');scheduleWorkspaceSave();}else renderDocuments();toast('工作区已刷新');}catch(error){fail(error);}};
 $('#new-folder').onclick=()=>newFolder(selectedFolder);
 function newFolder(parent=''){openModal(t('新建文件夹'),`<label>${t('文件夹名称')}<input name="name" required maxlength="160" autofocus></label>${folderPickerHtml(workspace,{selected:parent,escape:esc})}<label class="checkbox"><input name="workspace" type="checkbox">${t('同时建立作品设置')}</label>`,f=>{const folder=f.get('folder'),name=repoPath(f.get('name')),path=repoPath((folder?folder+'/':'')+name);if(name.includes('/'))throw Error(t('文件夹名称不能包含斜杠。'));if(itemPaths(workspace).has(path))throw new Error('此路径已存在。');const previous=JSON.stringify(workspace),parts=path.split('/');workspace.folders=[...new Set([...(workspace.folders||[]),...parts.map((_,i)=>parts.slice(0,i+1).join('/'))])];if(f.has('workspace')){const config=createVelaV2(basename(path)),defaults=globalConfig(workspace)?.config?.workspaceDefaults;for(const key of ['editor','reader','chapters'])if(defaults?.[key])config[key]=structuredClone(defaults[key]);if(defaults?.reading?.layout)config.reading.layout=structuredClone(defaults.reading.layout);const doc=newDocument('.vela',velaText(config));doc.path=path+'/.vela';workspace.documents.push(doc);}if(!save()){workspace=JSON.parse(previous);throw new Error('文件夹创建失败。');}selectedFolder=path;renderDocuments();});bindFolderPicker($('#dialog-body'));}
 
@@ -694,26 +696,43 @@ function fileMenu(path,directory=false,doc=workspace.documents.find(doc=>documen
   $('#delete-doc').onclick=()=>openModal('移入回收站',`<p>将“${esc(path)}”${directory?'及其中全部文件':''}移入回收站？可在当前工作区的回收站中恢复。</p><small>不会删除 GitHub 中的文件。</small>`,async()=>manageFile('delete',path),{label:'移入回收站'});
 }
 function renameItem(path){openModal('重命名',`<label>名称<input name="name" required maxlength="160" value="${esc(basename(path))}"></label>`,async f=>{const name=repoPath(f.get('name'));if(name.includes('/'))throw new Error('名称不能包含斜杠。');const destination=(parentPath(path)?parentPath(path)+'/':'')+name;if(destination!==path)await manageFile('move',path,destination);});}
-function applyFileState(result){
-  const active=workspace.activeId,wasHome=home;if(view){editorStates.set(active,view.state);view.destroy();view=null;}
+function fileViewContext(){return {id:workspace.activeId,openIds:[...workspace.openIds],wasHome:home,preview:isPreview,name:current()?.name,kind:documentKind(current()),doc:current(),state:view?.state,scroll:view?{top:view.scrollDOM.scrollTop,left:view.scrollDOM.scrollLeft}:null};}
+function applyFileState(result,{context=fileViewContext(),persist=true}={}){
+  const oldId=context.id;if(view&&oldId){editorStates.set(oldId,view.state);rememberScroll(oldId);}
   adoptFolder(workspace,result);preparePaths(workspace);
-  for(const id of editorStates.keys())if(!workspace.documents.some(doc=>doc.id===id))editorStates.delete(id);
+  const live=new Set(workspace.documents.map(doc=>doc.id));for(const id of editorStates.keys())if(!live.has(id))editorStates.delete(id);
   if(selectedFolder&&!workspace.folders.includes(selectedFolder))selectedFolder='';
-  if(!wasHome&&workspace.documents.some(doc=>doc.id===active)){switchDocument(active);refreshFileType(current());}else showHome();
-  renderDocuments();if(!save())throw new Error('操作已完成，但工作区状态未保存，请保留应用数据并重试保存。');
+  const target=context.wasHome?null:fileViewTarget(workspace.documents,oldId,context.openIds),doc=workspace.documents.find(d=>d.id===target);
+  if(doc&&view&&target===oldId&&view.state.doc.toString()===doc.text){workspace.activeId=target;home=false;isPreview=context.preview;if(context.name!==doc.name||context.kind!==documentKind(doc))refreshFileType(doc);else updateEditorVisibility();}
+  else if(doc){if(view){view.destroy();view=null;}workspace.activeId=target;switchDocument(target);if(target===oldId){isPreview=context.preview;updateEditorVisibility();if(isPreview)renderPreview();}}
+  else if(!context.wasHome)showHome();
+  else{workspace.activeId=null;renderHome();}
+  renderDocuments();updateStats();if(persist)scheduleWorkspaceSave();
 }
+let fileOperationBusy=false;
 async function manageFile(action,path,destination='',{quiet=false}={}){
-  await hydratePlanningDocuments();
-  if(!save())throw new Error('请先保存或导出当前文稿。');
-  const before=structuredClone(workspace);
-  const apply=async(path,destination)=>{if(native)applyFileState(await transport('manageFiles',{action,path,destination}));
-  else{const candidate=structuredClone(workspace);applyFileOperation(candidate,action,path,destination);const change=action==='delete'?{kind:'delete',path,trashId:candidate.trash.at(-1).id}:{kind:action,from:path,to:destination};if(action==='delete')candidate.trash.at(-1).projectPayload=true;await projects.backend.call('apply','host',{root:'',changes:[change],workspace:JSON.stringify(candidate),expected:[]});workspace=candidate;applyFileState({...candidate});}};
-  await apply(path,destination);
-  // A 0.9.7 format sidecar moves, copies and goes to the trash with its TXT; formats in .vela follow via rewriteVelaFiles.
-  const companion=sidecarPath(path);if(sidecarTarget(companion)&&before.documents.some(doc=>documentPath(doc)===companion)&&workspace.documents.some(doc=>documentPath(doc)===companion)){try{await apply(companion,action==='delete'?'':sidecarPath(destination));}catch(error){toast('格式旁注未能一并处理：'+error.message);}}
-  workspace.treeRevision=(workspace.treeRevision||0)+1;rewriteVelaFiles(before,workspace,action,path,destination);for(const doc of workspace.documents.filter(doc=>['VELA','OUTLINE','MAP'].includes(documentKind(doc))))editorStates.delete(doc.id);if(current()&&['VELA','OUTLINE','MAP'].includes(documentKind(current()))&&view){view.setState(makeState(current()));if(isPreview)renderPreview();}index=null;updateStats();save();
-  projects.changed('external');if(!quiet)toast(action==='delete'?'已移入回收站':action==='copy'?'已保存副本':'项目已移动或重命名');
+  if(fileOperationBusy)throw Error(t('正在处理…'));fileOperationBusy=true;
+  try{
+    await hydratePlanningDocuments();
+    if(session.needsSave&&!await session.saveBackground())throw new Error('请先保存或导出当前文稿。');
+    const context=fileViewContext(),before=fileOperationCopy(workspace),companion=sidecarPath(path);
+    const operations=[{path,destination}];if(sidecarTarget(companion)&&before.documents.some(doc=>documentPath(doc)===companion))operations.push({path:companion,destination:action==='delete'?'':sidecarPath(destination)});
+    if(native){let result;for(const operation of operations){try{result=await transport('manageFiles',{action,...operation});}catch(error){if(operation===operations[0])throw error;toast('格式旁注未能一并处理：'+error.message);}}applyFileState(result,{context,persist:false});}
+    else{
+      const candidate=fileOperationCopy(workspace),changes=[];
+      for(const operation of operations){applyFileOperation(candidate,action,operation.path,operation.destination);const record=action==='delete'?candidate.trash.at(-1):null;if(record)record.projectPayload=true;changes.push(record?{kind:'delete',path:operation.path,trashId:record.id}:{kind:action,from:operation.path,to:operation.destination});}
+      rewriteVelaFiles(before,candidate,action,path,destination);
+      await projects.backend.call('apply','host',{root:'',changes,workspace:JSON.stringify(candidate),expected:[]});workspace=candidate;applyFileState(candidate,{context,persist:false});
+    }
+    if(native)rewriteVelaFiles(before,workspace,action,path,destination);
+    workspace.treeRevision=(workspace.treeRevision||0)+1;
+    for(const doc of workspace.documents.filter(doc=>['VELA','OUTLINE','MAP'].includes(documentKind(doc))))editorStates.delete(doc.id);
+    if(current()&&['VELA','OUTLINE','MAP'].includes(documentKind(current()))&&view){view.setState(makeState(current()));if(isPreview)renderPreview();}
+    index=null;updateStats();if(!await session.saveBackground())throw new Error('操作已完成，但工作区状态未保存，请重试保存。');
+    projects.changed('external');if(!quiet)toast(action==='delete'?'已移入回收站':action==='copy'?'已保存副本':'项目已移动或重命名');
+  }finally{fileOperationBusy=false;}
 }
+
 async function showProperties(path,directory){
   if(!save())throw new Error('请先保存当前文稿。');const state=native?await transport('refreshFolder'):workspace;
   const entries=(state.entries||[]).filter(entry=>within(path,entry.path)),doc=workspace.documents.find(doc=>documentPath(doc)===path);
@@ -721,15 +740,30 @@ async function showProperties(path,directory){
   openModal('属性',`<p>名称：${esc(basename(path))}</p><p>路径：${esc(path)}</p><p>工作区：${esc(workspace.storage?.label||'内部文件夹')}</p><p>类型：${directory?'文件夹':doc?documentKind(doc):'文件'}</p><p>大小：${size.toLocaleString()} 字节</p>${directory?`<p>文件：${entries.filter(item=>!item.directory).length}　文件夹：${entries.filter(item=>item.directory&&item.path!==path).length}</p>`:doc?`<p>修改时间：${esc(new Date(doc.updatedAt).toLocaleString('zh-CN'))}</p>`:''}`,null,{noSubmit:true});
 }
 $('#open-trash').onclick=()=>showTrash().catch(fail);
+const trashItems=()=>native?transport('listTrash'):Promise.resolve(workspace.trash||[]);
 async function showTrash(){
-  const items=native?await transport('listTrash'):workspace.trash||[];
-  openModal('回收站',items.length?items.map(item=>`<div class="trash-row"><span>${esc(item.path)}<small>${esc(new Date(item.createdAt).toLocaleString('zh-CN'))}</small></span><button type="button" class="secondary" data-restore="${esc(item.id)}">恢复</button><button type="button" class="danger" data-permanent="${esc(item.id)}">永久删除</button></div>`).join(''):'<p>当前工作区的回收站为空。</p>',null,{noSubmit:true});
-  const restore=async(id,permanent=false)=>{if(!save())throw new Error('请先保存文稿。');if(native)applyFileState(await transport('restoreTrash',{id,permanent}));else if(workspace.trash?.find(item=>item.id===id)?.projectPayload){const candidate=structuredClone(workspace);restoreFile(candidate,id,permanent);await projects.backend.call('restoreTrashPayload','host',{id,permanent,workspace:JSON.stringify(candidate)});adoptProjectState(candidate);}else{restoreFile(workspace,id,permanent);applyFileState({storage:workspace.storage,documents:workspace.documents,folders:workspace.folders,entries:workspace.entries,repositories:workspace.repositories});}};
-  const companionOf=id=>{const item=items.find(entry=>entry.id===id);return item&&!item.directory&&sidecarTarget(sidecarPath(item.path))?items.filter(entry=>entry.path===sidecarPath(item.path)).sort((a,b)=>b.createdAt-a.createdAt)[0]:null;};
-  const withCompanion=async(id,permanent=false)=>{const companion=companionOf(id);await restore(id,permanent);if(companion)await restore(companion.id,permanent).catch(error=>toast('格式旁注未能一并处理：'+error.message));};
-  $('#dialog-body').querySelectorAll('[data-restore]').forEach(button=>button.onclick=async()=>{button.disabled=true;try{await withCompanion(button.dataset.restore);await showTrash();}catch(error){$('#dialog-error').textContent=error.message;button.disabled=false;}});
-  $('#dialog-body').querySelectorAll('[data-permanent]').forEach(button=>button.onclick=()=>openModal('永久删除',`<p>永久删除“${esc(items.find(item=>item.id===button.dataset.permanent).path)}”？此操作无法恢复。</p>`,async()=>{await withCompanion(button.dataset.permanent,true);setTimeout(()=>showTrash().catch(fail),0);},{label:'永久删除',destructive:true}));
+  openModal(t('回收站'),`<p role="status">${t('正在读取…')}</p>`,null,{noSubmit:true});$('#dialog').classList.add('trash-dialog');
+  const version=dialogVersion,[items,{mountTrash}]=await Promise.all([trashItems(),import('./trash-view.mjs')]);
+  if(version!==dialogVersion||!$('#dialog').open)return;
+  mountTrash($('#dialog-body'),{items,escape:esc,apply:async(ids,permanent,progress)=>{
+    if(fileOperationBusy)throw Error(t('正在处理…'));fileOperationBusy=true;setDialogBusy(true);
+    try{
+      if(session.needsSave&&!await session.saveBackground())throw new Error('请先保存文稿。');
+      const context=fileViewContext(),all=await trashItems(),byId=new Map(all.map(item=>[item.id,item])),expanded=new Set(ids),failed=[],errors=[];
+      for(const id of ids){const item=byId.get(id);if(item&&!item.directory&&sidecarTarget(sidecarPath(item.path))){const companion=all.filter(entry=>entry.path===sidecarPath(item.path)).sort((a,b)=>b.createdAt-a.createdAt)[0];if(companion)expanded.add(companion.id);}}
+      if(native){let result,done=0;for(const id of expanded){try{result=await transport('restoreTrash',{id,permanent});}catch(error){failed.push(id);errors.push((byId.get(id)?.path||id)+' · '+error.message);}progress(++done,expanded.size);}if(result)applyFileState(result,{context,persist:false});}
+      else{
+        const candidate=fileOperationCopy(workspace),payloads=[];
+        for(const id of expanded){if(byId.get(id)?.projectPayload)payloads.push(id);restoreFile(candidate,id,permanent);}
+        if(payloads.length)await projects.backend.call('restoreTrashPayload','host',{ids:payloads,permanent,workspace:JSON.stringify(candidate)});
+        workspace=candidate;applyFileState(candidate,{context,persist:false});progress(expanded.size,expanded.size);
+      }
+      if(!await session.saveBackground())throw new Error('操作已完成，但工作区状态未保存，请重试保存。');
+      projects.changed('external');return {items:await trashItems(),failed,errors};
+    }finally{fileOperationBusy=false;setDialogBusy(false);}
+  }});
 }
+
 $('#current-name').ondblclick=()=>{if(current())renameDocument(current());};
 function renameDocument(doc){renameItem(documentPath(doc));}
 $('#document-tabs').onclick=e=>{const close=e.target.closest('[data-close]');if(close){closeDocument(close.dataset.close);return;}const b=e.target.closest('[data-tab]');if(b&&b.dataset.tab!==workspace.activeId)switchDocument(b.dataset.tab);};

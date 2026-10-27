@@ -156,7 +156,7 @@ final class WorkspaceFiles {
             else if (file.isFile()) {
                 if (lazyProjectPaths.contains(path) && !previous.containsKey(path) && !name.equals(".vela")) { entry.put("editable", lazyTextPaths.contains(path) || path.matches("(?i).*(\\.(txt|md|csv|tsv|json|html?|css|[cm]?js|ts|py|java|ets|tex|yaml|yml|xml|toml|velaodt|vodt|fodt|fods|fodp|fodg|gly|glossary|process|pcs|velamap|vlmp))$")).put("reason", "按需读取项目文件"); continue; }
                 try {
-                    String text = FileText.decode(read(file, FileText.MAX_BYTES));
+                    String text = FileText.decode(read(file, FileText.MAX_BYTES), file.getName());
                     JSONObject before = previous.get(path);
                     JSONObject doc = before == null ? new JSONObject() : new JSONObject(before.toString());
                     doc.put("id", before == null ? UUID.randomUUID().toString() : before.getString("id"))
@@ -184,7 +184,7 @@ final class WorkspaceFiles {
             File file = target(path);
             if (!docId.matches("[A-Za-z0-9_-]{1,80}") || !ids.add(docId) || !paths.add(path) || utf8(text).length > FileText.MAX_BYTES) throw new IOException("文件标识、同名路径或文件大小无效。");
             if (file.exists()) {
-                String disk = FileText.decode(read(file, FileText.MAX_BYTES));
+                String disk = FileText.decode(read(file, FileText.MAX_BYTES), file.getName());
                 JSONObject previous = before.get(path);
                 if (!disk.equals(text) && (previous == null || !disk.equals(previous.getString("text")))) throw new IOException("文件已在外部修改：" + path + "。请刷新工作区后重试。");
             }
@@ -192,13 +192,13 @@ final class WorkspaceFiles {
         for (int i = 0; i < folders.length(); i++) { String folder = folders.getString(i); target(folder); if (paths.contains(folder)) throw new IOException("文件和文件夹路径冲突。"); }
         for (Map.Entry<String, JSONObject> item : before.entrySet()) {
             File file = target(item.getKey());
-            if (!paths.contains(item.getKey()) && file.exists() && !FileText.decode(read(file, FileText.MAX_BYTES)).equals(item.getValue().getString("text"))) throw new IOException("文件已在外部修改，无法删除：" + item.getKey());
+            if (!paths.contains(item.getKey()) && file.exists() && !FileText.decode(read(file, FileText.MAX_BYTES), file.getName()).equals(item.getValue().getString("text"))) throw new IOException("文件已在外部修改，无法删除：" + item.getKey());
         }
         try (Transaction tx = new Transaction()) {
             for (int i = 0; i < folders.length(); i++) tx.mkdir(target(folders.getString(i)));
             for (int i = 0; i < docs.length(); i++) {
                 JSONObject doc = docs.getJSONObject(i); String path = documentPath(doc); File file = target(path);
-                if (file.exists() && FileText.decode(read(file, FileText.MAX_BYTES)).equals(doc.getString("text"))) continue;
+                if (file.exists() && FileText.decode(read(file, FileText.MAX_BYTES), file.getName()).equals(doc.getString("text"))) continue;
                 JSONObject previous = before.get(path);
                 if (previous != null) tx.write(new File(base, "previous-" + doc.getString("id") + ".txt"), utf8(previous.getString("text")));
                 tx.mkdir(file.getParentFile()); tx.write(file, utf8(doc.getString("text")));
@@ -285,13 +285,13 @@ final class WorkspaceFiles {
         for (int i = 0; i < folders.length(); i++) { String folder = folders.getString(i); target(folder); if (paths.contains(folder)) throw new IOException("文件和文件夹路径冲突。"); }
         for (Changed item : changed) {
             if (!item.file.exists()) continue;
-            String disk = FileText.decode(read(item.file, FileText.MAX_BYTES)); JSONObject before = atPath.get(item.path);
+            String disk = FileText.decode(read(item.file, FileText.MAX_BYTES), item.file.getName()); JSONObject before = atPath.get(item.path);
             if (!disk.equals(item.text) && (before == null || !disk.equals(baseText(byId, store, before.getString("id"))))) throw new IOException("文件已在外部修改：" + item.path + "。请刷新工作区后重试。");
         }
         List<String> removed = new ArrayList<>();
         for (Map.Entry<String, JSONObject> item : atPath.entrySet()) {
             if (paths.contains(item.getKey()) || !target(item.getKey()).exists()) continue;
-            if (!FileText.decode(read(target(item.getKey()), FileText.MAX_BYTES)).equals(baseText(byId, store, item.getValue().getString("id")))) throw new IOException("文件已在外部修改，无法删除：" + item.getKey());
+            if (!FileText.decode(read(target(item.getKey()), FileText.MAX_BYTES), item.getKey()).equals(baseText(byId, store, item.getValue().getString("id")))) throw new IOException("文件已在外部修改，无法删除：" + item.getKey());
             removed.add(item.getKey());
         }
         Files.createDirectories(storeFolder().toPath());
@@ -312,7 +312,7 @@ final class WorkspaceFiles {
             try (Transaction tx = new Transaction()) {
                 for (int i = 0; i < folders.length(); i++) tx.mkdir(target(folders.getString(i)));
                 for (Changed item : changed) {
-                    if (item.file.exists() && FileText.decode(read(item.file, FileText.MAX_BYTES)).equals(item.text)) continue;
+                    if (item.file.exists() && FileText.decode(read(item.file, FileText.MAX_BYTES), item.file.getName()).equals(item.text)) continue;
                     JSONObject before = atPath.get(item.path);
                     if (before != null) { String previous = baseText(byId, store, before.getString("id")); if (previous != null) tx.write(new File(base, "previous-" + before.getString("id") + ".txt"), utf8(previous)); }
                     tx.mkdir(item.file.getParentFile()); tx.write(item.file, utf8(item.text));
@@ -354,7 +354,7 @@ final class WorkspaceFiles {
             if (!seen.add(path) || !item.has("expectedData") || item.getString("expectedData").length() > 12 * 1024 * 1024) throw new IOException("删除路径重复或缺少本地版本。");
             for (int j = 0; j < folders.length(); j++) if (path.equals(folders.getString(j))) throw new IOException("文件与文件夹同名。");
             byte[] current = read(target(path), FileText.MAX_BYTES); total += current.length * 4L / 3;
-            if (total > 96 * 1024 * 1024 || !Base64.encodeToString(current, Base64.NO_WRAP).equals(item.getString("expectedData")) || item.has("expectedText") && !FileText.decode(current).equals(item.getString("expectedText"))) throw new IOException("本地文件已变化，未执行同步删除：" + path);
+            if (total > 96 * 1024 * 1024 || !Base64.encodeToString(current, Base64.NO_WRAP).equals(item.getString("expectedData")) || item.has("expectedText") && !FileText.decode(current, path).equals(item.getString("expectedText"))) throw new IOException("本地文件已变化，未执行同步删除：" + path);
         }
         try (Transaction tx = new Transaction()) {
             for (int i = 0; i < deletions.length(); i++) {
@@ -382,7 +382,7 @@ final class WorkspaceFiles {
         String mime = html ? "text/html" : PreviewResource.mime(path);
         byte[] bytes = read(target(path), FileText.MAX_BYTES);
         if (mime.startsWith("text/") || mime.equals("image/svg+xml") || mime.equals("application/json")) {
-            String text = FileText.decode(bytes);
+            String text = FileText.decode(bytes, path);
             if (mime.equals("text/html")) {
                 text = text.replaceAll("(?i)(<meta\\b[^>]*charset\\s*=\\s*[\"']?)[a-z0-9_-]+", "$1utf-8");
                 if (!java.util.regex.Pattern.compile("(?is)<meta\\b[^>]*name\\s*=\\s*[\"']?viewport\\b").matcher(text).find()) {

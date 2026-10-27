@@ -346,7 +346,7 @@ public final class MainActivity extends Activity {
                         boolean raw = false;
                         if (binaryExtensions != null) for (int i = 0; i < binaryExtensions.length(); i++) { String ext = binaryExtensions.optString(i); if (ext.matches("\\.[a-z0-9]+") && lowerName.endsWith(ext)) raw = true; }
                         if (raw) file.put("data", android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP));
-                        else try { file.put("text", FileText.decode(bytes)); }
+                        else try { file.put("text", FileText.decode(bytes, file.getString("name"))); }
                         catch (IOException binary) { file.put("data", android.util.Base64.encodeToString(bytes, android.util.Base64.NO_WRAP)); }
                         files.put(file);
                     }

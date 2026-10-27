@@ -19,6 +19,15 @@ export const fileIcon=kind=>kind==='OUTLINE'||kind==='MAP'?`<span role="img" ari
 // Names plugins may use for their buttons; plugins never supply their own SVG.
 paths.add='M12 5v14M5 12h14';
 paths.simplify='M3 6h2M3 12h2M3 18h2M9 6h2M9 12h2M9 18h2M14 12h7M18 9l3 3-3 3M22 6h.01M22 18h.01';
+Object.assign(paths, {
+  csvAddRow:'M3 3h18v10H3zM3 8h18M9 3v10M15 3v10M12 16v6M9 19h6',
+  csvAddColumn:'M3 3h10v18H3zM8 3v18M3 9h10M3 15h10M19 9v6M16 12h6',
+  csvEdit:'M3 4h12v6M3 4v16h9M3 10h8M9 4v9M14 15l6-6 2 2-6 6-3 1z',
+  csvFit:'M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5M8 8h8v8H8zM8 12h8M12 8v8',
+  actualSize:'M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5M8 10l2-1v6M14 10l2-1v6',
+  zoomIn:'M10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM15 15l6 6M7 10h6M10 7v6',
+  zoomOut:'M10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14zM15 15l6 6M7 10h6'
+});
 export const iconNames=Object.freeze([...Object.keys(paths),'settings']);
 
 paths.table='M3 4h18v16H3zM3 9h18M3 14h18M9 4v16M15 4v16';
