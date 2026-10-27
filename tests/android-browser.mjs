@@ -5,6 +5,7 @@ import {execFileSync} from 'node:child_process';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {zipSync,strToU8} from 'fflate';
 import assert from 'node:assert/strict';
+import {editCsvCell,csvCellText,findCsvCell} from './csv-grid-helper.mjs';
 
 const serial=process.env.WENZHOU_ANDROID_SERIAL||'emulator-5582';
 if(!/^emulator-\d+$/.test(serial))throw new Error('安卓回归测试仅允许专用模拟器。');
@@ -60,7 +61,7 @@ try{
   });
   await check('CSV 显示为可编辑表格，Markdown 工具栏与本地图片预览',async()=>{
     await p.locator('#mobile-library').click();const state=await saved(),csv=state.documents.find(d=>d.path===prefix+'/人物.CSV');
-    await p.locator(`[data-doc="${csv.id}"]`).click();await p.locator('#preview table').waitFor();await p.locator('[data-cell-row="1"][data-cell-column="0"]').fill('乙');assert.match((await saved()).documents.find(d=>d.id===csv.id).text,/乙/);
+    await p.locator(`[data-doc="${csv.id}"]`).click();await editCsvCell(p,1,0,'乙');assert.match((await saved()).documents.find(d=>d.id===csv.id).text,/乙/);
     const md=state.documents.find(d=>d.path===prefix+'/设定.md');await p.locator(`[data-doc="${md.id}"]`).click();assert.equal(await p.locator('#markdown-tools').isVisible(),true);
     await p.locator('[data-display=preview]').click();await p.locator('#preview img').waitFor();assert.equal(await p.locator('body').evaluate(b=>b.classList.contains('show-library')),true);
     await p.locator('#mobile-library').click();

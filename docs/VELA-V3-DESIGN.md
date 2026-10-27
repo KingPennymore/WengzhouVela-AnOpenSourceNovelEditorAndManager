@@ -232,4 +232,4 @@
 
 ## 11. 关联 CSV / TSV 表格
 
-`csv-table` 是 `inserts` 中的段落插入类型，字段为 `src`、可选 `caption` 与 `header`。源文件独立保存，TXT 正文不变。编辑器、预览和阅读使用 Shadow DOM 避免表格文字影响正文偏移；HTML、Markdown、EPUB 导出静态快照。路径保护、移动/复制规则及使用说明见 [CSV-TABLES.md](CSV-TABLES.md) 和 [ADR 0007](adr/0007-linked-csv-tables.md)。
+`csv-table` 是 `inserts` 中的段落插入类型，字段为 `src`、可选 `caption` 与 `header`。源文件独立保存，TXT 正文不变。CSV / TSV 编辑页使用虚拟画布网格，阅读页使用只读滚动网格，均按源码位置局部写入；TXT 内嵌预览仍使用 Shadow DOM 静态 HTML，避免表格文字影响正文偏移。HTML、Markdown、EPUB 导出静态快照。路径保护、移动/复制规则及使用说明见 [CSV-TABLES.md](CSV-TABLES.md)、[ADR 0007](adr/0007-linked-csv-tables.md) 和 [ADR 0008](adr/0008-csv-grid-redesign.md)。

@@ -143,7 +143,7 @@ export function csvTableMarkup(
     Array.from(
       { length: count },
       (_, c) =>
-        `<${tag}${tag === 'th' ? ' scope="col"' : ''}>${escape(values[c] || '').replace(/\n/g, '<br/>')}</${tag}>`,
+        `<${tag} data-user-content${tag === 'th' ? ' scope="col"' : ''}>${escape(values[c] || '').replace(/\n/g, '<br/>')}</${tag}>`,
     ).join('') +
     '</tr>';
   return (
@@ -163,26 +163,43 @@ export function csvTableMarkup(
 }
 
 export const CSV_TABLE_EXPORT_CSS =
-  '.csv-table{margin:1em 0;overflow-x:auto;break-inside:avoid}.csv-table table{border-collapse:collapse;width:100%;font-size:.9em;text-align:start}.csv-table th,.csv-table td{border:1px solid #999;padding:.45em .65em;white-space:pre-wrap;overflow-wrap:anywhere}.csv-table caption{font-weight:bold;text-align:start;padding:.5em 0}.table-missing{font-size:.85em;color:#777}';
+  '.csv-table{margin:1em 0;max-width:100%;overflow-x:auto;break-inside:avoid}.csv-table table{border-collapse:collapse;width:100%;max-width:100%;table-layout:fixed;font-size:13px;text-align:start}.csv-table th,.csv-table td{border:1px solid #999;padding:.45em .65em;white-space:normal;overflow-wrap:anywhere;word-break:break-word}.csv-table caption{font-weight:bold;text-align:start;padding:.5em 0}.table-missing{font-size:.85em;color:#777}';
 
-const shadowCss = `:host{display:block;max-width:100%;font:inherit;color:inherit;text-align:start;text-indent:0}
-*{box-sizing:border-box}section{border:1px solid var(--line,#ddd);border-radius:var(--radius,8px);overflow:hidden;background:var(--paper,#fff)}
-header{display:flex;gap:12px;align-items:center;padding:8px 12px;background:var(--soft,#f4f5f2);font:12px/1.6 inherit}
+const shadowCss = `:host{display:block;max-width:100%;font-family:inherit;line-height:1.6;color:inherit;text-align:start;text-indent:0}
+*{box-sizing:border-box}section{width:100%;max-width:100%;border:1px solid var(--line,#ddd);border-radius:var(--radius,8px);overflow:hidden;background:var(--paper,#fff)}
+header{display:flex;gap:8px;align-items:center;padding:7px 10px;background:var(--soft,#f4f5f2);font:12px/1.6 inherit}
 header span{min-width:0;flex:1;overflow-wrap:anywhere;font-size:12px;color:var(--muted,#777)}
-button{flex:none;min-height:40px;padding:6px 12px;border:1px solid var(--line,#ddd);border-radius:var(--radius,8px);background:var(--paper,#fff);color:var(--accent,#286b50);font:inherit;font-size:12px;cursor:pointer}
+button{flex:none;min-height:44px;padding:6px 12px;border:1px solid var(--line,#ddd);border-radius:var(--radius,8px);background:var(--paper,#fff);color:var(--accent,#286b50);font:inherit;font-size:12px;cursor:pointer}
 button:focus-visible,.scroll:focus-visible{outline:2px solid var(--accent,#286b50);outline-offset:-2px}
-.scroll{max-width:100%;max-height:320px;overflow:auto;overscroll-behavior-x:contain;touch-action:pan-x pan-y}
-table{border-collapse:separate;border-spacing:0;min-width:100%;font-size:1em;line-height:1.6;white-space:normal}
-caption{text-align:start;padding:10px 12px;font-weight:500;caption-side:top}th,td{min-width:100px;max-width:280px;padding:8px 12px;border-right:1px solid var(--line,#ddd);border-bottom:1px solid var(--line,#ddd);overflow-wrap:anywhere}
-th{position:sticky;top:0;text-align:start;font-weight:500;background:var(--soft,#f4f5f2)}tr:last-child td{border-bottom:0}tr>*:last-child{border-right:0}
-.table-note,.table-missing{font-size:12px;padding:12px;color:var(--muted,#777);margin:0;overflow-wrap:anywhere}
-@media(max-width:600px){button{min-height:44px}th,td{min-width:112px}}
+.scroll{max-width:100%;overflow:visible;touch-action:auto}
+table{width:100%;max-width:100%;table-layout:fixed;border-collapse:separate;border-spacing:0;font-size:var(--csv-embed-font,13px);line-height:1.55;white-space:normal}
+caption{text-align:start;padding:8px 10px;font-weight:600;caption-side:top;overflow-wrap:anywhere}
+th,td{min-width:0;max-width:none;padding:.48em .55em;border-right:1px solid var(--line,#ddd);border-bottom:1px solid var(--line,#ddd);overflow-wrap:anywhere;word-break:break-word;white-space:normal;vertical-align:top}
+th{text-align:start;font-weight:600;background:var(--soft,#f4f5f2)}tr:last-child td{border-bottom:0}tr>*:last-child{border-right:0}
+.table-note,.table-missing{font-size:12px;padding:10px;color:var(--muted,#777);margin:0;overflow-wrap:anywhere}
+@media(max-width:600px){button{min-height:44px}}
 `;
+
+/** Embedded tables take their own type size from the available width and column count, never the body size. */
+function fitTableFont(host, section, columns) {
+  if (!section) return;
+  const fit = () => {
+    const width = section.clientWidth || host.clientWidth || 320;
+    const size = Math.max(8, Math.min(16, (width - 20) / Math.max(1, columns) / 4.5));
+    section.style.setProperty('--csv-embed-font', Math.round(size * 10) / 10 + 'px');
+  };
+  fit();
+  if (typeof ResizeObserver !== 'function') return;
+  host.__velaTableFontObserver?.disconnect?.();
+  const observer = new ResizeObserver(() => { if (!host.isConnected) { observer.disconnect(); return; } fit(); });
+  observer.observe(host); host.__velaTableFontObserver = observer;
+}
 
 /** Shadow content keeps table cells out of TXT search/bookmark offsets and word counts. */
 export function mountCsvTable(host, entry, load, { onEdit, onReady } = {}) {
   const shadow = host.attachShadow({ mode: 'open' });
-  shadow.innerHTML = `<style>${shadowCss}</style><section><header><span></span></header><div class="scroll" tabindex="0" role="region" aria-label="嵌入的 CSV 表格，可横向滚动"><p class="table-note">正在读取表格…</p></div></section>`;
+  shadow.innerHTML = `<style>${shadowCss}</style><section><header><span></span></header><div class="scroll" role="group" aria-label="嵌入的 CSV 表格"><p class="table-note">正在读取表格…</p></div></section>`;
+  const section = shadow.querySelector('section');
   shadow.querySelector('header span').textContent = entry.src;
   if (onEdit) {
     const button = document.createElement('button');
@@ -192,10 +209,12 @@ export function mountCsvTable(host, entry, load, { onEdit, onReady } = {}) {
     shadow.querySelector('header').append(button);
   }
   const show = (snapshot) => {
+    const rows = snapshot?.rows || [], columns = Math.min(20, Math.max(1, rows.reduce((n, row) => Math.max(n, row.length), 1)));
     shadow.querySelector('.scroll').innerHTML = csvTableMarkup(snapshot, entry, {
       maxRows: 100,
       maxColumns: 20,
     });
+    fitTableFont(host, section, columns);
     onReady?.();
   };
   try {

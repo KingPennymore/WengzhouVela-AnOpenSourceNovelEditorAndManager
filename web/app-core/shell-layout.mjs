@@ -56,7 +56,8 @@ export function layoutShell(document, width, home) {
   const toolbars = [...scroller.children].some(
     (child) => child instanceof HTMLElement && !child.hidden && child.childElementCount,
   );
-  const displayHome = wide || toolbars ? tools : rowbar;
+  // On narrow screens the tools row is its own full-width line; the view switch stays in the tab bar.
+  const displayHome = wide ? tools : rowbar;
   if (display && display.parentElement !== displayHome) displayHome.append(display);
   tools.hidden =
     home || (!toolbars && !tools.contains(display)) || (!toolbars && !display?.childElementCount);

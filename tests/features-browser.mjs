@@ -7,6 +7,7 @@ import http from 'node:http';
 import path from 'node:path';
 import {zipSync,strToU8} from 'fflate';
 import {parseCsv} from '../web/csv.mjs';
+import {editCsvCell,csvCellText,findCsvCell} from './csv-grid-helper.mjs';
 const root=path.resolve('dist/web');
 const server=http.createServer(async(req,res)=>{
   const file=path.resolve(root,'.'+(new URL(req.url,'http://localhost').pathname==='/'?'/index.html':decodeURIComponent(new URL(req.url,'http://localhost').pathname)));
@@ -61,11 +62,12 @@ try{
   });
   await check('CSV 默认显示表格，带逗号、换行和引号的单元格可编辑、保存与撤回',async()=>{
     await importFile(w,'角色.csv','姓名,备注\n甲,"引号""内容\n第二行"\n乙,原文');
-    assert.equal(await w.locator('table[aria-label="CSV 表格"]').isVisible(),true);assert.equal(await w.locator('#editor').isVisible(),false);
-    const cell=w.locator('[data-cell-row="1"][data-cell-column="1"]');assert.equal(await cell.inputValue(),'引号"内容\n第二行');await cell.fill('逗号,引号"与\n换行');await w.keyboard.press('Control+s');
+    await w.locator('[role=grid][aria-label="表格编辑"]').waitFor();
+    assert.equal(await w.locator('[role=grid][aria-label="表格编辑"]').isVisible(),true);assert.equal(await w.locator('#editor').isVisible(),false);
+    assert.equal(await csvCellText(w,1,1),'引号"内容\n第二行');await editCsvCell(w,1,1,'逗号,引号"与\n换行');await w.keyboard.press('Control+s');
     const state=await saved(w);assert.equal(parseCsv(state.documents.find(d=>d.name==='角色.csv').text)[1][1],'逗号,引号"与\n换行');
-    await w.locator('#quick-undo').click();assert.equal(await cell.inputValue(),'引号"内容\n第二行');await w.locator('#quick-redo').click();assert.equal(await cell.inputValue(),'逗号,引号"与\n换行');
-    await w.locator('#csv-add-row').click();await w.locator('#csv-add-column').click();assert.equal(await w.locator('tbody tr').count(),4);assert.equal(await w.locator('thead th').count(),4);
+    await w.locator('#quick-undo').click();await w.waitForFunction(()=>document.querySelector('[data-cell-row="1"][data-cell-column="1"]')?.textContent==='引号"内容\n第二行');await w.locator('#quick-redo').click();await w.waitForFunction(()=>document.querySelector('[data-cell-row="1"][data-cell-column="1"]')?.textContent==='逗号,引号"与\n换行');
+    await w.locator('#csv-add-row').click();await w.waitForFunction(()=>document.querySelectorAll('.csv-row-heading').length===4);await w.locator('#csv-add-column').click();await w.waitForFunction(()=>document.querySelectorAll('.csv-column-heading').length===3);
     await w.locator('[data-display=source]').click();assert.equal(await w.locator('#editor').isVisible(),true);assert.ok((await w.locator('.cm-content').innerText()).includes('逗号'));
   });
   await check('HTML 扩展名保持不变，预览与原生桥接隔离，脚本和外部资源不执行',async()=>{
@@ -88,8 +90,8 @@ try{
     await existing.p.locator('#start-page').waitFor({state:'visible'});assert.equal(await existing.p.locator('[data-recent="existing"]').textContent().then(t=>t.includes('我的小说.txt')),true);
     await openRecentFile(existing.p,existing.p.locator('[data-recent="existing"]'));assert.equal((await saved(existing.p)).documents[0].text,'私有正文');await existing.ctx.close();
   });
-  await check('CSV 大表按页查看全部数据，切换页不丢失前页修改',async()=>{
-    await importFile(w,'全表.csv',Array.from({length:205},(_,i)=>`${i},值${i}`).join('\n'));await w.locator('[data-cell-row="1"][data-cell-column="1"]').fill('已修改');await w.locator('#csv-next').click();assert.equal(await w.locator('[data-cell-row="100"][data-cell-column="1"]').inputValue(),'值100');await w.locator('#csv-next').click();assert.equal(await w.locator('tbody tr').count(),5);await w.locator('#csv-prev').click();await w.locator('#csv-prev').click();assert.equal(await w.locator('[data-cell-row="1"][data-cell-column="1"]').inputValue(),'已修改');
+  await check('CSV 大表可查找并滚动查看全部数据，编辑不丢失',async()=>{
+    await importFile(w,'全表.csv',Array.from({length:205},(_,i)=>`${i},值${i}`).join('\n'));await editCsvCell(w,1,1,'已修改');await findCsvCell(w,'值100');await w.waitForFunction(()=>document.querySelector('#csv-cell-reference')?.textContent==='B101');assert.equal(await csvCellText(w,100,1),'值100');await findCsvCell(w,'值204');await w.waitForFunction(()=>document.querySelector('#csv-cell-reference')?.textContent==='B205');await findCsvCell(w,'已修改');await w.waitForFunction(()=>document.querySelector('#csv-cell-reference')?.textContent==='B2');assert.equal(await csvCellText(w,1,1),'已修改');
   });
   const writerZip=zipSync({'plugin.json':new Uint8Array(await readFile('vendor/acode-writer/plugin.json')),'main.js':new Uint8Array(await readFile('vendor/acode-writer/main.js'))});
   await check('旧版 Acode 插件（Writer 1.0.4）被明确拒绝，入口不执行',async()=>{

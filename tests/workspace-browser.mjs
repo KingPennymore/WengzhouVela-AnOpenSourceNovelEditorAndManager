@@ -7,6 +7,7 @@ import http from 'node:http';
 import path from 'node:path';
 import {palettes} from '../web/palettes.mjs';
 import {parseCsv} from '../web/csv.mjs';
+import {editCsvCell,csvCellText,findCsvCell} from './csv-grid-helper.mjs';
 const root=path.resolve('dist/web');
 const server=http.createServer(async(req,res)=>{const p=new URL(req.url,'http://localhost').pathname,file=path.resolve(root,'.'+(p==='/'?'/index.html':decodeURIComponent(p)));if(!file.startsWith(root+path.sep)){res.writeHead(403).end();return;}try{const contents=await readFile(file);res.writeHead(200,{'Content-Type':{'.html':'text/html','.js':'text/javascript','.css':'text/css'}[path.extname(file)]||'text/plain'}).end(contents);}catch{res.writeHead(404).end();}});
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
@@ -39,12 +40,12 @@ try{
     await p.reload();await p.waitForFunction(()=>window.velaReady);assert.equal((await save(p)).settings.palette,'graphite');
   });
   await check('CSV 扩展名大小写与 UTF-16 文件可识别，分号和制表符表格可编辑',async()=>{
-    await importFile(p,'人物.CSV',Buffer.concat([Buffer.from([255,254]),Buffer.from('姓名;身份\r\n文舟;作者','utf16le')]));await p.waitForSelector('[data-cell-row="1"]');assert.equal(await p.locator('[data-cell-row="1"][data-cell-column="0"]').inputValue(),'文舟');await p.locator('[data-cell-row="1"][data-cell-column="1"]').fill('写作者');assert.ok((await save(p)).documents.find(d=>d.name==='人物.CSV').text.includes('文舟;写作者'));
-    await importFile(p,'人物-tab.csv','名字\t身份\n甲\t主角');assert.equal(await p.locator('[data-cell-row="1"][data-cell-column="1"]').inputValue(),'主角');
+    await importFile(p,'人物.CSV',Buffer.concat([Buffer.from([255,254]),Buffer.from('姓名;身份\r\n文舟;作者','utf16le')]));assert.equal(await csvCellText(p,1,0),'文舟');await editCsvCell(p,1,1,'写作者');const csvText=(await save(p)).documents.find(d=>d.name==='人物.CSV').text;assert.equal(csvText,'\uFEFF姓名;身份\r\n文舟;写作者');
+    await importFile(p,'人物-tab.csv','名字\t身份\n甲\t主角');assert.equal(await csvCellText(p,1,1),'主角');
   });
-  await check('宽表按列分页，编辑后保留所有列和未显示的行',async()=>{
-    const rows=Array.from({length:120},(_,r)=>Array.from({length:120},(_,c)=>`${r}:${c}`).join(','));await importFile(p,'宽表.csv',rows.join('\n'));assert.ok(await p.locator('#preview textarea').count()<=2000);
-    await p.locator('#csv-column-next').click();assert.equal(await p.locator('[data-cell-row="0"][data-cell-column="50"]').inputValue(),'0:50');await p.locator('[data-cell-row="0"][data-cell-column="50"]').fill('修改');const parsed=parseCsv((await save(p)).documents.find(d=>d.name==='宽表.csv').text);assert.equal(parsed.length,120);assert.equal(parsed[119].length,120);assert.equal(parsed[119][119],'119:119');assert.equal(parsed[0][50],'修改');
+  await check('宽表可查找并编辑，保留所有列和未显示的行',async()=>{
+    const rows=Array.from({length:120},(_,r)=>Array.from({length:120},(_,c)=>`${r}:${c}`).join(','));await importFile(p,'宽表.csv',rows.join('\n'));assert.ok(await p.locator('#preview .csv-grid-cell').count()<=2000);
+    await findCsvCell(p,'0:50');await p.waitForFunction(()=>document.querySelector('#csv-cell-reference')?.textContent==='AY1');assert.equal(await csvCellText(p,0,50),'0:50');await editCsvCell(p,0,50,'修改');const parsed=parseCsv((await save(p)).documents.find(d=>d.name==='宽表.csv').text);assert.equal(parsed.length,120);assert.equal(parsed[119].length,120);assert.equal(parsed[119][119],'119:119');assert.equal(parsed[0][50],'修改');
   });
   await check('HTML / HTM 可打开预览并保留文档样式，脚本不能运行',async()=>{
     await importFile(p,'页面.HTM','<!doctype html><html><head><style>h1{color:rgb(1,2,3)}</style></head><body><h1>页面标题</h1><script>window.parent.__unsafe=true</script></body></html>');await p.locator('[data-display=preview]').click();const frame=p.frameLocator('#preview iframe');assert.equal(await frame.locator('h1').innerText(),'页面标题');assert.equal(await frame.locator('h1').evaluate(el=>getComputedStyle(el).color),'rgb(1, 2, 3)');assert.equal(await p.evaluate(()=>window.__unsafe),undefined);assert.equal(await p.locator('#preview iframe').getAttribute('sandbox'),'');

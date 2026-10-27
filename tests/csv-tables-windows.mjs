@@ -4,6 +4,7 @@ import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { openRecentFile } from './start-page-helper.mjs';
+import {editCsvCell,csvCellText,findCsvCell} from './csv-grid-helper.mjs';
 
 const data = await fs.mkdtemp(path.join(os.tmpdir(), 'vela-csv-native-'));
 const env = { ...process.env, VELA_QA: '1', VELA_QA_DATA: data };
@@ -43,7 +44,7 @@ try {
   await page.locator('.vela-format-table table').waitFor();
   await page.locator('.vela-format-table button').click();
   await page.locator('#table-open-source').click();
-  await page.locator('[data-cell-row="1"][data-cell-column="0"]').fill('林舟');
+  await editCsvCell(page, 1, 0, '林舟');
   await page.locator('#quick-save').click();
   await page.locator(`[data-tab="${book.id}"]`).click();
   await page.locator('.vela-format-table table').waitFor();

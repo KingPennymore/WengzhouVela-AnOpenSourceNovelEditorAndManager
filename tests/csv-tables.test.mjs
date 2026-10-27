@@ -2,7 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { EditorState, EditorSelection } from '@codemirror/state';
 import { history, undo, redo } from '@codemirror/commands';
-import { csvTable, csvColumnName, csvWindow } from '../web/csv-view.mjs';
+import { csvColumnName } from '../web/csv-view.mjs';
+import { parseCsvModel, setCsvCell, insertCsvRow, csvColumns, deleteCsvRows, reorderCsvRows } from '../web/csv-model.mjs';
+import { decodeFileText } from '../web/file-text.mjs';
+import { decodeContent, encodeContent } from '../web/model.mjs';
+// csv-grid pulls in motion.mjs, which reads matchMedia when it loads.
+globalThis.matchMedia ??= () => ({ matches: false, addEventListener() {}, removeEventListener() {} });
+const { csvMetrics, csvVisibleRange, prefixSizes } = await import('../web/csv-grid.mjs');
 import { parseCsv, writeCsv, documentDelimiter } from '../web/csv.mjs';
 import {
   resolveTablePath,
@@ -44,36 +50,47 @@ const rows = [
 const snapshot = { rows, path: '资料/人物.csv', delimiter: ',' };
 const sections = [{ heading: true, title: '第一章 开始', row: 0, endRow: 3 }];
 
-test('CSV pagination is bounded, empty-safe and uses spreadsheet column labels', () => {
-  assert.deepEqual([0, 25, 26, 51, 52, 701, 702].map(csvColumnName), [
-    'A',
-    'Z',
-    'AA',
-    'AZ',
-    'BA',
-    'ZZ',
-    'AAA',
-  ]);
-  const grid = csvWindow(
-    Array.from({ length: 205 }, () => Array(120).fill('')),
-    99,
-    99,
-  );
-  assert.equal(grid.columnPage, 2);
-  assert.ok(grid.pageSize * grid.count <= 2000);
-  assert.equal(
-    csvWindow(
-      Array.from({ length: 205 }, () => Array(120).fill('')),
-      0,
-      0,
-    ).pageSize,
-    grid.pageSize,
-  );
-  assert.equal(csvWindow([], 2, 3).pages, 1);
-  assert.equal(csvWindow([], 2, 3).rowPage, 0);
-  const rendered = csvTable(rows, 0, 0, ',', (value) => value.replaceAll('<', '&lt;'));
-  assert.match(rendered.html, /csv-cell-tools/);
-  assert.equal((rendered.html.match(/data-cell-row=/g) || []).length, 6);
+const applyChanges = (source, changes) => [...changes].sort((a, b) => b.from - a.from).reduce((text, c) => text.slice(0, c.from) + c.insert + text.slice(c.to), source);
+test('The grid renders only the visible range, sizes cells within bounds and uses spreadsheet column labels', () => {
+  assert.deepEqual([0, 25, 26, 51, 52, 701, 702].map(csvColumnName), ['A', 'Z', 'AA', 'AZ', 'BA', 'ZZ', 'AAA']);
+  const [first, last] = csvVisibleRange(prefixSizes(Array(10000).fill(30)), -3000, 600, 1);
+  assert.ok(first > 90 && last < 130 && last - first < 40, 'only the rows on screen plus a small buffer');
+  const metrics = csvMetrics([['a', 'b'], ['long text '.repeat(40), 'x\ny\nz\nw']], 2);
+  assert.deepEqual(metrics.widths, [320, 96]);
+  assert.deepEqual(metrics.heights, [44, 92]);
+});
+
+test('Cell, row and column edits change only the affected source and keep BOM, CRLF and quoting', () => {
+  const source = '﻿name,note\r\n"Lin, Zhou",a\r\nOld,"x""y"\r\n', model = parseCsvModel(source, ',');
+  assert.deepEqual(model.rows, [['name', 'note'], ['Lin, Zhou', 'a'], ['Old', 'x"y']]);
+  assert.equal(applyChanges(source, setCsvCell(model, 2, 0, 'New')), '﻿name,note\r\n"Lin, Zhou",a\r\nNew,"x""y"\r\n');
+  assert.equal(applyChanges(source, insertCsvRow(model, 1, ['a', 'b'])), '﻿name,note\r\na,b\r\n"Lin, Zhou",a\r\nOld,"x""y"\r\n');
+  assert.equal(applyChanges(source, csvColumns(model, 'delete', 1)), '﻿name\r\n"Lin, Zhou"\r\nOld\r\n');
+  assert.equal(applyChanges(source, deleteCsvRows(model, 1)), '﻿name,note\r\nOld,"x""y"\r\n');
+  assert.match(parseCsvModel('a,"b', ',').error, /未闭合/);
+});
+
+test('Moving rows and columns rewrites only their records; CSV/TSV imports keep BOM and CRLF', () => {
+  const source = '﻿a,b,c\r\n1,2,3\r\n4,5,6\r\n', model = parseCsvModel(source, ',');
+  assert.equal(applyChanges(source, csvColumns(model, 'move', 0, 2)), '﻿b,c,a\r\n2,3,1\r\n5,6,4\r\n');
+  assert.equal(applyChanges(source, reorderCsvRows(model, [2, 0, 1])), '﻿4,5,6\r\na,b,c\r\n1,2,3\r\n');
+  const bytes = new TextEncoder().encode('\uFEFFa,b\r\nc,d\r\n');
+  assert.equal(decodeFileText(bytes, { preserveBom: true }), '\uFEFFa,b\r\nc,d\r\n');
+  assert.equal(decodeFileText(bytes), 'a,b\r\nc,d\r\n');
+  // Remote Git blobs are decoded without BOM stripping, so a pulled CSV keeps it byte-for-byte.
+  assert.equal(decodeContent(encodeContent('\uFEFFa,b\r\nc,d\r\n')), '\uFEFFa,b\r\nc,d\r\n');
+  // CSV keeps CRLF as "\r" line content with LF as the editor separator, so offsets still match
+  // the source and every edit round-trips the original line endings.
+  const state = EditorState.create({ doc: source, extensions: [EditorState.lineSeparator.of('\n')] });
+  assert.equal(state.doc.toString(), source);
+  const next = state.update({ changes: setCsvCell(model, 1, 0, 'x') }).state;
+  assert.equal(next.doc.toString(), '﻿a,b,c\r\nx,2,3\r\n4,5,6\r\n');
+  const multiline = state.update({ changes: setCsvCell(model, 0, 1, 'x\r\ny') }).state;
+  assert.equal(multiline.doc.toString(), '﻿a,"x\r\ny",c\r\n1,2,3\r\n4,5,6\r\n');
+  const reordered = state.update({ changes: reorderCsvRows(model, [2, 0, 1]) }).state;
+  assert.equal(reordered.doc.toString(), '﻿4,5,6\r\na,b,c\r\n1,2,3\r\n');
+  // A line break inside a quoted cell must not decide the file's record separator.
+  assert.equal(parseCsvModel('"a\nb",c\r\nx,y\r\n', ',').format.newline, '\r\n');
 });
 
 test('TSV extension and explicit delimiters survive editing, RFC quoting remains lossless', () => {

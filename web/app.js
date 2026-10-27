@@ -71,7 +71,6 @@ import {projectBackend} from './project-backend.mjs';
 import {paragraphSelection} from './selection.mjs';
 import {decodeFileText} from './file-text.mjs';
 import {htmlPreview} from './html-preview.mjs';
-import {CsvEditor} from './csv-editor.mjs';
 import {loadCsvTable,collectCsvTables} from './csv-embed.mjs';
 import {showCsvInsert} from './csv-insert.mjs';
 import {palettes,applyPalette,paletteFor,allPalettes,customPalettes,setCustomPalettes,derivePalette,paletteWarnings,validateCustomPalette,paletteBase,newPaletteId,MAX_CUSTOM_PALETTES} from './palettes.mjs';
@@ -162,7 +161,7 @@ document.addEventListener('visibilitychange',()=>{sidebarViews.refresh();extensi
 bindViewport(()=>{layoutShell();sidebars.update(false);view?.requestMeasure();});
 let fileClipboard=null;
 const sourceRendering=new Compartment(),gutters=new Compartment(),formatEnv=new Compartment(),pluginExtras=new Compartment(),projectReadonly=new Compartment(),completer=new Compartment(),pluginKeys=new Compartment(),languages=new Compartment(),systemTheme=matchMedia('(prefers-color-scheme: dark)');
-const editorStates=new Map();
+const editorStates=new Map(),editorScrolls=new Map();
 const editorIndexes=new WeakMap();
 const session = new WorkspaceSession({
   locked: () => projectLocked,
@@ -449,7 +448,7 @@ function showFormatReview(){
 const gutterExtensions=doc=>documentKind(doc)==='TXT'&&projectConfig(workspace,doc)?.config?.editor?.mode!=='code'&&!workspace.settings.novelLineNumbers?[]:[lineNumbers(),highlightActiveLineGutter()];
 function refreshGutters(){for(const [id,state] of editorStates){const doc=workspace.documents.find(item=>item.id===id);if(doc)editorStates.set(id,state.update({effects:gutters.reconfigure(gutterExtensions(doc))}).state);}if(view&&current())view.dispatch({effects:gutters.reconfigure(gutterExtensions(current()))});}
 function sourceRenderExtensions(doc){const editor=projectConfig(workspace,doc)?.config?.editor;return [outlineMarkers(()=>projectConfig(workspace,doc)?.config?.formats?.outline?.showEditorMarkers===false?[]:documents?.outlineAnchors.entries(doc)||[],openOutlineMarkers),gutters.of(gutterExtensions(doc)),languages.of(languageFor(doc)),syntaxHighlighting(defaultHighlightStyle),editor?.wrap===false?[]:indentedLineWrapping('same')];}
-function makeState(doc){const editor=projectConfig(workspace,doc)?.config?.editor,position=workspace.editorPositions?.[doc.id];return EditorState.create({doc:doc.text,selection:position?{anchor:Math.min(doc.text.length,position.anchor),head:Math.min(doc.text.length,position.head)}:undefined,extensions:[projectReadonly.of(EditorState.readOnly.of(projectLocked)),history(),sourceRendering.of(isPreview&&['OUTLINE','MAP'].includes(documentKind(doc))?[]:sourceRenderExtensions(doc)),documentKind(doc)==='TXT'?[richTextExtensions(loadFormats(doc)),formatEnv.of(formatEnvironment(doc))]:[],pluginExtras.of(plugins?.extensions()||[]),completer.of(editor?.completion===false?[]:completionExtensions(doc,()=>({documents:workspace.documents,autoNouns:workspace.settings.autoNouns,highlightTerms:workspace.settings.highlightTerms,terms:glossaryTerms(workspace,doc),glossary:workspace.writingTools?.glossary||[],snippets:workspace.writingTools?.snippets||[],packages:(plugins?.records||[]).filter(record=>record.enabled).flatMap(record=>(record.texFiles||[]).map(file=>file.path))}))),keymap.of([{key:'Enter',run:v=>documentKind(doc)==='TXT'&&editor?.mode!=='code'?paragraphNewline(v):false,shift:v=>documentKind(doc)==='TXT'&&editor?.mode!=='code'?paragraphNewline(v):false},{key:'Tab',run:v=>editorIndent(v)},{key:'Shift-Tab',run:v=>editorIndent(v,true)},...defaultKeymap,...historyKeymap,...searchKeymap]),pluginKeys.of(keymap.of(plugins?.bindings()||[])),highlightActiveLine(),paragraphSelection(),highlightSelectionMatches(),editorSearch(),EditorView.theme({'.cm-content':{lineHeight:String(editor?.lineHeight||1.8),maxWidth:(editor?.maxWidth||1000)+'px',margin:'0 auto'}}),scrollPastEndCustom(.35),EditorView.contentAttributes.of({'aria-label':'文稿正文','spellcheck':'false'}),EditorView.updateListener.of(update=>{
+function makeState(doc){const editor=projectConfig(workspace,doc)?.config?.editor,position=workspace.editorPositions?.[doc.id];const csvLineBreak=documentKind(doc)==='CSV'?'\n':null;return EditorState.create({doc:doc.text,selection:position?{anchor:Math.min(doc.text.length,position.anchor),head:Math.min(doc.text.length,position.head)}:undefined,extensions:[csvLineBreak?EditorState.lineSeparator.of(csvLineBreak):[],projectReadonly.of(EditorState.readOnly.of(projectLocked)),history(),sourceRendering.of(isPreview&&['OUTLINE','MAP'].includes(documentKind(doc))?[]:sourceRenderExtensions(doc)),documentKind(doc)==='TXT'?[richTextExtensions(loadFormats(doc)),formatEnv.of(formatEnvironment(doc))]:[],pluginExtras.of(plugins?.extensions()||[]),completer.of(editor?.completion===false?[]:completionExtensions(doc,()=>({documents:workspace.documents,autoNouns:workspace.settings.autoNouns,highlightTerms:workspace.settings.highlightTerms,terms:glossaryTerms(workspace,doc),glossary:workspace.writingTools?.glossary||[],snippets:workspace.writingTools?.snippets||[],packages:(plugins?.records||[]).filter(record=>record.enabled).flatMap(record=>(record.texFiles||[]).map(file=>file.path))}))),keymap.of([{key:'Enter',run:v=>documentKind(doc)==='TXT'&&editor?.mode!=='code'?paragraphNewline(v):false,shift:v=>documentKind(doc)==='TXT'&&editor?.mode!=='code'?paragraphNewline(v):false},{key:'Tab',run:v=>editorIndent(v)},{key:'Shift-Tab',run:v=>editorIndent(v,true)},...defaultKeymap,...historyKeymap,...searchKeymap]),pluginKeys.of(keymap.of(plugins?.bindings()||[])),highlightActiveLine(),paragraphSelection(),highlightSelectionMatches(),editorSearch(),EditorView.theme({'.cm-content':{lineHeight:String(editor?.lineHeight||1.8),maxWidth:(editor?.maxWidth||1000)+'px',margin:'0 auto'}}),scrollPastEndCustom(.35),EditorView.contentAttributes.of({'aria-label':'文稿正文','spellcheck':'false'}),EditorView.updateListener.of(update=>{
   if(update.docChanged){if(!planningPreview()&&(update.view.hasFocus||update.transactions.some(tr=>tr.isUserEvent('input')||tr.isUserEvent('delete')||tr.isUserEvent('undo')||tr.isUserEvent('redo'))))setSidebar('outline',false);const d=current();if(!d)return;const changes=[];update.changes.iterChanges((from,to,_a,_b,insert)=>changes.push({from,to,insert:insert.toString()}));documents.changeTree(d,update.state.doc,changes);if(documents.outlineAnchors.entries(d).length)queueMicrotask(()=>{if(view&&current()?.id===d.id)view.dispatch({effects:outlineMarksChanged.of(null)});});if(indexService&&indexSettings===JSON.stringify(projectWriter(workspace,d))&&indexService.update(update)){index=indexService.value;indexDoc=update.state.doc;outlineRevision='';}scheduleSave();projects?.changed('editor',[documentPath(d)]);plugins?.emit('file-content-changed',plugins.activeFile);if(!statsTimer)statsTimer=setTimeout(()=>{statsTimer=null;updateStats();if(document.body.classList.contains('show-library'))renderDocuments();},200);}
   if(!update.docChanged&&formatsOf(update.state)!==formatsOf(update.startState)){scheduleSave();renderFormatTools();}
   if(update.selectionSet){renderFormatTools();selectionMenu.changed();const range=update.state.selection.main;workspace.editorPositions={...workspace.editorPositions,[workspace.activeId]:{anchor:range.anchor,head:range.head}};if(!update.docChanged)updateStats();}
@@ -487,19 +486,22 @@ function rememberPosition(id,state){
   const update=positionUpdate(workspace,doc,positionEntry(doc.text,state.selection.main.head));if(!update)return false;
   documents.change(update.doc,update.text);refreshConfigState(update.doc);return true;
 }
+// Editor state keeps the caret but not the viewport offset; remember both across tab changes.
+function rememberScroll(id){if(!view||!id)return;editorScrolls.set(id,{top:view.scrollDOM.scrollTop,left:view.scrollDOM.scrollLeft});while(editorScrolls.size>64)editorScrolls.delete(editorScrolls.keys().next().value);}
+function restoreScroll(id){const saved=editorScrolls.get(id);if(!saved||!view)return;requestAnimationFrame(()=>{if(view&&current()?.id===id){view.scrollDOM.scrollTop=saved.top;view.scrollDOM.scrollLeft=saved.left;}});}
 /** Opens a document at its stored position (only when no editor state of this session is reused). */
 function restorePosition(doc){const value=readPosition(workspace,doc);if(!value||!view)return;const at=Math.min(positionOffset(doc.text,value),view.state.doc.length);view.dispatch({selection:{anchor:at},effects:EditorView.scrollIntoView(at,{y:'center'}),annotations:Transaction.addToHistory.of(false)});}
 function switchDocument(id){
   if(!mapNavigating&&current()?.id!==id)mapTrail=[];
   selectionMenu.hide();$('#preview').odfDispose?.();
   if(!workspace.documents.some(d=>d.id===id))return;
-  if(view){editorStates.delete(workspace.activeId);editorStates.set(workspace.activeId,view.state);if(session.dirty&&!save())return;if(workspace.activeId!==id)rememberPosition(workspace.activeId,view.state);while(editorStates.size>8)editorStates.delete(editorStates.keys().next().value);}
+  if(view){editorStates.delete(workspace.activeId);editorStates.set(workspace.activeId,view.state);if(session.dirty&&!save())return;if(workspace.activeId!==id){rememberPosition(workspace.activeId,view.state);rememberScroll(workspace.activeId);}while(editorStates.size>8)editorStates.delete(editorStates.keys().next().value);}
   $('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);
   const alreadyOpen=workspace.openIds.includes(id);if(!alreadyOpen)workspace.openIds.push(id);
   workspace.activeId=id;const doc=current();if(!doc)return;
   home=false;csvEditor?.reset();$('#start-page').hidden=true;isPreview=['CSV','VELA','GLY','VODT','PLUGIN','OUTLINE','MAP'].includes(documentKind(doc));
   // A file operation recreates the view; the kept state (undo history, formats) is reused while the text is unchanged.
-  const kept=editorStates.get(id),reused=!!kept&&kept.doc.toString()===doc.text;if(view)view.setState(reused?kept:makeState(doc));else view=new EditorView({state:reused?kept:makeState(doc),parent:$('#editor')});if(!reused)restorePosition(doc);
+  const kept=editorStates.get(id),reused=!!kept&&kept.doc.toString()===doc.text;if(view)view.setState(reused?kept:makeState(doc));else view=new EditorView({state:reused?kept:makeState(doc),parent:$('#editor')});if(!reused)restorePosition(doc);else restoreScroll(id);
   if(isPreview&&['OUTLINE','MAP'].includes(documentKind(doc))&&sourceRendering.get(view.state)?.length)view.dispatch({effects:sourceRendering.reconfigure([])});
   activateLanguage(doc);index=null;setFontSize(projectConfig(workspace,doc)?.config?.editor?.fontSize??workspace.settings.fontSize,false);$('#current-name').textContent=doc.name;
   updateEditorVisibility();if(alreadyOpen)renderDocumentSelection();else renderDocuments();updateStats();if(isPreview)renderPreview();scheduleWorkspaceSave();if(pageName!=='write'||document.body.dataset.page!=='write')showView('write');else sidebars.update();plugins?.emit('switch-file',plugins.activeFile);
@@ -530,9 +532,9 @@ function renderDisplayOptions(){
   const doc=current();$('#display-options').hidden=home||!doc;if(!doc)return;
   const kind=documentKind(doc);$('#display-options').innerHTML=`<button data-format title="选择文件类型">${kind==='OUTLINE'?'PCS':kind==='MAP'?'VLMP':kind==='MD'?'Markdown':kind==='TXT'?'文本':kind}</button><button data-display="source" title="源码" aria-label="源码" class="${!isPreview?'selected':''}">${icon('code')}</button><button data-display="preview" title="预览" aria-label="预览" class="${isPreview?'selected':''}">${icon('preview')}</button>${native&&kind==='HTML'&&isPreview?`<button data-native-html title="在独立页面中调试 HTML" aria-label="独立预览">${icon('external')}</button>`:''}`;
 }
-$('#display-options').onclick=e=>{if(e.target.closest('[data-native-html]')){openNativeHtml();return;}const mode=e.target.closest('[data-display]');if(mode){$('#preview').odfDispose?.();if(mode.dataset.display==='source'&&['OUTLINE','MAP'].includes(documentKind(current()))&&view.state.doc.toString()!==current().text)view.setState(makeState(current()));$('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);isPreview=mode.dataset.display==='preview';if(['OUTLINE','MAP'].includes(documentKind(current())))view.dispatch({effects:sourceRendering.reconfigure(isPreview?[]:sourceRenderExtensions(current()))});updateEditorVisibility();if(isPreview)renderPreview();else{activateLanguage(current());view.focus();}}if(e.target.closest('[data-format]')){const doc=current();openModal('文件类型',`<label>编辑格式<select name="kind">${[['','按扩展名识别'],['TXT','纯文本'],['MD','Markdown'],['HTML','HTML'],['CSV','CSV 表格'],['VELA','VELA 工作区配置'],['GLY','术语库'],['OUTLINE','大纲'],['MAP','地图'],['TEX','LaTeX'],['CODE','代码']].map(([value,label])=>`<option value="${value}" ${value===(doc.kind||'')?'selected':''}>${label}</option>`).join('')}</select></label>`,f=>{doc.kind=f.get('kind')||undefined;isPreview=['CSV','VELA','GLY','VODT','PLUGIN','OUTLINE','MAP'].includes(documentKind(doc));refreshFileType(doc);save();});}};
+$('#display-options').onclick=e=>{if(e.target.closest('[data-native-html]')){openNativeHtml();return;}const mode=e.target.closest('[data-display]');if(mode){csvEditor?.dispose();$('#preview').odfDispose?.();if(mode.dataset.display==='source'&&['OUTLINE','MAP'].includes(documentKind(current()))&&view.state.doc.toString()!==current().text)view.setState(makeState(current()));$('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);isPreview=mode.dataset.display==='preview';if(['OUTLINE','MAP'].includes(documentKind(current())))view.dispatch({effects:sourceRendering.reconfigure(isPreview?[]:sourceRenderExtensions(current()))});updateEditorVisibility();if(isPreview)renderPreview();else{activateLanguage(current());view.focus();}}if(e.target.closest('[data-format]')){const doc=current();openModal('文件类型',`<label>编辑格式<select name="kind">${[['','按扩展名识别'],['TXT','纯文本'],['MD','Markdown'],['HTML','HTML'],['CSV','CSV 表格'],['VELA','VELA 工作区配置'],['GLY','术语库'],['OUTLINE','大纲'],['MAP','地图'],['TEX','LaTeX'],['CODE','代码']].map(([value,label])=>`<option value="${value}" ${value===(doc.kind||'')?'selected':''}>${label}</option>`).join('')}</select></label>`,f=>{doc.kind=f.get('kind')||undefined;isPreview=['CSV','VELA','GLY','VODT','PLUGIN','OUTLINE','MAP'].includes(documentKind(doc));refreshFileType(doc);save();});}};
 function showHome(){
-  if(view){if(session.dirty&&!save())return;$('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);editorStates.set(workspace.activeId,view.state);rememberPosition(workspace.activeId,view.state);view.destroy();view=null;}
+  if(view){if(session.dirty&&!save())return;$('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);editorStates.set(workspace.activeId,view.state);rememberPosition(workspace.activeId,view.state);rememberScroll(workspace.activeId);view.destroy();view=null;}
   ui.close();selectionMenu.hide();$('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);$('#preview').odfDispose?.();document.body.classList.remove('focus');
   workspace.activeId=null;home=true;isPreview=false;index=null;$('#current-name').textContent='启动页';$('#start-page').hidden=false;$('#start-page').dataset.panel='actions';updateEditorVisibility();renderHome();renderDocuments();updateStats();showView('write');setSidebar('outline',false);save();plugins?.emit('switch-file',null);
 }
@@ -584,7 +586,7 @@ function linkOutlineSelection(){
  const select=$('#dialog-body [name=outline]'),nodes=$('#dialog-body [name=node]'),refresh=()=>nodes.innerHTML=Object.entries(sources[Number(select.value)].value.nodes).map(([id,n])=>`<option value="${esc(id)}">${esc(n.title)}</option>`).join('');select.onchange=refresh;refresh();
 }
 let previewRevision=0;
-function renderPreview(){const revision=++previewRevision;
+function renderPreview(){const revision=++previewRevision;csvEditor?.dispose();
   $('#preview').odfDispose?.();
   $('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);
   $('#preview').classList.toggle('velaodt-preview',documentKind(current())==='VODT');
@@ -597,12 +599,16 @@ function renderPreview(){const revision=++previewRevision;
   if(documentKind(current())==='GLY'){renderGlossary({root:$('#preview'),doc:current(),escape:esc,onCopy:copyText,notify:toast,onSave:text=>{if(text===view.state.doc.toString())return;view.dispatch({changes:{from:0,to:view.state.doc.length,insert:text},userEvent:'input.glossary'});if(!save())throw Error('保存失败');}});return;}
   const kind=documentKind(current()),text=view.state.doc.toString();$('#preview').classList.toggle('plain-preview',kind==='TXT');$('#preview').classList.toggle('csv-preview',kind==='CSV');$('#preview').classList.toggle('html-preview',kind==='HTML');
   if(kind==='CSV'){
-    try{
-      csvEditor??=new CsvEditor({root:$('#preview'),doc:current,source:()=>view.state.doc.toString(),
+    const doc=current();
+    if(csvEditor)csvEditor.render();
+    else import('./csv-editor.mjs').then(({CsvEditor})=>{
+      if(!isPreview||current()!==doc||revision!==previewRevision)return;
+      csvEditor=new CsvEditor({root:$('#preview'),doc:current,source:()=>view.state.doc.toString(),
         readOnly:()=>projectLocked||view.state.readOnly,escape:esc,openModal,save,fail,language:()=>workspace.settings.language,
-        change:text=>{if(text!==view.state.doc.toString())view.dispatch({changes:{from:0,to:view.state.doc.length,insert:text},userEvent:'input.csv'});updateStats();}});
+        sourceMode:offset=>{if(isPreview)togglePreview();if(Number.isInteger(offset))view.dispatch({selection:{anchor:Math.min(offset,view.state.doc.length)},scrollIntoView:true});view.focus();},undo:()=>{undo(view);csvEditor.render();},redo:()=>{redo(view);csvEditor.render();},change:changes=>{if(changes.length)view.dispatch({changes,userEvent:'input.csv'});updateStats();}});
       csvEditor.render();
-    }catch(error){$('#preview').innerHTML=`<p class="error">${esc(error.message)}</p><button class="secondary" id="csv-source">编辑 CSV 源码</button>`;$('#csv-source').onclick=togglePreview;}return;
+    }).catch(fail);
+    return;
   }
   if(kind==='HTML'){
     const frame=document.createElement('iframe');frame.title='HTML 文件预览';frame.setAttribute('sandbox','');frame.setAttribute('referrerpolicy','no-referrer');$('#preview').replaceChildren(frame);
@@ -621,7 +627,7 @@ function renderPreview(){const revision=++previewRevision;
   if(native&&workspace.storage?.id)for(const placeholder of [...$('#preview').querySelectorAll('[data-workspace-image]')].slice(0,20)){transport('readWorkspaceAsset',{path:placeholder.dataset.workspaceImage}).then(src=>{if(!placeholder.isConnected)return;const img=document.createElement('img');img.alt=placeholder.textContent;img.src=src;placeholder.replaceWith(img);}).catch(error=>{if(placeholder.isConnected)placeholder.title=error.message;});}
 }
 async function openNativeHtml(){if(!save())return;try{await transport('previewHtml',{path:documentPath(current()),dark:workspace.settings.dark,language:workspace.settings.language,fontSize:textFontSize});}catch(error){fail(error);}}
-function togglePreview(){if(!current()||!view)return;$('#preview').odfDispose?.();$('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);if(isPreview&&['OUTLINE','MAP'].includes(documentKind(current()))&&view.state.doc.toString()!==current().text)view.setState(makeState(current()));isPreview=!isPreview;updateEditorVisibility();if(isPreview)renderPreview();else view.focus();}
+function togglePreview(){if(!current()||!view)return;csvEditor?.dispose();$('#preview').odfDispose?.();$('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);if(isPreview&&['OUTLINE','MAP'].includes(documentKind(current()))&&view.state.doc.toString()!==current().text)view.setState(makeState(current()));isPreview=!isPreview;updateEditorVisibility();if(isPreview)renderPreview();else view.focus();}
 for(const [id,mark] of [['md-bold','**'],['md-italic','*'],['md-strike','~~'],['md-code','`']])$('#'+id).onclick=()=>inlineMarkup(view,mark);
 for(const [id,prefix] of [['md-heading','# '],['md-list','- '],['md-task','- [ ] '],['md-quote','> ']])$('#'+id).onclick=()=>lineMarkup(view,prefix);
 $('#markdown-tools').addEventListener('mousedown',e=>e.preventDefault());
@@ -743,7 +749,7 @@ const defaultImportAccept=$('#file-input').accept;
 async function importSelectedDocument(bytes,name){
   const target=workspace,folder=selectedFolder,result=await prepareDocumentImport(bytes,name,decodeFileText);
   if(workspace!==target)throw Error('工作区已切换，请重新导入。');
-  const doc=Object.assign(newDocument(fileName(result.name),result.kind?result.text:normalizeText(result.text)),result);
+  const doc=Object.assign(newDocument(fileName(result.name),result.kind||/\.(csv|tsv)$/i.test(result.name)?result.text:normalizeText(result.text)),result);
   doc.path=(folder?folder+'/':'')+doc.name;
   return addDocument(doc);
 }
@@ -944,7 +950,7 @@ function setupRemoteSelection(contents){
 async function openRemote(repo,branch,path){
   const client=gh,host=gitIdentity(client),before=workspace.documents.find(d=>sameRepository(d.remote,{...host,repo,branch})&&d.remote.path===path);
   const file=await syncActivity.run(before?.id||gitHostKey(client)+'/'+repo+'/'+path,()=>client.readFile(repo,branch,path));if(!save())throw Error('请先保存当前文稿。');
-  const remoteText=normalizeText(file.text),merged=before?mergeVelaTexts(path,before.remote?.lastSyncedText,before.text,remoteText):null;
+  const remoteText=/\.(csv|tsv)$/i.test(path)?file.text:normalizeText(file.text),merged=before?mergeVelaTexts(path,before.remote?.lastSyncedText,before.text,remoteText):null;
   if(before&&merged===null&&!syncTextEqual(path,before.text,remoteText)&&!syncTextEqual(path,before.remote?.lastSyncedText,before.text)){
     const local=before.text;let resolved;
     openModal('本地与远端内容冲突',`<p>不重叠的修改会自动合并；重叠的段落由你选择或编辑。保存前保留本地历史。</p>${conflictMarkup(local,remoteText,esc)}`,async()=>{
@@ -1209,7 +1215,7 @@ async function textHash(text){return Array.from(new Uint8Array(await crypto.subt
 async function loadSubscriptionDocument(doc,attempt=0){
   if(doc?.subscription?.configurationConflict)throw Error('本地 .vela 配置已修改，请在订阅拉取预览中对照并处理冲突。');
   if(doc?.subscription&&doc.subscription.loadedSha!==doc.subscription.sha){
-    const target=doc.subscription.sha,initial=doc.text,hash=await textHash(initial),text=normalizeText(await subscriptions.api.blob(doc.subscription.repo,target));
+    const target=doc.subscription.sha,initial=doc.text,hash=await textHash(initial),rawText=await subscriptions.api.blob(doc.subscription.repo,target),text=documentKind(doc)==='CSV'?rawText:normalizeText(rawText);
     if(doc.subscription.sha!==target){if(attempt>0)throw new Error('远端文件持续变化，请刷新后重试。');return loadSubscriptionDocument(doc,attempt+1);}
     if(doc.text!==initial)throw new Error('读取期间本地文稿已修改，已保留本地内容，请重试。');
     if(initial&&(!doc.subscription.loadedSha||doc.subscription.contentHash&&hash!==doc.subscription.contentHash)){const copy=newDocument(doc.name,initial);copy.path=uniquePath(documentPath(doc),itemPaths(workspace));copy.name=basename(copy.path);workspace.documents.push(copy);}

@@ -73,52 +73,95 @@ try {
     };
     await page.goto(server.url);
     await openRecentFile(page, page.locator('[data-recent=book]'));
+    // Switching tabs keeps the editor viewport where it was, including after visiting another file.
+    await page.evaluate((text) => {
+      const view = velaEditorView;
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: '第一章 海风\n' + '　　段落。\n'.repeat(180) + '末尾。' } });
+      view.dispatch({ selection: { anchor: view.state.doc.length - 2 }, scrollIntoView: true });
+      view.focus();
+    }, text);
+    await page.waitForTimeout(80);
+    const scrollBefore = await page.locator('.cm-scroller').evaluate((element) => element.scrollTop);
+    assert.ok(scrollBefore > 100);
+    await tab('csv');
+    await tab('book');
+    await page.waitForFunction((value) => Math.abs(document.querySelector('.cm-scroller').scrollTop - value) < 4, scrollBefore);
+    await page.evaluate((text) => {
+      const view = velaEditorView;
+      view.dispatch({ changes: { from: 0, to: view.state.doc.length, insert: text } });
+    }, text);
     await tab('csv');
     await page.locator('.csv-panel').waitFor();
     await fits();
-    assert.equal(await page.locator('.csv-scroll tbody tr').count(), 3);
+    // The grid draws every cell of this small table and labels three rows and two columns.
+    await page.locator('.csv-grid-cell').first().waitFor();
+    assert.equal(await page.locator('.csv-toolbar').evaluate(bar => {
+      const box = bar.getBoundingClientRect();
+      return [...bar.querySelectorAll('.planning-primary>button,.csv-context,.planning-overflow')].every(element => {
+        const rect = element.getBoundingClientRect();
+        return rect.width === 0 || (rect.left >= box.left - 1 && rect.right <= box.right + 1);
+      });
+    }), true, 'toolbar controls stay inside the panel');
+    assert.equal(await page.locator('#csv-actual').isVisible(), true);
+    assert.equal(await page.locator('#csv-actual').textContent(), '100%');
+    assert.equal(await page.locator('.csv-row-heading').count(), 3);
+    assert.equal(await page.locator('.csv-column-heading').count(), 2);
+    // Row numbers count rows inside the table, so a header row does not make the first data row "2".
+    await page.locator('#csv-header').click();
+    await page.waitForFunction(() => document.querySelector('.csv-row-heading')?.textContent === '1');
+    assert.equal(await page.locator('.csv-column-heading').first().textContent(), '姓名');
+    await page.locator('#csv-header').click();
+    await page.waitForFunction(() => document.querySelector('.csv-row-heading')?.textContent === '1');
+    // Source mode is not a table preview: the CSV editing bar must disappear with the grid.
+    await page.locator('[data-display=source]').click();
+    await page.waitForFunction(() => !document.querySelector('.csv-bottom-actions'));
+    assert.equal(await page.locator('#editor').isVisible(), true);
+    await page.locator('[data-display=preview]').click();
+    await page.locator('.csv-grid-cell').first().waitFor();
     const cell = page.locator('[data-cell-row="1"][data-cell-column="1"]');
-    for (const selector of [
-      '#format-style-label',
-      '#csv-delimiter',
-      '#csv-prev',
-      '#display-options button',
-    ])
-      assert.equal(
-        await page
-          .locator(selector)
-          .first()
-          .evaluate((element) => getComputedStyle(element).fontSize),
-        '12px',
-      );
-    assert.equal(
-      await cell.evaluate((element) => getComputedStyle(element).fontSize),
-      await page.locator('.cm-content').evaluate((element) => getComputedStyle(element).fontSize),
-    );
-
-    await cell.fill('初次修改');
-    await page.locator('#csv-edit-cell').click();
-    assert.match(await page.locator('#dialog-title').textContent(), /B2/);
-    await page.locator('[name=value]').fill('多行,<script>\n第二行');
-    await page.locator('#dialog-submit').click();
-    await page.waitForSelector('#dialog[open]', { state: 'hidden' });
+    const cellText = () => page.locator('[data-cell-row="1"][data-cell-column="1"]').textContent();
+    // Edit: select a cell, open the editor (a bottom sheet on phones), commit; it lands in the document history.
+    const edit = async (target, value) => {
+      await target.click();
+      await page.locator('#csv-edit-cell').click();
+      await page.locator('#csv-input').fill(value);
+      await page.locator('#csv-commit').click();
+      await page.locator('.csv-editor-layer').waitFor({ state: 'hidden' });
+    };
+    assert.equal(await page.locator('#csv-cell-reference').textContent(), '选择单元格');
+    await edit(cell, '初次修改');
+    assert.equal(await page.locator('#csv-cell-reference').textContent(), 'B2');
+    await edit(cell, '多行,<script>\n第二行');
     assert.equal(
       parseCsv((await saved()).documents.find((doc) => doc.id === 'csv').text)[1][1],
       '多行,<script>\n第二行',
     );
     await page.locator('#quick-undo').click();
-    assert.equal(
-      await page.locator('[data-cell-row="1"][data-cell-column="1"]').inputValue(),
-      '初次修改',
-    );
+    await page.waitForFunction(() => document.querySelector('[data-cell-row="1"][data-cell-column="1"]')?.textContent === '初次修改');
     await page.locator('#quick-redo').click();
-    assert.equal(
-      await page.locator('[data-cell-row="1"][data-cell-column="1"]').inputValue(),
-      '多行,<script>\n第二行',
-    );
+    await page.waitForFunction(() => document.querySelector('[data-cell-row="1"][data-cell-column="1"]')?.textContent === '多行,<script>\n第二行');
+    assert.equal(await cellText(), '多行,<script>\n第二行');
+    // The context menu exposes row and column moves, not only insert/delete.
+    await cell.click({ button: 'right' });
+    assert.equal(await page.locator('.csv-context-menu button', { hasText: '下移行' }).isVisible(), true);
+    assert.equal(await page.locator('.csv-context-menu button', { hasText: '右移列' }).isVisible(), true);
+    await page.keyboard.press('Escape');
+    await page.locator('.csv-context-menu').waitFor({ state: 'detached' });
     await page.screenshot({ path: `test-results/csv-tables/editor-${width}.png` });
+    // The column names and row numbers are part of the table surface: dragging one moves both axes.
+    const columnBefore = await page.locator('.csv-column-heading').first().boundingBox();
+    const rowBefore = await page.locator('.csv-row-heading').first().boundingBox();
+    await page.mouse.move(columnBefore.x + columnBefore.width / 2, columnBefore.y + columnBefore.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(columnBefore.x + columnBefore.width / 2 + 36, columnBefore.y + columnBefore.height / 2 + 24, { steps: 6 });
+    await page.mouse.up();
+    const columnAfter = await page.locator('.csv-column-heading').first().boundingBox();
+    const rowAfter = await page.locator('.csv-row-heading').first().boundingBox();
+    assert.ok(columnAfter.x > columnBefore.x + 10 && columnAfter.y > columnBefore.y + 5, 'column headers move with the table');
+    assert.ok(rowAfter.x > rowBefore.x + 10 && rowAfter.y > rowBefore.y + 5, 'row numbers move with the table');
     await tab('tsv');
-    assert.equal(await page.locator('.csv-scroll thead th').count(), 3);
+    await page.locator('.csv-grid-cell').first().waitFor();
+    assert.equal(await page.locator('.csv-column-heading').count(), 2);
     assert.equal(await page.locator('#csv-delimiter').inputValue(), '\t');
     await tab('book');
     await page.evaluate(() => velaEditorView.dispatch({ selection: { anchor: 10 } }));
@@ -128,12 +171,15 @@ try {
     await page.locator('#dialog-submit').click();
     await page.waitForSelector('#dialog[open]', { state: 'hidden' });
     await page.locator('.vela-format-table table').waitFor();
-    assert.equal(
-      await page
-        .locator('.vela-format-table table')
-        .evaluate((element) => getComputedStyle(element).fontSize),
-      await page.locator('.cm-content').evaluate((element) => getComputedStyle(element).fontSize),
-    );
+    const tableView = page.locator('.vela-format-table table');
+    const tableFont = parseFloat(await tableView.evaluate((element) => getComputedStyle(element).fontSize));
+    assert.ok(tableFont >= 8 && tableFont <= 16, 'embedded table type size is bounded');
+    const tableBox = await tableView.boundingBox(), hostBox = await page.locator('.vela-format-table').boundingBox();
+    assert.ok(tableBox.width <= hostBox.width + 1, 'embedded table fits the text column');
+    // The table has its own type size: raising the manuscript size must not change it.
+    await page.locator('.cm-content').evaluate((element) => { element.style.fontSize = '24px'; });
+    assert.equal(parseFloat(await tableView.evaluate((element) => getComputedStyle(element).fontSize)), tableFont, 'embedded table ignores manuscript type size');
+    await page.locator('.cm-content').evaluate((element) => { element.style.fontSize = ''; });
     assert.match(
       await page.locator('.vela-format-table table').textContent(),
       /人物关系.*林舟.*多行,<script>/s,
@@ -164,7 +210,7 @@ try {
     await page.locator('.vela-format-table button').click();
     await page.locator('[name=tableMode][value=new]').check();
     await page.locator('[name=tableName]').fill('新表.tsv');
-    await page.locator('[name=tableRows]').fill('3');
+    await page.locator('[name=tableRows]').fill('40');
     await page.locator('[name=tableColumns]').fill('2');
     await page.locator('[name=tableCaption]').fill('新建表格');
     await page.locator('#dialog-submit').click();
@@ -172,15 +218,38 @@ try {
     state = await saved();
     let tableDoc = state.documents.find((doc) => doc.path === '书稿/新表.tsv');
     assert.ok(tableDoc);
-    assert.equal(parseCsv(tableDoc.text, '\t').length, 3);
+    assert.equal(parseCsv(tableDoc.text, '\t').length, 40);
     assert.equal(state.documents.find((doc) => doc.id === 'book').text, text);
     await page.locator('.vela-format-table button').click();
     await page.locator('#table-open-source').click();
-    await page.locator('[data-cell-row="1"][data-cell-column="0"]').fill('已更新的表格');
+    await page.locator('.csv-grid-cell').first().waitFor();
+    await edit(page.locator('[data-cell-row="1"][data-cell-column="0"]'), '已更新的表格');
     await page.locator('#quick-save').click();
     await tab('book');
     await page.locator('.vela-format-table table').waitFor();
     assert.match(await page.locator('.vela-format-table table').textContent(), /已更新的表格/);
+    // A long embedded table grows to its content and lets the reading page scroll over it.
+    await selectAppView(page, 'reader');
+    await page.locator('[data-read=book]').click();
+    const embedTable = page.locator('.reader-content .reader-format-table table').last();
+    await embedTable.waitFor();
+    const embedHeight = (await embedTable.boundingBox()).height;
+    assert.ok(embedHeight > 320, `embedded table grows with its rows (${embedHeight})`);
+    const embeddedScroll = await page.locator('.reader-content .reader-format-table').last().evaluate((host) => {
+      const area = host.shadowRoot.querySelector('.scroll');
+      return { client: area.clientHeight, scroll: area.scrollHeight, overflow: getComputedStyle(area).overflowY };
+    });
+    assert.equal(embeddedScroll.overflow, 'visible');
+    assert.equal(embeddedScroll.scroll, embeddedScroll.client);
+    // In scroll reading mode the page, not the table, owns vertical scrolling; paged mode uses page turns.
+    if (!(await page.locator('#reader-view').evaluate((element) => element.classList.contains('reader-paged')))) {
+      await embedTable.hover({ position: { x: 20, y: 20 } });
+      const readerBefore = await page.locator('.reader-viewport').evaluate((element) => element.scrollTop);
+      await page.mouse.wheel(0, 500);
+      await page.waitForFunction((before) => document.querySelector('.reader-viewport').scrollTop > before, readerBefore);
+    }
+    await page.locator('#reader-back').click();
+    await selectAppView(page, 'write');
     // Export uses a static snapshot with no workspace file URL dependencies.
     await page.locator('#more-tools').click();
     await page.locator('#commands').click();
@@ -215,18 +284,27 @@ try {
         }),
       );
       await page.locator('[data-display=preview]').click();
-      assert.ok((await page.locator('[data-cell-row]').count()) <= 2000);
-      await page.locator('#csv-next').click();
-      assert.ok(await page.locator('[data-cell-row="40"][data-cell-column="0"]').isVisible());
-      await page.locator('#csv-column-next').click();
-      assert.equal(
-        await page.locator('[data-cell-row="40"][data-cell-column="50"]').inputValue(),
-        '40:50',
-      );
-      await page.locator('[data-cell-row="40"][data-cell-column="50"]').focus();
+      // A large table opens fitted, drawn as an overview; at 100% only the visible part of the grid is in the DOM.
+      await page.locator('#csv-actual').click();
+      await page.locator('.csv-grid-cell').first().waitFor();
+      const pinVisible = () => page.evaluate(() => [...document.querySelectorAll('.csv-row-pin .csv-row-heading')].some((element) => { const rect = element.getBoundingClientRect(); return rect.bottom > 0 && rect.top < innerHeight; }));
+      if (!(await pinVisible())) {
+        const firstHeading = await page.locator('.csv-column-heading').first().boundingBox();
+        await page.mouse.move(firstHeading.x + firstHeading.width / 2, firstHeading.y + firstHeading.height / 2);
+        await page.mouse.down();
+        await page.mouse.move(firstHeading.x + firstHeading.width / 2 - 140, firstHeading.y + firstHeading.height / 2, { steps: 5 });
+        await page.mouse.up();
+      }
+      await page.waitForFunction(() => [...document.querySelectorAll('.csv-row-pin .csv-row-heading')].some((element) => { const rect = element.getBoundingClientRect(); return rect.bottom > 0 && rect.top < innerHeight; }));
+      assert.ok((await page.locator('.csv-grid-cell').count()) <= 2000);
+      // Typing selects the first match and reveals it (Enter would move on to the next one).
+      await page.locator('#csv-find').click();
+      await page.locator('#csv-search').fill('40:50');
+      await page.waitForFunction(() => document.querySelector('#csv-cell-reference')?.textContent === 'AY41');
+      assert.equal(await page.locator('[data-cell-row="40"][data-cell-column="50"]').textContent(), '40:50');
       await page.setViewportSize({ width, height: 440 });
       await page.evaluate(() => (document.body.dataset.keyboard = 'true'));
-      assert.ok((await page.locator('.csv-scroll').boundingBox()).height >= 44);
+      assert.ok((await page.locator('.csv-grid-mount').boundingBox()).height >= 44);
       assert.ok(await page.locator('#csv-edit-cell').isVisible());
       await fits();
       await page.setViewportSize({ width, height: 900 });
@@ -251,7 +329,7 @@ try {
     assert.deepEqual(errors, []);
     await fits();
     console.log(
-      `PASS ${width}px CSV/TSV editing, mobile cell dialog, linked/new TXT tables, reading offsets, updates, reload, HTML export and safe removal`,
+      `PASS ${width}px CSV/TSV grid editing, find in large tables, linked/new TXT tables, reading offsets, updates, reload, HTML export and safe removal`,
     );
     await context.close();
   }

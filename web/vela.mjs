@@ -26,7 +26,7 @@ export const allFiles=config=>config?.kind==='workspace'&&config.reading?.items=
 export const readingItems=config=>(config?.kind==='global'?config.library?.items:config?.reading?.items)||[];
 export function parseVela(text){
   if(typeof text!=='string'||text.length>MAX_VELA_CHARS)throw new Error('.vela 文件不能超过 8 MiB。');
-  const raw=JSON.parse(text);
+  const raw=JSON.parse(text.replace(/^\uFEFF/,''));
   // 0.9.7 format sidecars (kind: document) are read until their formats move into the work's .vela.
   if(raw?.kind==='document'){if(text.length>MAX_SIDECAR_CHARS)throw new Error('格式旁注不能超过 4 MiB。');return parseDocumentVela(raw);}
   if(raw?.version!==2&&raw?.version!==3)throw new Error('不支持此 .vela 配置版本，请使用 version: 2 或 3 并重新创建配置。');

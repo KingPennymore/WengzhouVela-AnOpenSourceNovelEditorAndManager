@@ -196,3 +196,33 @@ Object.assign(dictionary, {
  '此路径属于其他分支或仓库 · 保留':'This path belongs to another branch or repository · Kept locally',
  '远端删除项默认不勾选。只有确认未修改的文件可以移入回收站，本地独有文件保留。':'Remote deletions are unchecked by default. Only verified unchanged files can be moved to trash. Local-only files are kept.'
 });
+
+Object.assign(dictionary, {
+ '表格编辑':'Table editing', '表格阅读':'Table reading', '阅读正文':'Document text',
+ '首行为表头':'First row as header', '表格分隔符':'Table delimiter', '概览阈值':'Overview threshold',
+ '重置列宽':'Reset column widths', '恢复原始显示顺序':'Restore original row order',
+ '在表格中查找':'Find in table', '筛选行':'Filter rows', '下一处':'Next',
+ '选中':'Selected', '合计':'Total', '平均':'Average', '选择单元格':'Select a cell', '编辑单元格':'Edit cell',
+ '表格导航':'Table navigation', '调整列宽':'Resize column', '扩大选区':'Extend selection',
+ '适应宽度':'Fit width', '适应全表':'Fit', '缩放比例':'Zoom level', '放大':'Zoom in', '缩小':'Zoom out',
+ '正在读取表格…':'Reading table…', '各行列数不一致':'Rows have different column counts',
+ '在源码中定位':'Locate in source',
+ '当前文稿暂不可编辑，请稍后重试。':'This document cannot be edited right now. Try again later.',
+ '表格已变化，请重新打开单元格。':'The table changed. Reopen the cell.',
+ '新增行':'Add row', '新增列':'Column',
+ '在上方插入行':'Insert row above', '在下方插入行':'Insert row below', '删除行':'Delete row',
+ '上移行':'Move row up', '下移行':'Move row down',
+ '在左侧插入列':'Insert column left', '在右侧插入列':'Insert column right', '删除列':'Delete column',
+ '左移列':'Move column left', '右移列':'Move column right',
+ '升序 · 仅显示':'Ascending · Display only', '降序 · 仅显示':'Descending · Display only',
+ '升序 · 写入文件':'Ascending · Write to file', '降序 · 写入文件':'Descending · Write to file',
+ '清空选择':'Clear selection', '清空选区':'Clear selection',
+ '表格不能超过 8 MB。':'Tables cannot exceed 8 MB.',
+ 'CSV 引号格式不正确。':'CSV quoting is invalid.',
+ '表格超过 200000 个单元格，请拆分文件或使用源码查看。':'The table exceeds 200,000 cells. Split the file or use source view.',
+ 'CSV 结束引号后只能跟分隔符或换行。':'A closing CSV quote must be followed by a delimiter or newline.',
+ 'CSV 存在未闭合的引号，请切换到源码修正。':'A CSV quote is not closed. Fix it in source view.',
+ '行号或列号无效。':'Row or column number is invalid.',
+ '表格超过 200000 个单元格。':'The table exceeds 200,000 cells.',
+ '表格改动重叠。':'Table changes overlap.'
+});

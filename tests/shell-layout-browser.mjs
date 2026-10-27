@@ -62,7 +62,9 @@ try{
   });
   await check('narrow windows: a tools row above the text and the bottom quick bar, switching live',async()=>{
     await page.setViewportSize({width:390,height:844});await page.waitForFunction(()=>document.body.dataset.shell==='narrow');
-    assert.equal(await parent('#document-tools','.paper'),true);assert.equal(await parent('#display-options','.file-rowbar'),false);
+    assert.equal(await parent('#document-tools','.paper'),true);assert.equal(await parent('#display-options','.file-rowbar'),true);
+    const toolWidths=await page.evaluate(()=>{const tools=document.querySelector('#document-tools').getBoundingClientRect(),scroll=document.querySelector('.document-tools-scroll').getBoundingClientRect();return {tools:tools.width,scroll:scroll.width};});
+    assert.ok(toolWidths.scroll>=toolWidths.tools-1,'the toolbar scroll area spans the whole row');
     assert.equal(await page.locator('.quickbar').isVisible(),true);assert.equal(await page.locator('.quickbar [id^="quick-"]').count(),8);
     const order=await page.evaluate(()=>{const tools=document.querySelector('#document-tools').getBoundingClientRect(),editor=document.querySelector('#editor').getBoundingClientRect(),tabs=document.querySelector('.file-rowbar').getBoundingClientRect();return {toolsBelowTabs:tools.top>=tabs.bottom-1,toolsAboveEditor:tools.bottom<=editor.top+1};});
     assert.deepEqual(order,{toolsBelowTabs:true,toolsAboveEditor:true});
