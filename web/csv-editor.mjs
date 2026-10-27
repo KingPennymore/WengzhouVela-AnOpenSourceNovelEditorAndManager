@@ -40,7 +40,7 @@ export class CsvEditor {
     p.root.innerHTML = `<section class="csv-panel planning-preview"><div class="planning-surface">
       <header class="planning-toolbar csv-toolbar"><div class="planning-primary">${button('find','查找','search')}<button id="csv-header" aria-pressed="${!!doc.csvHeader}">${t('首行为表头')}</button></div><span class="csv-context"></span><button type="button" id="csv-tools" class="planning-overflow" aria-label="${t('更多操作')}" aria-expanded="false">${icon('more')}</button><div class="planning-menu" hidden><div class="planning-menu-scroll">
       <label>${t('表格分隔符')}<select id="csv-delimiter" aria-label="${t('表格分隔符')}">${[[',','逗号'],[';','分号'],['\t','Tab']].map(([value,label])=>`<option value="${value}" ${value===model.delimiter?'selected':''}>${t(label)}</option>`).join('')}</select></label>
-      ${button('source','编辑 CSV 源码')}${button('reset-widths','重置列宽')}${button('reset-order','恢复原始显示顺序')}
+      ${button('reset-widths','重置列宽')}${button('reset-order','恢复原始显示顺序')}
       <label>${t('概览阈值')}<select id="csv-overview-threshold"><option value="0.5" ${this.state.overviewThreshold!==.4?'selected':''}>50%</option><option value="0.4" ${this.state.overviewThreshold===.4?'selected':''}>40%</option></select></label>
       <small>${model.rows.length} ${t('行')} × ${model.columns} ${t('列')} · ${model.format.newline==='\r\n'?'CRLF':model.format.newline==='\r'?'CR':'LF'} · BOM ${model.format.bom?'✓':'−'}${model.format.consistent?'':' · '+t('各行列数不一致')}</small></div></div></header>
       <div class="csv-find" hidden><input type="search" id="csv-search" aria-label="${t('在表格中查找')}" placeholder="${t('在表格中查找')}"><button id="csv-find-next">${t('下一处')}</button><label><input type="checkbox" id="csv-filter">${t('筛选行')}</label><output id="csv-find-count">0</output><button id="csv-find-close" aria-label="${t('关闭')}">×</button></div>
@@ -56,7 +56,7 @@ export class CsvEditor {
     bind('edit-cell', () => this.editCell()); bind('header', () => { if (p.readOnly()) return; doc.csvHeader = !doc.csvHeader; this.active = this.anchor = null; this.refreshGrid(); p.root.querySelector('#csv-header').setAttribute('aria-pressed', String(doc.csvHeader)); p.save(); });
     bind('find', () => this.openFind()); bind('fit', () => this.grid.fit()); bind('actual', () => this.grid.zoom(1));
     bind('zoom-in', () => this.grid.zoom(this.grid.plane.scale * 1.2)); bind('zoom-out', () => this.grid.zoom(this.grid.plane.scale / 1.2)); bind('zoom', () => this.zoomMenu());
-    bind('source', () => p.sourceMode()); bind('reset-widths', () => { this.state.widths = []; this.refreshGrid(); this.saveView(); });
+    bind('reset-widths', () => { this.state.widths = []; this.refreshGrid(); this.saveView(); });
     bind('reset-order', () => { this.sortOrder = null; this.refreshGrid(); });
     bind('find-next', () => this.search(true)); bind('find-close', () => { p.root.querySelector('.csv-find').hidden = true; p.root.querySelector('#csv-search').value = ''; p.root.querySelector('#csv-filter').checked = false; this.query = ''; this.refreshGrid(); });
     p.root.querySelector('#csv-search').oninput = () => this.search(); p.root.querySelector('#csv-search').onkeydown = e => { if (e.key === 'Enter') { e.preventDefault(); this.search(true); } if (e.key === 'Escape') p.root.querySelector('#csv-find-close').click(); };

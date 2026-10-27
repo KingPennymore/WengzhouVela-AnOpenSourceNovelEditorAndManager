@@ -104,6 +104,10 @@ try {
     }), true, 'toolbar controls stay inside the panel');
     assert.equal(await page.locator('#csv-actual').isVisible(), true);
     assert.equal(await page.locator('#csv-actual').textContent(), '100%');
+    // The source editor is reached from the top display switch, not from the table's more menu.
+    await page.locator('#csv-tools').click();
+    assert.equal(await page.locator('.planning-menu #csv-source').count(), 0);
+    await page.keyboard.press('Escape');
     assert.equal(await page.locator('.csv-row-heading').count(), 3);
     assert.equal(await page.locator('.csv-column-heading').count(), 2);
     // Row numbers count rows inside the table, so a header row does not make the first data row "2".
