@@ -1,3 +1,4 @@
+import {remapCsvRecord} from './csv-embed.mjs';
 import {rewritePlanningFiles} from './planning-paths.mjs';
 import {documentKind,newDocument} from './model.mjs';
 import {chapterSettings} from './chapters.mjs';
@@ -108,8 +109,9 @@ export function rewriteVelaFiles(before,after,action,path,destination=''){
         for(const [object,key] of [[config.project,'cover'],[config.formats?.latex,'main'],[config.publishing,'changelog']])if(object?.[key]){const next=rewrite(object[key]);if(next===null)delete object[key];else object[key]=next;}
         const records=config.richText?.documents;
         if(records&&action!=='delete'){const next={};for(const [key,record] of Object.entries(records)){const full=(oldFolder?oldFolder+'/':'')+key,target=affected(full)?destination+full.slice(path.length):null;
-          if(action==='copy'&&!copied){next[key]=record;if(target)arriving.push({path:target,record:structuredClone(record)});continue;}
-          const moved=rewrite(key);if(moved!==null)next[moved]=record;else if(target)arriving.push({path:target,record});}
+          const mapTarget=value=>affected(value)?destination+value.slice(path.length):value;
+          if(action==='copy'&&!copied){next[key]=record;if(target)arriving.push({path:target,record:remapCsvRecord(structuredClone(record),full,target,mapTarget)});continue;}
+          const moved=rewrite(key);if(moved!==null)next[moved]=remapCsvRecord(record,full,(newFolder?newFolder+'/':'')+moved,mapTarget);else if(target)arriving.push({path:target,record:remapCsvRecord(record,full,target,mapTarget)});}
           config.richText.documents=next;if(!Object.keys(next).length)delete config.richText.documents;}
       }
       const text=velaText(config);if(text!==doc.text){doc.text=text;doc.updatedAt=Date.now();}

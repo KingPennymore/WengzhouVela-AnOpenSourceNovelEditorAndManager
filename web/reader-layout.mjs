@@ -1,3 +1,4 @@
+import {tablesByLine,mountCsvTable} from './csv-embed.mjs';
 import {inlineSegments,alignedLines,styledLines,imagesByLine} from './rich-text.mjs';
 import {styleCss} from './rich-text-styles.mjs';
 export const displayChapterTitle=value=>String(value||'').replace(/[\p{P}\p{Z}\s]+$/gu,'');
@@ -10,7 +11,7 @@ export function chapterOffset(text,row,offsets){return (offsets||lineOffsets(tex
  * captions and placeholders are drawn by CSS, so the rendered textContent always equals `text` and reading
  * positions, bookmarks and search offsets are unaffected.
  */
-export function renderPlainChapters(root,text,sections,{formats=[],base=0,styles={},loadImage=null}={}){
+export function renderPlainChapters(root,text,sections,{formats=[],base=0,styles={},loadImage=null,loadTable=null}={}){
   root.replaceChildren();let cursor=0;const offsets=lineOffsets(text),fragment=document.createDocumentFragment();
   const local=formats.length?formats.filter(entry=>entry.to>=base&&entry.from<=base+text.length).map(entry=>({...entry,from:entry.from-base,to:entry.to-base})):[],aligned=alignedLines(local),styled=styledLines(local),images=imagesByLine(text,local.filter(entry=>entry.from>=0&&entry.from<=text.length));
   const run=(parent,item)=>{if(!item.types.length){parent.append(document.createTextNode(item.text));return;}const span=document.createElement('span');span.className=item.types.map(type=>type.startsWith('style:')?'reader-style':'reader-format-'+type).join(' ');const style=item.types.find(type=>type.startsWith('style:'))?.slice(6);if(style&&styles[style]){span.dataset.style=style;span.style.cssText=styleCss(styles[style],{inline:true});}span.textContent=item.text;parent.append(span);};
@@ -20,8 +21,10 @@ export function renderPlainChapters(root,text,sections,{formats=[],base=0,styles
   for(const start of new Set([...aligned.keys(),...styled.keys()]))if(start>=0&&start<text.length&&!blocks.some(block=>block.start===start))blocks.push({start,stop:lineEnd(start)});
   // Illustrations go after the line they follow; a zero-length "block" places them between lines.
   for(const [at,list] of images)blocks.push({start:Math.min(text.length,at+1),stop:Math.min(text.length,at+1),images:list});
-  for(const block of blocks.sort((a,b)=>a.start-b.start||(a.images?-1:1))){
+  for(const [at,list] of tablesByLine(text,local.filter(entry=>entry.from>=0&&entry.from<=text.length)))blocks.push({start:Math.min(text.length,at+1),stop:Math.min(text.length,at+1),tables:list});
+  for(const block of blocks.sort((a,b)=>a.start-b.start||((a.images||a.tables)?-1:1))){
     if(block.start<cursor)continue;inline(fragment,cursor,block.start);
+    if(block.tables){for(const entry of block.tables){const host=document.createElement('span');host.className='reader-format-table';host.dataset.tableSrc=entry.src;fragment.append(mountCsvTable(host,entry,loadTable));}cursor=block.start;continue;}
     if(block.images){for(const image of block.images)fragment.append(illustration(image,loadImage));cursor=block.start;continue;}
     let element;
     if(block.heading){element=document.createElement('h2');element.className='reader-section-title';if(/^[^\S\r\n]/u.test(text.slice(block.start,block.stop)))element.classList.add('reader-indented-title');}

@@ -1,3 +1,4 @@
+import {resolveTablePath} from './csv-embed.mjs';
 import { downloadDeletions, sameRepository } from './sync-repository.mjs';
 import { sameGitHost } from './git-host.mjs';
 import { textFingerprint, personalFile } from './document-service.mjs';
@@ -103,6 +104,10 @@ export function dependencyPaths(path, text) {
     try {
       const config = parseVela(text),
         folder = path.split('/').slice(0, -1).join('/');
+      for(const [target,record] of Object.entries(config.richText?.documents||{})){
+        const owner=(folder?folder+'/':'')+target;
+        for(const entry of record.inserts||[])if(entry.type==='csv-table'&&entry.src){try{result.add(repoPath(resolveTablePath(owner,entry.src)));}catch{}}
+      }
       for (const editor of [
         config.editor,
         config.workspaceDefaults?.editor,

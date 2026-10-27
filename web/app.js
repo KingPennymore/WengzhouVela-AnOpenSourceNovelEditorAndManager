@@ -69,10 +69,11 @@ import {fullWidthIndent,paragraphNewline} from './indent.mjs';
 import {ProjectService} from './project-service.mjs';
 import {projectBackend} from './project-backend.mjs';
 import {paragraphSelection} from './selection.mjs';
-import {parseCsv,writeCsv,csvDelimiter} from './csv.mjs';
 import {decodeFileText} from './file-text.mjs';
 import {htmlPreview} from './html-preview.mjs';
-import {csvTable} from './csv-view.mjs';
+import {CsvEditor} from './csv-editor.mjs';
+import {loadCsvTable,collectCsvTables} from './csv-embed.mjs';
+import {showCsvInsert} from './csv-insert.mjs';
 import {palettes,applyPalette,paletteFor,allPalettes,customPalettes,setCustomPalettes,derivePalette,paletteWarnings,validateCustomPalette,paletteBase,newPaletteId,MAX_CUSTOM_PALETTES} from './palettes.mjs';
 import {newFileHtml,bindNewFile,assertNewFile} from './new-file.mjs';
 import {folderPickerHtml,bindFolderPicker} from './folder-picker.mjs';
@@ -106,7 +107,7 @@ import {bindViewport} from './viewport.mjs';
 import {editorSearch} from './search-panel.mjs';
 import {diffMarkup} from './sync-preview.mjs';
 import {readSidecar,sidecarRecord,buildRecord,resolveRecord,recordEmpty,sidecarPath,sidecarTarget,imagePath} from './rich-text.mjs';
-import {richTextExtensions,formatsOf,setFormats,toggleInline,toggleAlign,toggleBlock,clearStyles,clearFormats,applyStyle,styleAt,setRuby,rubyAt,insertImage,updateImage,blockStyleAt,settleReview,isFormatActive,formatStyles,imageLoader} from './rich-text-editor.mjs';
+import {richTextExtensions,formatsOf,setFormats,toggleInline,toggleAlign,toggleBlock,clearStyles,clearFormats,applyStyle,styleAt,setRuby,rubyAt,insertImage,updateImage,blockStyleAt,settleReview,isFormatActive,formatStyles,imageLoader,tableLoader} from './rich-text-editor.mjs';
 import {resolveStyles,validateStyles,STYLE_FIELDS,STYLE_LABELS,BUILTIN_STYLES,paragraphStyle} from './rich-text-styles.mjs';
 import {highlightCode,highlightMarkdown} from './code-preview.mjs';
 
@@ -133,7 +134,7 @@ let texCompiler,texPreview,PdfPreview,createTexPreview,Reader,createReader;
 const ensurePdfPreview=()=>PdfPreview?Promise.resolve(PdfPreview):loadPdfPreview().then(module=>PdfPreview=module.PdfPreview);
 const ensureTexPreview=()=>texPreview?Promise.resolve(texPreview):ensurePdfPreview().then(()=>texPreview??=createTexPreview());
 const ensureReader=()=>reader?Promise.resolve(reader):loadReader().then(module=>{Reader=module.Reader;return reader??=createReader();});
-let plugins,projects,projectLocked=false,home=false,csvRows=[],csvPage=0,csvColumnPage=0,environment=readEnvironment();
+let plugins,projects,projectLocked=false,home=false,csvEditor=null,environment=readEnvironment();
 let textFontSize=16,mapTrail=[],mapNavigating=false;
 function mapBack(){const id=mapTrail.pop();if(!id)return false;mapNavigating=true;try{switchDocument(id);if(current()?.id!==id){mapTrail.push(id);return false;}return true;}finally{mapNavigating=false;}}
 const selectionMenu=bindSelectionMenu({getView:()=>view,getDoc:()=>pageName==='reader'?reader?.doc:current(),addGlossary:text=>addSelectionToGlossary(text,pageName==='reader'?reader?.doc:current()),extraItems:selection=>selection.view?[...(['TXT','MD','TEX'].includes(documentKind(current()))?[{label:t('链接到大纲节点…'),run:()=>linkOutlineSelection()}]:[]),...(pluginUi?.selectionItems(selection)||[])]:[],fail});
@@ -347,17 +348,22 @@ function workspaceImagePath(doc,src){const folder=parentPath(documentPath(doc));
 function loadWorkspaceAsset(path){if(!canReadImages())return null;if(!imageCache.has(path))imageCache.set(path,transport('readWorkspaceAsset',{path}).catch(error=>{imageCache.delete(path);throw error;}));return imageCache.get(path);}
 const loadWorkspaceImage=(doc,src)=>loadWorkspaceAsset(workspaceImagePath(doc,src));
 function imageLoaderFor(doc){if(!canReadImages())return null;if(!imageLoaders.has(doc.id))imageLoaders.set(doc.id,src=>loadWorkspaceImage(workspace.documents.find(item=>item.id===doc.id)||doc,src));return imageLoaders.get(doc.id);}
+const tableLoaders=new Map();
+const loadWorkspaceTable=(doc,src)=>loadCsvTable(workspace,doc,src,{readFile:native?path=>transport('readWorkspaceFile',{path}):null,loadDocument:loadSubscriptionDocument});
+function tableLoaderFor(doc){if(!tableLoaders.has(doc.id))tableLoaders.set(doc.id,src=>loadWorkspaceTable(workspace.documents.find(item=>item.id===doc.id)||doc,src));return tableLoaders.get(doc.id);}
+const exportTables=(doc,entries)=>collectCsvTables(entries,src=>loadWorkspaceTable(doc,src));
 const stylesFor=doc=>resolveStyles(configStyles(projectConfig(workspace,doc)?.config));
-const formatEnvironment=doc=>[formatStyles.of(stylesFor(doc)),imageLoader.of(imageLoaderFor(doc))];
+const formatEnvironment=doc=>[formatStyles.of(stylesFor(doc)),imageLoader.of(imageLoaderFor(doc)),tableLoader.of(tableLoaderFor(doc))];
 /** Re-reads style definitions and the image loader for the open TXT (after configuration changes or switching). */
-function refreshFormatEnvironment(){const doc=current();if(!view||!doc||!formatsOf(view.state))return;const styles=stylesFor(doc);if(JSON.stringify(styles)!==JSON.stringify(view.state.facet(formatStyles))||view.state.facet(imageLoader)!==imageLoaderFor(doc))view.dispatch({effects:formatEnv.reconfigure(formatEnvironment(doc))});}
+function refreshFormatEnvironment(){const doc=current();if(!view||!doc||!formatsOf(view.state))return;const styles=stylesFor(doc);if(JSON.stringify(styles)!==JSON.stringify(view.state.facet(formatStyles))||view.state.facet(imageLoader)!==imageLoaderFor(doc)||view.state.facet(tableLoader)!==tableLoaderFor(doc))view.dispatch({effects:formatEnv.reconfigure(formatEnvironment(doc))});}
 /** Images an export needs, read from the workspace: src → data URL, or src → {bytes,type} for EPUB. Unreadable ones are left out. */
 async function exportImages(doc,entries,bytes=false){
   const map=new Map();
   for(const src of new Set(entries.filter(entry=>entry.group==='inserts'&&entry.type==='image'&&entry.src).map(entry=>entry.src))){const pending=loadWorkspaceImage(doc,src);if(!pending)continue;try{const url=await pending;if(!bytes){map.set(src,url);continue;}const match=/^data:(image\/[a-z0-9+.-]+);base64,(.*)$/i.exec(url);if(!match)continue;const raw=atob(match[2]),data=new Uint8Array(raw.length);for(let i=0;i<raw.length;i++)data[i]=raw.charCodeAt(i);map.set(src,{type:match[1].toLowerCase(),bytes:data});}catch{/* Reported as missing by the export. */}}
   return map;
 }
-const missingNote=missing=>missing?.length?`；${new Set(missing).size} 张插图无法读取，已省略`:'';
+const missingNote=missing=>{const paths=[...new Set(missing||[])],tables=paths.filter(path=>/\.(csv|tsv)$/i.test(path)).length,images=paths.length-tables;
+  return [images?`；${images} 张插图无法读取，已省略`:'',tables?`；${tables} 个表格无法读取，导出中保留缺失说明`:''].join('');};
 function renderFormatTools(){
   const tools=$('#format-tools');if(!tools)return;const doc=current(),value=view&&formatsOf(view.state),show=!home&&!isPreview&&!!doc&&!!value&&richTextEnabled(doc);tools.hidden=!show;if(!show){stylePanel.close();return;}
   const state=view.state,line=state.doc.lineAt(state.selection.main.head),aligned=value.entries.find(entry=>entry.group==='blocks'&&entry.type==='align'&&entry.from===line.from)?.value;
@@ -380,6 +386,17 @@ function showRubyDialog(){
 }
 const workspaceImages=doc=>{const folder=parentPath(documentPath(doc)),prefix=folder?folder+'/':'';return (workspace.entries||[]).filter(entry=>!entry.directory&&/\.(png|jpe?g|gif|webp)$/i.test(entry.path)&&entry.path.startsWith(prefix)).map(entry=>entry.path.slice(prefix.length)).sort((a,b)=>a.localeCompare(b,'zh-CN',{numeric:true}));};
 /** Insert an illustration after the current paragraph, or edit/remove the one with `id`. */
+function showTableDialog(id){
+  if(!guardFormat())return;
+  try{showCsvInsert({doc:current,view:()=>view,workspace:()=>workspace,escape:esc,openModal,root:()=>$('#dialog-body'),
+    readOnly:()=>projectLocked||view.state.readOnly,load:loadWorkspaceTable,save,close:closeModal,fail,changed:()=>{renderDocuments();renderFormatTools();},
+    create:({path,text,delimiter})=>{if(/[<>:"|?*]/.test(path))throw Error('文件路径包含不支持的字符。');if(itemPaths(workspace).has(path))throw Error('同名文件已存在，请修改文件路径。');
+      for(const doc of workspace.documents)if(path.startsWith(documentPath(doc)+'/'))throw Error('目标父路径不是文件夹。');
+      for(const entry of workspace.entries||[])if(!entry.directory&&path.startsWith(entry.path+'/'))throw Error('目标父路径不是文件夹。');
+      const doc=newDocument(basename(path),text);doc.path=path;doc.delimiter=delimiter;workspace.documents.push(doc);
+      const parts=parentPath(path).split('/').filter(Boolean);workspace.folders=[...new Set([...(workspace.folders||[]),...parts.map((_,i)=>parts.slice(0,i+1).join('/'))])];},
+    open:async path=>{try{const doc=workspace.documents.find(item=>documentPath(item)===path);if(doc){await loadSubscriptionDocument(doc);switchDocument(doc.id);}else await openLazyProjectDocument(path);}catch(error){fail(error);}}},id);}catch(error){fail(error);}
+}
 function showImageDialog(id){
   if(!guardFormat())return;const doc=current(),entry=id?formatsOf(view.state).entries.find(item=>item.id===id&&item.group==='inserts'):null,list=workspaceImages(doc),canImport=canReadImages();
   openModal(entry?'编辑插图':'插入插图',`<label>图片路径<input name="src" required list="workspace-images" value="${esc(entry?.src||'')}" placeholder="插图/雪夜.png"><datalist id="workspace-images">${list.map(path=>`<option value="${esc(path)}">`).join('')}</datalist><small>相对于本文所在文件夹${list.length?'，可从列表选择工作区中的图片':''}。插图放在${entry?'原来的位置':'光标所在段落之后'}。</small></label><label>说明（可选）<input name="alt" maxlength="200" value="${esc(entry?.alt||'')}"></label>${canImport?'<p><button type="button" class="secondary" id="import-image">从本机导入图片…</button></p>':'<small>浏览器预览不能读取或导入工作区图片，插图显示为占位框；在应用中可正常显示和导出。</small>'}${entry?'<p><button type="button" class="danger" id="remove-image">删除插图</button></p>':''}`,form=>{const src=imagePath(form.get('src')),alt=form.get('alt').trim();if(entry)updateImage(view,entry.id,{src,alt});else insertImage(view,{src,alt});renderFormatTools();view.focus();},{label:entry?'保存':'插入'});
@@ -480,7 +497,7 @@ function switchDocument(id){
   $('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);
   const alreadyOpen=workspace.openIds.includes(id);if(!alreadyOpen)workspace.openIds.push(id);
   workspace.activeId=id;const doc=current();if(!doc)return;
-  home=false;csvPage=0;csvColumnPage=0;$('#start-page').hidden=true;isPreview=['CSV','VELA','GLY','VODT','PLUGIN','OUTLINE','MAP'].includes(documentKind(doc));
+  home=false;csvEditor?.reset();$('#start-page').hidden=true;isPreview=['CSV','VELA','GLY','VODT','PLUGIN','OUTLINE','MAP'].includes(documentKind(doc));
   // A file operation recreates the view; the kept state (undo history, formats) is reused while the text is unchanged.
   const kept=editorStates.get(id),reused=!!kept&&kept.doc.toString()===doc.text;if(view)view.setState(reused?kept:makeState(doc));else view=new EditorView({state:reused?kept:makeState(doc),parent:$('#editor')});if(!reused)restorePosition(doc);
   if(isPreview&&['OUTLINE','MAP'].includes(documentKind(doc))&&sourceRendering.get(view.state)?.length)view.dispatch({effects:sourceRendering.reconfigure([])});
@@ -581,14 +598,11 @@ function renderPreview(){const revision=++previewRevision;
   const kind=documentKind(current()),text=view.state.doc.toString();$('#preview').classList.toggle('plain-preview',kind==='TXT');$('#preview').classList.toggle('csv-preview',kind==='CSV');$('#preview').classList.toggle('html-preview',kind==='HTML');
   if(kind==='CSV'){
     try{
-      const separator=current().delimiter||csvDelimiter(text);csvRows=parseCsv(text,separator);
-      const grid=csvTable(csvRows,csvPage,csvColumnPage,separator,esc);csvPage=grid.rowPage;csvColumnPage=grid.columnPage;$('#preview').innerHTML=grid.html;
-      $('#csv-prev').onclick=()=>{csvPage--;renderPreview();};$('#csv-next').onclick=()=>{csvPage++;renderPreview();};
-      if($('#csv-column-prev'))$('#csv-column-prev').onclick=()=>{csvColumnPage--;renderPreview();};if($('#csv-column-next'))$('#csv-column-next').onclick=()=>{csvColumnPage++;renderPreview();};
-      $('#csv-delimiter').onchange=e=>{current().delimiter=e.target.value;csvPage=0;csvColumnPage=0;renderPreview();save();};
-      $('#csv-add-row').onclick=()=>{csvRows.push(Array(grid.columns).fill(''));csvPage=Math.floor((csvRows.length-1)/grid.pageSize);applyCsv();renderPreview();};
-      $('#csv-add-column').onclick=()=>{csvRows=csvRows.map(row=>[...row,...Array(grid.columns-row.length).fill(''),'']);csvColumnPage=Math.floor(grid.columns/50);applyCsv();renderPreview();};const tools=document.createElement('button');tools.className='secondary';tools.textContent='表格操作';$('#preview .csv-toolbar').append(tools);tools.onclick=()=>openModal('表格操作',`<label>操作<select name="action"><option value="delete-row">删除行</option><option value="delete-column">删除列</option><option value="sort">按列排序</option></select></label><label>行号<input name="row" type="number" min="1" max="${csvRows.length}" value="1"></label><label>列号<input name="column" type="number" min="1" max="${grid.columns}" value="1"></label><label class="checkbox"><input name="header" type="checkbox" checked>排序保留第一行表头</label><label class="checkbox"><input name="descending" type="checkbox">降序</label><p>修改后可以使用撤销恢复。</p>`,form=>{const action=form.get('action'),row=Number(form.get('row'))-1,column=Number(form.get('column'))-1;if(action==='delete-row'){csvRows.splice(row,1);if(!csvRows.length)csvRows=[['']];}else if(action==='delete-column'){csvRows=csvRows.map(row=>row.filter((_,i)=>i!==column));}else{const header=form.has('header')?csvRows.shift():null;csvRows.sort((a,b)=>String(a[column]||'').localeCompare(String(b[column]||''),workspace.settings.language,{numeric:true})*(form.has('descending')?-1:1));if(header)csvRows.unshift(header);}applyCsv();renderPreview();save();});
-    }catch(e){$('#preview').innerHTML=`<p class="error">${esc(e.message)}</p><button class="secondary" id="csv-source">编辑 CSV 源码</button>`;$('#csv-source').onclick=togglePreview;}return;
+      csvEditor??=new CsvEditor({root:$('#preview'),doc:current,source:()=>view.state.doc.toString(),
+        readOnly:()=>projectLocked||view.state.readOnly,escape:esc,openModal,save,fail,language:()=>workspace.settings.language,
+        change:text=>{if(text!==view.state.doc.toString())view.dispatch({changes:{from:0,to:view.state.doc.length,insert:text},userEvent:'input.csv'});updateStats();}});
+      csvEditor.render();
+    }catch(error){$('#preview').innerHTML=`<p class="error">${esc(error.message)}</p><button class="secondary" id="csv-source">编辑 CSV 源码</button>`;$('#csv-source').onclick=togglePreview;}return;
   }
   if(kind==='HTML'){
     const frame=document.createElement('iframe');frame.title='HTML 文件预览';frame.setAttribute('sandbox','');frame.setAttribute('referrerpolicy','no-referrer');$('#preview').replaceChildren(frame);
@@ -600,15 +614,12 @@ function renderPreview(){const revision=++previewRevision;
       }).catch(error=>{if(frame.isConnected){frame.remove();$('#preview').textContent=error.message;}});
     }else frame.srcdoc=htmlPreview(text,{dark:workspace.settings.dark,fontSize:textFontSize});return;
   }
-  if(kind==='TEX'){const doc=current();if(texPreview){texPreview.mount($('#preview'),doc);return;}ensureTexPreview().then(preview=>{if(current()?.id===doc.id)preview.mount($('#preview'),doc);}).catch(error=>{if(current()?.id===doc.id)chunkFailure($('#preview'),error,()=>renderPreview());});return;}if(kind==='TXT'){const doc=current();renderPlainChapters($('#preview'),text,ensureIndex().sections,{formats:formatsOf(view.state)?.entries||[],styles:stylesFor(doc),loadImage:imageLoaderFor(doc)});invalidateTextIndex($('#preview'));return;}
+  if(kind==='TEX'){const doc=current();if(texPreview){texPreview.mount($('#preview'),doc);return;}ensureTexPreview().then(preview=>{if(current()?.id===doc.id)preview.mount($('#preview'),doc);}).catch(error=>{if(current()?.id===doc.id)chunkFailure($('#preview'),error,()=>renderPreview());});return;}if(kind==='TXT'){const doc=current();renderPlainChapters($('#preview'),text,ensureIndex().sections,{formats:formatsOf(view.state)?.entries||[],styles:stylesFor(doc),loadImage:imageLoaderFor(doc),loadTable:tableLoaderFor(doc)});invalidateTextIndex($('#preview'));return;}
   if(['TXT','CODE'].includes(kind)){$('#preview').textContent=text;if(kind==='CODE'){const pre=document.createElement('pre'),code=document.createElement('code');code.textContent=text;pre.append(code);$('#preview').replaceChildren(pre);highlightCode(code,text,current().name).catch(fail);}return;}
   $('#preview').innerHTML=DOMPurify.sanitize(md.render(text,{path:documentPath(current())}),{FORBID_TAGS:['iframe','form','input','button','video','audio','style'],FORBID_ATTR:['style']});
   highlightMarkdown($('#preview'));
   if(native&&workspace.storage?.id)for(const placeholder of [...$('#preview').querySelectorAll('[data-workspace-image]')].slice(0,20)){transport('readWorkspaceAsset',{path:placeholder.dataset.workspaceImage}).then(src=>{if(!placeholder.isConnected)return;const img=document.createElement('img');img.alt=placeholder.textContent;img.src=src;placeholder.replaceWith(img);}).catch(error=>{if(placeholder.isConnected)placeholder.title=error.message;});}
 }
-function applyCsv(){const source=view.state.doc.toString(),separator=current().delimiter||csvDelimiter(source),prefix=/^\uFEFF?sep=([,;\t])\r?\n/i.test(source)?'sep='+separator+'\n':'';const text=prefix+writeCsv(csvRows,separator);if(text===view.state.doc.toString())return;view.dispatch({changes:{from:0,to:view.state.doc.length,insert:text}});updateStats();}
-$('#preview').addEventListener('input',e=>{const cell=e.target.closest('[data-cell-row]');if(!cell)return;const row=Number(cell.dataset.cellRow),column=Number(cell.dataset.cellColumn);while(csvRows[row].length<=column)csvRows[row].push('');csvRows[row][column]=cell.value;applyCsv();});
-$('#preview').addEventListener('paste',e=>{const cell=e.target.closest('[data-cell-row]'),text=e.clipboardData?.getData('text/plain');if(!cell||!text?.includes('\t'))return;try{const grid=parseCsv(text,'\t'),row=Number(cell.dataset.cellRow),column=Number(cell.dataset.cellColumn);for(const [r,values] of grid.entries()){csvRows[row+r]||=[];for(const [c,value] of values.entries())csvRows[row+r][column+c]=value;}e.preventDefault();applyCsv();renderPreview();}catch(error){fail(error);}});
 async function openNativeHtml(){if(!save())return;try{await transport('previewHtml',{path:documentPath(current()),dark:workspace.settings.dark,language:workspace.settings.language,fontSize:textFontSize});}catch(error){fail(error);}}
 function togglePreview(){if(!current()||!view)return;$('#preview').odfDispose?.();$('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);if(isPreview&&['OUTLINE','MAP'].includes(documentKind(current()))&&view.state.doc.toString()!==current().text)view.setState(makeState(current()));isPreview=!isPreview;updateEditorVisibility();if(isPreview)renderPreview();else view.focus();}
 for(const [id,mark] of [['md-bold','**'],['md-italic','*'],['md-strike','~~'],['md-code','`']])$('#'+id).onclick=()=>inlineMarkup(view,mark);
@@ -616,7 +627,7 @@ for(const [id,prefix] of [['md-heading','# '],['md-list','- '],['md-task','- [ ]
 $('#markdown-tools').addEventListener('mousedown',e=>e.preventDefault());
 $('#format-tools').addEventListener('mousedown',e=>{if(!e.target.closest('select'))e.preventDefault();});
 // Toolbar faces: letter glyphs for type styles, line icons for the rest; names and shortcuts are in aria-label/title.
-for(const [id,name] of [['md-bold','bold'],['md-italic','italic'],['md-strike','strike'],['md-code','code'],['md-heading','heading'],['md-list','listBullet'],['md-task','listTask'],['md-quote','blockQuote'],['format-strong','bold'],['format-emphasis','emphasis'],['format-center','alignCenter'],['format-right','alignRight'],['format-clear','clearFormat'],['format-ruby','ruby'],['format-image','image']])$('#'+id).innerHTML=icon(name);
+for(const [id,name] of [['md-bold','bold'],['md-italic','italic'],['md-strike','strike'],['md-code','code'],['md-heading','heading'],['md-list','listBullet'],['md-task','listTask'],['md-quote','blockQuote'],['format-strong','bold'],['format-emphasis','emphasis'],['format-center','alignCenter'],['format-right','alignRight'],['format-clear','clearFormat'],['format-ruby','ruby'],['format-image','image'],['format-table','table']])$('#'+id).innerHTML=icon(name);
 for(const button of document.querySelectorAll('#markdown-tools button,#format-tools button'))if(!button.title&&button.getAttribute('aria-label'))button.title=button.getAttribute('aria-label');
 function layoutShell() {
   layoutAppShell(document, innerWidth, !!home);
@@ -631,6 +642,8 @@ $('#format-review').onclick=()=>showFormatReview();
 $('#format-style .format-style-icon').innerHTML=icon('style');$('#format-style .format-style-caret').innerHTML=icon('chevronDown');
 $('#format-ruby').onclick=()=>showRubyDialog();
 $('#format-image').onclick=()=>showImageDialog();
+$('#format-table').onclick=()=>showTableDialog();
+$('#editor').addEventListener('vela-table-settings',event=>showTableDialog(event.detail.id));
 $('#editor').addEventListener('click',e=>{const figure=e.target.closest('.vela-format-image');if(figure&&view)showImageDialog(figure.dataset.formatImage);});
 $('#preview').addEventListener('click',e=>{if(e.target.closest('a')){e.preventDefault();toast('阅读预览中的外部链接不在应用内打开。');}});
 function openModal(title,html,submit,options={}){
@@ -1033,7 +1046,7 @@ bindAppShortcuts(document, {
 });
 $('#commands').onclick=()=>{
   const group=(name,list)=>list.map(item=>({...item,group:name}));
-  const items=[...group('文稿与导出',[{name:'链接到大纲节点…',key:'',run:()=>linkOutlineSelection()},{name:'本地历史与恢复',key:'',run:showLocalHistory},{name:'导出章节文本…',key:'',run:showChapterExport},{name:'复制本章文本',key:'',run:copyCurrentChapter},{name:'导出全书为 HTML（保留格式）',key:'',run:exportBookHtml},{name:'导出 EPUB…',key:'',run:()=>showEpubExport()}]),...group('TXT 格式',[{name:(workspace.settings.richText?'关闭':'开启')+' TXT 格式工具（本机）',key:'',run:()=>{workspace.settings.richText=!workspace.settings.richText;save();updateEditorVisibility();toast(workspace.settings.richText?'TXT 格式工具已开启：粗体、着重号、居中，格式另存为同名 .vela 旁注。':'TXT 格式工具已关闭；已有格式仍会显示。');}},{name:'格式待确认…',key:'',run:showFormatReview},{name:'注音…',key:'',run:showRubyDialog},{name:'插入插图…',key:'',run:()=>showImageDialog()},{name:'管理样式…',key:'',run:()=>showStyleManager()}]),...group('外观',[{name:'自定义配色…',key:'',run:()=>showPaletteEditor()}]),...group('写作工具',editing?.commands()||[]),...group('界面与快捷键',shortcuts.map(([id,,key,name])=>({name,key,run:()=>runAction(id)}))),...group('插件',[...(plugins?.commands.values()||[])].map(command=>({name:command.title,key:command.shortcut||'',run:()=>plugins.execute(command.name)})))];
+  const items=[...group('文稿与导出',[{name:'链接到大纲节点…',key:'',run:()=>linkOutlineSelection()},{name:'本地历史与恢复',key:'',run:showLocalHistory},{name:'导出章节文本…',key:'',run:showChapterExport},{name:'复制本章文本',key:'',run:copyCurrentChapter},{name:'导出全书为 HTML（保留格式）',key:'',run:exportBookHtml},{name:'导出 EPUB…',key:'',run:()=>showEpubExport()}]),...group('TXT 格式',[{name:(workspace.settings.richText?'关闭':'开启')+' TXT 格式工具（本机）',key:'',run:()=>{workspace.settings.richText=!workspace.settings.richText;save();updateEditorVisibility();toast(workspace.settings.richText?'TXT 格式工具已开启：粗体、着重号、居中，格式另存为同名 .vela 旁注。':'TXT 格式工具已关闭；已有格式仍会显示。');}},{name:'格式待确认…',key:'',run:showFormatReview},{name:'注音…',key:'',run:showRubyDialog},{name:'插入插图…',key:'',run:()=>showImageDialog()},{name:'插入 CSV 表格…',key:'',run:()=>showTableDialog()},{name:'管理样式…',key:'',run:()=>showStyleManager()}]),...group('外观',[{name:'自定义配色…',key:'',run:()=>showPaletteEditor()}]),...group('写作工具',editing?.commands()||[]),...group('界面与快捷键',shortcuts.map(([id,,key,name])=>({name,key,run:()=>runAction(id)}))),...group('插件',[...(plugins?.commands.values()||[])].map(command=>({name:command.title,key:command.shortcut||'',run:()=>plugins.execute(command.name)})))];
   openModal('命令与快捷键','<input id="command-search" placeholder="搜索命令" aria-label="搜索命令" autofocus><div id="command-list"></div><small>Tab：缩进两个全角空格；Shift+Tab：取消缩进。Ctrl+加号 / 减号 / 0：调整或重置文字字号。</small>',null,{noSubmit:true});
   const render=()=>{const query=$('#command-search').value.toLowerCase();let last='';$('#command-list').innerHTML=items.map((item,i)=>({item,i})).filter(({item})=>item.name.toLowerCase().includes(query)||item.key.toLowerCase().includes(query)||item.group.toLowerCase().includes(query)).map(({item,i})=>{const heading=!query&&item.group!==last?`<div class="command-group" role="presentation">${esc(item.group)}</div>`:'';last=item.group;return heading+`<button type="button" class="command-item" data-command="${i}"><span>${esc(item.name)}</span>${query?`<small class="command-group-tag">${esc(item.group)}</small>`:''}<kbd>${esc(item.key)}</kbd></button>`;}).join('')||'<p class="blank">没有匹配的命令。</p>';};render();$('#command-search').oninput=render;
   $('#command-list').onclick=e=>{const b=e.target.closest('[data-command]');if(b){closeModal();Promise.resolve(items[Number(b.dataset.command)].run()).catch(fail);}};
@@ -1057,7 +1070,7 @@ function showChapterExport(){
 /** The plain selection plus its Markdown or HTML form, using the formats currently in the editor. */
 async function formattedSelection(form,sections){
   const selection=chapterSelection(form,sections),format=form.get('format')||'txt',doc=current(),text=view.state.doc.toString(),entries=formatsOf(view.state)?.entries||[],options={from:selection.from,to:selection.to,includeTitle:form.has('title')};
-  const output=format==='markdown'?chapterMarkdown(text,sections,entries,options):format==='html'?chapterHtml(text,sections,entries,options,{title:doc.name.replace(/\.[^.]+$/,''),styles:stylesFor(doc),images:await exportImages(doc,entries)}):selection.result;
+  const output=format==='markdown'?chapterMarkdown(text,sections,entries,options,{tables:await exportTables(doc,entries)}):format==='html'?chapterHtml(text,sections,entries,options,{title:doc.name.replace(/\.[^.]+$/,''),styles:stylesFor(doc),images:await exportImages(doc,entries),tables:await exportTables(doc,entries)}):selection.result;
   return {...selection,format,output};
 }
 /** Copies HTML with a plain-text fallback; returns false when only plain text could be copied. */
@@ -1071,12 +1084,12 @@ function showEpubExport(defaults={}){
     const start=Number(form.get('from')),end=Number(form.get('to'));if(end<start)throw Error('结束章节不能在起始章节之前。');
     const file=form.get('cover');let cover=null;if(file&&file.size){if(file.size>MAX_COVER_BYTES)throw Error('封面图片不能超过 5 MB。');if(!COVER_TYPES[file.type])throw Error('封面须为 JPEG、PNG、GIF 或 WebP 图片。');cover={bytes:new Uint8Array(await file.arrayBuffer()),type:file.type};}
     const identifier=workspace.epubIdentifiers?.[doc.id]||'urn:uuid:'+crypto.randomUUID();
-    const {buildEpub}=await loadEpubExport(),entries=formatsOf(view.state)?.entries||[],result=buildEpub({text:view.state.doc.toString(),sections,entries,styles:stylesFor(doc),images:await exportImages(doc,entries,true),from:start,to:end,includeTitle:form.has('title'),cover,metadata:{title:form.get('book'),author:form.get('author'),description:form.get('description'),language:form.get('language').trim(),identifier}});
+    const {buildEpub}=await loadEpubExport(),entries=formatsOf(view.state)?.entries||[],result=buildEpub({text:view.state.doc.toString(),sections,entries,styles:stylesFor(doc),images:await exportImages(doc,entries,true),tables:await exportTables(doc,entries),from:start,to:end,includeTitle:form.has('title'),cover,metadata:{title:form.get('book'),author:form.get('author'),description:form.get('description'),language:form.get('language').trim(),identifier}});
     if(workspace.epubIdentifiers?.[doc.id]!==identifier){workspace.epubIdentifiers={...workspace.epubIdentifiers,[doc.id]:identifier};save();}
     const saved=await exportBinary(epubFileName(form.get('book')),result.bytes,'application/epub+zip');if(saved!==false)toast('已导出 EPUB：'+result.chapters+' 章'+missingNote(result.missing));
   },{label:'导出 EPUB'});
 }
-async function exportBookHtml(){if(!current()||!view||documentKind(current())!=='TXT')return toast('请先打开 TXT 文稿。');const sections=ensureIndex().sections,name=current().name.replace(/\.[^.]+$/,''),doc=current(),entries=formatsOf(view.state)?.entries||[],output=chapterHtml(view.state.doc.toString(),sections,entries,{from:0,to:sections.length-1},{title:name,styles:stylesFor(doc),images:await exportImages(doc,entries)});if(await exportText(name+'.html',output.text)!==false)toast('已导出带格式 HTML'+missingNote(output.missing));}
+async function exportBookHtml(){if(!current()||!view||documentKind(current())!=='TXT')return toast('请先打开 TXT 文稿。');const sections=ensureIndex().sections,name=current().name.replace(/\.[^.]+$/,''),doc=current(),entries=formatsOf(view.state)?.entries||[],output=chapterHtml(view.state.doc.toString(),sections,entries,{from:0,to:sections.length-1},{title:name,styles:stylesFor(doc),images:await exportImages(doc,entries),tables:await exportTables(doc,entries)});if(await exportText(name+'.html',output.text)!==false)toast('已导出带格式 HTML'+missingNote(output.missing));}
 async function copyCurrentChapter(){if(!current()||!view)return;const sections=ensureIndex().sections,at=currentSectionIndex(sections),result=chapterExport(view.state.doc.toString(),sections,{from:at,stripMarkdown:documentKind(current())==='MD'});if(!result.text)throw Error('当前章节没有正文。');await copyText(result.text);toast('已复制本章：'+sections[at].title);}
 async function pickBackupFile(){
   if(native){const files=await transport('import',{}),file=files?.[0];if(!file)return null;return typeof file.text==='string'?new TextEncoder().encode(file.text):fromBase64(file.data);}
@@ -1247,7 +1260,7 @@ async function boot(){try{
   texCompiler=new TexCompiler({manageComponents:showPlugins,workspace:()=>workspace,plugins:()=>plugins,project:doc=>projectConfig(workspace,doc)});
   createTexPreview=()=>new PdfPreview({compiler:texCompiler,fail,jump:(path,line)=>{const folder=projectConfig(workspace,current())?.folder||parentPath(documentPath(current())),doc=workspace.documents.find(doc=>documentPath(doc)===(folder?folder+'/':'')+path)||current();if(!doc)return;if(current()?.id!==doc.id)switchDocument(doc.id);if(!document.body.classList.contains('split-preview')){isPreview=false;updateEditorVisibility();}view.dispatch({selection:{anchor:view.state.doc.line(Math.max(1,Math.min(view.state.doc.lines,line))).from},scrollIntoView:true});view.focus();},source:()=>{if(!view||documentKind(current())!=='TEX')return null;const line=view.state.doc.lineAt(view.state.selection.main.head);return {text:line.text,line:line.number};},onDiagnostics:(doc,list)=>{if(!view||current()?.id!==doc.id)return;const folder=projectConfig(workspace,doc)?.folder||parentPath(documentPath(doc)),own=documentPath(doc).slice(folder?folder.length+1:0);loadLatexEditor().then(({setCompileDiagnostics})=>{if(view&&current()?.id===doc.id)view.dispatch({effects:setCompileDiagnostics.of(list.filter(item=>Number(item.line)>0&&(!item.file||item.file.replace(/^\.\//,'')===own)))});}).catch(fail);}});
   // Startup update checks are scheduled after the editor and account have loaded.
-  createReader=()=>new Reader({root:$('#reader-view'),workspace:()=>workspace,loadImage:(doc,src)=>loadWorkspaceImage(doc,src),loadAsset:path=>loadWorkspaceAsset(path),latex:(root,doc,onReady)=>{const pane=new PdfPreview({compiler:texCompiler,fail,readingMode:()=>reader?.config?.reader?.mode?(reader.config.reader?.mode==='auto'?($('#reader-view').clientWidth>=1000?'double':'scroll'):reader.config.reader?.mode):workspace.settings.readingMode});pane.mount(root,doc,{reading:true,onReady});if(doc.binary){const epoch=pane.epoch;transport('readWorkspaceFile',{path:documentPath(doc)}).then(data=>{if(pane.epoch===epoch)return pane.openFile(fromBase64(data));}).catch(fail);}return pane;},onChrome:(open,visible)=>{if(native&&readerFullscreen!==open){readerFullscreen=open;fullscreenTask=fullscreenTask.catch(()=>{}).then(()=>transport('fullscreen',{enabled:open})).catch(fail);}document.body.classList.toggle('reader-open',open);document.body.classList.toggle('reader-chrome-visible',visible);$('#outline-toggle').disabled=!open;sidebars.update();},markdown:md,sanitize:DOMPurify.sanitize,escape:esc,save,fail,load:async doc=>{if(['TEX','PDF'].includes(documentKind(doc)))await ensurePdfPreview();return loadSubscriptionDocument(doc);},html:async(doc,size,layout)=>{if(native){if(save())await transport('previewHtml',{path:documentPath(doc),dark:workspace.settings.dark,reading:true,fontSize:size,layout,titlePage:reader.config?.reader?.titlePage!==false,readingMode:reader.config?.reader?.mode?(reader.config.reader?.mode==='auto'?($('#reader-view').clientWidth>=1000?'double':'scroll'):reader.config.reader?.mode):workspace.settings.readingMode,language:workspace.settings.language});}else{const content=$('#reader-view .reader-content');content.innerHTML='';const frame=document.createElement('iframe');frame.title='HTML';frame.sandbox='';frame.srcdoc=htmlPreview(doc.text,{dark:workspace.settings.dark,fontSize:size});content.append(frame);}}});
+  createReader=()=>new Reader({root:$('#reader-view'),workspace:()=>workspace,loadImage:(doc,src)=>loadWorkspaceImage(doc,src),loadTable:loadWorkspaceTable,loadAsset:path=>loadWorkspaceAsset(path),latex:(root,doc,onReady)=>{const pane=new PdfPreview({compiler:texCompiler,fail,readingMode:()=>reader?.config?.reader?.mode?(reader.config.reader?.mode==='auto'?($('#reader-view').clientWidth>=1000?'double':'scroll'):reader.config.reader?.mode):workspace.settings.readingMode});pane.mount(root,doc,{reading:true,onReady});if(doc.binary){const epoch=pane.epoch;transport('readWorkspaceFile',{path:documentPath(doc)}).then(data=>{if(pane.epoch===epoch)return pane.openFile(fromBase64(data));}).catch(fail);}return pane;},onChrome:(open,visible)=>{if(native&&readerFullscreen!==open){readerFullscreen=open;fullscreenTask=fullscreenTask.catch(()=>{}).then(()=>transport('fullscreen',{enabled:open})).catch(fail);}document.body.classList.toggle('reader-open',open);document.body.classList.toggle('reader-chrome-visible',visible);$('#outline-toggle').disabled=!open;sidebars.update();},markdown:md,sanitize:DOMPurify.sanitize,escape:esc,save,fail,load:async doc=>{if(['TEX','PDF'].includes(documentKind(doc)))await ensurePdfPreview();return loadSubscriptionDocument(doc);},html:async(doc,size,layout)=>{if(native){if(save())await transport('previewHtml',{path:documentPath(doc),dark:workspace.settings.dark,reading:true,fontSize:size,layout,titlePage:reader.config?.reader?.titlePage!==false,readingMode:reader.config?.reader?.mode?(reader.config.reader?.mode==='auto'?($('#reader-view').clientWidth>=1000?'double':'scroll'):reader.config.reader?.mode):workspace.settings.readingMode,language:workspace.settings.language});}else{const content=$('#reader-view .reader-content');content.innerHTML='';const frame=document.createElement('iframe');frame.title='HTML';frame.sandbox='';frame.srcdoc=htmlPreview(doc.text,{dark:workspace.settings.dark,fontSize:size});content.append(frame);}}});
   subscriptions=new Subscriptions({root:$('#subscriptions-view'),nav:$('[data-view=subscriptions]'),workspace:()=>workspace,transport,save,escape:esc,modal:openModal,fail,cache:cacheSubscription,pull:pullSubscription,renderMarkdown:text=>DOMPurify.sanitize(md.render(text),{FORBID_TAGS:['iframe','form','input','button','style'],FORBID_ATTR:['style']})});subscriptions.dot();subscriptions.refresh();
   setCustomPalettes(workspace.settings.customPalettes);chapterMatcher(workspace.settings.writer);applyTheme();setFontSize(workspace.settings.fontSize,false);
   // Phones always start with the file drawer closed; only desktop restores the last sidebar state.

@@ -5,11 +5,13 @@ import {EditorView,Decoration,WidgetType} from '@codemirror/view';
 import {invertedEffects} from '@codemirror/commands';
 import {newEntryId,MAX_RUBY} from './rich-text.mjs';
 import {styleCss} from './rich-text-styles.mjs';
+import {mountCsvTable} from './csv-embed.mjs';
 
 /** Named style definitions (ID → definition) used to draw `style` entries. */
 export const formatStyles=Facet.define({combine:values=>values.at(-1)||{}});
 /** src → Promise<URL> for illustrations, or null where workspace images cannot be read. */
 export const imageLoader=Facet.define({combine:values=>values.at(-1)||null});
+export const tableLoader=Facet.define({combine:values=>values.at(-1)||null});
 
 const sameKind=(a,b)=>a.group===b.group&&a.type===b.type&&(a.value??null)===(b.value??null);
 const mapEntries=(entries,changes,doc)=>{
@@ -62,9 +64,17 @@ class ImageWidget extends WidgetType{
   }
   ignoreEvent(){return true;}
 }
+class TableWidget extends WidgetType{
+  constructor(entry,load){super();this.entry=entry;this.load=load;}
+  eq(other){return JSON.stringify(this.entry)===JSON.stringify(other.entry)&&this.load===other.load;}
+  get estimatedHeight(){return 240;}
+  toDOM(view){const host=document.createElement('div');host.className='vela-format-table';host.dataset.formatTable=this.entry.id;
+    return mountCsvTable(host,this.entry,this.load,{onReady:()=>{if(host.isConnected)view.requestMeasure();},onEdit:()=>host.dispatchEvent(new CustomEvent('vela-table-settings',{bubbles:true,detail:{id:this.entry.id}}))});}
+  ignoreEvent(){return true;}
+}
 const inline={strong:Decoration.mark({class:'vela-format-strong',inclusiveEnd:true}),emphasis:Decoration.mark({class:'vela-format-emphasis',inclusiveEnd:true})};
 const lines={center:Decoration.line({class:'vela-format-center'}),right:Decoration.line({class:'vela-format-right'})};
-const decorations=EditorView.decorations.compute([formatField,formatStyles,imageLoader],state=>{
+const decorations=EditorView.decorations.compute([formatField,formatStyles,imageLoader,tableLoader],state=>{
   const styles=state.facet(formatStyles),load=state.facet(imageLoader),items=[];
   for(const entry of state.field(formatField).entries){
     if(entry.group==='marks'&&entry.to>entry.from){
@@ -75,6 +85,7 @@ const decorations=EditorView.decorations.compute([formatField,formatStyles,image
     else if(entry.group==='blocks'&&entry.type==='align'&&lines[entry.value])items.push(lines[entry.value].range(entry.from));
     else if(entry.group==='blocks'&&entry.type==='style'&&styles[entry.value])items.push(Decoration.line({attributes:{class:'vela-style-block','data-style':entry.value,style:styleCss(styles[entry.value])}}).range(entry.from));
     else if(entry.group==='inserts'&&entry.type==='image'&&entry.src)items.push(Decoration.widget({widget:new ImageWidget(entry,load),block:true,side:1}).range(Math.min(entry.from,state.doc.length)));
+    else if(entry.group==='inserts'&&entry.type==='csv-table'&&entry.src)items.push(Decoration.widget({widget:new TableWidget(entry,state.facet(tableLoader)),block:true,side:1}).range(Math.min(entry.from,state.doc.length)));
   }
   return Decoration.set(items,true);
 });
@@ -162,6 +173,15 @@ export function updateImage(view,id,next){
   const state=formatsOf(view.state);if(!state)return false;
   const entries=state.entries.flatMap(entry=>entry.id!==id||entry.group!=='inserts'?[entry]:next?[{...entry,src:next.src,...(next.alt?{alt:next.alt}:{alt:undefined})}]:[]).map(entry=>{if(entry.alt===undefined)delete entry.alt;return entry;});
   return dispatch(view,entries);
+}
+/** Linked tables are paragraph inserts. Formatting and undo never alter TXT text. */
+export function insertCsvTable(view,{src,caption='',header=true}){
+  const state=formatsOf(view.state);if(!state)return false;const line=view.state.doc.lineAt(view.state.selection.main.head);
+  return dispatch(view,[...state.entries,{id:newEntryId(),group:'inserts',type:'csv-table',src,caption,header,from:line.to,to:line.to}]);
+}
+export function updateCsvTable(view,id,next){
+  const state=formatsOf(view.state);if(!state)return false;
+  return dispatch(view,state.entries.flatMap(entry=>entry.id!==id||entry.type!=='csv-table'?[entry]:next?[{...entry,...next}]:[]));
 }
 /** Applies a review entry to the current selection, or drops it; the review list is not part of undo. */
 export function settleReview(view,id,{apply=false}={}){

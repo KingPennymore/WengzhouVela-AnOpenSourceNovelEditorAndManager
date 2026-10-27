@@ -1,5 +1,63 @@
 /* Shared finishing details. Editor text metrics and canvas coordinates stay in their feature styles. */
 @layer app {
+  /* The same single tool strip and edge-to-edge paper as TXT editing. */
+  .csv-panel {display:flex;flex-direction:column;min-width:0;min-height:0;max-width:100%;height:100%;background:var(--paper);color:var(--text);white-space:normal}
+  #preview.csv-preview {flex:1;min-height:0;max-width:100%}
+  #preview.csv-preview>.csv-panel {flex:1}
+  .csv-panel .csv-toolbar {flex:none;display:flex;align-items:center;flex-wrap:nowrap;gap:4px;padding:2px 12px;min-height:34px;border-bottom:1px solid var(--hairline);background:var(--panel);overflow-x:auto;overscroll-behavior-x:contain;scrollbar-width:none}
+  .csv-panel .csv-toolbar button {flex:none;width:32px;height:30px;min-height:30px;padding:0;border:0;box-shadow:none;background:transparent;color:var(--muted);border-radius:var(--radius)}
+  .csv-panel .csv-toolbar button:hover {color:var(--accent);background:var(--soft)}
+  .csv-panel .csv-toolbar svg {width:20px;height:20px;stroke:currentColor;fill:none;stroke-width:1.7}
+  .csv-toolbar label {display:flex;align-items:center;margin:0;flex:none}
+  .csv-toolbar select {width:88px;min-height:30px;height:30px;margin:0;font-size:12px;padding:3px 24px 3px 8px;color:var(--text);box-sizing:border-box}
+  .csv-toolbar .tool-separator {flex:none;height:18px;margin-inline:4px}
+  .csv-toolbar .csv-context {margin-left:auto;margin-right:0;color:var(--muted);font-size:11px;line-height:1.5;white-space:nowrap;font-variant-numeric:tabular-nums}
+  .csv-panel .csv-scroll {flex:1;min-height:44px;min-width:0;max-width:100%;overflow:auto;padding:0;overscroll-behavior:contain;scroll-padding:44px 48px;touch-action:pan-x pan-y;scrollbar-width:thin;scrollbar-color:var(--line) transparent}
+  .csv-panel .csv-scroll table {margin:0;min-width:calc(44px + var(--csv-columns)*144px);width:100%;border-collapse:separate;border-spacing:0;table-layout:fixed;font-size:var(--editor-font-size,16px)}
+  .csv-panel .csv-scroll th,.csv-panel .csv-scroll td {border:0;border-right:1px solid var(--hairline);border-bottom:1px solid var(--hairline);padding:0;vertical-align:top}
+  .csv-panel .csv-scroll th {position:sticky;top:0;z-index:2;min-width:44px;height:32px;padding:6px 10px;background:var(--panel);font-size:11px;font-weight:500;line-height:20px;color:var(--muted);text-align:center}
+  .csv-panel .csv-scroll tbody th {left:0;z-index:1;vertical-align:middle}
+  .csv-panel .csv-scroll .csv-corner {left:0;z-index:3;width:44px;min-width:44px;max-width:44px;box-sizing:border-box}
+  .csv-panel .csv-scroll td {min-width:144px;background:var(--paper)}
+  .csv-panel .csv-scroll textarea {margin:0;border:0;box-shadow:none;outline:0;resize:none;display:block;width:100%;min-height:44px;padding:10px 12px;font:inherit;font-size:var(--editor-font-size,16px);line-height:1.6;background:transparent;color:var(--text);box-sizing:border-box}
+  .csv-panel .csv-scroll textarea:focus {outline:2px solid var(--accent);outline-offset:-2px}
+  .csv-panel .csv-active-cell {background:var(--accent-tint)!important}
+  .csv-panel .csv-scroll .csv-active-axis {background:var(--accent-tint);color:var(--accent)}
+  @media(hover:hover){.csv-panel .csv-scroll tbody tr:hover td:not(.csv-active-cell) {background:var(--soft)}}
+  .csv-value {display:block;padding:10px 12px;min-height:44px;max-width:300px;white-space:pre-wrap;overflow-wrap:anywhere;font-size:var(--editor-font-size,16px);line-height:1.6}
+  .csv-cell-tools {flex:none;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:4px 12px;border-top:1px solid var(--hairline);font-size:11px;color:var(--muted)}
+  .csv-cell-tools[hidden] {display:none}
+  #csv-cell-reference {flex:none;min-width:36px;text-align:center;font-variant-numeric:tabular-nums;color:var(--accent);border:1px solid var(--hairline);border-radius:var(--radius);padding:4px 8px;background:var(--soft)}
+  .csv-cell-summary {flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .csv-cell-tools button,.csv-pagination button {min-height:36px;padding:6px 10px;font-size:12px;white-space:nowrap}
+  .csv-pagination {flex:none;display:flex;justify-content:space-between;flex-wrap:wrap;gap:6px 18px;padding:6px 12px;border-top:1px solid var(--hairline);background:var(--panel)}
+  .csv-page-controls {display:flex;gap:10px;align-items:center;font-size:11px;color:var(--muted)}
+  .csv-panel :is(button,select,.csv-scroll):focus-visible {outline:2px solid var(--accent);outline-offset:-2px}
+  .reader-content .csv-panel {height:auto;max-height:none;line-height:1.5;text-align:start;text-indent:0}
+  .reader-content .csv-scroll {max-height:65dvh}
+  .reader-content .csv-panel .csv-scroll :is(table,.csv-value) {font-size:inherit}
+  .reader-format-table,.vela-format-table {display:block;min-width:0;max-width:100%;margin:.8em 0;break-inside:avoid;white-space:normal;text-indent:0}
+  #format-tools {overflow-x:auto;overscroll-behavior-x:contain;flex-wrap:nowrap}
+  #format-tools>button {flex-shrink:0}
+  #dialog-body .table-insert-modes {display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  #dialog-body .table-insert-modes label {padding:8px;border:1px solid var(--hairline);border-radius:var(--radius);font-size:12px}
+  #dialog-body :is(#table-existing,#table-new) {border:0;padding:0;margin:0;min-width:0}
+  .table-insert-size {display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  #table-insert-preview {min-width:0;margin-top:14px}
+  @media(max-width:600px) {
+    .csv-panel .csv-toolbar {padding:0 8px;min-height:44px;gap:2px}
+    .csv-panel .csv-toolbar button {width:40px;min-width:40px;height:44px;min-height:44px}
+    .csv-toolbar select {width:88px;min-height:36px;height:36px;font-size:14px}
+    .csv-toolbar .csv-context {font-size:10px}
+    .csv-toolbar .tool-separator {margin-inline:2px}
+    .csv-cell-tools button,.csv-pagination button {min-height:44px;padding:6px 10px}
+    .csv-pagination {padding:4px 12px calc(4px + var(--safe-bottom,0px));gap:6px}
+    .csv-page-controls {width:100%;justify-content:space-between;gap:6px}
+    body[data-keyboard=true] #preview.csv-preview :is(.csv-toolbar,.csv-pagination) {display:none}
+    body[data-keyboard=true] #preview.csv-preview .csv-scroll {min-height:44px}
+  }
+}
+@layer app {
   /* One header for built-in and registered views; actions keep their original IDs. */
   .library-heading,.outline-heading {display:none}
   .has-sidebar-views>.sidebar-view-bar {height:52px;padding:6px 12px;gap:8px}
@@ -312,4 +370,13 @@
   .sync-target strong {font-weight:500;color:var(--muted)}
   .sync-target small {color:var(--muted)}
   .toolbar>#save-state,.toolbar>#sync-state {display:none}
+}
+
+@layer app {
+  :root {--editor-toolbar-font-size:12px}
+  :is(#format-tools,#markdown-tools,.csv-toolbar,.csv-cell-tools,.csv-pagination,#display-options) {font-size:var(--editor-toolbar-font-size)}
+  :is(#format-tools,#markdown-tools) :is(button,select,#format-style-label),
+  .csv-panel :is(.csv-toolbar,.csv-cell-tools,.csv-pagination) :is(button,select,span),
+  #display-options button {font-size:var(--editor-toolbar-font-size)}
+  @media(max-width:600px){.csv-toolbar select {width:80px}}
 }

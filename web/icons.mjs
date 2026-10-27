@@ -20,3 +20,5 @@ export const fileIcon=kind=>kind==='OUTLINE'||kind==='MAP'?`<span role="img" ari
 paths.add='M12 5v14M5 12h14';
 paths.simplify='M3 6h2M3 12h2M3 18h2M9 6h2M9 12h2M9 18h2M14 12h7M18 9l3 3-3 3M22 6h.01M22 18h.01';
 export const iconNames=Object.freeze([...Object.keys(paths),'settings']);
+
+paths.table='M3 4h18v16H3zM3 9h18M3 14h18M9 4v16M15 4v16';

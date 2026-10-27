@@ -1,10 +1,11 @@
+import {tablesByLine,csvTableMarkup,CSV_TABLE_EXPORT_CSS} from './csv-embed.mjs';
 // EPUB 3 export of TXT chapters with their .vela v3 formats. Includes an NCX table of contents for EPUB 2 readers.
 // Format reference: EPUB 3.3 (https://www.w3.org/TR/epub-33/): `mimetype` first and uncompressed, OCF container,
 // package document with dc:identifier/title/language and dcterms:modified, a nav document, XHTML content.
 import {zipSync,strToU8} from 'fflate';
 import {COVER_TYPES,MAX_COVER_BYTES,epubFileName} from './epub-names.mjs';
 export {COVER_TYPES,MAX_COVER_BYTES,epubFileName};
-import {exportLines,htmlLine,lineClass,escapeHtml,FIGURE_CSS} from './rich-text-export.mjs';
+import {exportLines,htmlLine,lineClass,escapeHtml,FIGURE_CSS,insertExportOptions} from './rich-text-export.mjs';
 import {alignedLines,styledLines,imagesByLine} from './rich-text.mjs';
 import {styleSheet} from './rich-text-styles.mjs';
 
@@ -16,8 +17,8 @@ const xml=value=>clean(value).replace(/[&<>"]/g,char=>({'&':'&amp;','<':'&lt;','
 const modified=date=>date.toISOString().replace(/\.\d{3}Z$/,'Z');
 const pad=index=>String(index).padStart(3,'0');
 
-function chapterXhtml({title,lines,text,entries,aligned,styled,images,figure,language,id}){
-  const body=lines.flatMap(line=>{const parts=[];if(line.text.trim()){const attribute=lineClass(line,aligned,styled),markup=clean(htmlLine(text,line,entries));parts.push(line.heading?`<h1${attribute}>${markup.trim()}</h1>`:`<p${attribute}>${markup}</p>`);}for(const image of images.get(line.end)||[])parts.push(...figure(image));return parts;}).join('\n');
+function chapterXhtml({title,lines,text,entries,aligned,styled,images,figure,tableEntries,tableFigure,language,id}){
+  const body=lines.flatMap(line=>{const parts=[];if(line.text.trim()){const attribute=lineClass(line,aligned,styled),markup=clean(htmlLine(text,line,entries));parts.push(line.heading?`<h1${attribute}>${markup.trim()}</h1>`:`<p${attribute}>${markup}</p>`);}for(const image of images.get(line.end)||[])parts.push(...figure(image));for(const entry of tableEntries.get(line.end)||[])parts.push(tableFigure(entry));return parts;}).join('\n');
   return `<?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE html>
 <html xmlns="${NS.xhtml}" xmlns:epub="${NS.epub}" lang="${xml(language)}" xml:lang="${xml(language)}">
@@ -43,24 +44,25 @@ strong{font-weight:bold}
 em.emphasis{font-style:normal;text-emphasis:filled dot;text-emphasis-position:under right;-webkit-text-emphasis:filled dot;-webkit-text-emphasis-position:under right;-epub-text-emphasis:filled dot;-epub-text-emphasis-position:under right}
 .cover{margin:0;padding:0;text-align:center}
 .cover img{max-width:100%;max-height:100%}
-`+FIGURE_CSS+'\n';
+`+FIGURE_CSS+'\n'+CSV_TABLE_EXPORT_CSS+'\n';
 
 /**
  * Builds an EPUB from sections[from..to] of a TXT. `entries` are placed sidecar formats; `cover` is optional
  * {bytes, type}. Chapters without text are skipped. Returns the archive bytes and the files it contains.
  */
-export function buildEpub({text,sections,entries=[],from=0,to=sections.length-1,includeTitle=true,metadata={},cover=null,styles={},images=new Map(),clock=()=>new Date()}){
+export function buildEpub({text,sections,entries=[],from=0,to=sections.length-1,includeTitle=true,metadata={},cover=null,styles={},images=new Map(),tables=new Map(),clock=()=>new Date()}){
   const title=clean(metadata.title||'').trim(),language=metadata.language||'zh-CN',identifier=metadata.identifier||'urn:uuid:'+crypto.randomUUID();
   if(!title||title.length>1000)throw failure('请填写书名（最多 1000 字）。');
   if(!/^[a-zA-Z]{2,8}(?:-[a-zA-Z0-9]{1,8})*$/.test(language))throw failure('语言代码无效，例如 zh-CN。');
   if(cover){if(!COVER_TYPES[cover.type])throw failure('封面须为 JPEG、PNG、GIF 或 WebP 图片。');if(!(cover.bytes instanceof Uint8Array)||!cover.bytes.length||cover.bytes.length>MAX_COVER_BYTES)throw failure('封面图片不能超过 5 MB。');}
-  const aligned=alignedLines(entries),styled=styledLines(entries),byLine=imagesByLine(text,entries),chapters=[],illustrations=new Map(),missing=[];
+  const aligned=alignedLines(entries),styled=styledLines(entries),byLine=imagesByLine(text,entries),tableEntries=tablesByLine(text,entries),chapters=[],illustrations=new Map(),missing=[];
   // Each distinct illustration is stored once; ones that could not be read are left out and reported.
   const figure=image=>{const data=images.get(image.src);if(!data||!COVER_TYPES[data.type]||!(data.bytes instanceof Uint8Array)){missing.push(image.src);return [];}if(!illustrations.has(image.src))illustrations.set(image.src,{...data,file:'images/illustration-'+pad(illustrations.size+1)+'.'+COVER_TYPES[data.type]});const alt=escapeHtml(clean(image.alt||''));return [`<figure class="illustration"><img src="../${illustrations.get(image.src).file}" alt="${alt}"/>${alt?`<figcaption>${alt}</figcaption>`:''}</figure>`];};
+  const tableFigure=entry=>{const snapshot=tables.get(entry.src);if(!snapshot||snapshot.error)missing.push(entry.src);return '<div class="csv-table">'+clean(csvTableMarkup(snapshot,entry))+'</div>';};
   for(let at=from;at<=to;at++){
-    const [lines]=exportLines(text,sections,{from:at,to:at,includeTitle});if(!lines?.some(line=>line.text.trim()))continue;
+    const [lines]=exportLines(text,sections,insertExportOptions(text,entries,{from:at,to:at,includeTitle}));if(!lines?.some(line=>line.text.trim()||tableEntries.has(line.end)||byLine.has(line.end)))continue;
     const id='chapter-'+pad(chapters.length+1),name=sections[at].title.trim()||'第 '+(chapters.length+1)+' 部分';
-    chapters.push({id,file:'text/'+id+'.xhtml',title:name,xhtml:chapterXhtml({title:name,lines,text,entries,aligned,styled,images:byLine,figure,language,id})});
+    chapters.push({id,file:'text/'+id+'.xhtml',title:name,xhtml:chapterXhtml({title:name,lines,text,entries,aligned,styled,images:byLine,figure,tableEntries,tableFigure,language,id})});
   }
   if(!chapters.length)throw failure('所选章节没有正文。');
   const files=new Map(),add=(path,value)=>files.set(path,value);
