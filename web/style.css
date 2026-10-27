@@ -648,6 +648,10 @@ body.dark .tok-typeName,body.dark .tok-className,body.dark .tok-labelName{color:
 .cm-content{padding:20px 30px 100px 18px!important;caret-color:var(--accent)}
 .cm-line{padding:0 6px}
 .cm-gutters{border-right:1px solid var(--line)!important;color:var(--muted)!important;font-size:11px;font-family:Consolas,monospace;min-width:52px}
+/* Without line numbers (novel mode) the gutter only holds outline-link markers: it shrinks to them, and with none
+   it disappears entirely instead of leaving an empty column. */
+.cm-gutters:not(:has(.cm-lineNumbers)){min-width:0!important}
+.cm-gutters:not(:has(.cm-lineNumbers)):not(:has(.outline-line-marker)){border-right-width:0!important}
 .cm-gutterElement{padding-right:14px!important}
 .cm-activeLine,.cm-activeLineGutter{background:var(--soft)!important}
 .cm-cursor{border-left-color:var(--accent)!important}
