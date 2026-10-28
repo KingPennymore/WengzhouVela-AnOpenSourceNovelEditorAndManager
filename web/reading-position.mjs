@@ -6,7 +6,9 @@ export function resolveReadingOffset(text,position){
 }
 const indexes=new WeakMap();
 export function invalidateTextIndex(root){indexes.delete(root);}
-function textIndex(root){let index=indexes.get(root);if(index)return index;const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),nodes=[],offsets=[];let node,length=0;while(node=walker.nextNode()){offsets.push(length);nodes.push(node);length+=node.length;}index={nodes,offsets,length};indexes.set(root,index);return index;}
+// Text inside script/style is not reading text (it only occurs in isolated HTML documents).
+function textIndex(root){let index=indexes.get(root);if(index)return index;const walker=document.createTreeWalker(root,NodeFilter.SHOW_TEXT),nodes=[],offsets=[];let node,length=0;while(node=walker.nextNode()){if(node.parentElement?.closest('script,style'))continue;offsets.push(length);nodes.push(node);length+=node.length;}index={nodes,offsets,length,text:null};indexes.set(root,index);return index;}
+export function indexedText(root){const index=textIndex(root);return index.text??=index.nodes.map(node=>node.data).join('');}
 export const textLength=root=>textIndex(root).length;
 export function textPoint(root,offset){const {nodes,offsets,length}=textIndex(root);if(!nodes.length)return null;offset=Math.max(0,Math.min(length,offset));let low=0,high=nodes.length-1;while(low<high){const middle=Math.ceil((low+high)/2);if(offsets[middle]<=offset)low=middle;else high=middle-1;}return {node:nodes[low],offset:Math.min(nodes[low].length,offset-offsets[low])};}
 export function characterRect(root,offset){const point=textPoint(root,offset);if(!point)return null;const range=document.createRange();const from=Math.min(point.offset,Math.max(0,point.node.length-1));range.setStart(point.node,from);range.setEnd(point.node,Math.min(point.node.length,from+1));return range.getBoundingClientRect();}
