@@ -254,4 +254,4 @@ Object.assign(dictionary, {
  '回收站批量项目无效。':'Invalid trash selection.'
 });
 
-Object.assign(dictionary,{'左栏视图':'Left sidebar views','右栏视图':'Right sidebar views','全局':'Global','本作品':'This project','默认':'Default','跟随应用设置':'Follow app setting','常用于整段':'Usually for paragraphs','常用于文字':'Usually for text','默认配置':'Default configuration','转换地形':'Convert terrain'});
+Object.assign(dictionary,{'左栏视图':'Left sidebar views','右栏视图':'Right sidebar views','全局':'Global','本作品':'This project','默认':'Default','跟随应用设置':'Follow app setting','常用于整段':'Usually for paragraphs','常用于文字':'Usually for text','默认配置':'Default configuration','转换地形':'Convert terrain','独立地形':'Standalone terrain','地图已关闭。':'The map is closed.','定位范围无效。':'Invalid location range.','不支持此地图对象集合。':'This map object collection is not supported.','定位对象不存在。':'The object to locate does not exist.','地图已变化，请重新读取。':'The map changed. Read it again.'});
