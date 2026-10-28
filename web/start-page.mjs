@@ -1,3 +1,4 @@
+import {t} from './i18n.mjs';
 import {icon} from './icons.mjs';
 
 const actions=[
@@ -13,16 +14,46 @@ const actions=[
 
 // Two independently scrolling panels share one viewport. Inactive panels stay
 // mounted for the slide animation, but cannot receive focus or pointer input.
+
 export function startPageMarkup({files,projects,reading,recentMarkup}){
-  return `<div class="start-content"><section class="start-hero"><header class="start-page-header">${icon('write')}<div><h1>文舟</h1></div></header><div class="start-stats"><div class="start-stat"><strong>${files}</strong>本地文件</div><div class="start-stat"><strong>${projects}</strong>工作区</div><div class="start-stat"><strong>${reading}</strong>阅读文件</div></div></section><div class="start-stage"><section id="start-actions-panel" class="start-panel start-menu" aria-label="启动页操作">${actions.map(([action,name,label,description])=>`<button class="start-action" data-start="${action}"${action==='recent'?' aria-controls="start-recent-panel" aria-expanded="false"':''}><span class="start-action-icon">${icon(name)}</span><span class="start-action-text"><strong>${label}</strong><small>${description}</small></span></button>`).join('')}</section><section id="start-recent-panel" class="start-panel start-recent" aria-labelledby="start-recent-heading" aria-hidden="true" inert><header class="start-recent-header"><button class="start-back" data-start="back" aria-label="返回启动页">${icon('back')}<span>返回</span></button><h2 id="start-recent-heading">最近文件</h2></header><div class="recent-files">${recentMarkup}</div></section></div></div>`;
+  return `<div class="start-content">
+    <section class="start-hero">
+      <header class="start-page-header">${icon('write')}<div><h1>${t('文舟')}</h1></div></header>
+      <div class="start-stats">
+        <div class="start-stat"><strong>${files}</strong>${t('本地文件')}</div>
+        <div class="start-stat"><strong>${projects}</strong>${t('工作区')}</div>
+        <div class="start-stat"><strong>${reading}</strong>${t('阅读文件')}</div>
+      </div>
+    </section>
+    <div class="start-stage">
+      <section id="start-actions-panel" class="start-panel start-menu" aria-label="${t('启动页操作')}">
+        ${actions.map(([action,name,label,description])=>`<button class="start-action" data-start="${action}"${action==='recent'?' aria-controls="start-recent-panel" aria-expanded="false"':''}>
+          <span class="start-action-icon">${icon(name)}</span>
+          <span class="start-action-text"><strong>${t(label)}</strong><small>${t(description)}</small></span>
+        </button>`).join('')}
+      </section>
+      <section id="start-recent-panel" class="start-panel start-recent" aria-labelledby="start-recent-heading" aria-hidden="true" inert>
+        <header class="start-recent-header">
+          <button class="start-back" data-start="back" aria-label="${t('返回启动页')}">${icon('back')}<span>${t('返回')}</span></button>
+          <h2 id="start-recent-heading">${t('最近文件')}</h2>
+        </header>
+        <div class="recent-files">${recentMarkup}</div>
+      </section>
+    </div>
+  </div>`;
 }
 
 export function setStartPanel(root,name,{focus=true}={}){
   const recent=name==='recent',menu=root.querySelector('#start-actions-panel'),list=root.querySelector('#start-recent-panel');
-  if(!menu||!list)return;
+  if(!menu||!list)
+    return;
   root.dataset.panel=recent?'recent':'actions';
-  menu.inert=recent;list.inert=!recent;
-  menu.setAttribute('aria-hidden',String(recent));list.setAttribute('aria-hidden',String(!recent));
-  const trigger=menu.querySelector('[data-start="recent"]');trigger.setAttribute('aria-expanded',String(recent));
-  if(focus)(recent?list.querySelector('.start-back'):trigger).focus({preventScroll:true});
+  menu.inert=recent;
+  list.inert=!recent;
+  menu.setAttribute('aria-hidden',String(recent));
+  list.setAttribute('aria-hidden',String(!recent));
+  const trigger=menu.querySelector('[data-start="recent"]');
+  trigger.setAttribute('aria-expanded',String(recent));
+  if(focus)
+    (recent?list.querySelector('.start-back'):trigger).focus({preventScroll:true});
 }

@@ -1,9 +1,85 @@
+import {t} from './i18n.mjs';
 import {hexPoint} from './map-geometry.mjs';
-export const arrowStyles=[['solid','实线移动'],['dashed','虚线计划'],['supply','点线补给'],['double','双线'],['bidirectional','双向'],['attack','进攻箭头'],['feint','佯攻'],['retreat','撤退'],['pincer','包围钳形']];
+
+// Read labels when rendering so language changes also apply to already imported styles.
+const style=(id,label)=>Object.defineProperty([id,label],1,{get:()=>t(label)});
+export const arrowStyles=[
+  style('solid','实线移动'),
+  style('dashed','虚线计划'),
+  style('supply','点线补给'),
+  style('double','双线'),
+  style('bidirectional','双向'),
+  style('attack','进攻箭头'),
+  style('feint','佯攻'),
+  style('retreat','撤退'),
+  style('pincer','包围钳形')
+];
 const line=points=>'M'+points.map(p=>p.join(' ')).join('L');
-export function arrowPoints(arrow,grid){let pts=arrow.path.map(key=>{const p=hexPoint(...key.split(',').map(Number),grid.size,grid.orientation);return [p.x,p.y];});if(arrow.style==='retreat')pts.reverse();const curve=Math.max(0,Math.min(1,arrow.curve??.5));for(let pass=0;pass<(curve?2:0);pass++){const next=[pts[0]];for(let i=0;i<pts.length-1;i++){const a=pts[i],b=pts[i+1],t=.25*curve;next.push([a[0]*(1-t)+b[0]*t,a[1]*(1-t)+b[1]*t],[a[0]*t+b[0]*(1-t),a[1]*t+b[1]*(1-t)]);}next.push(pts.at(-1));pts=next;}return pts;}
-const head=(p,prev,width)=>{const dx=p[0]-prev[0],dy=p[1]-prev[1],d=Math.hypot(dx,dy)||1,ux=dx/d,uy=dy/d;return [p,[p[0]-ux*width-uy*width*.6,p[1]-uy*width+ux*width*.6],[p[0]-ux*width+uy*width*.6,p[1]-uy*width-ux*width*.6]];};
-export function arrowShapes(arrow,grid){const pts=arrowPoints(arrow,grid),width=Math.max(.5,Math.min(40,arrow.width||2)),color=arrow.color||'#c00000',wide=['attack','feint','retreat','pincer'].includes(arrow.style),dash=arrow.style==='dashed'||arrow.style==='feint'?'8 5':arrow.style==='supply'?'2 5':'',result=[];const add=(d,fill='none',stroke=color,w=width)=>result.push({d,fill,stroke,width:w,dash});
- if(wide){const left=[],right=[];for(let i=0;i<pts.length;i++){const a=pts[Math.max(0,i-1)],b=pts[Math.min(pts.length-1,i+1)],dx=b[0]-a[0],dy=b[1]-a[1],d=Math.hypot(dx,dy)||1,w=width*(5-3*i/Math.max(1,pts.length-1));left.push([pts[i][0]-dy/d*w,pts[i][1]+dx/d*w]);right.push([pts[i][0]+dy/d*w,pts[i][1]-dx/d*w]);}const tip=head(pts.at(-1),pts.at(-2),width*9),tail=pts[0],next=pts[1],d=Math.hypot(next[0]-tail[0],next[1]-tail[1])||1,notch=[tail[0]+(next[0]-tail[0])/d*width*4,tail[1]+(next[1]-tail[1])/d*width*4];add(line([...left.slice(0,-1),tip[1],tip[0],tip[2],...right.slice(0,-1).reverse(),notch])+'Z',arrow.style==='retreat'?'none':(/^#[\da-f]{6}$/i.test(color)?color+'66':'#c0000066'),color,Math.max(1,width));if(arrow.style==='pincer'){for(const shape of arrowShapes({...arrow,style:'attack'},grid).shapes)result.push({...shape,transform:{x:0,y:width*18}});const p=pts.at(-1);add(`M${p[0]+width*7} ${p[1]-width*3}v${width*24}`);}}
- else{add(line(pts));add(line(head(pts.at(-1),pts.at(-2),Math.max(8,width*4)))+'Z',color);if(arrow.style==='bidirectional')add(line(head(pts[0],pts[1],Math.max(8,width*4)))+'Z',color);if(arrow.style==='double')add(line(pts.map(p=>[p[0]+4,p[1]+4])));}return {shapes:result,points:pts};}
-export function segmentDistance(p,a,b){const dx=b[0]-a[0],dy=b[1]-a[1],t=Math.max(0,Math.min(1,((p.x-a[0])*dx+(p.y-a[1])*dy)/(dx*dx+dy*dy||1)));return Math.hypot(p.x-a[0]-t*dx,p.y-a[1]-t*dy);}
+
+export function arrowPoints(arrow,grid){
+  let pts=arrow.path.map(key=>{
+    const p=hexPoint(...key.split(',').map(Number),grid.size,grid.orientation);
+    return [p.x,p.y];
+  });
+  if(arrow.style==='retreat')
+    pts.reverse();
+  const curve=Math.max(0,Math.min(1,arrow.curve??.5));
+  for(let pass=0;pass<(curve?2:0);pass++){
+    const next=[pts[0]];
+    for(let i=0;i<pts.length-1;i++){
+      const a=pts[i],b=pts[i+1],t=.25*curve;
+      next.push([a[0]*(1-t)+b[0]*t,a[1]*(1-t)+b[1]*t],[a[0]*t+b[0]*(1-t),a[1]*t+b[1]*(1-t)]);
+    }
+    next.push(pts.at(-1));
+    pts=next;
+  }
+  return pts;
+}
+const head=(p,prev,width)=>{
+  const dx=p[0]-prev[0],dy=p[1]-prev[1],d=Math.hypot(dx,dy)||1,ux=dx/d,uy=dy/d;
+  return [p,[p[0]-ux*width-uy*width*.6,p[1]-uy*width+ux*width*.6],[p[0]-ux*width+uy*width*.6,p[1]-uy*width-ux*width*.6]];
+};
+
+export function arrowShapes(arrow,grid){
+  const pts=arrowPoints(arrow,grid),
+    width=Math.max(.5,Math.min(40,arrow.width||2)),
+    color=arrow.color||'#c00000',
+    wide=['attack','feint','retreat','pincer'].includes(arrow.style),
+    dash=arrow.style==='dashed'||arrow.style==='feint'?'8 5':arrow.style==='supply'?'2 5':'',
+    result=[];
+  const add=(d,fill='none',stroke=color,w=width)=>result.push({d,fill,stroke,width:w,dash});
+  if(wide){
+    const left=[],right=[];
+    for(let i=0;i<pts.length;i++){
+      const a=pts[Math.max(0,i-1)],b=pts[Math.min(pts.length-1,i+1)],dx=b[0]-a[0],dy=b[1]-a[1],d=Math.hypot(dx,dy)||1,w=width*(5-3*i/Math.max(1,pts.length-1));
+      left.push([pts[i][0]-dy/d*w,pts[i][1]+dx/d*w]);
+      right.push([pts[i][0]+dy/d*w,pts[i][1]-dx/d*w]);
+    }
+    const tip=head(pts.at(-1),pts.at(-2),width*9),
+      tail=pts[0],
+      next=pts[1],
+      d=Math.hypot(next[0]-tail[0],next[1]-tail[1])||1,
+      notch=[tail[0]+(next[0]-tail[0])/d*width*4,tail[1]+(next[1]-tail[1])/d*width*4];
+    add(line([...left.slice(0,-1),tip[1],tip[0],tip[2],...right.slice(0,-1).reverse(),notch])+'Z',arrow.style==='retreat'?'none':(/^#[\da-f]{6}$/i.test(color)?color+'66':'#c0000066'),color,Math.max(1,width));
+    if(arrow.style==='pincer'){
+      for(const shape of arrowShapes({...arrow,style:'attack'},grid).shapes)
+        result.push({...shape,transform:{x:0,y:width*18}});
+      const p=pts.at(-1);
+      add(`M${p[0]+width*7} ${p[1]-width*3}v${width*24}`);
+    }
+  }
+  else{
+    add(line(pts));
+    add(line(head(pts.at(-1),pts.at(-2),Math.max(8,width*4)))+'Z',color);
+    if(arrow.style==='bidirectional')
+      add(line(head(pts[0],pts[1],Math.max(8,width*4)))+'Z',color);
+    if(arrow.style==='double')
+      add(line(pts.map(p=>[p[0]+4,p[1]+4])));
+  }
+  return {shapes:result,points:pts};
+}
+
+export function segmentDistance(p,a,b){
+  const dx=b[0]-a[0],dy=b[1]-a[1],t=Math.max(0,Math.min(1,((p.x-a[0])*dx+(p.y-a[1])*dy)/(dx*dx+dy*dy||1)));
+  return Math.hypot(p.x-a[0]-t*dx,p.y-a[1]-t*dy);
+}

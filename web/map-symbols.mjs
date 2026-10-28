@@ -1,39 +1,226 @@
+import {t} from './i18n.mjs';
+
 export const mapSymbols={
- 'unit.infantry':{label:'步兵',path:'M -18 -11 L 18 11 M 18 -11 L -18 11'},
- 'unit.armor':{label:'装甲',path:'M -14 0 A 14 8 0 1 0 14 0 A 14 8 0 1 0 -14 0 Z'},
- 'unit.artillery':{label:'炮兵',path:'M -4 0 A 4 4 0 1 0 4 0 A 4 4 0 1 0 -4 0 Z'},
- 'unit.cavalry':{label:'骑兵',path:'M -18 11 L 18 -11'},
- 'unit.airborne':{label:'空降',path:'M -16 0 A 16 12 0 0 1 16 0 Z M -16 0 L 0 12 L 16 0 M 0 -12 V 12 M -8 -10 Q -12 -6 -10 0 M 8 -10 Q 12 -6 10 0'},
- 'unit.hq':{label:'司令部',path:'M -24 16 V 30 M -8 -8 H 8 V 8 H -8 Z M -8 0 H 8'},
- 'facility.fort':{label:'要塞',path:'M -24 22 V -22 H -16 V -14 H -8 V -22 H 0 V -14 H 8 V -22 H 16 V -14 H 24 V 22 Z M -6 22 V 8 A 6 6 0 0 1 6 8 V 22'},
- 'facility.position':{label:'阵地',path:'M -28 12 H -20 V -4 H -10 V 8 H 0 V -4 H 10 V 8 H 20 V -4 H 28 M -28 20 H 28'},
- 'facility.airfield':{label:'机场',path:'M 0 -26 L 4 -10 L 24 2 V 8 L 4 2 V 18 L 12 24 V 28 L 0 24 L -12 28 V 24 L -4 18 V 2 L -24 8 V 2 L -4 -10 Z'},
- 'facility.port':{label:'港口',path:'M -5 -21 A 5 5 0 1 0 5 -21 A 5 5 0 1 0 -5 -21 Z M 0 -16 V 24 M -12 -8 H 12 M -24 6 C -24 18 -12 24 0 24 C 12 24 24 18 24 6 M -24 6 L -28 14 M -24 6 L -16 10 M 24 6 L 28 14 M 24 6 L 16 10'},
- 'facility.supply':{label:'补给站',path:'M -22 -12 L 0 -22 L 22 -12 V 20 H -22 Z M -22 -12 H 22 M -10 2 H 10 M 0 -8 V 12'},
- 'facility.bridge':{label:'桥梁',path:'M -28 -10 H 28 M -28 -4 H 28 M -24 -4 V 22 M 24 -4 V 22 M -24 18 C -12 -8 12 -8 24 18 M -12 -4 V 4 M 12 -4 V 4'},
- 'event.battle':{label:'交战点',path:'M -24 -24 L -12 -20 L 16 8 L 8 16 L -20 -12 Z M 24 -24 L 20 -12 L -8 16 L -16 8 L 12 -20 Z M 4 20 L 20 4 M -20 4 L -4 20 M 12 12 L 24 24 M -12 12 L -24 24'},
- 'event.frontline':{label:'战线',path:'M -28 10 H 28 M -24 10 L -18 -4 L -12 10 M -6 10 L 0 -4 L 6 10 M 12 10 L 18 -4 L 24 10'},
- 'event.minefield':{label:'雷区',path:'M -26 -24 H 26 V 24 H -26 Z M -9 0 A 9 9 0 1 0 9 0 A 9 9 0 1 0 -9 0 Z M 0 -16 V -9 M 0 9 V 16 M -16 0 H -9 M 9 0 H 16 M -12 -12 L -6 -6 M 6 6 L 12 12 M 12 -12 L 6 -6 M -6 6 L -12 12'},
- 'event.flag':{label:'旗帜',path:'M -18 28 V -26 M -18 -24 H 22 L 14 -12 L 22 0 H -18'},
- 'terrain.mountain':{label:'山峰',path:'M -28 22 L -8 -22 L 14 22 Z M 4 2 L 14 -16 L 28 22 H 14 M -16 -4 L -8 0 L -2 -10'},
- 'terrain.hills':{label:'丘陵',path:'M -28 16 Q -16 -12 -4 16 M -8 16 Q 10 -24 28 16 M -28 24 H 28'},
- 'terrain.forest':{label:'森林',path:'M -28 12 L -18 -8 L -8 12 Z M -18 12 V 24 M -10 4 L 0 -22 L 10 4 Z M 0 4 V 24 M 8 12 L 18 -8 L 28 12 Z M 18 12 V 24'},
- 'terrain.desert':{label:'沙漠',path:'M -28 12 Q -14 -12 4 10 Q 16 24 28 12 M -28 24 Q -14 4 4 24 M 10 -16 A 7 7 0 1 0 24 -16 A 7 7 0 1 0 10 -16 Z'},
- 'terrain.lake':{label:'湖泊',path:'M -26 -4 C -26 -22 -6 -28 10 -18 C 32 -16 32 12 14 22 C -8 32 -30 16 -26 -4 Z M -16 -2 Q -8 -8 0 -2 Q 8 4 16 -2 M -12 10 Q -4 4 4 10 Q 12 16 18 10'},
- 'terrain.river':{label:'河流',path:'M -12 -28 C 20 -14 -28 4 -2 16 Q 8 22 0 28 M 0 -28 C 32 -14 -16 4 10 16 Q 20 22 12 28'},
- 'terrain.swamp':{label:'沼泽',path:'M -28 20 Q -20 12 -12 20 Q -4 28 4 20 Q 12 12 20 20 M -16 14 V -12 M -24 -4 L -16 2 L -8 -4 M 10 14 V -22 M 2 -14 L 10 -8 L 18 -14'},
- 'terrain.cliff':{label:'悬崖',path:'M -28 -12 L -16 -18 L -4 -10 L 8 -16 L 20 -8 L 28 -12 M -22 -15 V 12 M -12 -15 V 22 M -2 -11 V 12 M 8 -16 V 22 M 18 -9 V 14 M 26 -11 V 22'},
- 'terrain.cave':{label:'洞穴',path:'M -28 24 L -18 -8 L -4 -24 L 10 -20 L 24 0 L 28 24 Z M -12 24 V 8 A 12 16 0 0 1 12 8 V 24'},
- 'building.house':{label:'民居',path:'M -28 -2 L 0 -26 L 28 -2 M -22 -7 V 24 H 22 V -7 M -6 24 V 8 H 6 V 24 M -16 -2 H -8 V 6 H -16 Z'},
- 'building.village':{label:'村庄',path:'M -30 -2 L -18 -16 L -6 -2 M -27 -5 V 16 H -9 V -5 M -2 6 L 14 -12 L 30 6 M 2 2 V 26 H 26 V 2 M 10 26 V 14 H 18 V 26'},
- 'building.city':{label:'城镇',path:'M -28 26 H 28 M -24 26 V -6 H -10 V 26 M -6 26 V -26 H 8 V 26 M 12 26 V -14 H 26 V 26 M -19 2 H -15 M -19 10 H -15 M -1 -18 H 3 M -1 -10 H 3 M -1 -2 H 3 M -1 6 H 3 M 17 -6 H 21 M 17 2 H 21 M 17 10 H 21'},
- 'building.castle':{label:'城堡',path:'M -26 24 V -24 H -20 V -16 H -14 V -24 H -8 V 24 M 8 24 V -24 H 14 V -16 H 20 V -24 H 26 V 24 Z M -8 -6 H 8 M -8 24 H 8 M -5 24 V 10 A 5 7 0 0 1 5 10 V 24'},
- 'building.tower':{label:'高塔',path:'M -16 26 L -10 -14 H 10 L 16 26 Z M -14 -14 V -26 H -6 V -20 H 6 V -26 H 14 V -14 Z M -4 26 V 12 H 4 V 26 M 0 -6 V 2'},
- 'building.temple':{label:'神殿',path:'M -28 -12 L 0 -28 L 28 -12 Z M -24 -6 H 24 M -24 22 H 24 M -28 28 H 28 M -18 -6 V 22 M -6 -6 V 22 M 6 -6 V 22 M 18 -6 V 22'},
- 'building.market':{label:'集市',path:'M -28 -8 L -20 -26 H 20 L 28 -8 Z M -28 -8 Q -21 6 -14 -8 Q -7 6 0 -8 Q 7 6 14 -8 Q 21 6 28 -8 M -24 0 V 24 H 24 V 0 M -10 24 V 10 H 10 V 24'},
- 'building.mill':{label:'风车',path:'M -12 28 L -6 -6 H 6 L 12 28 Z M 0 -8 L 6 -26 H 14 L 6 -8 Z M 0 -8 L 24 -2 V 6 L 6 -2 Z M 0 -8 L -6 14 H -14 L -6 -8 Z M 0 -8 L -24 -14 V -22 L -6 -14 Z'},
- 'building.ruins':{label:'遗迹',path:'M -28 26 H 28 M -24 26 V -16 L -18 -12 L -12 -24 L -6 -16 V 26 M 6 26 V -4 L 12 -16 L 18 -8 L 26 -12 V 26 M -6 0 H 6 M -6 8 H 6'}
+  'unit.infantry':{
+    get label(){
+      return t('步兵');
+    },
+    path:'M -18 -11 L 18 11 M 18 -11 L -18 11'
+  },
+  'unit.armor':{
+    get label(){
+      return t('装甲');
+    },
+    path:'M -14 0 A 14 8 0 1 0 14 0 A 14 8 0 1 0 -14 0 Z'
+  },
+  'unit.artillery':{
+    get label(){
+      return t('炮兵');
+    },
+    path:'M -4 0 A 4 4 0 1 0 4 0 A 4 4 0 1 0 -4 0 Z'
+  },
+  'unit.cavalry':{
+    get label(){
+      return t('骑兵');
+    },
+    path:'M -18 11 L 18 -11'
+  },
+  'unit.airborne':{
+    get label(){
+      return t('空降');
+    },
+    path:'M -16 0 A 16 12 0 0 1 16 0 Z M -16 0 L 0 12 L 16 0 M 0 -12 V 12 M -8 -10 Q -12 -6 -10 0 M 8 -10 Q 12 -6 10 0'
+  },
+  'unit.hq':{
+    get label(){
+      return t('司令部');
+    },
+    path:'M -24 16 V 30 M -8 -8 H 8 V 8 H -8 Z M -8 0 H 8'
+  },
+  'facility.fort':{
+    get label(){
+      return t('要塞');
+    },
+    path:'M -24 22 V -22 H -16 V -14 H -8 V -22 H 0 V -14 H 8 V -22 H 16 V -14 H 24 V 22 Z M -6 22 V 8 A 6 6 0 0 1 6 8 V 22'
+  },
+  'facility.position':{
+    get label(){
+      return t('阵地');
+    },
+    path:'M -28 12 H -20 V -4 H -10 V 8 H 0 V -4 H 10 V 8 H 20 V -4 H 28 M -28 20 H 28'
+  },
+  'facility.airfield':{
+    get label(){
+      return t('机场');
+    },
+    path:'M 0 -26 L 4 -10 L 24 2 V 8 L 4 2 V 18 L 12 24 V 28 L 0 24 L -12 28 V 24 L -4 18 V 2 L -24 8 V 2 L -4 -10 Z'
+  },
+  'facility.port':{
+    get label(){
+      return t('港口');
+    },
+    path:'M -5 -21 A 5 5 0 1 0 5 -21 A 5 5 0 1 0 -5 -21 Z M 0 -16 V 24 M -12 -8 H 12 M -24 6 C -24 18 -12 24 0 24 C 12 24 24 18 24 6 M -24 6 L -28 14 M -24 6 L -16 10 M 24 6 L 28 14 M 24 6 L 16 10'
+  },
+  'facility.supply':{
+    get label(){
+      return t('补给站');
+    },
+    path:'M -22 -12 L 0 -22 L 22 -12 V 20 H -22 Z M -22 -12 H 22 M -10 2 H 10 M 0 -8 V 12'
+  },
+  'facility.bridge':{
+    get label(){
+      return t('桥梁');
+    },
+    path:'M -28 -10 H 28 M -28 -4 H 28 M -24 -4 V 22 M 24 -4 V 22 M -24 18 C -12 -8 12 -8 24 18 M -12 -4 V 4 M 12 -4 V 4'
+  },
+  'event.battle':{
+    get label(){
+      return t('交战点');
+    },
+    path:'M -24 -24 L -12 -20 L 16 8 L 8 16 L -20 -12 Z M 24 -24 L 20 -12 L -8 16 L -16 8 L 12 -20 Z M 4 20 L 20 4 M -20 4 L -4 20 M 12 12 L 24 24 M -12 12 L -24 24'
+  },
+  'event.frontline':{
+    get label(){
+      return t('战线');
+    },
+    path:'M -28 10 H 28 M -24 10 L -18 -4 L -12 10 M -6 10 L 0 -4 L 6 10 M 12 10 L 18 -4 L 24 10'
+  },
+  'event.minefield':{
+    get label(){
+      return t('雷区');
+    },
+    path:'M -26 -24 H 26 V 24 H -26 Z M -9 0 A 9 9 0 1 0 9 0 A 9 9 0 1 0 -9 0 Z M 0 -16 V -9 M 0 9 V 16 M -16 0 H -9 M 9 0 H 16 M -12 -12 L -6 -6 M 6 6 L 12 12 M 12 -12 L 6 -6 M -6 6 L -12 12'
+  },
+  'event.flag':{
+    get label(){
+      return t('旗帜');
+    },
+    path:'M -18 28 V -26 M -18 -24 H 22 L 14 -12 L 22 0 H -18'
+  },
+  'terrain.mountain':{
+    get label(){
+      return t('山峰');
+    },
+    path:'M -28 22 L -8 -22 L 14 22 Z M 4 2 L 14 -16 L 28 22 H 14 M -16 -4 L -8 0 L -2 -10'
+  },
+  'terrain.hills':{
+    get label(){
+      return t('丘陵');
+    },
+    path:'M -28 16 Q -16 -12 -4 16 M -8 16 Q 10 -24 28 16 M -28 24 H 28'
+  },
+  'terrain.forest':{
+    get label(){
+      return t('森林');
+    },
+    path:'M -28 12 L -18 -8 L -8 12 Z M -18 12 V 24 M -10 4 L 0 -22 L 10 4 Z M 0 4 V 24 M 8 12 L 18 -8 L 28 12 Z M 18 12 V 24'
+  },
+  'terrain.desert':{
+    get label(){
+      return t('沙漠');
+    },
+    path:'M -28 12 Q -14 -12 4 10 Q 16 24 28 12 M -28 24 Q -14 4 4 24 M 10 -16 A 7 7 0 1 0 24 -16 A 7 7 0 1 0 10 -16 Z'
+  },
+  'terrain.lake':{
+    get label(){
+      return t('湖泊');
+    },
+    path:'M -26 -4 C -26 -22 -6 -28 10 -18 C 32 -16 32 12 14 22 C -8 32 -30 16 -26 -4 Z M -16 -2 Q -8 -8 0 -2 Q 8 4 16 -2 M -12 10 Q -4 4 4 10 Q 12 16 18 10'
+  },
+  'terrain.river':{
+    get label(){
+      return t('河流');
+    },
+    path:'M -12 -28 C 20 -14 -28 4 -2 16 Q 8 22 0 28 M 0 -28 C 32 -14 -16 4 10 16 Q 20 22 12 28'
+  },
+  'terrain.swamp':{
+    get label(){
+      return t('沼泽');
+    },
+    path:'M -28 20 Q -20 12 -12 20 Q -4 28 4 20 Q 12 12 20 20 M -16 14 V -12 M -24 -4 L -16 2 L -8 -4 M 10 14 V -22 M 2 -14 L 10 -8 L 18 -14'
+  },
+  'terrain.cliff':{
+    get label(){
+      return t('悬崖');
+    },
+    path:'M -28 -12 L -16 -18 L -4 -10 L 8 -16 L 20 -8 L 28 -12 M -22 -15 V 12 M -12 -15 V 22 M -2 -11 V 12 M 8 -16 V 22 M 18 -9 V 14 M 26 -11 V 22'
+  },
+  'terrain.cave':{
+    get label(){
+      return t('洞穴');
+    },
+    path:'M -28 24 L -18 -8 L -4 -24 L 10 -20 L 24 0 L 28 24 Z M -12 24 V 8 A 12 16 0 0 1 12 8 V 24'
+  },
+  'building.house':{
+    get label(){
+      return t('民居');
+    },
+    path:'M -28 -2 L 0 -26 L 28 -2 M -22 -7 V 24 H 22 V -7 M -6 24 V 8 H 6 V 24 M -16 -2 H -8 V 6 H -16 Z'
+  },
+  'building.village':{
+    get label(){
+      return t('村庄');
+    },
+    path:'M -30 -2 L -18 -16 L -6 -2 M -27 -5 V 16 H -9 V -5 M -2 6 L 14 -12 L 30 6 M 2 2 V 26 H 26 V 2 M 10 26 V 14 H 18 V 26'
+  },
+  'building.city':{
+    get label(){
+      return t('城镇');
+    },
+    path:'M -28 26 H 28 M -24 26 V -6 H -10 V 26 M -6 26 V -26 H 8 V 26 M 12 26 V -14 H 26 V 26 M -19 2 H -15 M -19 10 H -15 M -1 -18 H 3 M -1 -10 H 3 M -1 -2 H 3 M -1 6 H 3 M 17 -6 H 21 M 17 2 H 21 M 17 10 H 21'
+  },
+  'building.castle':{
+    get label(){
+      return t('城堡');
+    },
+    path:'M -26 24 V -24 H -20 V -16 H -14 V -24 H -8 V 24 M 8 24 V -24 H 14 V -16 H 20 V -24 H 26 V 24 Z M -8 -6 H 8 M -8 24 H 8 M -5 24 V 10 A 5 7 0 0 1 5 10 V 24'
+  },
+  'building.tower':{
+    get label(){
+      return t('高塔');
+    },
+    path:'M -16 26 L -10 -14 H 10 L 16 26 Z M -14 -14 V -26 H -6 V -20 H 6 V -26 H 14 V -14 Z M -4 26 V 12 H 4 V 26 M 0 -6 V 2'
+  },
+  'building.temple':{
+    get label(){
+      return t('神殿');
+    },
+    path:'M -28 -12 L 0 -28 L 28 -12 Z M -24 -6 H 24 M -24 22 H 24 M -28 28 H 28 M -18 -6 V 22 M -6 -6 V 22 M 6 -6 V 22 M 18 -6 V 22'
+  },
+  'building.market':{
+    get label(){
+      return t('集市');
+    },
+    path:'M -28 -8 L -20 -26 H 20 L 28 -8 Z M -28 -8 Q -21 6 -14 -8 Q -7 6 0 -8 Q 7 6 14 -8 Q 21 6 28 -8 M -24 0 V 24 H 24 V 0 M -10 24 V 10 H 10 V 24'
+  },
+  'building.mill':{
+    get label(){
+      return t('风车');
+    },
+    path:'M -12 28 L -6 -6 H 6 L 12 28 Z M 0 -8 L 6 -26 H 14 L 6 -8 Z M 0 -8 L 24 -2 V 6 L 6 -2 Z M 0 -8 L -6 14 H -14 L -6 -8 Z M 0 -8 L -24 -14 V -22 L -6 -14 Z'
+  },
+  'building.ruins':{
+    get label(){
+      return t('遗迹');
+    },
+    path:'M -28 26 H 28 M -24 26 V -16 L -18 -12 L -12 -24 L -6 -16 V 26 M 6 26 V -4 L 12 -16 L 18 -8 L 26 -12 V 26 M -6 0 H 6 M -6 8 H 6'
+  }
 };
 export const factionFrame=affiliation=>({friendly:'M-24-16H24V16H-24Z',hostile:'M0-24 30 0 0 24-30 0Z',neutral:'M-20-20H20V20H-20Z',unknown:'M0-20C20-34 34-20 20 0C34 20 20 34 0 20C-20 34-34 20-20 0C-34-20-20-34 0-20Z'}[affiliation]||'');
 export const echelonLabel=value=>({team:'○',squad:'•',platoon:'•••',company:'Ⅰ',battalion:'Ⅱ',regiment:'Ⅲ',brigade:'X',division:'XX',corps:'XXX',army:'XXXX'}[value]||value||'');
-export function registerMapSymbol(owner,spec){if(!spec||!/^[a-z][\w.-]{0,100}$/i.test(spec.type)||typeof spec.label!=='string'||!spec.label||typeof spec.path!=='string'||spec.path.length>8000||!/^M[\d\s.,+eE\-MmLlHhVvCcSsQqTtAaZz]+$/.test(spec.path))throw Error('插件符号定义无效。');if(typeof Path2D==='function')try{new Path2D(spec.path);}catch{throw Error('插件符号定义无效。');}const type=owner+'.'+spec.type;if(Object.hasOwn(mapSymbols,type))throw Error('插件符号已存在。');Object.defineProperty(mapSymbols,type,{value:Object.freeze({label:spec.label.slice(0,160),path:spec.path}),enumerable:true,configurable:true});return {type,dispose:()=>delete mapSymbols[type]};}
+
+export function registerMapSymbol(owner,spec){
+  if(!spec||!/^[a-z][\w.-]{0,100}$/i.test(spec.type)||typeof spec.label!=='string'||!spec.label||typeof spec.path!=='string'||spec.path.length>8000||!/^M[\d\s.,+eE\-MmLlHhVvCcSsQqTtAaZz]+$/.test(spec.path))
+    throw Error(t('插件符号定义无效。'));
+  if(typeof Path2D==='function')
+    try{
+      new Path2D(spec.path);
+    }catch{
+      throw Error(t('插件符号定义无效。'));
+    }
+  const type=owner+'.'+spec.type;
+  if(Object.hasOwn(mapSymbols,type))
+    throw Error(t('插件符号已存在。'));
+  Object.defineProperty(mapSymbols,type,{value:Object.freeze({label:spec.label.slice(0,160),path:spec.path}),enumerable:true,configurable:true});
+  return {type,dispose:()=>delete mapSymbols[type]};
+}
