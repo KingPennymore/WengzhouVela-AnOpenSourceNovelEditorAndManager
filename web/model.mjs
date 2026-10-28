@@ -1,27 +1,34 @@
+import {t} from './i18n.mjs';
 import { MB } from './text-utils.mjs';
 import {documentSourceProvider} from './document-components.mjs';
 export const MAX_TEXT_BYTES = 8 * MB;
-export function newDocument(name = '未命名文稿.md', text = '') {
+
+export function newDocument(name = '未命名文稿.md', text = '') { // i18n-data: Default file name becomes user document data.
+
   return { id: crypto.randomUUID(), name, text, updatedAt: Date.now(), remote: null };
 }
 export function validateWorkspace(value) {
-  if (!value || value.version !== 1 || !Array.isArray(value.documents)) throw new Error('文稿数据格式不正确，原文件已保留。');
+  if (!value || value.version !== 1 || !Array.isArray(value.documents)) throw new Error(t('文稿数据格式不正确，原文件已保留。'));
   const ids = new Set();
   for (const d of value.documents) {
-    if (!d || typeof d.id !== 'string' || ids.has(d.id) || typeof d.name !== 'string' || typeof d.text !== 'string' || !Number.isFinite(d.updatedAt)) throw new Error('文稿数据损坏，原文件已保留。');
+    if (!d || typeof d.id !== 'string' || ids.has(d.id) || typeof d.name !== 'string' || typeof d.text !== 'string' || !Number.isFinite(d.updatedAt)) throw new Error(t('文稿数据损坏，原文件已保留。'));
     ids.add(d.id);
-    if (d.remote && (typeof d.remote.repo !== 'string' || typeof d.remote.path !== 'string' || typeof d.remote.branch !== 'string' || typeof d.remote.sha !== 'string')) throw new Error('仓库关联数据损坏。');
+    if (d.remote && (typeof d.remote.repo !== 'string' || typeof d.remote.path !== 'string' || typeof d.remote.branch !== 'string' || typeof d.remote.sha !== 'string')) throw new Error(t('仓库关联数据损坏。'));
   }
   if (!ids.has(value.activeId)) value.activeId = value.documents[0]?.id || null;
   value.openIds = Array.isArray(value.openIds) ? [...new Set(value.openIds.filter(id=>ids.has(id)))] : value.documents.map(d=>d.id);
   return value;
 }
 export function chapterPosition(text, index, cursor, edge) {
+
   // The Writer index uses zero-based rows and an exclusive endRow.
   const lines = text.split('\n');
   const row = text.slice(0, Math.max(0, Math.min(cursor, text.length))).split('\n').length - 1;
   let section = index.sections[0];
-  for (const item of index.sections) { if (item.row > row) break; section = item; }
+  for (const item of index.sections) {
+    if (item.row > row) break;
+    section = item;
+  }
   if (!section) return edge === 'top' ? 0 : text.length;
   const offsets = [0];
   for (let i = 0; i < lines.length - 1; i++) offsets.push(offsets[i] + lines[i].length + 1);
@@ -29,17 +36,47 @@ export function chapterPosition(text, index, cursor, edge) {
   const endRow = Math.min(section.endRow - 1, lines.length - 1);
   return offsets[endRow] + lines[endRow].length;
 }
-export function normalizeText(text) { return text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n'); }
+export function normalizeText(text) {
+  return text.replace(/^\uFEFF/, '').replace(/\r\n?/g, '\n');
+}
 export function fileName(value) {
   const name = value.trim();
-  if (!name || /[\\/\x00-\x1f]/.test(name) || name.length > 160) throw new Error('请输入有效文件名（不含斜杠，最多 160 字符）。');
+  if (!name || /[\\/\x00-\x1f]/.test(name) || name.length > 160) throw new Error(t('请输入有效文件名（不含斜杠，最多 160 字符）。'));
   return /\.[^.]+$/.test(name) ? name : name + '.md';
 }
-export function fileKind(name) { return /\.(process|pcs)$/i.test(name)?'OUTLINE':/\.(velamap|vlmp)$/i.test(name)?'MAP':/\.(velaodt|vodt|fodt|fods|fodp|fodg)$/i.test(name)?'VODT':/\.(gly|glossary)$/i.test(name)?'GLY':/\.vela$/i.test(name)?'VELA':/\.(csv|tsv)$/i.test(name)?'CSV':/\.html?$/i.test(name)?'HTML':/\.(md|markdown|mdown|mkd)$/i.test(name)?'MD':/\.(tex|latex|ltx)$/i.test(name)?'TEX':/\.(js|jsx|mjs|cjs|ts|tsx|py|pyw|css|scss|sass|less|json|json5|jsonl|xml|svg|yaml|yml|toml|ini|conf|cfg|sh|bash|zsh|java|c|cpp|cc|h|hpp|cs|rs|go|kt|kts|sql|php|rb|lua|diff|patch|bib|r|swift|vue|svelte|dockerfile)$/i.test(name)||/^(Dockerfile|Makefile|CMakeLists\.txt)$/i.test(name)?'CODE':'TXT'; }
-export function documentKind(doc){return /\.pdf$/i.test(doc?.name||'')||doc?.kind==='PDF'?'PDF':['TXT','MD','HTML','CSV','VELA','GLY','TEX','CODE','VODT','OUTLINE','MAP','PLUGIN'].includes(doc?.kind)?doc.kind:documentSourceProvider(doc?.name||'')&&!/\.(velaodt|vodt|fodt|fods|fodp|fodg)$/i.test(doc?.name||'')?'PLUGIN':fileKind(doc?.name||'');}
+export function fileKind(name) {
+  return /\.(process|pcs)$/i.test(name)
+    ?'OUTLINE'
+    :/\.(velamap|vlmp)$/i.test(name)
+    ?'MAP'
+    :/\.(velaodt|vodt|fodt|fods|fodp|fodg)$/i.test(name)
+    ?'VODT'
+    :/\.(gly|glossary)$/i.test(name)
+    ?'GLY'
+    :/\.vela$/i.test(name)
+    ?'VELA'
+    :/\.(csv|tsv)$/i.test(name)
+    ?'CSV'
+    :/\.html?$/i.test(name)
+    ?'HTML'
+    :/\.(md|markdown|mdown|mkd)$/i.test(name)
+    ?'MD'
+    :/\.(tex|latex|ltx)$/i.test(name)
+    ?'TEX'
+    :/\.(js|jsx|mjs|cjs|ts|tsx|py|pyw|css|scss|sass|less|json|json5|jsonl|xml|svg|yaml|yml|toml|ini|conf|cfg|sh|bash|zsh|java|c|cpp|cc|h|hpp|cs|rs|go|kt|kts|sql|php|rb|lua|diff|patch|bib|r|swift|vue|svelte|dockerfile)$/i.test(name)||/^(Dockerfile|Makefile|CMakeLists\.txt)$/i.test(name)
+    ?'CODE'
+    :'TXT';
+}
+export function documentKind(doc){
+  return /\.pdf$/i.test(doc?.name||'')||doc?.kind==='PDF'
+    ?'PDF'
+    :['TXT','MD','HTML','CSV','VELA','GLY','TEX','CODE','VODT','OUTLINE','MAP','PLUGIN'].includes(doc?.kind)
+    ?doc.kind
+    :documentSourceProvider(doc?.name||'')&&!/\.(velaodt|vodt|fodt|fods|fodp|fodg)$/i.test(doc?.name||'')?'PLUGIN':fileKind(doc?.name||'');
+}
 export function repoPath(value) {
   const path = value.trim();
-  if (!path || path.startsWith('/') || /[\\\x00-\x1f]/.test(path) || path.split('/').some(p => !p || p === '.' || p === '..')) throw new Error('请填写有效的仓库相对路径，例如 chapters/第一章.md。');
+  if (!path || path.startsWith('/') || /[\\\x00-\x1f]/.test(path) || path.split('/').some(p => !p || p === '.' || p === '..')) throw new Error(t('请填写有效的仓库相对路径，例如 chapters/第一章.md。'));
   return path;
 }
 export function encodeContent(text) {
