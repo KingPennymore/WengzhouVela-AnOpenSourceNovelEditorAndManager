@@ -2,9 +2,7 @@ import {downloadAsset,texDownloads,findRelease,trustedAssets,releaseComponents,f
 import {compareVersions} from './updates.mjs';
 import {loadCatalog,catalogBlocker,catalogStatus} from './component-catalog.mjs';
 import {escapeHtml as esc} from './text-utils.mjs';
-import {t,getLanguage} from './i18n.mjs';
-// Fixed strings go through t(); sentences with values in them are written out in both languages.
-const say=(zh,en)=>getLanguage()==='en'?en:zh;
+import {t,getLanguage,say} from './i18n.mjs';
 
 // Downloads outlive the dialog: closing or re-rendering the plugin list keeps them running, and reopening shows progress.
 const jobs=new Map();
