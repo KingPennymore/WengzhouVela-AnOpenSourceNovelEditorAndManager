@@ -2,7 +2,53 @@ import {transport} from './platform.mjs';
 import {imageRules} from './map-images.mjs';
 import {rasterSize} from './map-image-header.mjs';
 export {rasterSize} from './map-image-header.mjs';
-export async function importMapImage(file){if(!file||!file.size||file.size>imageRules.sourceBytes)throw Error('原图不能超过 20 MB。');const bytes=new Uint8Array(await file.arrayBuffer()),size=rasterSize(bytes),url=URL.createObjectURL(file),image=new Image();try{image.src=url;await image.decode();if(image.naturalWidth*image.naturalHeight>imageRules.sourcePixels)throw Error('原图不能超过 1600 万像素。');let factor=Math.min(1,imageRules.edge/Math.max(image.naturalWidth,image.naturalHeight));const canvas=document.createElement('canvas');let blob;for(let i=0;i<8;i++){canvas.width=Math.max(1,Math.round(image.naturalWidth*factor));canvas.height=Math.max(1,Math.round(image.naturalHeight*factor));canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',.86));if(blob&&blob.size<=imageRules.bytes)break;factor*=.75;}if(!blob||blob.size>imageRules.bytes)throw Error('图片压缩失败，请选择较小的图片。');const data=await new Promise((resolve,reject)=>{const reader=new FileReader();reader.onload=()=>resolve(reader.result);reader.onerror=()=>reject(Error('图片读取失败。'));reader.readAsDataURL(blob);}),hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await blob.arrayBuffer())),b=>b.toString(16).padStart(2,'0')).join('');return {id:'img-'+hash,asset:{name:String(file.name||'').slice(0,160),width:canvas.width,height:canvas.height,data},resized:canvas.width!==size.width||canvas.height!==size.height};}catch(e){if(e instanceof DOMException)throw Error('图片文件损坏。');throw e;}finally{URL.revokeObjectURL(url);image.src='';}}
-
-export async function readNativeMapImage(result,release=async()=>{}){if(!result)return null;try{const url=new URL(result.url,location.href);if(url.origin!==location.origin||!url.pathname.startsWith('/imports/')||!Number.isSafeInteger(result.size)||result.size<=0||result.size>imageRules.sourceBytes)throw Error('图片地址或大小无效。');const response=await fetch(url,{cache:'no-store'});if(!response.ok)throw Error('图片读取失败。');const bytes=await response.arrayBuffer();if(bytes.byteLength!==result.size)throw Error('图片读取不完整，请重新选择。');return new File([bytes],result.name||'image',{type:'application/octet-stream'});}finally{if(result.importToken)await release(result.importToken).catch(()=>{});}}
+export async function importMapImage(file){
+  if(!file||!file.size||file.size>imageRules.sourceBytes)throw Error('原图不能超过 20 MB。');
+  const bytes=new Uint8Array(await file.arrayBuffer()),size=rasterSize(bytes),url=URL.createObjectURL(file),image=new Image();
+  try{
+    image.src=url;
+    await image.decode();
+    if(image.naturalWidth*image.naturalHeight>imageRules.sourcePixels)throw Error('原图不能超过 1600 万像素。');
+    let factor=Math.min(1,imageRules.edge/Math.max(image.naturalWidth,image.naturalHeight));
+    const canvas=document.createElement('canvas');
+    let blob;
+    for(let i=0;i<8;i++){
+      canvas.width=Math.max(1,Math.round(image.naturalWidth*factor));
+      canvas.height=Math.max(1,Math.round(image.naturalHeight*factor));
+      canvas.getContext('2d').drawImage(image,0,0,canvas.width,canvas.height);
+      blob=await new Promise(resolve=>canvas.toBlob(resolve,'image/webp',.86));
+      if(blob&&blob.size<=imageRules.bytes)break;
+      factor*=.75;
+    }
+    if(!blob||blob.size>imageRules.bytes)throw Error('图片压缩失败，请选择较小的图片。');
+    const data=await new Promise((resolve,reject)=>{
+      const reader=new FileReader();
+      reader.onload=()=>resolve(reader.result);
+      reader.onerror=()=>reject(Error('图片读取失败。'));
+      reader.readAsDataURL(blob);
+    }),
+      hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',await blob.arrayBuffer())),b=>b.toString(16).padStart(2,'0')).join('');
+    return {id:'img-'+hash,asset:{name:String(file.name||'').slice(0,160),width:canvas.width,height:canvas.height,data},resized:canvas.width!==size.width||canvas.height!==size.height};
+  }catch(e){
+    if(e instanceof DOMException)throw Error('图片文件损坏。');
+    throw e;
+  }finally{
+    URL.revokeObjectURL(url);
+    image.src='';
+  }
+}
+export async function readNativeMapImage(result,release=async()=>{}){
+  if(!result)return null;
+  try{
+    const url=new URL(result.url,location.href);
+    if(url.origin!==location.origin||!url.pathname.startsWith('/imports/')||!Number.isSafeInteger(result.size)||result.size<=0||result.size>imageRules.sourceBytes)throw Error('图片地址或大小无效。');
+    const response=await fetch(url,{cache:'no-store'});
+    if(!response.ok)throw Error('图片读取失败。');
+    const bytes=await response.arrayBuffer();
+    if(bytes.byteLength!==result.size)throw Error('图片读取不完整，请重新选择。');
+    return new File([bytes],result.name||'image',{type:'application/octet-stream'});
+  }finally{
+    if(result.importToken)await release(result.importToken).catch(()=>{});
+  }
+}
 export const pickNativeMapImage=async()=>readNativeMapImage(await transport('importImage'),token=>transport('releaseImport',{token}));

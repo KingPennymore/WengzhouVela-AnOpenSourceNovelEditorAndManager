@@ -9,31 +9,319 @@ import {mountIncrementalList} from './incremental-list.mjs';
 import {beginViewSession} from './view-session.mjs';
 export function renderVelaV2({root,doc,workspace,escape:esc,onSave,onOpenPath,onManageStyles}){
   const session=beginViewSession(root);
-  const config=parseVela(doc.text),global=config.kind==='global',folder=global?'':configFolder(documentPath(doc)),effective=effectiveVela(global?config:globalConfig(workspace)?.config,global?null:config);
+  const config=parseVela(doc.text),
+    global=config.kind==='global',
+    folder=global?'':configFolder(documentPath(doc)),
+    effective=effectiveVela(global?config:globalConfig(workspace)?.config,global?null:config);
   const available=[...workspace.documents,...(workspace.entries||[]).filter(entry=>!entry.directory&&/\.pdf$/i.test(entry.path)).map(entry=>({name:entry.path.split('/').at(-1),path:entry.path}))].filter(file=>readable(file)&&(!folder||documentPath(file).startsWith(folder+'/'))).map(file=>documentPath(file).slice(folder?folder.length+1:0));
-  const auto=!global&&allFiles(config),selected=auto?available:readingItems(config).map(item=>item.path),files=[...new Set([...available,...selected])].sort((a,b)=>a.localeCompare(b,'zh-CN',{numeric:true}));
+  const auto=!global&&allFiles(config),
+    selected=auto?available:readingItems(config).map(item=>item.path),
+    files=[...new Set([...available,...selected])].sort((a,b)=>a.localeCompare(b,'zh-CN',{numeric:true}));
   const field=(name,label,value,inherited,min,max,step=1)=>`<label>${t(label)}<input name="${name}" type="number" min="${min}" max="${max}" step="${step}" value="${value??''}" placeholder="${t('继承')} · ${inherited}"><small>${t('留空恢复继承')}</small></label>`;
   const layout=global?config.reader?.layout||{}:config.reading.layout||{},labels={lineHeight:'行距',marginTop:'上边距',marginBottom:'下边距',marginLeft:'左边距',marginRight:'右边距'};
-  root.className='vela-preview';root.innerHTML=`<form id="vela-form" class="vela-config"><header class="vela-config-header"><span class="vela-config-mark">.vela v${config.version}</span><div><h2>${t(global?'全局默认配置':'作品配置')}</h2><small data-user-content>${esc(folder||t('内部文件夹'))}</small></div><div class="vela-pages" role="tablist"><button type="button" role="tab" data-vela-page="config">${t(global?'默认配置':'作品配置')}</button><button type="button" role="tab" data-vela-page="format">${t('TXT 格式')}</button></div></header><div class="vela-page" data-page="config"><nav class="vela-sections">${['作品信息','编辑','章节','阅读排版','阅读清单','高级'].filter(name=>!global||!['作品信息','章节'].includes(name)).map(name=>`<button type="button" data-vela-section="${name}">${t(name)}</button>`).join('')}</nav><div class="vela-config-grid">${global?'':`<section class="vela-card" data-section="作品信息"><h3>${t('作品信息')}</h3><label>${t('工作区名称')}<input name="name" maxlength="160" required value="${esc(config.project.name)}"></label><label>${t('简介')}<textarea name="description">${esc(config.project.description||'')}</textarea></label><label>${t('作者')}<input name="author" value="${esc(config.project.author||'')}"></label><label>${t('封面')}<input name="cover" value="${esc(config.project.cover||'')}" placeholder="资源/封面.png"></label><small data-user-content>${esc(config.id)}</small></section>`}<section class="vela-card" data-section="编辑"><h3>${t('编辑')}</h3><div class="vela-layout-fields">${field('editorFontSize','编辑字号',config.editor?.fontSize,effective.editor.fontSize,10,40)}${field('editorLineHeight','编辑行距',config.editor?.lineHeight,effective.editor.lineHeight,1,3.5,.1)}${field('indentSize','缩进空格数',config.editor?.indentSize,effective.editor.indentSize,1,8)}${field('maxWidth','正文最大宽度',config.editor?.maxWidth,effective.editor.maxWidth,240,2400)}</div><label>${t('编辑模式')}<select name="editorMode">${[['','继承'],['novel','小说'],['code','代码']].map(([value,label])=>`<option value="${value}" ${config.editor?.mode===value?'selected':''}>${t(label)}</option>`).join('')}</select></label><label>${t('小说缩进')}<select name="novelIndent">${[['','继承'],['fullwidth-2','两个全角空格'],['spaces','普通空格']].map(([value,label])=>`<option value="${value}" ${config.editor?.novelIndent===value?'selected':''}>${t(label)}</option>`).join('')}</select></label><label>${t('自动换行')}<select name="wrap"><option value="">${t('继承')}</option><option value="true" ${config.editor?.wrap===true?'selected':''}>${t('启用')}</option><option value="false" ${config.editor?.wrap===false?'selected':''}>${t('关闭')}</option></select></label><label>${t('自动补全')}<select name="completion"><option value="">${t('继承')}</option><option value="true" ${config.editor?.completion===true?'selected':''}>${t('启用')}</option><option value="false" ${config.editor?.completion===false?'selected':''}>${t('关闭')}</option></select></label><label>${t('术语库文件')}<textarea name="glossaries" rows="3" placeholder="${t('每行一个 .gly 或 .glossary 相对路径')}">${esc(config.editor?.glossaries?.length===0?'[]':(config.editor?.glossaries||[]).join('\n'))}</textarea><small>${t('路径相对于当前配置文件；留空继承，输入 [] 停用术语库。')}</small></label></section>${global?'':`<section class="vela-card" data-section="章节"><h3>${t('章节')}</h3><label>${t('标题模板')}<textarea name="titleTemplates" rows="4">${esc((config.chapters?.templates||[]).join('\n'))}</textarea></label><small>${t('中英文模板通用：{序号} / {number} 识别中文数字、阿拉伯数字、英文数字和罗马数字；{标题} / {title} 识别标题。')}</small></section>`}<section class="vela-card" data-section="阅读排版"><h3>${t('阅读排版')}</h3>${global?`<label>${t('排版来源')}<select name="appearancePolicy"><option value="project" ${config.reader?.appearancePolicy!=='personal'?'selected':''}>${t('采用作品推荐排版')}</option><option value="personal" ${config.reader?.appearancePolicy==='personal'?'selected':''}>${t('使用我的阅读排版')}</option></select></label>`:''}<label>${t('阅读方式')}<select name="readerMode">${[['','继承'],['auto','自动'],['scroll','上下滑动'],['pages','左右翻页'],['double','双页阅读']].map(([value,label])=>`<option value="${value}" ${config.reader?.mode===value?'selected':''}>${t(label)}</option>`).join('')}</select></label><label>${t('章节标题页')}<select name="titlePage"><option value="">${t('继承')}</option><option value="true" ${config.reader?.titlePage===true?'selected':''}>${t('独立标题页')}</option><option value="false" ${config.reader?.titlePage===false?'selected':''}>${t('标题与正文同页')}</option></select></label><div class="vela-layout-fields">${field('fontSize','阅读字号',layout.fontSize,effective.reading.layout.fontSize,10,40)}${Object.keys(readingLayoutDefaults).map(key=>field(key,labels[key],layout[key],effective.reading.layout[key],key==='lineHeight'?1:0,key==='lineHeight'?3.5:240,key==='lineHeight'?.1:1)).join('')}</div><div class="vela-layout-sample"><div class="vela-layout-scroll"><article><strong>${t('第一章 航程')}</strong><p>${t('文字与留白共同构成阅读节奏。调整排版后，阅读页面会使用这些设置。')}</p></article></div></div></section><section class="vela-card vela-files" data-section="阅读清单"><div class="vela-files-heading"><h3>${t(global?'个人书库':'阅读清单')}</h3><output id="vela-file-count"></output></div>${global?`<label>${t('书库方式')}<select name="libraryMode"><option value="auto" ${config.library?.mode!=='manual'?'selected':''}>${t('自动书库')}</option><option value="manual" ${config.library?.mode==='manual'?'selected':''}>${t('自选书库')}</option></select></label>`:''}${global?'':`<label class="checkbox"><input type="checkbox" name="readingAuto"${auto?' checked':''}>${t('自动包含文件夹内全部文稿')}</label><small>${t('勾选时不保存清单，新文件自动加入；取消勾选后按下方选择保存清单和顺序。')}</small>`}<div class="vela-file-tools"><input id="vela-file-search" type="search" placeholder="${t('搜索文稿…')}"><button type="button" data-vela-select="all" class="secondary">${t('全选')}</button><button type="button" data-vela-select="none" class="secondary">${t('清空选择')}</button></div><div class="vela-file-list"></div>${global?'':`<label>${t('阅读顺序')}<textarea name="readingOrder" rows="4">${esc(selected.join('\n'))}</textarea><small>${t('每行一个已选路径；未列出的已选文件追加到末尾。')}</small></label>`}</section><section class="vela-card" data-section="高级"><h3>${t('高级')}</h3><details><summary>${t('最终生效配置')}</summary><pre data-user-content>${esc(JSON.stringify(effective,null,2))}</pre></details>${global?'':`<label>LaTeX ${t('主文件')}<input name="texMain" value="${esc(config.formats?.latex?.main||'')}"></label><label>${t('编译引擎')}<select name="texEngine"><option value="xetex" ${config.formats?.latex?.engine!=='pdftex'?'selected':''}>XeLaTeX</option><option value="pdftex" ${config.formats?.latex?.engine==='pdftex'?'selected':''}>pdfLaTeX</option></select></label><label>Changelog<input name="changelog" value="${esc(config.publishing?.changelog||'')}"></label>`}</section></div></div><div class="vela-page" data-page="format" hidden>${formatPaneHtml({config,global,folder,inherited:globalConfig(workspace)?.config,workspace,escape:esc})}</div><footer class="vela-config-actions"><p id="vela-error" class="error" role="alert"></p><button class="primary">${t('保存配置')}</button></footer></form>`;
-  const form=root.querySelector('form'),chosen=new Set(selected),availableSet=new Set(available),checks=()=>[...form.querySelectorAll('[name=readingFiles]')],count=()=>root.querySelector('#vela-file-count').textContent=chosen.size+' / '+files.length;
-  const matching=()=>{const query=root.querySelector('#vela-file-search').value.toLocaleLowerCase();return files.filter(path=>path.toLocaleLowerCase().includes(query));};
-  const fileList=mountIncrementalList(root.querySelector('.vela-file-list'),{items:files,signal:session.signal,renderItem:path=>'<label class="checkbox vela-file" data-vela-path="'+esc(path.toLowerCase())+'"><input name="readingFiles" type="checkbox" value="'+esc(path)+'" '+(chosen.has(path)?'checked':'')+' '+(form.elements.readingAuto?.checked?'disabled':'')+'><span data-user-content>'+esc(path)+'</span>'+(availableSet.has(path)?'':'<small>'+t('文件不存在')+'</small>')+'</label>'});
-  const showPage=name=>{pages.set(doc.id,name);root.querySelectorAll('[data-vela-page]').forEach(button=>button.setAttribute('aria-selected',String(button.dataset.velaPage===name)));root.querySelectorAll('[data-page]').forEach(page=>page.hidden=page.dataset.page!==name);};
-  root.querySelectorAll('[data-vela-page]').forEach(button=>button.onclick=()=>showPage(button.dataset.velaPage));showPage(pages.get(doc.id)||'config');
-  bindFormatPane(root,{folder,onOpen:onOpenPath,onManageStyles,onRemove:async key=>{const next=structuredClone(config);delete next.richText.documents[key];if(!Object.keys(next.richText.documents).length)delete next.richText.documents;await onSave(velaText(next),{records:true});}});
-  const autoBox=form.elements.readingAuto,syncAuto=()=>{if(!autoBox)return;root.querySelector('.vela-file-list').classList.toggle('vela-file-list-auto',autoBox.checked);if(autoBox.checked){chosen.clear();for(const path of available)chosen.add(path);}for(const input of checks()){input.disabled=autoBox.checked;input.checked=chosen.has(input.value);}count();};
+  root.className='vela-preview';
+  root.innerHTML=`<form id="vela-form" class="vela-config">
+      <header class="vela-config-header">
+        <span class="vela-config-mark">.vela v${config.version}</span>
+        <div>
+          <h2>${t(global?'全局默认配置':'作品配置')}</h2>
+          <small data-user-content>${esc(folder||t('内部文件夹'))}</small></div>
+        <div class="vela-pages" role="tablist">
+          <button type="button" role="tab" data-vela-page="config">${t(global?'默认配置':'作品配置')}</button>
+          <button type="button" role="tab" data-vela-page="format">${t('TXT 格式')}</button></div>
+      </header>
+      <div class="vela-page" data-page="config">
+        <nav class="vela-sections">${['作品信息','编辑','章节','阅读排版','阅读清单','高级'].filter(name=>!global||!['作品信息','章节'].includes(name)).map(name=>`<button type="button" data-vela-section="${name}">${t(name)}</button>`).join('')}</nav>
+        <div class="vela-config-grid">${global
+    ?''
+    :`<section class="vela-card" data-section="作品信息">
+        <h3>${t('作品信息')}</h3>
+        <label>${t('工作区名称')}<input name="name" maxlength="160" required value="${esc(config.project.name)}"></label>
+        <label>${t('简介')}<textarea name="description">${esc(config.project.description||'')}</textarea></label>
+        <label>${t('作者')}<input name="author" value="${esc(config.project.author||'')}"></label>
+        <label>${t('封面')}<input name="cover" value="${esc(config.project.cover||'')}" placeholder="${t('资源/封面.png')}"></label>
+        <small data-user-content>${esc(config.id)}</small></section>`}<section class="vela-card" data-section="编辑">
+            <h3>${t('编辑')}</h3>
+            <div class="vela-layout-fields">${field('editorFontSize','编辑字号',config.editor?.fontSize,effective.editor.fontSize,10,40)}${field('editorLineHeight','编辑行距',config.editor?.lineHeight,effective.editor.lineHeight,1,3.5,.1)}${field('indentSize','缩进空格数',config.editor?.indentSize,effective.editor.indentSize,1,8)}${field('maxWidth','正文最大宽度',config.editor?.maxWidth,effective.editor.maxWidth,240,2400)}</div>
+            <label>${t('编辑模式')}<select name="editorMode">${[['','继承'],['novel','小说'],['code','代码']].map(([value,label])=>`<option value="${value}" ${config.editor?.mode===value?'selected':''}>${t(label)}</option>`).join('')}</select></label>
+            <label>${t('小说缩进')}<select name="novelIndent">${[['','继承'],['fullwidth-2','两个全角空格'],['spaces','普通空格']].map(([value,label])=>`<option value="${value}" ${config.editor?.novelIndent===value?'selected':''}>${t(label)}</option>`).join('')}</select></label>
+            <label>${t('自动换行')}<select name="wrap">
+                <option value="">${t('继承')}</option>
+                <option value="true" ${config.editor?.wrap===true?'selected':''}>${t('启用')}</option>
+                <option value="false" ${config.editor?.wrap===false?'selected':''}>${t('关闭')}</option></select>
+            </label>
+            <label>${t('自动补全')}<select name="completion">
+                <option value="">${t('继承')}</option>
+                <option value="true" ${config.editor?.completion===true?'selected':''}>${t('启用')}</option>
+                <option value="false" ${config.editor?.completion===false?'selected':''}>${t('关闭')}</option></select>
+            </label>
+            <label>${t('术语库文件')}<textarea name="glossaries" rows="3" placeholder="${t('每行一个 .gly 或 .glossary 相对路径')}">${esc(config.editor?.glossaries?.length===0?'[]':(config.editor?.glossaries||[]).join('\n'))}</textarea>
+              <small>${t('路径相对于当前配置文件；留空继承，输入 [] 停用术语库。')}</small></label>
+          </section>${global
+    ?''
+    :`<section class="vela-card" data-section="章节">
+        <h3>${t('章节')}</h3>
+        <label>${t('标题模板')}<textarea name="titleTemplates" rows="4">${esc((config.chapters?.templates||[]).join('\n'))}</textarea></label>
+        <small>${t('中英文模板通用：{序号} / {number} 识别中文数字、阿拉伯数字、英文数字和罗马数字；{标题} / {title} 识别标题。')}</small></section>`}<section class="vela-card" data-section="阅读排版">
+            <h3>${t('阅读排版')}</h3>${global
+    ?`<label>${t('排版来源')}<select name="appearancePolicy">
+          <option value="project" ${config.reader?.appearancePolicy!=='personal'?'selected':''}>${t('采用作品推荐排版')}</option>
+          <option value="personal" ${config.reader?.appearancePolicy==='personal'?'selected':''}>${t('使用我的阅读排版')}</option></select>
+      </label>`
+    :''}<label>${t('阅读方式')}<select name="readerMode">${[['','继承'],['auto','自动'],['scroll','上下滑动'],['pages','左右翻页'],['double','双页阅读']].map(([value,label])=>`<option value="${value}" ${config.reader?.mode===value?'selected':''}>${t(label)}</option>`).join('')}</select></label>
+            <label>${t('章节标题页')}<select name="titlePage">
+                <option value="">${t('继承')}</option>
+                <option value="true" ${config.reader?.titlePage===true?'selected':''}>${t('独立标题页')}</option>
+                <option value="false" ${config.reader?.titlePage===false?'selected':''}>${t('标题与正文同页')}</option></select>
+            </label>
+            <div class="vela-layout-fields">${field('fontSize','阅读字号',layout.fontSize,effective.reading.layout.fontSize,10,40)}${Object.keys(readingLayoutDefaults).map(key=>field(key,labels[key],layout[key],effective.reading.layout[key],key==='lineHeight'?1:0,key==='lineHeight'?3.5:240,key==='lineHeight'?.1:1)).join('')}</div>
+            <div class="vela-layout-sample">
+              <div class="vela-layout-scroll">
+                <article>
+                  <strong>${t('第一章 航程')}</strong>
+                  <p>${t('文字与留白共同构成阅读节奏。调整排版后，阅读页面会使用这些设置。')}</p></article>
+              </div></div>
+          </section>
+          <section class="vela-card vela-files" data-section="阅读清单">
+            <div class="vela-files-heading">
+              <h3>${t(global?'个人书库':'阅读清单')}</h3>
+              <output id="vela-file-count"></output>
+            </div>${global
+    ?`<label>${t('书库方式')}<select name="libraryMode">
+          <option value="auto" ${config.library?.mode!=='manual'?'selected':''}>${t('自动书库')}</option>
+          <option value="manual" ${config.library?.mode==='manual'?'selected':''}>${t('自选书库')}</option></select>
+      </label>`
+    :''}${global
+    ?''
+    :`<label class="checkbox"><input type="checkbox" name="readingAuto"${auto?' checked':''}>${t('自动包含文件夹内全部文稿')}</label><small>${t('勾选时不保存清单，新文件自动加入；取消勾选后按下方选择保存清单和顺序。')}</small>`}<div class="vela-file-tools">
+              <input id="vela-file-search" type="search" placeholder="${t('搜索文稿…')}">
+              <button type="button" data-vela-select="all" class="secondary">${t('全选')}</button>
+              <button type="button" data-vela-select="none" class="secondary">${t('清空选择')}</button></div>
+            <div class="vela-file-list"></div>${global
+    ?''
+    :`<label>${t('阅读顺序')}<textarea name="readingOrder" rows="4">${esc(selected.join('\n'))}</textarea><small>${t('每行一个已选路径；未列出的已选文件追加到末尾。')}</small></label>`}</section>
+          <section class="vela-card" data-section="高级">
+            <h3>${t('高级')}</h3>
+            <details>
+              <summary>${t('最终生效配置')}</summary>
+              <pre data-user-content>${esc(JSON.stringify(effective,null,2))}</pre></details>${global
+    ?''
+    :`<label>LaTeX ${t('主文件')}<input name="texMain" value="${esc(config.formats?.latex?.main||'')}"></label>
+      <label>${t('编译引擎')}<select name="texEngine">
+          <option value="xetex" ${config.formats?.latex?.engine!=='pdftex'?'selected':''}>XeLaTeX</option>
+          <option value="pdftex" ${config.formats?.latex?.engine==='pdftex'?'selected':''}>pdfLaTeX</option></select>
+      </label>
+      <label>Changelog<input name="changelog" value="${esc(config.publishing?.changelog||'')}"></label>`}</section></div>
+      </div>
+      <div class="vela-page" data-page="format" hidden>${formatPaneHtml({config,global,folder,inherited:globalConfig(workspace)?.config,workspace,escape:esc})}</div>
+      <footer class="vela-config-actions">
+        <p id="vela-error" class="error" role="alert"></p>
+        <button class="primary">${t('保存配置')}</button></footer>
+    </form>`;
+  const form=root.querySelector('form'),
+    chosen=new Set(selected),
+    availableSet=new Set(available),
+    checks=()=>[...form.querySelectorAll('[name=readingFiles]')],
+    count=()=>root.querySelector('#vela-file-count').textContent=chosen.size+' / '+files.length;
+  const matching=()=>{
+    const query=root.querySelector('#vela-file-search').value.toLocaleLowerCase();
+    return files.filter(path=>path.toLocaleLowerCase().includes(query));
+  };
+  const fileList=mountIncrementalList(
+    root.querySelector('.vela-file-list'),
+    {
+      items:files,
+      signal:session.signal,
+      renderItem:path=>'<label class="checkbox vela-file" data-vela-path="'+esc(path.toLowerCase())+'"><input name="readingFiles" type="checkbox" value="'+esc(path)+'" '+(chosen.has(path)?'checked':'')+' '
+      +(form.elements.readingAuto?.checked?'disabled':'')
+      +'><span data-user-content>'
+      +esc(path)
+      +'</span>'
+      +(availableSet.has(path)?'':'<small>'+t('文件不存在')+'</small>')
+      +'</label>'
+    });
+  const showPage=name=>{
+    pages.set(doc.id,name);
+    root.querySelectorAll('[data-vela-page]').forEach(button=>button.setAttribute('aria-selected',String(button.dataset.velaPage===name)));
+    root.querySelectorAll('[data-page]').forEach(page=>page.hidden=page.dataset.page!==name);
+  };
+  root.querySelectorAll('[data-vela-page]').forEach(button=>button.onclick=()=>showPage(button.dataset.velaPage));
+  showPage(pages.get(doc.id)||'config');
+  bindFormatPane(
+    root,
+    {
+      folder,
+      onOpen:onOpenPath,
+      onManageStyles,
+      onRemove:async key=>{
+        const next=structuredClone(config);
+        delete next.richText.documents[key];
+        if(!Object.keys(next.richText.documents).length)delete next.richText.documents;
+        await onSave(velaText(next),{records:true});
+      }
+    });
+  const autoBox=form.elements.readingAuto,
+    syncAuto=()=>{
+      if(!autoBox)return;
+      root.querySelector('.vela-file-list').classList.toggle('vela-file-list-auto',autoBox.checked);
+      if(autoBox.checked){
+        chosen.clear();
+        for(const path of available)chosen.add(path);
+      }
+      for(const input of checks()){
+        input.disabled=autoBox.checked;
+        input.checked=chosen.has(input.value);
+      }
+      count();
+    };
   autoBox?.addEventListener('change',syncAuto);
   const advanced=root.querySelector('[data-section="高级"]'),overrides=structuredClone(config.files||{});
-  const formatLabel=document.createElement('label');formatLabel.textContent=t('大纲与地图配置');formatLabel.innerHTML+=`<textarea name="planningFormats" rows="12" spellcheck="false">${esc(JSON.stringify({outline:config.formats?.outline,map:config.formats?.map},null,2))}</textarea>`;advanced.append(formatLabel);const filesLabel=document.createElement('label');filesLabel.textContent=t('单文件配置 JSON');filesLabel.innerHTML+=`<textarea name="planningFiles" rows="6" spellcheck="false">${esc(JSON.stringify(config.files||{},null,2))}</textarea>`;advanced.append(filesLabel);
-  const backup=(workspace.configBackups?.[doc.id]||[]).findLast(item=>{try{return parseVela(item.text).version===2;}catch{return false;}});if(backup){const restore=document.createElement('button');restore.type='button';restore.className='secondary';restore.textContent=t('恢复上次配置');restore.onclick=()=>onSave(backup.text,{restore:true});advanced.append(restore);}
-  if(global){const label=document.createElement('label');label.textContent=t('新工作区默认配置');label.innerHTML+=`<textarea name="workspaceDefaults" rows="8" spellcheck="false">${esc(JSON.stringify(config.workspaceDefaults||{},null,2))}</textarea><small>${t('仅用于新建工作区；已有作品保持自己的配置。')}</small>`;advanced.append(label);}else{const section=document.createElement('section');section.className='vela-card';section.innerHTML=`<h3>${t('单文件配置')}</h3><select id="vela-override-path"><option value="">${t('选择文件')}</option>${available.map(path=>`<option value="${esc(path)}">${esc(path)}</option>`).join('')}</select><div id="vela-override-fields"></div>`;advanced.append(section);section.querySelector('select').onchange=e=>{const path=e.target.value,record=overrides[path]||{},resolved=effectiveVela(globalConfig(workspace)?.config,config,path),box=section.querySelector('#vela-override-fields');box.innerHTML=path?`${field('fileEditorFont','编辑字号',record.editor?.fontSize,resolved.editor.fontSize,10,40)}${field('fileReaderFont','阅读字号',record.reading?.layout?.fontSize,resolved.reading.layout.fontSize,10,40)}${Object.keys(readingLayoutDefaults).map(key=>field('file'+key,labels[key],record.reading?.layout?.[key],resolved.reading.layout[key],key==='lineHeight'?1:0,key==='lineHeight'?3.5:240,key==='lineHeight'?.1:1)).join('')}`:'';box.oninput=()=>{const next=overrides[path]||{},{editor={},reading={}}=next,layout={...reading.layout};for(const [key,name] of [['fontSize','fileReaderFont'],...Object.keys(readingLayoutDefaults).map(key=>[key,'file'+key])]){const value=form.elements[name].value;if(value==='')delete layout[key];else layout[key]=Number(value);}const value=form.elements.fileEditorFont.value;if(value==='')delete editor.fontSize;else editor.fontSize=Number(value);overrides[path]={...next,editor,reading:{...reading,layout}};};};}
-  const sample=()=>{const data=new FormData(form),article=root.querySelector('.vela-layout-sample article');article.style.fontSize=(Number(data.get('fontSize'))||effective.reading.layout.fontSize)+'px';article.style.lineHeight=Number(data.get('lineHeight'))||effective.reading.layout.lineHeight;for(const side of ['Top','Bottom','Left','Right'])article.style['padding'+side]=(data.get('margin'+side)===''?effective.reading.layout['margin'+side]:Number(data.get('margin'+side)))+'px';};count();sample();syncAuto();
-  form.oninput=e=>{if(e.target.name==='readingFiles'){e.target.checked?chosen.add(e.target.value):chosen.delete(e.target.value);}if(global&&e.target.name==='readingFiles')form.elements.libraryMode.value='manual';count();sample();};
+  const formatLabel=document.createElement('label');
+  formatLabel.textContent=t('大纲与地图配置');
+  formatLabel.innerHTML+=`<textarea name="planningFormats" rows="12" spellcheck="false">${esc(JSON.stringify({outline:config.formats?.outline,map:config.formats?.map},null,2))}</textarea>`;
+  advanced.append(formatLabel);
+  const filesLabel=document.createElement('label');
+  filesLabel.textContent=t('单文件配置 JSON');
+  filesLabel.innerHTML+=`<textarea name="planningFiles" rows="6" spellcheck="false">${esc(JSON.stringify(config.files||{},null,2))}</textarea>`;
+  advanced.append(filesLabel);
+  const backup=(workspace.configBackups?.[doc.id]||[]).findLast(item=>{
+    try{
+      return parseVela(item.text).version===2;
+    }catch{
+      return false;
+    }
+  });
+  if(backup){
+    const restore=document.createElement('button');
+    restore.type='button';
+    restore.className='secondary';
+    restore.textContent=t('恢复上次配置');
+    restore.onclick=()=>onSave(backup.text,{restore:true});
+    advanced.append(restore);
+  }
+  if(global){
+    const label=document.createElement('label');
+    label.textContent=t('新工作区默认配置');
+    label.innerHTML+=`<textarea name="workspaceDefaults" rows="8" spellcheck="false">${esc(JSON.stringify(config.workspaceDefaults||{},null,2))}</textarea><small>${t('仅用于新建工作区；已有作品保持自己的配置。')}</small>`;
+    advanced.append(label);
+  }else{
+    const section=document.createElement('section');
+    section.className='vela-card';
+    section.innerHTML=`<h3>${t('单文件配置')}</h3><select id="vela-override-path"><option value="">${t('选择文件')}</option>${available.map(path=>`<option value="${esc(path)}">${esc(path)}</option>`).join('')}</select><div id="vela-override-fields"></div>`;
+    advanced.append(section);
+    section.querySelector('select').onchange=e=>{
+      const path=e.target.value,record=overrides[path]||{},resolved=effectiveVela(globalConfig(workspace)?.config,config,path),box=section.querySelector('#vela-override-fields');
+      box.innerHTML=path
+        ?`${field('fileEditorFont','编辑字号',record.editor?.fontSize,resolved.editor.fontSize,10,40)}${field('fileReaderFont','阅读字号',record.reading?.layout?.fontSize,resolved.reading.layout.fontSize,10,40)}${Object.keys(readingLayoutDefaults).map(key=>field('file'+key,labels[key],record.reading?.layout?.[key],resolved.reading.layout[key],key==='lineHeight'?1:0,key==='lineHeight'?3.5:240,key==='lineHeight'?.1:1)).join('')}`
+        :'';
+      box.oninput=()=>{
+        const next=overrides[path]||{},{editor={},reading={}}=next,layout={...reading.layout};
+        for(const [key,name] of [['fontSize','fileReaderFont'],...Object.keys(readingLayoutDefaults).map(key=>[key,'file'+key])]){
+          const value=form.elements[name].value;
+          if(value==='')delete layout[key];else layout[key]=Number(value);
+        }
+        const value=form.elements.fileEditorFont.value;
+        if(value==='')delete editor.fontSize;else editor.fontSize=Number(value);
+        overrides[path]={...next,editor,reading:{...reading,layout}};
+      };
+    };
+  }
+  const sample=()=>{
+    const data=new FormData(form),article=root.querySelector('.vela-layout-sample article');
+    article.style.fontSize=(Number(data.get('fontSize'))||effective.reading.layout.fontSize)+'px';
+    article.style.lineHeight=Number(data.get('lineHeight'))||effective.reading.layout.lineHeight;
+    for(const side of ['Top','Bottom','Left','Right'])article.style['padding'+side]=(data.get('margin'+side)===''?effective.reading.layout['margin'+side]:Number(data.get('margin'+side)))+'px';
+  };
+  count();
+  sample();
+  syncAuto();
+  form.oninput=e=>{
+    if(e.target.name==='readingFiles'){
+      e.target.checked?chosen.add(e.target.value):chosen.delete(e.target.value);
+    }
+    if(global&&e.target.name==='readingFiles')form.elements.libraryMode.value='manual';
+    count();
+    sample();
+  };
   root.querySelector('#vela-file-search').oninput=()=>fileList.setItems(matching());
-  root.querySelectorAll('[data-vela-select]').forEach(button=>button.onclick=()=>{if(autoBox?.checked)return;for(const path of matching())button.dataset.velaSelect==='all'?chosen.add(path):chosen.delete(path);for(const input of checks())input.checked=chosen.has(input.value);if(global)form.elements.libraryMode.value='manual';count();});
-  root.querySelectorAll('[data-vela-section]').forEach(button=>button.onclick=()=>{root.querySelectorAll('[data-vela-section]').forEach(item=>item.removeAttribute('aria-current'));button.setAttribute('aria-current','true');root.querySelector(`[data-section="${button.dataset.velaSection}"]`).scrollIntoView({behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'instant':'smooth',block:'start'});});
-  form.onsubmit=async e=>{e.preventDefault();const button=form.querySelector('footer .primary');button.disabled=true;try{const data=new FormData(form),next=structuredClone(config);const set=(obj,key,name,numeric=true)=>{const value=data.get(name);if(value==='')delete obj[key];else obj[key]=numeric?Number(value):value;};const editedFiles=JSON.parse(data.get('planningFiles'));if(JSON.stringify(editedFiles)!==JSON.stringify(config.files||{}))next.files=editedFiles;const planning=JSON.parse(data.get('planningFormats'));for(const key of ['outline','map']){next.formats={...next.formats};if(planning[key]===undefined)delete next.formats[key];else next.formats[key]=planning[key];}next.editor={...next.editor};const glossaryPaths=data.get('glossaries').trim();if(!glossaryPaths)delete next.editor.glossaries;else next.editor.glossaries=glossaryPaths==='[]'?[]:glossaryPaths.split(/\r?\n/).map(path=>path.trim()).filter(Boolean);for(const [key,name] of [['fontSize','editorFontSize'],['lineHeight','editorLineHeight'],['indentSize','indentSize'],['maxWidth','maxWidth']])set(next.editor,key,name);for(const key of ['wrap','completion']){if(data.get(key)==='')delete next.editor[key];else next.editor[key]=data.get(key)==='true';}for(const [key,name] of [['mode','editorMode'],['novelIndent','novelIndent']])set(next.editor,key,name,false);next.reader={...next.reader};set(next.reader,'mode','readerMode',false);if(data.get('titlePage')==='')delete next.reader.titlePage;else next.reader.titlePage=data.get('titlePage')==='true';const layout={...(global?next.reader.layout:next.reading.layout)};for(const key of ['fontSize',...Object.keys(readingLayoutDefaults)])set(layout,key,key);if(global){next.reader.layout=layout;next.reader.appearancePolicy=data.get('appearancePolicy');next.library={...next.library,mode:data.get('libraryMode')};}else{next.project={...next.project,name:data.get('name').trim(),description:data.get('description'),author:data.get('author')};if(data.get('cover').trim())next.project.cover=data.get('cover').trim();else delete next.project.cover;next.chapters={...next.chapters,templates:data.get('titleTemplates').split(/\r?\n/).filter(Boolean)};next.reading.layout=layout;next.formats={...next.formats,latex:{...next.formats?.latex,engine:data.get('texEngine')}};if(data.get('texMain').trim())next.formats.latex.main=data.get('texMain').trim();else delete next.formats.latex.main;next.publishing={...next.publishing};if(data.get('changelog').trim())next.publishing.changelog=data.get('changelog').trim();else delete next.publishing.changelog;}
-      const selected=[...chosen],old=global?config.library?.items:config.reading.items,order=global?selected:[...new Set([...data.get('readingOrder').split(/\r?\n/).map(path=>path.trim()).filter(path=>selected.includes(path)),...selected])],items=order.map(path=>old?.find(item=>item.path===path)||{path});if(global){next.library.items=items;next.workspaceDefaults=JSON.parse(data.get('workspaceDefaults')||'{}');}else{if(data.get('readingAuto'))delete next.reading.items;else next.reading.items=items;if(JSON.stringify(editedFiles)===JSON.stringify(config.files||{}))next.files=overrides;}
-      const enabled=data.get('richTextEnabled');if(enabled||next.richText){next.richText={...next.richText};if(enabled)next.richText.enabled=enabled==='true';else delete next.richText.enabled;if(!Object.keys(next.richText).length)delete next.richText;else next.version=3;}await onSave(velaText(next));
-    }catch(error){root.querySelector('#vela-error').textContent=error.message;}finally{button.disabled=false;}};
+  root.querySelectorAll('[data-vela-select]').forEach(button=>button.onclick=()=>{
+    if(autoBox?.checked)return;
+    for(const path of matching())button.dataset.velaSelect==='all'?chosen.add(path):chosen.delete(path);
+    for(const input of checks())input.checked=chosen.has(input.value);
+    if(global)form.elements.libraryMode.value='manual';
+    count();
+  });
+  root.querySelectorAll('[data-vela-section]').forEach(button=>button.onclick=()=>{
+    root.querySelectorAll('[data-vela-section]').forEach(item=>item.removeAttribute('aria-current'));
+    button.setAttribute('aria-current','true');
+    root.querySelector(`[data-section="${button.dataset.velaSection}"]`).scrollIntoView({behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'instant':'smooth',block:'start'});
+  });
+  form.onsubmit=async e=>{
+    e.preventDefault();
+    const button=form.querySelector('footer .primary');
+    button.disabled=true;
+    try{
+      const data=new FormData(form),next=structuredClone(config);
+      const set=(obj,key,name,numeric=true)=>{
+        const value=data.get(name);
+        if(value==='')delete obj[key];else obj[key]=numeric?Number(value):value;
+      };
+      const editedFiles=JSON.parse(data.get('planningFiles'));
+      if(JSON.stringify(editedFiles)!==JSON.stringify(config.files||{}))next.files=editedFiles;
+      const planning=JSON.parse(data.get('planningFormats'));
+      for(const key of ['outline','map']){
+        next.formats={...next.formats};
+        if(planning[key]===undefined)delete next.formats[key];else next.formats[key]=planning[key];
+      }
+      next.editor={...next.editor};
+      const glossaryPaths=data.get('glossaries').trim();
+      if(!glossaryPaths)delete next.editor.glossaries;else next.editor.glossaries=glossaryPaths==='[]'?[]:glossaryPaths.split(/\r?\n/).map(path=>path.trim()).filter(Boolean);
+      for(const [key,name] of [['fontSize','editorFontSize'],['lineHeight','editorLineHeight'],['indentSize','indentSize'],['maxWidth','maxWidth']])set(next.editor,key,name);
+      for(const key of ['wrap','completion']){
+        if(data.get(key)==='')delete next.editor[key];else next.editor[key]=data.get(key)==='true';
+      }
+      for(const [key,name] of [['mode','editorMode'],['novelIndent','novelIndent']])set(next.editor,key,name,false);
+      next.reader={...next.reader};
+      set(next.reader,'mode','readerMode',false);
+      if(data.get('titlePage')==='')delete next.reader.titlePage;else next.reader.titlePage=data.get('titlePage')==='true';
+      const layout={...(global?next.reader.layout:next.reading.layout)};
+      for(const key of ['fontSize',...Object.keys(readingLayoutDefaults)])set(layout,key,key);
+      if(global){
+        next.reader.layout=layout;
+        next.reader.appearancePolicy=data.get('appearancePolicy');
+        next.library={...next.library,mode:data.get('libraryMode')};
+      }else{
+        next.project={...next.project,name:data.get('name').trim(),description:data.get('description'),author:data.get('author')};
+        if(data.get('cover').trim())next.project.cover=data.get('cover').trim();else delete next.project.cover;
+        next.chapters={...next.chapters,templates:data.get('titleTemplates').split(/\r?\n/).filter(Boolean)};
+        next.reading.layout=layout;
+        next.formats={...next.formats,latex:{...next.formats?.latex,engine:data.get('texEngine')}};
+        if(data.get('texMain').trim())next.formats.latex.main=data.get('texMain').trim();else delete next.formats.latex.main;
+        next.publishing={...next.publishing};
+        if(data.get('changelog').trim())next.publishing.changelog=data.get('changelog').trim();else delete next.publishing.changelog;
+      }
+      const selected=[...chosen],
+        old=global?config.library?.items:config.reading.items,
+        order=global?selected:[...new Set([...data.get('readingOrder').split(/\r?\n/).map(path=>path.trim()).filter(path=>selected.includes(path)),...selected])],
+        items=order.map(path=>old?.find(item=>item.path===path)||{path});
+      if(global){
+        next.library.items=items;
+        next.workspaceDefaults=JSON.parse(data.get('workspaceDefaults')||'{}');
+      }else{
+        if(data.get('readingAuto'))delete next.reading.items;else next.reading.items=items;
+        if(JSON.stringify(editedFiles)===JSON.stringify(config.files||{}))next.files=overrides;
+      }
+      const enabled=data.get('richTextEnabled');
+      if(enabled||next.richText){
+        next.richText={...next.richText};
+        if(enabled)next.richText.enabled=enabled==='true';else delete next.richText.enabled;
+        if(!Object.keys(next.richText).length)delete next.richText;else next.version=3;
+      }
+      await onSave(velaText(next));
+    }catch(error){
+      root.querySelector('#vela-error').textContent=error.message;
+    }finally{
+      button.disabled=false;
+    }
+  };
 }
