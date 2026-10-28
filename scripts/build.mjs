@@ -1,4 +1,4 @@
-import { build } from 'esbuild';
+import { build, transform } from 'esbuild';
 import { mkdir, copyFile, cp, readFile, writeFile, rm } from 'node:fs/promises';
 import { recordBundle } from './frontend-state.mjs';
 import {copyTexAssets} from './tex-assets.mjs';
@@ -23,7 +23,9 @@ await build({entryPoints:['web/workspace-save-worker.js'],bundle:true,outfile:`$
 await build({entryPoints:['web/project-archive-worker.js'],bundle:true,outfile:`${out}/project-archive-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
 await build({entryPoints:['web/tex-component-worker.js'],bundle:true,outfile:`${out}/tex-component-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
 await build({entryPoints:['web/html-reader.js'],bundle:true,outfile:`${out}/html-reader.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
-for(const name of ['index.html','startup.js','startup.css','style.css', 'editor.css']) await copyFile(`web/${name}`,`${out}/${name}`);
+for(const name of ['index.html','startup.js','startup.css']) await copyFile(`web/${name}`,`${out}/${name}`);
+// The stylesheets are kept readable in web/; ship them minified (no syntax lowering, so the cascade is unchanged).
+for(const name of ['style.css','editor.css']) await writeFile(`${out}/${name}`,(await transform(await readFile(`web/${name}`,'utf8'),{loader:'css',minify:true,legalComments:'none'})).code);
 await copyFile('node_modules/katex/dist/katex.min.css',`${out}/katex.min.css`);
 await cp('node_modules/katex/dist/fonts',`${out}/fonts`,{recursive:true});
 await copyTexAssets(out,{lite});

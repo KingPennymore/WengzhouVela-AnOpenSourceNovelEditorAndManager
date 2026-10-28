@@ -18,7 +18,7 @@ function fixture(t) {
     writeFileSync(join(directory, name), text);
     if (recorded) outputs[name] = createHash('sha256').update(text).digest('hex');
   };
-  for (const name of ['index.html', 'startup.js', 'startup.css', 'app.js', 'style.css', 'file-manager.css', 'ui.css', 'design.css', 'refinement.css', 'licenses.js', 'version.json', 'noun-worker.js', 'map-simplify-worker.js']) write(name, '');
+  for (const name of ['index.html', 'startup.js', 'startup.css', 'app.js', 'style.css', 'editor.css', 'licenses.js', 'version.json', 'noun-worker.js', 'map-simplify-worker.js']) write(name, '');
   write('app.js', 'import "./chunks/shared.js"; import("./chunks/lazy.js");');
   write('chunks/shared.js', 'export {x} from "./nested.js";');
   write('chunks/nested.js', 'import "../app.js"; export const x = 1;');
