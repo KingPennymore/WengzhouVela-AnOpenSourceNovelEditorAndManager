@@ -712,7 +712,7 @@ function applyFileState(result,{context=fileViewContext(),persist=true}={}){
   const live=new Set(workspace.documents.map(doc=>doc.id));for(const id of editorStates.keys())if(!live.has(id))editorStates.delete(id);
   if(selectedFolder&&!workspace.folders.includes(selectedFolder))selectedFolder='';
   const target=context.wasHome?null:fileViewTarget(workspace.documents,oldId,context.openIds),doc=workspace.documents.find(d=>d.id===target);
-  if(doc&&view&&target===oldId&&view.state.doc.toString()===doc.text){workspace.activeId=target;home=false;isPreview=context.preview;if(context.name!==doc.name||context.kind!==documentKind(doc))refreshFileType(doc);else updateEditorVisibility();}
+  if(doc&&view&&target===oldId&&view.state.doc.toString()===doc.text){workspace.activeId=target;home=false;isPreview=context.preview;$('#current-name').textContent=doc.name;if(context.name!==doc.name||context.kind!==documentKind(doc))refreshFileType(doc);else updateEditorVisibility();}
   else if(doc){if(view){view.destroy();view=null;}workspace.activeId=target;switchDocument(target);if(target===oldId){isPreview=context.preview;updateEditorVisibility();if(isPreview)renderPreview();}}
   else if(!context.wasHome)showHome();
   else{workspace.activeId=null;renderHome();}

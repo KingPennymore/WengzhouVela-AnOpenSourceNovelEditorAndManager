@@ -73,7 +73,7 @@ try{
   await check('新建、重命名、删除文件以及开源许可查看可用',async()=>{
     await click('mobile-library');await click('new-doc');await page.locator('[name="name"]').fill('新小说.txt');await click('dialog-submit');await waitText('#current-name','新小说.txt');assert.ok((await content()).includes('第一段'),'New TXT files start with the plain-text format skeleton');
     const activeId=await page.evaluate(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')).activeId);await page.locator(`[data-menu="${activeId}"]`).click();await click('rename-doc');await page.locator('[name="name"]').fill('重命名小说.txt');await click('dialog-submit');await waitText('#current-name','重命名小说.txt');
-    await page.locator(`[data-menu="${activeId}"]`).click();await click('delete-doc');await click('dialog-submit');await page.locator('#dialog[open]').waitFor({state:'hidden'});assert.equal(await page.locator('[data-tab]').count(),2);await openRecentFile(page,page.locator('[data-recent="book"]'));
+    await page.locator(`[data-menu="${activeId}"]`).click();await click('delete-doc');await click('dialog-submit');await page.locator('#dialog[open]').waitFor({state:'hidden'});assert.equal(await page.locator('[data-tab]').count(),2);assert.equal(await page.locator('#start-page').isVisible(),false,'deleting the active file switches to another open tab');await page.locator('[data-tab="book"]').click();await waitText('#current-name','全书.txt');
     await click('settings');await click('show-licenses');assert.ok((await page.locator('#license-text').inputValue()).includes('Copyright'));assert.ok(await page.locator('#license-component option').count()>8);await click('dialog-cancel');
   });
   // All remote mutations below are intercepted. No real account or repository is modified.
