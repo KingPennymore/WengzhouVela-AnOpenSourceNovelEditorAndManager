@@ -14,7 +14,48 @@ const sources=()=>readdirSync('web').filter(name=>/\.(mjs|js)$/.test(name)&&!/^(
 // Modules that emit English themselves. Every Chinese literal in them must go through t()/say() or be a dictionary
 // entry (thrown errors shown via t(error.message)); data that is not UI text carries an `i18n-data` comment on its line
 // or the line above.
-export const LOCALIZED=['update-view.mjs','component-download-view.mjs'];
+export const LOCALIZED=[
+  'update-view.mjs','component-download-view.mjs',
+  'epub-export.mjs',
+  'component-catalog.mjs',
+  'editing-tools.mjs',
+  'file-manager.mjs',
+  'model.mjs',
+  'sidebar-views.mjs',
+  'tex-compiler.mjs',
+  'format-style-panel.mjs',
+  'map-info.mjs',
+  'odf-base.mjs',
+  'chapter-export.mjs',
+  'map-terrain.mjs',
+  'release-signing.mjs',
+  'structured-formats.mjs',
+  'vela.mjs',
+  'document-import.mjs',
+  'imported-archive.mjs',
+  'plugin-tasks.mjs',
+  'project-archive-worker.js',
+  'rich-text-export.mjs',
+  'sync-target.mjs',
+  'tex-packages.mjs',
+  'updates.mjs',
+  'vela-format-view.mjs',
+  'editor-index.mjs',
+  'markdown-tools.mjs',
+  'repository-navigation.mjs',
+  'sidebars.mjs',
+  'vela-sync.mjs',
+  'document-service.mjs',
+  'epub-names.mjs',
+  'file-text.mjs',
+  'gitee.mjs',
+  'lazy.mjs',
+  'map-algorithms.mjs',
+  'pdf-preview.mjs',
+  'planning-chrome.mjs',
+  'planning-merge.mjs',
+  'sync-merge.mjs',
+];
 
 const literalText=node=>ts.isStringLiteral(node)||ts.isNoSubstitutionTemplateLiteral(node)?node.text:null;
 const calleeName=node=>ts.isCallExpression(node)&&ts.isIdentifier(node.expression)?node.expression.text:null;

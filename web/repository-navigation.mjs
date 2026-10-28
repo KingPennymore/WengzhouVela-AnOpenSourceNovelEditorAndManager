@@ -1,3 +1,4 @@
+import {t,say} from './i18n.mjs';
 import { sameRepository } from './sync-repository.mjs';
 import { documentPath } from './workspace.mjs';
 import { syncTextEqual } from './vela-sync.mjs';
@@ -53,7 +54,7 @@ export async function inspectBranchAttachments(workspace, target, readFile) {
       const relative = entry.path.slice(prefix.length);
       if (personalFile(relative)) continue;
       try {
-        if (!readFile) throw Error('附件不可读');
+        if (!readFile) throw Error(t('附件不可读'));
         const data = await readFile(entry.path);
         if (
           typeof data !== 'string' ||
@@ -83,26 +84,26 @@ export function switchRepositoryBranch({
   attachmentChanges = [],
 }) {
   const check = () => {
-    if (busy()) throw Error('正在同步，请等待完成后再切换分支。');
-    if (!save()) throw Error('本地保存失败，未切换分支。');
+    if (busy()) throw Error(t('正在同步，请等待完成后再切换分支。'));
+    if (!save()) throw Error(t('本地保存失败，未切换分支。'));
   };
   check();
   if (next === target.branch) return;
   const changed = [...new Set([...branchChanges(workspace, target), ...attachmentChanges])];
   if (!changed.length) return apply(next);
   openModal(
-    '切换分支前确认',
+    t('切换分支前确认'),
     `<p>${esc(target.repo)}：${esc(target.branch)} → ${esc(next)}</p>` +
-      `<p>当前分支有 ${changed.length} 项待同步或需核对的本地项目。已先保存到本机，切换后仍保留在原文件夹。</p>` +
-      `<ul>${changed
+    `<p>${say(`当前分支有 ${changed.length} 项待同步或需核对的本地项目。已先保存到本机，切换后仍保留在原文件夹。`,`${changed.length} local items on this branch need syncing or review. They are saved locally and will remain in their original folder after switching.`)}</p>` +
+    `<ul>${changed
         .slice(0, 30)
         .map((path) => `<li data-user-content>${esc(path)}</li>`)
         .join('')}</ul>` +
-      '<p>切换仅改变仓库浏览目标，不会将当前文稿重新关联到新分支，也不会自动拉取或提交。</p>',
+    `<p>${t('切换仅改变仓库浏览目标，不会将当前文稿重新关联到新分支，也不会自动拉取或提交。')}</p>`,
     () => {
-      check();
-      return apply(next);
-    },
-    { label: '保留本地变更并切换' },
+    check();
+    return apply(next);
+  },
+    { label: t('保留本地变更并切换') },
   );
 }

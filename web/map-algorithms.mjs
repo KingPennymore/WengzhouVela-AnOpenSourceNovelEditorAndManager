@@ -1,22 +1,219 @@
+import {t} from './i18n.mjs';
 import {hexVertices,directions} from './map-geometry.mjs';
 import {planningDefaults} from './planning-config.mjs';
 export {distanceBoundary} from './map-distance-boundary.mjs';
 const extensions=new Map();
 export const mapAlgorithmExtensions=()=>[...extensions.values()];
-export function registerMapAlgorithm(owner,spec){if(!spec||!/^[a-z][\w.-]{0,100}$/i.test(spec.id)||typeof spec.label!=='string'||!spec.label||typeof spec.run!=='function'||spec.defaults&&(typeof spec.defaults!=='object'||Array.isArray(spec.defaults)||Object.keys(spec.defaults).some(k=>!/^[-\w.]{1,64}$/.test(k))||Object.values(spec.defaults).some(v=>!['string','number','boolean'].includes(typeof v)||typeof v==='number'&&!Number.isFinite(v))))throw Error('插件算法定义无效。');const id=owner+'.'+spec.id;if(extensions.has(id))throw Error('插件算法已存在。');extensions.set(id,{...spec,id,defaults:structuredClone(spec.defaults||{})});return {id,dispose:()=>extensions.delete(id)};}
-const keyPoint=p=>p.map(n=>Math.round(n*1000000)).join(','),sortKeys=(a,b)=>{const [q,r]=a.split(',').map(Number),[x,y]=b.split(',').map(Number);return r-y||q-x;};
+export function registerMapAlgorithm(owner,spec){
+  if(!spec||!/^[a-z][\w.-]{0,100}$/i.test(spec.id)||typeof spec.label!=='string'||!spec.label||typeof spec.run!=='function'||spec.defaults&&(typeof spec.defaults!=='object'||Array.isArray(spec.defaults)||Object.keys(spec.defaults).some(k=>!/^[-\w.]{1,64}$/.test(k))||Object.values(spec.defaults).some(v=>!['string','number','boolean'].includes(typeof v)||typeof v==='number'&&!Number.isFinite(v))))throw Error(t('插件算法定义无效。'));
+  const id=owner+'.'+spec.id;
+  if(extensions.has(id))throw Error(t('插件算法已存在。'));
+  extensions.set(id,{...spec,id,defaults:structuredClone(spec.defaults||{})});
+  return {id,dispose:()=>extensions.delete(id)};
+}
+const keyPoint=p=>p.map(n=>Math.round(n*1000000)).join(','),sortKeys=(a,b)=>{
+  const [q,r]=a.split(',').map(Number),[x,y]=b.split(',').map(Number);
+  return r-y||q-x;
+};
 export const signedArea=path=>path.slice(1).reduce((sum,p,i)=>sum+path[i][0]*p[1]-p[0]*path[i][1],0)/2;
-export function boundaryRings(keys,grid={size:32,orientation:'pointy'}){const edges=new Map();for(const key of [...keys].sort(sortKeys)){const vertices=hexVertices(...key.split(',').map(Number),grid.size,grid.orientation);for(let i=0;i<6;i++){const a=vertices[i],b=vertices[(i+1)%6],ak=keyPoint(a),bk=keyPoint(b),id=ak<bk?ak+'|'+bk:bk+'|'+ak;if(edges.has(id))edges.delete(id);else edges.set(id,{id,a,b,ak,bk});}}const starts=new Map();for(const e of edges.values()){const list=starts.get(e.ak)||[];list.push(e);starts.set(e.ak,list);}const rings=[];for(const first of edges.values()){if(!edges.has(first.id))continue;const ring=[first.a];let e=first;while(e){edges.delete(e.id);ring.push(e.b);if(e.bk===first.ak)break;e=starts.get(e.bk)?.find(next=>edges.has(next.id));}if(ring.length>3&&keyPoint(ring[0])===keyPoint(ring.at(-1)))rings.push(ring);}return rings;}
-export function chaikin(path,iterations=1){let p=path;for(let k=0;k<iterations;k++){const next=[];for(let i=0;i<p.length-1;i++){const a=p[i],b=p[i+1];next.push([a[0]*.75+b[0]*.25,a[1]*.75+b[1]*.25],[a[0]*.25+b[0]*.75,a[1]*.25+b[1]*.75]);}if(next.length)next.push([...next[0]]);p=next;}return p;}
-const check=(v,min,max,integer=false)=>{if(!Number.isFinite(v)||v<min||v>max||integer&&!Number.isInteger(v))throw Error('边界算法参数超出允许范围。');return v;};
-function budget(paths,factor=1){if(paths.reduce((sum,p)=>sum+p.length,0)*factor>150000)throw Error('生成边界过大，请减少平滑次数或格子数量。');}
-export function coastline(cells,params={},context={}){const grid=context.grid||{size:32,orientation:'pointy'},palette=context.palette||planningDefaults.map.palette,smoothing=check(params.smoothing??2,0,5,true),roughness=check(params.roughness??.35,0,1),seed=check(params.seed??1,0,4294967295,true),land=new Set(palette.filter(p=>['land','city'].includes(p.role)).map(p=>p.id)),rings=boundaryRings(Object.keys(cells).filter(k=>land.has(cells[k].fill)),grid);budget(rings,2**smoothing*2);let random=seed>>>0;const rand=()=>{random=(Math.imul(random,1664525)+1013904223)>>>0;return random/4294967296;};return rings.map(ring=>{const smooth=chaikin(ring,smoothing),result=[];for(let i=0;i<smooth.length-1;i++){const a=smooth[i],b=smooth[i+1],dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy)||1,shift=(rand()-.5)*grid.size*.24*roughness;result.push(a,[(a[0]+b[0])/2-dy/length*shift,(a[1]+b[1])/2+dx/length*shift]);}if(result.length)result.push([...result[0]]);return result.map(p=>p.map(n=>Math.round(n*10000)/10000));});}
-class Heap{constructor(){this.items=[];}less(a,b){return a[0]<b[0]||a[0]===b[0]&&(a[1]<b[1]||a[1]===b[1]&&a[2]<b[2]);}push(v){const a=this.items;a.push(v);let i=a.length-1;while(i){const p=(i-1)>>1;if(!this.less(a[i],a[p]))break;[a[i],a[p]]=[a[p],a[i]];i=p;}}pop(){const a=this.items,first=a[0],last=a.pop();if(a.length){a[0]=last;let i=0;for(;;){let child=i*2+1;if(child>=a.length)break;if(child+1<a.length&&this.less(a[child+1],a[child]))child++;if(!this.less(a[child],a[i]))break;[a[i],a[child]]=[a[child],a[i]];i=child;}}return first;}}
-function expand(ring,padding,style){const area=signedArea(ring),result=[];for(let i=0;i<ring.length-1;i++){const p=ring[i],prev=ring[(i+ring.length-2)%(ring.length-1)],next=ring[i+1],a=[p[0]-prev[0],p[1]-prev[1]],b=[next[0]-p[0],next[1]-p[1]],la=Math.hypot(...a)||1,lb=Math.hypot(...b)||1,n=[a[1]/la+b[1]/lb,-a[0]/la-b[0]/lb],d=Math.hypot(...n)||1,sign=1;result.push([p[0]+n[0]/d*padding*1.155*sign,p[1]+n[1]/d*padding*1.155*sign]);}result.push([...result[0]]);if(style==='round')return chaikin(result,1);const teeth=[];for(let i=0;i<result.length-1;i++){const a=result[i],b=result[i+1],dx=b[0]-a[0],dy=b[1]-a[1],d=Math.hypot(dx,dy)||1;teeth.push(a,[(a[0]+b[0])/2+dy/d*padding*.7,(a[1]+b[1])/2-dx/d*padding*.7]);}teeth.push([...teeth[0]]);return teeth;}
-const tint=color=>{const c=color?.length===4?'#'+[...color.slice(1)].map(s=>s+s).join(''):color||'#b5544a';return '#'+[1,3,5].map(i=>Math.round(parseInt(c.slice(i,i+2),16)*.35+255*.65).toString(16).padStart(2,'0')).join('')+'66';};
+export function boundaryRings(keys,grid={size:32,orientation:'pointy'}){
+  const edges=new Map();
+  for(const key of [...keys].sort(sortKeys)){
+    const vertices=hexVertices(...key.split(',').map(Number),grid.size,grid.orientation);
+    for(let i=0;i<6;i++){
+      const a=vertices[i],b=vertices[(i+1)%6],ak=keyPoint(a),bk=keyPoint(b),id=ak<bk?ak+'|'+bk:bk+'|'+ak;
+      if(edges.has(id))edges.delete(id);
+
+      else edges.set(id,{id,a,b,ak,bk});
+    }
+  }
+  const starts=new Map();
+  for(const e of edges.values()){
+    const list=starts.get(e.ak)||[];
+    list.push(e);
+    starts.set(e.ak,list);
+  }
+  const rings=[];
+  for(const first of edges.values()){
+    if(!edges.has(first.id))continue;
+    const ring=[first.a];
+    let e=first;
+    while(e){
+      edges.delete(e.id);
+      ring.push(e.b);
+      if(e.bk===first.ak)break;
+      e=starts.get(e.bk)?.find(next=>edges.has(next.id));
+    }
+    if(ring.length>3&&keyPoint(ring[0])===keyPoint(ring.at(-1)))rings.push(ring);
+  }
+  return rings;
+}
+export function chaikin(path,iterations=1){
+  let p=path;
+  for(let k=0;k<iterations;k++){
+    const next=[];
+    for(let i=0;i<p.length-1;i++){
+      const a=p[i],b=p[i+1];
+      next.push([a[0]*.75+b[0]*.25,a[1]*.75+b[1]*.25],[a[0]*.25+b[0]*.75,a[1]*.25+b[1]*.75]);
+    }
+    if(next.length)next.push([...next[0]]);
+    p=next;
+  }
+  return p;
+}
+const check=(v,min,max,integer=false)=>{
+  if(!Number.isFinite(v)||v<min||v>max||integer&&!Number.isInteger(v))throw Error(t('边界算法参数超出允许范围。'));
+  return v;
+};
+function budget(paths,factor=1){
+  if(paths.reduce((sum,p)=>sum+p.length,0)*factor>150000)throw Error(t('生成边界过大，请减少平滑次数或格子数量。'));
+}
+export function coastline(cells,params={},context={}){
+  const grid=context.grid||{size:32,orientation:'pointy'},
+    palette=context.palette||planningDefaults.map.palette,
+    smoothing=check(params.smoothing??2,0,5,true),
+    roughness=check(params.roughness??.35,0,1),
+    seed=check(params.seed??1,0,4294967295,true),
+    land=new Set(palette.filter(p=>['land','city'].includes(p.role)).map(p=>p.id)),
+    rings=boundaryRings(Object.keys(cells).filter(k=>land.has(cells[k].fill)),grid);
+  budget(rings,2**smoothing*2);
+  let random=seed>>>0;
+  const rand=()=>{
+    random=(Math.imul(random,1664525)+1013904223)>>>0;
+    return random/4294967296;
+  };
+  return rings.map(ring=>{
+    const smooth=chaikin(ring,smoothing),result=[];
+    for(let i=0;i<smooth.length-1;i++){
+      const a=smooth[i],b=smooth[i+1],dx=b[0]-a[0],dy=b[1]-a[1],length=Math.hypot(dx,dy)||1,shift=(rand()-.5)*grid.size*.24*roughness;
+      result.push(a,[(a[0]+b[0])/2-dy/length*shift,(a[1]+b[1])/2+dx/length*shift]);
+    }
+    if(result.length)result.push([...result[0]]);
+    return result.map(p=>p.map(n=>Math.round(n*10000)/10000));
+  });
+}
+class Heap{
+  constructor(){
+    this.items=[];
+  }
+  less(a,b){
+    return a[0]<b[0]||a[0]===b[0]&&(a[1]<b[1]||a[1]===b[1]&&a[2]<b[2]);
+  }
+  push(v){
+    const a=this.items;
+    a.push(v);
+    let i=a.length-1;
+    while(i){
+      const p=(i-1)>>1;
+      if(!this.less(a[i],a[p]))break;
+      [a[i],a[p]]=[a[p],a[i]];
+      i=p;
+    }
+  }
+  pop(){
+    const a=this.items,first=a[0],last=a.pop();
+    if(a.length){
+      a[0]=last;
+      let i=0;
+      for(;;){
+        let child=i*2+1;
+        if(child>=a.length)break;
+        if(child+1<a.length&&this.less(a[child+1],a[child]))child++;
+        if(!this.less(a[child],a[i]))break;
+        [a[i],a[child]]=[a[child],a[i]];
+        i=child;
+      }
+    }
+    return first;
+  }
+}
+function expand(ring,padding,style){
+  const area=signedArea(ring),result=[];
+  for(let i=0;i<ring.length-1;i++){
+    const p=ring[i],
+      prev=ring[(i+ring.length-2)%(ring.length-1)],
+      next=ring[i+1],
+      a=[p[0]-prev[0],p[1]-prev[1]],
+      b=[next[0]-p[0],next[1]-p[1]],
+      la=Math.hypot(...a)||1,
+      lb=Math.hypot(...b)||1,
+      n=[a[1]/la+b[1]/lb,-a[0]/la-b[0]/lb],
+      d=Math.hypot(...n)||1,
+      sign=1;
+    result.push([p[0]+n[0]/d*padding*1.155*sign,p[1]+n[1]/d*padding*1.155*sign]);
+  }
+  result.push([...result[0]]);
+  if(style==='round')return chaikin(result,1);
+  const teeth=[];
+  for(let i=0;i<result.length-1;i++){
+    const a=result[i],b=result[i+1],dx=b[0]-a[0],dy=b[1]-a[1],d=Math.hypot(dx,dy)||1;
+    teeth.push(a,[(a[0]+b[0])/2+dy/d*padding*.7,(a[1]+b[1])/2-dx/d*padding*.7]);
+  }
+  teeth.push([...teeth[0]]);
+  return teeth;
+}
+const tint=color=>{
+  const c=color?.length===4?'#'+[...color.slice(1)].map(s=>s+s).join(''):color||'#b5544a';
+  return '#'+[1,3,5].map(i=>Math.round(parseInt(c.slice(i,i+2),16)*.35+255*.65).toString(16).padStart(2,'0')).join('')+'66';
+};
 export function cityBoundaries(cells,params={},context={}){
- const grid=context.grid||{size:32,orientation:'pointy'},palette=context.palette||planningDefaults.map.palette,radius=check(params.radius??4,0,100),padding=check(params.wallPadding??.2,0,.45)*grid.size,style=params.wallStyle??'round',weighted=params.weighted??true;if(!['round','bastion'].includes(style)||typeof weighted!=='boolean')throw Error('城市边界参数无效。');const paletteById=new Map(palette.map(p=>[p.id,p])),remaining=new Set(Object.keys(cells).filter(k=>paletteById.get(cells[k].fill)?.role==='city')),cities=[];
- const adjacent=key=>{const [q,r]=key.split(',').map(Number);return directions.map(([dq,dr])=>(q+dq)+','+(r+dr));};for(const first of [...remaining].sort(sortKeys)){if(!remaining.has(first))continue;const group=[],queue=[first];remaining.delete(first);for(let i=0;i<queue.length;i++){const k=queue[i];group.push(k);for(const next of adjacent(k))if(remaining.delete(next))queue.push(next);}group.sort(sortKeys);cities.push({id:'city-'+group[0],name:group.map(k=>cells[k].name).find(Boolean)||'城市 '+(cities.length+1),cells:group,color:tint(paletteById.get(cells[group[0]].fill)?.color)});}cities.sort((a,b)=>a.id<b.id?-1:1);
- const owners={},distance={},heap=new Heap();for(const city of cities)for(const key of city.cells){owners[key]=city.id;distance[key]=0;heap.push([0,city.id,key]);}while(heap.items.length){const [dist,owner,key]=heap.pop();if(dist!==distance[key]||owner!==owners[key])continue;for(const next of adjacent(key)){const cell=cells[next],terrain=cell&&paletteById.get(cell.fill);if(!terrain||terrain.role==='water')continue;const cost=dist+(weighted?terrain.cost||1:1);if(cost>radius)continue;if(distance[next]===undefined||cost<distance[next]||cost===distance[next]&&owner<owners[next]){distance[next]=cost;owners[next]=owner;heap.push([cost,owner,next]);}}}
- const walls=[],regions=[],paths=[];for(const city of cities){const wall=boundaryRings(city.cells,grid).map(r=>expand(r,padding,style)),territory=Object.keys(owners).filter(key=>owners[key]===city.id),rings=boundaryRings(territory,grid);budget(rings,2);const district=rings.map(r=>chaikin(r,1));walls.push({id:city.id,name:city.name,paths:wall});regions.push({id:city.id,name:city.name,color:city.color,paths:district});paths.push(...wall,...district);}budget(paths);return {cities,owners,distance,walls,regions,paths};
+  const grid=context.grid||{size:32,orientation:'pointy'},
+    palette=context.palette||planningDefaults.map.palette,
+    radius=check(params.radius??4,0,100),
+    padding=check(params.wallPadding??.2,0,.45)*grid.size,
+    style=params.wallStyle??'round',
+    weighted=params.weighted??true;
+  if(!['round','bastion'].includes(style)||typeof weighted!=='boolean')throw Error(t('城市边界参数无效。'));
+  const paletteById=new Map(palette.map(p=>[p.id,p])),remaining=new Set(Object.keys(cells).filter(k=>paletteById.get(cells[k].fill)?.role==='city')),cities=[];
+
+  const adjacent=key=>{
+    const [q,r]=key.split(',').map(Number);
+    return directions.map(([dq,dr])=>(q+dq)+','+(r+dr));
+  };
+  for(const first of [...remaining].sort(sortKeys)){
+    if(!remaining.has(first))continue;
+    const group=[],queue=[first];
+    remaining.delete(first);
+    for(let i=0;i<queue.length;i++){
+      const k=queue[i];
+      group.push(k);
+      for(const next of adjacent(k))if(remaining.delete(next))queue.push(next);
+    }
+    group.sort(sortKeys);
+    cities.push({id:'city-'+group[0],name:group.map(k=>cells[k].name).find(Boolean)||'城市 '+(cities.length+1),cells:group,color:tint(paletteById.get(cells[group[0]].fill)?.color)}); // i18n-data: Generated city names become editable map data.
+  }
+  cities.sort((a,b)=>a.id<b.id?-1:1);
+
+  const owners={},distance={},heap=new Heap();
+  for(const city of cities)for(const key of city.cells){
+    owners[key]=city.id;
+    distance[key]=0;
+    heap.push([0,city.id,key]);
+  }
+  while(heap.items.length){
+    const [dist,owner,key]=heap.pop();
+    if(dist!==distance[key]||owner!==owners[key])continue;
+    for(const next of adjacent(key)){
+      const cell=cells[next],terrain=cell&&paletteById.get(cell.fill);
+      if(!terrain||terrain.role==='water')continue;
+      const cost=dist+(weighted?terrain.cost||1:1);
+      if(cost>radius)continue;
+      if(distance[next]===undefined||cost<distance[next]||cost===distance[next]&&owner<owners[next]){
+        distance[next]=cost;
+        owners[next]=owner;
+        heap.push([cost,owner,next]);
+      }
+    }
+  }
+  const walls=[],regions=[],paths=[];
+  for(const city of cities){
+    const wall=boundaryRings(city.cells,grid).map(r=>expand(r,padding,style)),territory=Object.keys(owners).filter(key=>owners[key]===city.id),rings=boundaryRings(territory,grid);
+    budget(rings,2);
+    const district=rings.map(r=>chaikin(r,1));
+    walls.push({id:city.id,name:city.name,paths:wall});
+    regions.push({id:city.id,name:city.name,color:city.color,paths:district});
+    paths.push(...wall,...district);
+  }
+  budget(paths);
+  return {cities,owners,distance,walls,regions,paths};
 }

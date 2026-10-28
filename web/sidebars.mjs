@@ -1,3 +1,4 @@
+import {t} from './i18n.mjs';
 import {reducedMotion} from './motion.mjs';
 const DURATION=240;
 const fields=['left','right','leftWidth','rightWidth','bottom','leftReveal','rightReveal'];
@@ -13,26 +14,82 @@ export class SidebarLayout {
     this.frame=0;
     this.footerHeight=80;
     this.motion=matchMedia('(prefers-reduced-motion: reduce)');
-    try{this.widths=JSON.parse(localStorage.getItem('vela.sidebar-widths')||'{}');}catch{this.widths={};}
+    try{
+      this.widths=JSON.parse(localStorage.getItem('vela.sidebar-widths')||'{}');
+    }catch{
+      this.widths={};
+    }
     if(!this.widths||typeof this.widths!=='object')this.widths={};
     this.handles=[this.makeHandle(this.left,'left'),this.makeHandle(this.right,'right')];
-    window.addEventListener('resize',()=>{this.geometry=null;this.update(false);});
+    window.addEventListener('resize',()=>{
+      this.geometry=null;
+      this.update(false);
+    });
+
     // Read dimensions together after layout; never read geometry between animation writes.
-    this.geometryObserver=new ResizeObserver(()=>{const next=this.readGeometry();if(JSON.stringify(next)!==JSON.stringify(this.geometry)){this.geometry=next;this.update(false);}});
+    this.geometryObserver=new ResizeObserver(()=>{
+      const next=this.readGeometry();
+      if(JSON.stringify(next)!==JSON.stringify(this.geometry)){
+        this.geometry=next;
+        this.update(false);
+      }
+    });
     for(const element of [this.root,document.querySelector('#writing-footer'),document.querySelector('.topbar')])this.geometryObserver.observe(element);
     this.motion.addEventListener('change',()=>this.update(false));
     this.update(false);
   }
   makeHandle(root,side){
-    const handle=document.createElement('div');handle.className='sidebar-resize sidebar-resize-'+side;handle.tabIndex=0;handle.setAttribute('role','separator');handle.setAttribute('aria-orientation','vertical');handle.setAttribute('aria-label',side==='left'?'调整文件侧栏宽度':'调整章节目录宽度');root.append(handle);
-    const store=()=>{try{localStorage.setItem('vela.sidebar-widths',JSON.stringify(this.widths));}catch{};};
+    const handle=document.createElement('div');
+    handle.className='sidebar-resize sidebar-resize-'+side;
+    handle.tabIndex=0;
+    handle.setAttribute('role','separator');
+    handle.setAttribute('aria-orientation','vertical');
+    handle.setAttribute('aria-label',side==='left'?t('调整文件侧栏宽度'):t('调整章节目录宽度'));
+    root.append(handle);
+    const store=()=>{
+      try{
+        localStorage.setItem('vela.sidebar-widths',JSON.stringify(this.widths));
+      }catch{}
+      ;
+    };
     const key=()=>this.root.clientWidth<=600?'phone':'wide';
-    const set=value=>{this.widths[key()]={...this.widths[key()],[side]:Math.max(120,Math.min(480,value))};this.update(false);};
-    handle.onpointerdown=event=>{if(event.button!==0)return;event.preventDefault();handle.focus({preventScroll:true});const start=event.clientX,width=this.current[side+'Width'];handle.setPointerCapture(event.pointerId);handle.onpointermove=move=>set(width+(move.clientX-start)*(side==='left'?1:-1));const end=()=>{handle.onpointermove=null;handle.onpointerup=null;handle.onpointercancel=null;store();};handle.onpointerup=end;handle.onpointercancel=end;};
-    handle.onkeydown=event=>{if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;event.preventDefault();const width=this.current[side+'Width'],direction=side==='left'?1:-1;set(event.key==='Home'?120:event.key==='End'?480:width+(event.key==='ArrowRight'?16:-16)*direction);store();};
-    handle.ondblclick=()=>{delete this.widths[key()]?.[side];this.update(false);store();};return handle;
+    const set=value=>{
+      this.widths[key()]={...this.widths[key()],[side]:Math.max(120,Math.min(480,value))};
+      this.update(false);
+    };
+    handle.onpointerdown=event=>{
+      if(event.button!==0)return;
+      event.preventDefault();
+      handle.focus({preventScroll:true});
+      const start=event.clientX,width=this.current[side+'Width'];
+      handle.setPointerCapture(event.pointerId);
+      handle.onpointermove=move=>set(width+(move.clientX-start)*(side==='left'?1:-1));
+      const end=()=>{
+        handle.onpointermove=null;
+        handle.onpointerup=null;
+        handle.onpointercancel=null;
+        store();
+      };
+      handle.onpointerup=end;
+      handle.onpointercancel=end;
+    };
+    handle.onkeydown=event=>{
+      if(!['ArrowLeft','ArrowRight','Home','End'].includes(event.key))return;
+      event.preventDefault();
+      const width=this.current[side+'Width'],direction=side==='left'?1:-1;
+      set(event.key==='Home'?120:event.key==='End'?480:width+(event.key==='ArrowRight'?16:-16)*direction);
+      store();
+    };
+    handle.ondblclick=()=>{
+      delete this.widths[key()]?.[side];
+      this.update(false);
+      store();
+    };
+    return handle;
   }
-  readGeometry(){return {width:this.root.clientWidth,height:this.root.clientHeight,footer:document.querySelector('#writing-footer').offsetHeight,top:document.querySelector('.topbar').offsetHeight};}
+  readGeometry(){
+    return {width:this.root.clientWidth,height:this.root.clientHeight,footer:document.querySelector('#writing-footer').offsetHeight,top:document.querySelector('.topbar').offsetHeight};
+  }
   targets(){
     const geometry=this.geometry??=this.readGeometry(),width=geometry.width;
     this.phone=width<=600;
@@ -58,33 +115,58 @@ export class SidebarLayout {
       leftWidth:leftOpen?leftWidth*ratio:this.current.left>0?this.current.leftWidth:leftWidth,
       rightWidth:rightOpen?rightWidth*ratio:this.current.right>0?this.current.rightWidth:rightWidth,
       leftReveal:phone&&document.body.classList.contains('show-library')?1:0,
-      rightReveal:phone&&document.body.classList.contains('show-outline')&&!document.body.classList.contains('focus')&&!document.body.classList.contains('start-open')&&!document.querySelector('#write-view').hidden?1:0,
+      rightReveal:phone&&document.body.classList.contains('show-outline')&&!document.body.classList.contains('focus')&&!document.body.classList.contains('start-open')&&!document.querySelector('#write-view').hidden
+      ?1
+      :0,
       bottom:!document.querySelector('#write-view').hidden&&!document.body.classList.contains('start-open')?this.footerHeight:0};
   }
   apply(values,target){
-    const measure=['left','right','bottom'].some(key=>this.current[key]!==values[key])||this.appliedGeometry!==this.geometry;this.appliedGeometry=this.geometry;
+    const measure=['left','right','bottom'].some(key=>this.current[key]!==values[key])||this.appliedGeometry!==this.geometry;
+    this.appliedGeometry=this.geometry;
     this.current=values;
     for(const [property,key] of [['--left-size','left'],['--right-size','right'],['--left-panel-width','leftWidth'],['--right-panel-width','rightWidth'],['--sidebar-bottom','bottom'],['--left-drawer-progress','leftReveal'],['--right-drawer-progress','rightReveal']])this.root.style.setProperty(property,values[key].toFixed(3)+(key.endsWith('Reveal')?'':'px'));
     const overlayOpen=side=>this.phone&&target[side+'Reveal']>0;
-    for(const [side,shell] of [['left',this.left],['right',this.right]]){shell.style.visibility=values[side]>0||target[side]>0||this.phone&&(values[side+'Reveal']>0||overlayOpen(side))?'visible':'hidden';shell.dataset.drawerClosing=String(this.phone&&values[side+'Reveal']>0&&!overlayOpen(side));}
+    for(const [side,shell] of [['left',this.left],['right',this.right]]){
+      shell.style.visibility=values[side]>0||target[side]>0||this.phone&&(values[side+'Reveal']>0||overlayOpen(side))?'visible':'hidden';
+      shell.dataset.drawerClosing=String(this.phone&&values[side+'Reveal']>0&&!overlayOpen(side));
+    }
     this.root.style.setProperty('--footer-progress',String(1-values.bottom/this.footerHeight));
-    const footer=document.querySelector('#writing-footer');if(footer){footer.style.visibility=values.bottom>0||target.bottom>0?'visible':'hidden';footer.inert=target.bottom===0;}
-    this.left.inert=target.left===0&&!overlayOpen('left');this.right.inert=target.right===0&&!overlayOpen('right');
-    for(const [i,side] of ['left','right'].entries()){const handle=this.handles?.[i];if(handle){handle.setAttribute('aria-valuemin','120');handle.setAttribute('aria-valuemax',String(this.maxResizeWidth));handle.setAttribute('aria-valuenow',String(Math.round(values[side+'Width'])));}}
+    const footer=document.querySelector('#writing-footer');
+    if(footer){
+      footer.style.visibility=values.bottom>0||target.bottom>0?'visible':'hidden';
+      footer.inert=target.bottom===0;
+    }
+    this.left.inert=target.left===0&&!overlayOpen('left');
+    this.right.inert=target.right===0&&!overlayOpen('right');
+    for(const [i,side] of ['left','right'].entries()){
+      const handle=this.handles?.[i];
+      if(handle){
+        handle.setAttribute('aria-valuemin','120');
+        handle.setAttribute('aria-valuemax',String(this.maxResizeWidth));
+        handle.setAttribute('aria-valuenow',String(Math.round(values[side+'Width'])));
+      }
+    }
     if(measure)this.measure?.();
   }
   update(animate=true){
     const target=this.targets();
-    if(this.wasPhone!==this.phone){this.wasPhone=this.phone;animate=false;}
+    if(this.wasPhone!==this.phone){
+      this.wasPhone=this.phone;
+      animate=false;
+    }
     if(animate&&this.frame&&fields.every(key=>Math.abs(this.target[key]-target[key])<.001))return;
     if(animate&&!this.frame&&this.target&&fields.every(key=>Math.abs(this.current[key]-target[key])<.001))return;
-    cancelAnimationFrame(this.frame);this.frame=0;
+    cancelAnimationFrame(this.frame);
+    this.frame=0;
     this.target=target;
     const from={...this.current};
     if(!animate||reducedMotion()||fields.every(key=>Math.abs(from[key]-target[key])<.001)){
-      this.apply(target,target);this.root.dataset.sidebarsAnimating='false';return;
+      this.apply(target,target);
+      this.root.dataset.sidebarsAnimating='false';
+      return;
     }
     this.root.dataset.sidebarsAnimating='true';
+
     // Click handlers may still render/save synchronously. Start on the first
     // visible frame so that work cannot consume the entire animation duration.
     let start;
@@ -95,7 +177,12 @@ export class SidebarLayout {
       const values=Object.fromEntries(fields.map(key=>[key,from[key]+(target[key]-from[key])*eased]));
       this.apply(progress===1?target:values,target);
       if(progress<1)this.frame=requestAnimationFrame(tick);
-      else{this.frame=0;this.root.dataset.sidebarsAnimating='false';this.root.dispatchEvent(new Event('sidebar-layout-settled'));}
+
+      else{
+        this.frame=0;
+        this.root.dataset.sidebarsAnimating='false';
+        this.root.dispatchEvent(new Event('sidebar-layout-settled'));
+      }
     };
     this.frame=requestAnimationFrame(tick);
   }
