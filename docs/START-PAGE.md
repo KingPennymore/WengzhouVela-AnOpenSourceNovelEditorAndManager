@@ -14,7 +14,7 @@
 
 - `web/start-page.mjs`：独立启动页结构和面板切换。
 - `web/app.js`：启动页、编辑器状态与系统返回操作衔接。
-- `web/design.css`：统一按钮样式、内容区布局与滑动动画。
+- `web/style.css` 的开始页分区：统一按钮样式、内容区布局与滑动动画。
 - `web/sidebars.mjs`：启动页不预留编辑底栏高度。
 - `web/icons.mjs`、`web/i18n.mjs`：最近文件图标和新增中英文说明。
 - `tests/start-page-browser.mjs`：布局、颜色、焦点、返回、打开文稿与保存的浏览器回归检查。

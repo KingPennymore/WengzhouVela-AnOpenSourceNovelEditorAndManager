@@ -8,7 +8,7 @@ await import('./build-guide.mjs');
 const out = 'entry/src/main/resources/rawfile/web';
 const lite=process.argv.includes('--lite')||process.env.VELA_BUILD_FLAVOR==='lite';
 await mkdir(out, { recursive: true });
-for(const name of ['plugin-package-worker.js','plugin-runtime.js'])for(const folder of [out,'dist/web'])await rm(`${folder}/${name}`,{force:true});
+for(const name of ['plugin-package-worker.js','plugin-runtime.js','file-manager.css','ui.css','design.css','refinement.css'])for(const folder of [out,'dist/web'])await rm(`${folder}/${name}`,{force:true});
 const pkg=JSON.parse(await readFile('package.json','utf8'));
 const version=pkg.harmonyVersion||pkg.version;
 // app.js is an ES module; features loaded with import() (web/lazy.mjs, CodeMirror language data) become chunks in
@@ -23,7 +23,7 @@ await build({entryPoints:['web/workspace-save-worker.js'],bundle:true,outfile:`$
 await build({entryPoints:['web/project-archive-worker.js'],bundle:true,outfile:`${out}/project-archive-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
 await build({entryPoints:['web/tex-component-worker.js'],bundle:true,outfile:`${out}/tex-component-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
 await build({entryPoints:['web/html-reader.js'],bundle:true,outfile:`${out}/html-reader.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
-for(const name of ['index.html','startup.js','startup.css','style.css','file-manager.css','ui.css','design.css','refinement.css']) await copyFile(`web/${name}`,`${out}/${name}`);
+for(const name of ['index.html','startup.js','startup.css','style.css', 'editor.css']) await copyFile(`web/${name}`,`${out}/${name}`);
 await copyFile('node_modules/katex/dist/katex.min.css',`${out}/katex.min.css`);
 await cp('node_modules/katex/dist/fonts',`${out}/fonts`,{recursive:true});
 await copyTexAssets(out,{lite});

@@ -25,7 +25,7 @@ source_hash = subprocess.run(["node", "--input-type=module", "-e",
     cwd=root, capture_output=True, text=True, check=True).stdout.strip()
 if state.get("source") != source_hash:
     raise SystemExit("编辑器资源与源码不一致，请先重新构建 HAP。")
-for name in ["index.html", "app.js", "style.css", "file-manager.css", "licenses.js", "version.json"]:
+for name in ["index.html", "app.js", "style.css", "editor.css", "licenses.js", "version.json"]:
     if name not in state["outputs"]:
         raise SystemExit(f"源码包缺少编辑器资源：{name}")
 for name, expected in state["outputs"].items():

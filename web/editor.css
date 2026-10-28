@@ -1,0 +1,288 @@
+/* CodeMirror injects an unlayered theme at runtime. These overrides must also remain
+   unlayered, after KaTeX. !important is retained only where the original integration
+   overrides that injected theme or CodeMirror's inline geometry. */
+
+/* Writing, preview and text tools */
+.cm-editor.cm-focused {
+  outline:none;
+}
+
+.cm-selectionBackground {
+  background:var(--selection)!important;
+}
+
+.vela-term-tip {
+  background:var(--paper);
+  color:var(--text);
+}
+
+.cm-editor {
+  height:100%;
+  color:var(--text);
+  font-size:var(--editor-font-size);
+}
+
+@media (max-width:600px) {
+  .cm-editor {
+    font-size:var(--editor-font-size);
+  }
+}
+
+.cm-editor.has-selection .cm-activeLine {
+  background:transparent!important;
+}
+
+#editor>.cm-editor>.cm-scroller>.cm-selectionLayer>.cm-selectionBackground {
+  display:none;
+}
+
+.cm-tooltip.cm-completionInfo {
+  font-family:var(--app-font-family,"HarmonyOS Sans SC","Segoe UI","Microsoft YaHei",sans-serif);
+  font-size:12px!important;
+  line-height:1.5!important;
+  border:1px solid var(--line)!important;
+  border-radius:var(--radius);
+  background:var(--paper)!important;
+  color:var(--text)!important;
+  box-shadow:var(--ui-shadow);
+}
+
+.cm-tooltip-autocomplete .cm-completionDetail {
+  font-size:11px!important;
+  font-style:normal;
+  color:var(--muted);
+  margin-left:0;
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.cm-completionInfo {
+  max-width:min(360px,calc(100vw - 24px));
+  white-space:pre-wrap;
+  padding:10px;
+}
+
+.cm-tooltip-autocomplete>.cm-completionInfo {
+  position:static!important;
+  left:auto!important;
+  right:auto!important;
+  top:auto!important;
+  bottom:auto!important;
+  width:100%!important;
+  max-width:100%!important;
+  flex:0 1 auto;
+  min-height:0;
+  max-height:88px;
+  overflow:auto;
+  overflow-wrap:anywhere;
+  white-space:pre-wrap;
+  font-size:11px!important;
+  line-height:1.45!important;
+  padding:6px 8px;
+  border:0!important;
+  border-top:1px solid var(--line)!important;
+  border-radius:0;
+  box-shadow:none;
+}
+
+.cm-tooltip-autocomplete .cm-completionIcon {
+  display:none!important;
+}
+
+.cm-completionLabel {
+  min-width:0;
+  overflow:hidden;
+  text-overflow:ellipsis;
+  white-space:nowrap;
+}
+
+.cm-completionKind {
+  flex-shrink:0;
+  font-size:11px;
+  color:var(--muted);
+}
+
+.cm-panels:has(.vela-search-panel) {
+  flex:0 0 auto;
+  background:transparent;
+  color:var(--text);
+  border-color:var(--line);
+  max-height:min(400px,65%);
+  overflow:auto;
+}
+
+.cm-search.vela-search-panel {
+  position:relative;
+  padding:12px 16px;
+  font-family:inherit;
+  font-size:12px;
+  line-height:1.6;
+  background:var(--panel);
+  color:var(--text);
+}
+
+@media (max-width:600px) {
+  .cm-search.vela-search-panel {
+    padding:8px 10px;
+  }
+}
+
+
+/* Planning, outlines and maps */
+.cm-gutters:not(:has(.cm-lineNumbers)):not(:has(.outline-line-marker)) {
+  border-right-width:0!important;
+}
+
+.outline-line-marker {
+  width:16px;
+  color:var(--accent);
+  font-size:16px;
+  padding:0;
+  cursor:pointer;
+}
+
+.outline-anchor-flash .cm-selectionBackground {
+  animation:outline-flash .25s 4 alternate;
+}
+
+
+/* Dialogs, settings and floating controls */
+.cm-scroller {
+  font-family:var(--app-font-family,"HarmonyOS Sans SC","Microsoft YaHei",sans-serif)!important;
+  line-height:1.9;
+  overflow:auto!important;
+  overscroll-behavior:contain;
+}
+
+@media (max-width:600px) {
+  .cm-scroller {
+    line-height:1.8;
+  }
+}
+
+.cm-content {
+  padding:20px 30px 100px 18px!important;
+  caret-color:var(--accent);
+}
+
+@media (max-width:600px) {
+  .cm-content {
+    padding:14px 15px 80px 8px!important;
+  }
+}
+
+@media (max-height:500px) {
+  .cm-content {
+    padding-top:8px!important;
+  }
+}
+
+.cm-line {
+  padding:0 6px;
+}
+
+.cm-gutters {
+  border-right:1px solid var(--line)!important;
+  color:var(--muted)!important;
+  font-size:11px;
+  font-family:Consolas,monospace;
+  min-width:52px;
+  background:var(--paper)!important;
+  border-right-color:var(--hairline)!important;
+}
+
+@media (max-width:600px) {
+  .cm-gutters {
+    min-width:38px;
+    font-size:9px;
+  }
+}
+
+.cm-gutters:not(:has(.cm-lineNumbers)) {
+  min-width:0!important;
+}
+
+.cm-gutterElement {
+  padding-right:14px!important;
+}
+
+@media (max-width:600px) {
+  .cm-gutterElement {
+    padding-right:9px!important;
+  }
+}
+
+.cm-cursor {
+  border-left-color:var(--accent)!important;
+}
+
+.cm-panel {
+  background:var(--panel);
+  color:var(--text);
+  border-color:var(--line);
+}
+
+.cm-tooltip {
+  background:var(--paper)!important;
+  color:var(--text)!important;
+  border-color:var(--line)!important;
+  box-shadow:var(--ui-shadow);
+}
+
+.cm-tooltip .cm-tooltip-arrow:before {
+  border-top-color:var(--line)!important;
+  border-bottom-color:var(--line)!important;
+}
+
+.cm-tooltip .cm-tooltip-arrow:after {
+  border-top-color:var(--paper)!important;
+  border-bottom-color:var(--paper)!important;
+}
+
+.cm-search {
+  padding:10px!important;
+  font-size:12px!important;
+}
+
+.focus .cm-content {
+  max-width:1100px;
+  width:100%;
+  margin:0 auto;
+  padding-top:30px!important;
+}
+
+.cm-activeLine {
+  background:var(--accent-tint)!important;
+}
+
+.cm-activeLineGutter {
+  background:transparent!important;
+  color:var(--accent)!important;
+  font-weight:600;
+}
+
+.cm-tooltip-autocomplete {
+  font-family:var(--app-font-family,"HarmonyOS Sans SC","Segoe UI","Microsoft YaHei",sans-serif);
+  font-size:12px!important;
+  line-height:1.5!important;
+  border:1px solid var(--line)!important;
+  border-radius:var(--radius);
+  background:var(--paper)!important;
+  color:var(--text)!important;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  max-width:min(440px,calc(100vw - 24px));
+  box-shadow:var(--elev-3)!important;
+  border-color:var(--hairline)!important;
+}
+
+@media (prefers-reduced-motion:no-preference) {
+  .cm-tooltip-autocomplete {
+    animation:vela-fade-in .2s ease-out;
+  }
+}
+
+@keyframes outline-flash{to{opacity:.25}}
