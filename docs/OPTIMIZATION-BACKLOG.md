@@ -20,5 +20,5 @@
 | O4 | HTML 阅读器改用 `reading-position.mjs` 的文字索引与位置测量，删除自带实现 | `b440792` |
 | O9 | `rawfile/web` 移出 git，由 hvigor 的 PrepareEditor 在 HAP 构建前生成；新增 `npm run check:rawfile` 校验（Codex） | `d154ce5`，合并 `e36e4ae` |
 | O5 | 地图常用编辑改为部分快照（`mapSnapshot`），撤销与回滚只处理改动部分；commit 不再序列化 cells/drawing 比较 | `966ddb6` |
-| O5b | 笔刷绘制/擦除只快照 cells（擦除另含 markers/symbols/arrows/generated），信息点编辑只快照 markers 或 cells，地图整理的边界/精简只快照 generated 或 cells（地形转换整体替换地图，仍整张复制）；`commit` 重算绘制填充前用 `extendSnapshot` 补入 generated，修复 O5 后修改绘制范围再撤销不还原填充的问题；新增 `tests/map-snapshot-browser.mjs` | 见提交记录 |
+| O5b | 笔刷绘制/擦除只快照 cells（擦除另含 markers/symbols/arrows/generated），信息点编辑只快照 markers 或 cells，地图整理的边界/精简只快照 generated 或 cells（地形转换整体替换地图，仍整张复制）；`commit` 重算绘制填充前用 `extendSnapshot` 补入 generated，修复 O5 后修改绘制范围再撤销不还原填充的问题；新增 `tests/map-snapshot-browser.mjs` | `31784f4` |
 | O7 | 五张样式表合并为按组件组织的 `style.css` 与 `editor.css`，同一选择器只定义一次；180+32 个场景计算样式零差异（Codex）；构建时压缩 CSS | `5f6d14d`，合并后续见提交记录 |
