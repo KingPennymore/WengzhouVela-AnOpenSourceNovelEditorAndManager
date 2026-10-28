@@ -130,7 +130,7 @@ export class PdfPreview {
     if(!query){this.status(t('当前行没有可定位的正文。'));return false;}
     const hit=findInPages(await this.texts(),query);if(!hit){this.status(t('未在 PDF 中找到当前行。'));return false;}
     if(this.continuous)this.scrollToPage(hit.page,hit.fraction);else{this.page=hit.page;await this.render();}
-    this.flash(hit.page,hit.fraction);this.status(t('已定位到第')+' '+hit.page+' '+t('页'));return true;
+    this.flash(hit.page,hit.fraction);this.status(t('已定位到第 {n} 页').replace('{n}',hit.page));return true;
   }
   flash(page,fraction){const slot=this.root?.querySelector(`.pdf-page[data-page="${page}"]`);if(!slot)return;const mark=document.createElement('div');mark.className='pdf-sync-mark';mark.style.top=Math.max(0,Math.min(96,fraction*100))+'%';slot.append(mark);setTimeout(()=>mark.remove(),1600);}
   /** PDF → source: double-click a word in the PDF to jump to the matching source line. */
