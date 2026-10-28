@@ -8,26 +8,178 @@ import {glossaryDecorations} from './glossary-panel.mjs';
 import {loadLatexEditor} from './lazy.mjs';
 import {completionIme,afterComposition} from './completion-ime.mjs';
 // The TeX catalog lives in the latex-editor chunk; the source loads it on first use (CodeMirror awaits it).
-const latexCompletion=(doc,getProject)=>{let source;return async context=>{source??=(await loadLatexEditor()).latexCompletion(doc,getProject);return source(context);};};
+const latexCompletion=(doc,getProject)=>{
+  let source;
+  return async context=>{
+    source??=(await loadLatexEditor()).latexCompletion(doc,getProject);
+    return source(context);
+  };
+};
 export function completionSpace(view){
-  const bounds=view.scrollDOM.getBoundingClientRect(),viewport=view.dom.ownerDocument.defaultView,visual=viewport.visualViewport;
-  const left=visual?.offsetLeft||0,top=visual?.offsetTop||0,width=visual?.width||viewport.innerWidth,height=visual?.height||viewport.innerHeight;
+  const bounds=view.scrollDOM.getBoundingClientRect(),
+    viewport=view.dom.ownerDocument.defaultView,
+    visual=viewport.visualViewport;
+  const left=visual?.offsetLeft||0,
+    top=visual?.offsetTop||0,
+    width=visual?.width||viewport.innerWidth,
+    height=visual?.height||viewport.innerHeight;
   return {left:left+12,right:left+width-12,top:Math.max(bounds.top,top)+2,bottom:Math.min(bounds.bottom,top+height)-2};
 }
 // Details participate in the popup layout instead of covering candidate rows.
-export function completionInfoPosition(){return {class:'vela-completion-info',style:'position:static;left:auto;right:auto;top:auto;bottom:auto;width:100%;max-width:100%'};}
+export function completionInfoPosition(){
+  return {class:'vela-completion-info',style:'position:static;left:auto;right:auto;top:auto;bottom:auto;width:100%;max-width:100%'};
+}
 function completionKind(completion){
-  const label=completion.velaKind==='noun'?'候选':completion.velaKind==='term'?'术语':({text:'正文',keyword:'关键词',function:'函数',variable:'变量',class:'类',property:'属性',method:'方法',type:'类型',namespace:'命名空间',constant:'常量'})[completion.type];
+  const label=
+    completion.velaKind==='noun'
+      ?'候选'
+      :completion.velaKind==='term'
+        ?'术语'
+        :{
+            text:'正文',
+            keyword:'关键词',
+            function:'函数',
+            variable:'变量',
+            class:'类',
+            property:'属性',
+            method:'方法',
+            type:'类型',
+            namespace:'命名空间',
+            constant:'常量'
+          }[completion.type];
   if(!label)return null;
-  const node=document.createElement('span');node.className='cm-completionKind';node.textContent=t(label);return node;
+  const node=document.createElement('span');
+  node.className='cm-completionKind';
+  node.textContent=t(label);
+  return node;
 }
 const registrations=new Map();
-export function registerCompletion(owner,source,kinds=[]){if(typeof source!=='function')throw new Error('补全提供器必须是函数');const entry={owner,source,kinds};registrations.set(entry,entry);return ()=>registrations.delete(entry);}
-export function removeCompletions(owner){for(const [key,item] of registrations)if(item.owner===owner)registrations.delete(key);}
-const words={js:'const let var function return async await import export class new if else for while try catch throw true false null undefined console document window',py:'def class import from return if elif else for while try except with as pass lambda None True False print range',css:'display position color background padding margin border font-size width height flex grid',sql:'SELECT FROM WHERE JOIN INSERT UPDATE DELETE CREATE TABLE ORDER BY GROUP BY LIMIT',tex:'section subsection chapter textbf emph frac sqrt sum int begin end label ref cite includegraphics tableofcontents documentclass usepackage',json:'true false null',sh:'if then fi for do done echo cd export function',common:'if else for while return class function import'};
-const snippets={JS:[['function','function ${name}(${args}) {\n  ${body}\n}'],['for','for (let ${i} = 0; ${i} < ${length}; ${i}++) {\n  ${body}\n}']],PY:[['def','def ${name}(${args}):\n    ${body}']],TEX:[['frac','\\frac{${numerator}}{${denominator}}'],['section','\\section{${title}}'],['begin','\\begin{${environment}}\n${content}\n\\end{${environment}}'],['equation','\\begin{equation}\n${formula}\n\\end{equation}']]};
-export function novelCompletion(context){const word=context.matchBefore(/[\p{L}\p{N}_]{1,40}/u);if(!word||!context.explicit&&word.text.length<2)return null;const text=context.state.doc.sliceString(Math.max(0,context.pos-12000),Math.min(context.state.doc.length,context.pos+12000)),values=[...new Set(text.match(/[A-Za-z_][\w]{2,39}/g)||[])];return {from:word.from,options:values.filter(value=>value!==word.text).slice(0,160).map(label=>({label,type:'text'})),validFor:/^[\p{L}\p{N}_]*$/u};}
-export function formatCompletion(doc){const kind=documentKind(doc),name=doc.name.toLowerCase(),type=kind==='TEX'?'tex':/\.(js|jsx|ts|tsx|mjs|cjs)$/.test(name)?'js':/\.pyw?$/.test(name)?'py':/\.(css|scss|less)$/.test(name)?'css':/\.sql$/.test(name)?'sql':/\.(json|json5|vela|gly|glossary)$/.test(name)?'json':/\.(sh|bash|zsh)$/.test(name)?'sh':'common';return context=>{const word=context.matchBefore(kind==='TEX'?/\\[A-Za-z]*$/:/[A-Za-z_][\w]*$/);if(!word)return null;if(!context.explicit&&word.text.length<(kind==='TEX'?2:2))return null;const prefix=kind==='TEX'?'\\':'',options=(words[type]||words.common).split(' ').map(label=>({label:prefix+label,type:'keyword'}));for(const [label,template] of snippets[type.toUpperCase()]||[])options.push(snippetCompletion(template,{label:prefix+label,detail:'snippet',type:'function',boost:5}));return {from:word.from,options,validFor:kind==='TEX'?/^\\[A-Za-z]*$/:/^\w*$/};};}
-export function completionExtensions(doc,getProject){const kind=documentKind(doc),nouns=nounCompletionExtension(getProject),sources=['TXT','CSV','MD'].includes(kind)?[novelCompletion]:kind==='TEX'?[latexCompletion(doc,getProject),novelCompletion]:[formatCompletion(doc),novelCompletion];if(['TXT','MD'].includes(kind))sources.push(nouns.source);sources.unshift(context=>glossaryCompletion(context,getProject?.()?.terms||[]));sources.push(context=>{const word=context.matchBefore(/[\p{L}\p{N}_]{1,40}/u);if(!word||!context.explicit&&word.text.length<2)return null;const project=getProject?.()||{},options=(project.glossary||[]).map(label=>({label,type:'text',boost:10}));for(const item of project.snippets||[])options.push(snippetCompletion(item.text,{label:item.label,type:'text',detail:'片段',boost:12}));return options.length?{from:word.from,options,validFor:/^[\p{L}\p{N}_]*$/u}:null;});const custom=context=>{const results=[...registrations.values()].filter(item=>!item.kinds.length||item.kinds.includes(kind)).map(item=>Promise.resolve().then(()=>item.source(context)).catch(()=>null));return Promise.all(results).then(values=>{const valid=values.filter(Boolean);if(!valid.length)return null;const from=Math.min(...valid.map(value=>value.from));return {from,options:valid.filter(value=>value.from===from).flatMap(value=>value.options)};});};return [completionIme,['TXT','MD'].includes(kind)?nouns.plugin:[],glossaryDecorations(getProject),tooltips({tooltipSpace:completionSpace}),autocompletion({defaultKeymap:false,icons:false,positionInfo:completionInfoPosition,addToOptions:[{render:completionKind,position:70}]}),contextData(sources.concat(custom).map(afterComposition)),keymap.of(completionKeymap.filter(binding=>binding.key!=='Tab'))];}
+export function registerCompletion(owner,source,kinds=[]){
+  if(typeof source!=='function')throw new Error(t('补全提供器必须是函数'));
+  const entry={owner,source,kinds};
+  registrations.set(entry,entry);
+  return ()=>registrations.delete(entry);
+}
+export function removeCompletions(owner){
+  for(const [key,item] of registrations)if(item.owner===owner)registrations.delete(key);
+}
+const words={
+  js:'const let var function return async await import export class new if else for while try catch throw true false null undefined console document window',
+  py:'def class import from return if elif else for while try except with as pass lambda None True False print range',
+  css:'display position color background padding margin border font-size width height flex grid',
+  sql:'SELECT FROM WHERE JOIN INSERT UPDATE DELETE CREATE TABLE ORDER BY GROUP BY LIMIT',
+  tex:'section subsection chapter textbf emph frac sqrt sum int begin end label ref cite includegraphics tableofcontents documentclass usepackage',
+  json:'true false null',
+  sh:'if then fi for do done echo cd export function',
+  common:'if else for while return class function import'
+};
+const snippets={
+  JS:[
+    ['function','function ${name}(${args}) {\n  ${body}\n}'],
+    ['for','for (let ${i} = 0; ${i} < ${length}; ${i}++) {\n  ${body}\n}']
+  ],
+  PY:[['def','def ${name}(${args}):\n    ${body}']],
+  TEX:[
+    ['frac','\\frac{${numerator}}{${denominator}}'],
+    ['section','\\section{${title}}'],
+    ['begin','\\begin{${environment}}\n${content}\n\\end{${environment}}'],
+    ['equation','\\begin{equation}\n${formula}\n\\end{equation}']
+  ]
+};
+export function novelCompletion(context){
+  const word=context.matchBefore(/[\p{L}\p{N}_]{1,40}/u);
+  if(!word||(!context.explicit&&word.text.length<2))return null;
+  const text=context.state.doc.sliceString(Math.max(0,context.pos-12000),Math.min(context.state.doc.length,context.pos+12000)),
+    values=[...new Set(text.match(/[A-Za-z_][\w]{2,39}/g)||[])];
+  return {
+    from:word.from,
+    options:values
+      .filter(value=>value!==word.text)
+      .slice(0,160)
+      .map(label=>({label,type:'text'})),
+    validFor:/^[\p{L}\p{N}_]*$/u
+  };
+}
+export function formatCompletion(doc){
+  const kind=documentKind(doc),
+    name=doc.name.toLowerCase(),
+    type=
+      kind==='TEX'
+        ?'tex'
+        :/\.(js|jsx|ts|tsx|mjs|cjs)$/.test(name)
+          ?'js'
+          :/\.pyw?$/.test(name)
+            ?'py'
+            :/\.(css|scss|less)$/.test(name)
+              ?'css'
+              :/\.sql$/.test(name)
+                ?'sql'
+                :/\.(json|json5|vela|gly|glossary)$/.test(name)
+                  ?'json'
+                  :/\.(sh|bash|zsh)$/.test(name)
+                    ?'sh'
+                    :'common';
+  return context=>{
+    const word=context.matchBefore(kind==='TEX'?/\\[A-Za-z]*$/:/[A-Za-z_][\w]*$/);
+    if(!word)return null;
+    if(!context.explicit&&word.text.length<(kind==='TEX'?2:2))return null;
+    const prefix=kind==='TEX'?'\\':'',
+      options=(words[type]||words.common).split(' ').map(label=>({label:prefix+label,type:'keyword'}));
+    for(const [label,template] of snippets[type.toUpperCase()]||[])
+      options.push(snippetCompletion(template,{label:prefix+label,detail:'snippet',type:'function',boost:5}));
+    return {from:word.from,options,validFor:kind==='TEX'?/^\\[A-Za-z]*$/:/^\w*$/};
+  };
+}
+export function completionExtensions(doc,getProject){
+  const kind=documentKind(doc),
+    nouns=nounCompletionExtension(getProject),
+    sources=['TXT','CSV','MD'].includes(kind)
+      ?[novelCompletion]
+      :kind==='TEX'
+        ?[latexCompletion(doc,getProject),novelCompletion]
+        :[formatCompletion(doc),novelCompletion];
+  if(['TXT','MD'].includes(kind))sources.push(nouns.source);
+  sources.unshift(context=>glossaryCompletion(context,getProject?.()?.terms||[]));
+  sources.push(context=>{
+    const word=context.matchBefore(/[\p{L}\p{N}_]{1,40}/u);
+    if(!word||(!context.explicit&&word.text.length<2))return null;
+    const project=getProject?.()||{},
+      options=(project.glossary||[]).map(label=>({label,type:'text',boost:10}));
+    for(const item of project.snippets||[])
+      options.push(snippetCompletion(item.text,{label:item.label,type:'text',detail:t('片段'),boost:12}));
+    return options.length?{from:word.from,options,validFor:/^[\p{L}\p{N}_]*$/u}:null;
+  });
+  const custom=context=>{
+    const results=[...registrations.values()]
+      .filter(item=>!item.kinds.length||item.kinds.includes(kind))
+      .map(item=>
+        Promise.resolve()
+          .then(()=>item.source(context))
+          .catch(()=>null)
+      );
+    return Promise.all(results).then(values=>{
+      const valid=values.filter(Boolean);
+      if(!valid.length)return null;
+      const from=Math.min(...valid.map(value=>value.from));
+      return {from,options:valid.filter(value=>value.from===from).flatMap(value=>value.options)};
+    });
+  };
+  return [
+    completionIme,
+    ['TXT','MD'].includes(kind)?nouns.plugin:[],
+    glossaryDecorations(getProject),
+    tooltips({tooltipSpace:completionSpace}),
+    autocompletion({
+      defaultKeymap:false,
+      icons:false,
+      positionInfo:completionInfoPosition,
+      addToOptions:[{render:completionKind,position:70}]
+    }),
+    contextData(sources.concat(custom).map(afterComposition)),
+    keymap.of(completionKeymap.filter(binding=>binding.key!=='Tab'))
+  ];
+}
 import {EditorState} from '@codemirror/state';
-function contextData(sources){return EditorState.languageData.of(()=>sources.map(source=>({autocomplete:source})));}
+function contextData(sources){
+  return EditorState.languageData.of(()=>sources.map(source=>({autocomplete:source})));
+}
