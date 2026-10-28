@@ -64,17 +64,20 @@ Remove-Item Env:VELA_BUILD_FLAVOR
 
 ## 样式表结构
 
-`index.html` 仍依次加载 `style.css`、`file-manager.css`、`katex.min.css`、`ui.css`、`design.css`、`refinement.css`，层次由 `style.css` 开头的 `@layer reset, tokens, app, state;` 决定：
+`index.html` 依次加载 `startup.css`、`style.css`、`katex.min.css`、`editor.css`。`startup.css` 和 KaTeX 保持独立；原 `file-manager.css`、`ui.css`、`design.css`、`refinement.css` 已归并到 `style.css`。层次仍由 `style.css` 开头的 `@layer reset, tokens, app, state;` 决定：
 
 - `reset`：`box-sizing`、`[hidden]`（带 `!important`，在任何层里都优先）、细滚动条。
-- `tokens`：全部设计令牌（颜色、圆角、阴影、动效曲线，按平台和深浅色覆盖），四个文件里的令牌按原顺序集中在 `style.css` 开头。
-- `app`：应用本身的规则，按原文件顺序分布在四个文件中，保持原来的层叠关系。
+- `tokens`：现有设计令牌（颜色、圆角、阴影、动效曲线，平台和深浅色覆盖），集中在 `style.css` 开头。
+- `app`：按功能区域分组：基础控件、应用外壳与导航、开始页、文件工作区、写作与预览、阅读、大纲与地图、CSV、项目配置与组件、对话框与设置。每个选择器只有一个连续的归属位置，基础规则与媒体查询相邻；同一层和条件中的声明已合并。保留简写/长写属性、逻辑属性和不同媒体条件的胜出关系。
 - `state`：必须压过任何应用规则的模式（专注模式、开始页、非写作页、隐藏的插件位置、阅读页顶栏、`.vela` 页的内边距、减少动态效果），不再需要 `!important`。
-- 第三方元素（CodeMirror 的 `.cm-*`、KaTeX）的规则不分层，放在各文件末尾：CodeMirror 的主题在这些样式表之后以不分层的 `<style>` 注入，选择器更具体，分层规则会全部输给它。
+- `editor.css`：CodeMirror、补全及其大纲标记的未分层集成规则，放在 KaTeX 之后。CodeMirror 运行时注入的主题不分层，因此这些覆盖也必须保持未分层。
 
-`!important` 由 95 处减到 75 处，留下的都注明了原因：压过 CodeMirror 主题和它的行内定位（第三方部分与 `app` 中针对 CodeMirror 元素的几条）、`[hidden]`、主题渐变和测试用的关闭动画开关、格式面板的行内定位、PDF 面板不受分页阅读规则影响。整理时删除了 21 个已不存在的类名或 ID 的选择器、被同一选择器在同一层和媒体条件下后续规则覆盖的 338 条声明（后者若使用 Chromium 105 不支持的写法，如 `dvh`、`color-mix()`，则保留前者作回退）、重复的 `.vela-config-grid`（合并为一条；`style.css` 中的网格列定义对这个 flex 容器不生效）和多余的 `.document-tools[hidden]`，并把分散在两个文件的选区菜单样式合到 `design.css`。
+保留现有 `!important` 的层级与作用范围（重要声明在层之间按相反顺序胜出）。没有新增配色；已有固定透明高光、遮罩及语法高亮值也保持原样。构建脚本、前端资源清单和源码打包校验均使用新文件名；构建时清除旧的四张覆盖表，避免旧资源残留。
 
 ### 外观不变的检查
+
+- `node tests/css-refactor-equivalence-browser.mjs` 使用 `startSourceAppServer` 和系统 Chrome，把 Git 提交 `f818cc5` 中的原 HTML/五张 CSS 与当前 CSS 放在同一 DOM 中同步切换。默认覆盖 windows、harmonyos、android，1440/375 两种宽度与深浅色；遍历所有元素及 `::before`/`::after` 的全部计算属性，关闭过渡和动画，忽略这两类属性及四个运行时布局变量。覆盖开始页、TXT 写作、文件栏、工具菜单、设置、含文件的回收站、CSV 与单元格编辑、大纲树/图/详情、地图/详情、书库及阅读页。也检查每个选择器只有一个连续归属位置，同层同条件下没有重复定义。报告写入 `test-results/css-refactor/equivalence.json`。
+- 可用 `CSS_BASE_REF` 指定另一基线提交，`CSS_PROFILES`、`CSS_WIDTHS`、`CSS_HEIGHT`、`CSS_VIEWS` 调整诊断范围，`CSS_FAIL_FAST=1` 在首个差异处输出属性明细并停止。默认运行完整矩阵。
 
 - `node tests/style-snapshot.mjs capture <文件>` 按 `tests/app-tour.mjs` 走一遍主要页面和弹层（开始页、编辑器与侧栏、更多菜单、设置、选区菜单、查找、Markdown 预览与公式、`.vela` 表单、术语库、命令面板、GitHub、订阅、书库、阅读页），覆盖 windows 1440、harmonyos 1280 和 390、android 390，浅色和深色，共 128 个状态，记录每个元素及伪元素的盒子位置和 150 项计算样式；`compare <前> <后> [--summary] [--unwrap 外层元素]` 列出差异。整理前后除下面的滚动容器调整外没有差异，所有元素位置不变。
 - 同一组状态的截图在整理前后逐像素比较：115 张完全相同，其余 13 张的差异来自 `.vela` 表单中每次随机生成的工作区 ID，以及术语库和窄屏 `.vela` 页中个别像素颜色通道相差 1。
