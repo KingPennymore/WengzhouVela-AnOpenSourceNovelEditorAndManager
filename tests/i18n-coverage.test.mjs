@@ -39,7 +39,10 @@ export function scan(file){
   // Lines between `i18n-data-start` and `i18n-data-end` comments hold data too (word lists, snippet tables).
   const region=[];let open=false;
   for(const value of lines){if(/i18n-data-start/.test(value))open=true;region.push(open);if(/i18n-data-end/.test(value))open=false;}
-  const data=node=>{const at=line(node);return region[at]||/i18n-data/.test(lines[at])||/i18n-data/.test(lines[at-1]||'');};
+  // The comment may also sit above the statement holding the literal, for literals deep in a multi-line template.
+  const statement=node=>{while(node.parent&&!ts.isBlock(node.parent)&&!ts.isSourceFile(node.parent)&&!ts.isCaseClause(node.parent))node=node.parent;return node;};
+  const marked=at=>/i18n-data/.test(lines[at]||'')||/i18n-data/.test(lines[at-1]||'');
+  const data=node=>region[line(node)]||marked(line(node))||marked(line(statement(node)));
   const visit=node=>{
     const plain=literalText(node),template=ts.isTemplateExpression(node);
     // A template's own text, without the nested t()/say() calls in its interpolations.

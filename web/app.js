@@ -683,6 +683,7 @@ function showImageDialog(id){
     const picked=await transport('import',{}),file=Array.isArray(picked)?picked[0]:picked;if(!file)return;
     const extension=(file.name.match(/\.(png|jpe?g|gif|webp)$/i)||[])[1];if(!extension||typeof file.data!=='string')throw Error(t('请选择 PNG、JPEG、GIF 或 WebP 图片。'));
     if(file.data.length*3/4>8*MB)throw Error(t('插图不能超过 8 MB。'));
+    // i18n-data: file names, matching text and editable defaults stay as written
     const name=file.name.replace(/[\\/:*?"<>|\x00-\x1f]+/g,'_').slice(-80)||'插图.png',existing=new Set(workspaceImages(doc));let relative='插图/'+name;for(let i=2;existing.has(relative);i++)relative='插图/'+name.replace(/(\.[^.]+)?$/,` (${i})$1`);
     if(!save())throw Error(t('请先保存当前文稿。'));const target=workspaceImagePath(doc,relative);applyFileState(await transport('writeWorkspaceFiles',{files:[{path:target,data:file.data}],folders:[parentPath(target)]}));
     $('#dialog-body [name=src]').value=relative;toast(say(`已导入 ${relative}`,`Imported ${relative}`));
@@ -1005,7 +1006,7 @@ $('#start-page').onclick=e=>{
   const action=e.target.closest('[data-start]');if(!action)return;
   const name=action.dataset.start;
   if(name==='recent'||name==='back'){setStartPanel($('#start-page'),name==='recent'?'recent':'actions');return;}
-  if(name==='guide'){const existing=workspace.documents.find(d=>/^操作指南\.(txt|md)$/i.test(d.name));if(existing)switchDocument(existing.id);else addDocument(newDocument('操作指南.md',guide));}
+  if(name==='guide'){const existing=workspace.documents.find(d=>/^操作指南\.(txt|md)$/i.test(d.name));if(existing)switchDocument(existing.id);else addDocument(newDocument('操作指南.md',guide));} // i18n-data: the guide's file name
   else runAction(name);
 };
 $('#home-button').onclick=showHome;
@@ -1104,6 +1105,7 @@ function renderPreview(){const revision=++previewRevision;$('#preview').viewSess
       if(projectLocked||current()!==doc||!isPreview)throw Error(t('请先打开当前文稿再编辑。'));
       view.dispatch({changes:{from:0,to:view.state.doc.length,insert:text},userEvent:'input.richtext'});
     },onCopy:text=>{
+      // i18n-data: file names, matching text and editable defaults stay as written
       const dot=doc.name.lastIndexOf('.'),copy=newDocument(doc.name.slice(0,dot)+'-可编辑副本'+doc.name.slice(dot),text);
       if(documentKind(doc)==='PLUGIN'){
         copy.kind='PLUGIN';
@@ -1661,6 +1663,7 @@ $('#export-chapters').onclick=()=>showChapterExport();
 $('#locate-chapter').onclick=()=>{$('#chapter-search').value='';outlineRevision='';updateStats();$('#outline-list .active')?.scrollIntoView({block:'center'});};
 $('#append-chapter').onclick=()=>{
   const idx=ensureIndex();
+  // i18n-data: file names, matching text and editable defaults stay as written
   openModal(t('追加章节'),`<label>${t('章节标题')}<input name="title" required value="第${idx.chapterCount+1}章" placeholder="${t('例如：第四章 标题')}"></label><small>${t('在当前小说文件的末尾追加章节，保留现有正文。')}</small>`,f=>{
     const title=f.get('title').trim();
     if(title.includes('\n')||!chapterMatcher(projectWriter(workspace,current()))(title))throw new Error(t('未识别为章节标题，请使用标准标题或添加对应标题模板。'));
@@ -1797,6 +1800,7 @@ function applyTheme(mode=workspace.settings.theme){
 }
 /** Create or edit a custom palette: three colours per mode with a live preview and readability notes. */
 function showPaletteEditor(id='',from=workspace.settings.palette){
+  // i18n-data: file names, matching text and editable defaults stay as written
   const existing=customPalettes().find(item=>item.id===id),base=existing?structuredClone(existing.base):paletteBase(from),name=existing?.name||'我的配色';
   const field=(mode,key,label)=>`<label class="palette-color">${label}<input type="color" name="${mode}-${key}" value="${base[mode][key]}"></label>`;
   const column=(mode,title)=>`<fieldset class="palette-mode"><legend>${title}</legend>${field(mode,'paper',t('纸张'))}${field(mode,'text',t('文字'))}${field(mode,'accent',t('强调色'))}<div class="palette-preview" data-preview="${mode}"><strong>${t('第一章 风起')}</strong><p>${t('林舟冷笑一声，转身离去。')}</p>
@@ -1824,6 +1828,7 @@ function showPaletteEditor(id='',from=workspace.settings.palette){
       const notes=paletteWarnings(read(form,mode));
       $(`#dialog-body [data-warnings="${mode}"]`).textContent=notes.map(note=>{
         const ratio=/[0-9]+\.[0-9]+/.exec(note)?.[0];
+        // i18n-data: file names, matching text and editable defaults stay as written
         return note.startsWith('正文与纸张对比度 ')
           ?say(note,`Text-to-paper contrast ${ratio}:1 is below 4.5:1; long reading sessions may be tiring`)
           :say(note,`Accent-to-paper contrast ${ratio}:1 is below 3:1; buttons and markers may be hard to see`);
@@ -2238,6 +2243,7 @@ async function renderRepository(){
       if(open){const f=contents[Number(open.dataset.file)];if(f.type==='dir'){selectedPath=f.path;renderRepository();}else await openRemote(repo.full_name,selectedBranch,f.path);}
       if(del){
           const f=contents[Number(del.dataset.delete)],branch=selectedBranch;
+          // i18n-data: file names, matching text and editable defaults stay as written
           openModal(t('删除远端文件'),`<p>${say(`将从 ${esc(repo.full_name)} 的 ${esc(branch)} 分支删除 ${esc(f.path)}。本地文稿不会删除。`,`Delete ${esc(f.path)} from ${esc(repo.full_name)} on branch ${esc(branch)}. Local documents are kept.`)}</p><label>${t('提交说明')}<input name="message" required value="${esc(/* User-editable commit message. */ '删除 '+f.name)}"></label>`,async data=>{
             await gh.deleteFile({repo:repo.full_name,branch,path:f.path,sha:f.sha,message:data.get('message')});
             renderRepository();
@@ -2359,6 +2365,7 @@ function commitDocument(suggestRepo,suggestBranch){
   const doc=current();if(!doc){showView('write');showHome();toast(t('请先打开需要提交的文件。'));return;}const remote=sameGitHost(doc.remote,gh)?doc.remote:null;
   const initialRepo=suggestRepo||remote?.repo||repositories[0].full_name;
   const initialBranch=suggestBranch||remote?.branch||repositories.find(r=>r.full_name===initialRepo)?.default_branch||'main';
+  // i18n-data: file names, matching text and editable defaults stay as written
   openModal(say(`提交文稿到 ${gitName()}`,`Commit document to ${gitName()}`),`<p>${say(`将提交“${esc(doc.name)}”的当前内容。`,`Commit the current content of “${esc(doc.name)}”.`)}</p>
     <label>${t('仓库')}<select name="repo" id="commit-repo">${repositories.map(r=>`<option value="${esc(r.full_name)}" ${r.full_name===initialRepo?'selected':''}>${esc(r.full_name)}${r.private?t('（私有）'):''}</option>`).join('')}</select></label>
     <label>${t('分支')}<input name="branch" id="commit-branch" required value="${esc(initialBranch)}"></label>
@@ -2619,6 +2626,7 @@ async function pickBackupFile(){
 /** Restore an exported backup into a new folder; existing files, settings and repository links stay as they are. */
 function previewBackupRestore(bytes){
   const backup=readWorkspaceBackup(bytes),total=backup.documents.length,trashed=(backup.trash||[]).reduce((sum,item)=>sum+(item.documents||[]).length,0);let plan;
+  // i18n-data: file names, matching text and editable defaults stay as written
   openModal(t('恢复文稿备份'),`<p>${say(`备份包含 ${total} 篇文稿${trashed?'，回收站中另有 '+trashed+' 篇':''}。`,`The backup contains ${total} documents${trashed?', plus '+trashed+' in trash':''}.`)}</p>
     <label>${t('恢复到新文件夹')}<input name="folder" required maxlength="120" value="恢复的备份 ${new Date().toISOString().slice(0,10)}"></label>
     <small>${t('文稿恢复到新文件夹并使用新的身份，现有文件和设置保留；词库与写作片段合并，本地历史与批注随文稿恢复。')}</small>`,async form=>{
@@ -2751,6 +2759,7 @@ function addSelectionToGlossary(selectionText,sourceDoc=current()){
   const doc=sourceDoc,range=view?.state.selection.main;if(!doc||selectionText===undefined&&(!range||range.empty)){toast(t('请先选中要加入术语库的词汇。'));return;}
   const selected=(selectionText??view.state.doc.sliceString(range.from,range.to)).trim();if(!selected||selected.length>120||/[\r\n]/.test(selected)){toast(t('词条须为 1–120 字符且不能换行。'));return;}
   const project=projectConfig(workspace,doc),scope=project&&!project.global?project.folder:parentPath(documentPath(doc)),configured=glossaryPaths(workspace,doc),sources=workspace.documents.filter(item=>documentKind(item)==='GLY'&&(!scope||documentPath(item).startsWith(scope+'/'))).sort((a,b)=>Number(configured.includes(documentPath(b)))-Number(configured.includes(documentPath(a))));
+  // i18n-data: file names, matching text and editable defaults stay as written
   openModal(t('选中词加入术语库'),`<label>${t('词条')}<input name="term" maxlength="120" required value="${esc(selected)}"></label>
     <label>${t('术语库文件')}<select name="source">${sources.map(item=>`<option value="${esc(item.id)}">${esc(documentPath(item))}</option>`).join('')}<option value="new">${t('新建术语库')}</option></select></label>
     <label>${t('新术语库文件名')}<input name="filename" value="术语库.gly"></label>
@@ -3151,6 +3160,7 @@ async function boot(){try{
     session.bootFailed=true;
     window.velaStartup?.dismiss();
     $('#editor').innerHTML=`<div class="blank"><h2>${t('无法读取本地文稿')}</h2><p>${esc(t(e.message))}</p><p>${t('原始数据已保留，请勿清除应用数据。可先导出原始文件进行恢复。')}</p><button id="recover-data" class="primary">${t('导出原始数据')}</button></div>`;
+    // i18n-data: file names, matching text and editable defaults stay as written
     $('#recover-data').onclick=()=>exportText('文舟-恢复数据.json',readWorkspace()||'').catch(fail);
     document.querySelectorAll('button').forEach(b=>{if(b.id!=='recover-data')b.disabled=true;});
   }}
