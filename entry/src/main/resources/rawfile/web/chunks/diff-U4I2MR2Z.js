@@ -1,0 +1,1 @@
+import{d as o}from"./chunk-TTC262CJ.js";o();var i={"+":"inserted","-":"deleted","@":"meta"},p={name:"diff",token:function(n){var e=n.string.search(/[\t ]+?$/);if(!n.sol()||e===0)return n.skipToEnd(),("error "+(i[n.string.charAt(0)]||"")).replace(/ $/,"");var r=i[n.peek()]||n.skipToEnd();return e===-1?n.skipToEnd():n.pos=e,r}};export{p as diff};

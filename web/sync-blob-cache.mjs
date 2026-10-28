@@ -1,4 +1,5 @@
 import { gitHostKey } from './git-host.mjs';
+import {MB} from './text-utils.mjs';
 
 /** Verify Git object identity before reusing bytes, including across branches. */
 export async function matchesBlob(data, sha) {
@@ -22,7 +23,7 @@ export async function matchesBlob(data, sha) {
 
 /** Disposable remote data only. Never stores credentials, local edits or sync baselines. */
 export class SyncBlobCache {
-  constructor({ limit = 32 * 1024 * 1024, entries = 256, persistent = true } = {}) {
+  constructor({ limit = 32*MB, entries = 256, persistent = true } = {}) {
     this.limit = limit;
     this.entries = entries;
     this.memory = new Map();

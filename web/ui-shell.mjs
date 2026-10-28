@@ -1,4 +1,5 @@
 import {reducedMotion} from './motion.mjs';
+import {menuKey} from './menu-controller.mjs';
 import {t} from './i18n.mjs';
 import {EditorChrome} from './app-core/editor-chrome.mjs';
 import {ChromeMotion,MenuMotion} from './app-core/chrome-motion.mjs';
@@ -43,12 +44,7 @@ export class UIShell {
     document.addEventListener('pointerdown',event=>{if(!this.menu.contains(event.target)&&!this.toggle.contains(event.target))this.close();});
     document.addEventListener('keydown',event=>{
       if(!this.menuOpen)return;
-      if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();this.close(true);return;}
-      if(['ArrowDown','ArrowUp','Home','End'].includes(event.key)){
-        event.preventDefault();const items=this.menuItems(),index=items.indexOf(document.activeElement);
-        const next=event.key==='Home'?0:event.key==='End'?items.length-1:(index+(event.key==='ArrowDown'?1:-1)+items.length)%items.length;
-        items[next]?.focus();
-      }
+      if(menuKey(event,this.menuItems(),{close:()=>this.close(),returnFocus:this.toggle})&&event.key==='Escape')event.stopImmediatePropagation();
     },true);
     window.addEventListener('resize',()=>this.layout());
     this.environment(environment);
@@ -122,10 +118,11 @@ export function organizeSettings(root) {
   for(const item of original)if(item.isConnected&&item.parentElement===root&&item.textContent.trim())content.lastElementChild.append(item);
   root.replaceChildren(nav,content);
   activate(0);
-  content.addEventListener('scroll',()=>{
+  let frame=0;
+  content.addEventListener('scroll',()=>{if(frame)return;frame=requestAnimationFrame(()=>{frame=0;
     const top=content.getBoundingClientRect().top;
     let current=0;[...content.children].forEach((section,index)=>{if(section.getBoundingClientRect().top<=top+24)current=index;});
     if(content.scrollTop>0&&content.scrollTop+content.clientHeight>=content.scrollHeight-2)current=content.children.length-1;
     activate(current);
-  },{passive:true});
+  });},{passive:true});
 }

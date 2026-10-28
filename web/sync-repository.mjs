@@ -3,6 +3,7 @@ import { documentPath } from './workspace.mjs';
 import { personalFile } from './document-service.mjs';
 import { repoPath } from './model.mjs';
 import { syncTextEqual } from './vela-sync.mjs';
+import {MB} from './text-utils.mjs';
 
 export function sameRepository(value, target) {
   return (
@@ -93,8 +94,8 @@ export async function prepareDownload(workspace, result, folder, readFile) {
       const data = await readFile(item.path);
       if (
         typeof data !== 'string' ||
-        data.length > 12 * 1024 * 1024 ||
-        (bytes += data.length) > 96 * 1024 * 1024
+        data.length > 12*MB ||
+        (bytes += data.length) > 96*MB
       )
         throw Error('删除预览超过大小限制。');
       deletionData[item.path] = data;

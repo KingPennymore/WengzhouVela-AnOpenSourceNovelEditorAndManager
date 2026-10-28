@@ -471,28 +471,38 @@ final class WorkspaceFiles {
         }
     }
     synchronized JSONObject restoreTrash(String trashId, boolean permanent) throws Exception {
-        JSONArray records = trashRecords(), next = new JSONArray(); JSONObject item = null;
-        for (int i = 0; i < records.length(); i++) {
-            JSONObject record = records.getJSONObject(i);
-            if (id.equals(record.optString("workspaceId")) && trashId.equals(record.optString("id"))) item = record;
-            else next.put(record);
-        }
-        if (item == null) throw new IOException("回收站项目不存在。");
-        File payload = trashPayload(trashId);
-        if (!payload.exists()) throw new IOException("回收站文件已移除。");
+        JSONObject result = restoreTrashBatch(new JSONArray().put(trashId), permanent);
+        if (result.getJSONArray("failed").length() > 0) throw new IOException(result.getJSONArray("errors").getJSONObject(0).getString("message"));
+        return result.getJSONObject("state");
+    }
+    synchronized JSONObject restoreTrashBatch(JSONArray ids, boolean permanent) throws Exception {
+        if (ids.length() > 1000) throw new IOException("回收站批量项目无效。");
+        JSONArray records = trashRecords(), next = new JSONArray(), failed = new JSONArray(), errors = new JSONArray();
+        Map<String, JSONObject> byId = new HashMap<>();
+        for (int i = 0; i < records.length(); i++) { JSONObject item = records.getJSONObject(i); if (id.equals(item.optString("workspaceId"))) byId.put(item.getString("id"), item); }
+        Set<String> requested = new HashSet<>(), done = new HashSet<>();
+        JSONObject old = metadata(); JSONArray docs = array(old, "documents"), repos = array(old, "repositories");
         try (Transaction tx = new Transaction()) {
-            if (permanent) tx.move(payload, new File(tx.folder, "discard"));
-            else {
-                File dest = target(item.getString("path"));
-                if (dest.exists()) throw new IOException("原路径已有同名项目，请先重命名后恢复。");
+            for (int i = 0; i < ids.length(); i++) {
+                String trashId = ids.getString(i); if (!requested.add(trashId)) continue;
+                JSONObject item; File payload, dest;
+                JSONArray restored = new JSONArray(), restoredRepos = new JSONArray();
+                try {
+                    item = byId.get(trashId); if (item == null) throw new IOException("回收站项目不存在。");
+                    payload = trashPayload(trashId); if (!payload.exists()) throw new IOException("回收站文件已移除。");
+                    dest = permanent ? new File(tx.folder, "discard-" + trashId) : target(item.getString("path"));
+                    if (dest.exists()) throw new IOException("原路径已有同名项目，请先重命名后恢复。");
+                    if (!permanent) { restored = array(item, "documents"); restoredRepos = array(item, "repositories"); }
+                } catch (Exception error) { failed.put(trashId); errors.put(new JSONObject().put("id", trashId).put("message", error.getMessage())); continue; }
                 tx.mkdir(dest.getParentFile()); tx.move(payload, dest);
-                JSONObject old = metadata(); JSONArray docs = array(old, "documents"), repos = array(old, "repositories");
-                JSONArray restored = array(item, "documents"), restoredRepos = array(item, "repositories");
-                for (int i = 0; i < restored.length(); i++) docs.put(restored.getJSONObject(i));
-                for (int i = 0; i < restoredRepos.length(); i++) repos.put(restoredRepos.getJSONObject(i));
-                old.put("documents", docs).put("repositories", repos); tx.write(cache, utf8(old.toString()));
+                for (int j = 0; j < restored.length(); j++) docs.put(restored.getJSONObject(j));
+                for (int j = 0; j < restoredRepos.length(); j++) repos.put(restoredRepos.getJSONObject(j));
+                done.add(trashId);
             }
-            tx.write(trash, utf8(next.toString())); JSONObject state = scan(); tx.commit(); return state;
+            for (int i = 0; i < records.length(); i++) if (!done.contains(records.getJSONObject(i).getString("id"))) next.put(records.getJSONObject(i));
+            if (!done.isEmpty()) { if (!permanent) { old.put("documents", docs).put("repositories", repos); tx.write(cache, utf8(old.toString())); } tx.write(trash, utf8(next.toString())); }
+            JSONObject state = scan(); tx.commit();
+            return new JSONObject().put("state", state).put("failed", failed).put("errors", errors);
         }
     }
 

@@ -33,7 +33,7 @@ button svg{width:20px;height:20px;flex-shrink:0;stroke-width:1.7}
 .breadcrumb>button,.page-navigation button,.toolbar button,.global-tools button{width:var(--control);height:var(--control);flex-shrink:0;color:var(--muted)}
 .page-navigation{display:flex;gap:4px;flex-shrink:0}
 .page-navigation .nav-item{width:var(--control);height:var(--control)}
-.page-navigation button.active{color:var(--accent);background:var(--soft)}
+
 .nav-separator{height:22px;border-left:1px solid var(--line);margin:0 2px}
 .app-name{font-size:12px;white-space:nowrap}
 .breadcrumb strong{font-size:12px;min-width:0}
@@ -42,17 +42,17 @@ button svg{width:20px;height:20px;flex-shrink:0;stroke-width:1.7}
 .toolbar>button{color:var(--muted);flex:0 0 var(--control)}
 .saved{font-size:11px;margin-right:4px;white-space:nowrap;max-width:130px;overflow:hidden;text-overflow:ellipsis}
 .menu-label{display:none}
-#toolbar-overflow{position:fixed;right:12px;top:calc(var(--shell-top) + var(--safe-top,0px) + 6px);z-index:100;width:224px;padding:6px;border:1px solid var(--line);border-radius:var(--radius);background:var(--paper)}
-#toolbar-overflow button{display:flex;width:100%;justify-content:flex-start;min-height:44px;padding:10px 12px;color:var(--text)}
-#toolbar-overflow .menu-label{display:inline;font-size:13px}
-.file-rowbar{min-height:40px;background:var(--panel)}
-.document-tabs{height:40px;background:var(--panel)}
+#toolbar-overflow{position:fixed;right:12px;top:calc(var(--shell-top) + var(--safe-top,0px) + 6px);border:1px solid var(--line);border-radius:var(--radius);background:var(--paper)}
+#toolbar-overflow button{display:flex;width:100%;justify-content:flex-start;color:var(--text)}
+#toolbar-overflow .menu-label{display:inline;}
+.file-rowbar{min-height:40px;}
+.document-tabs{height:40px;}
 .document-tab{min-width:150px;max-width:260px;padding:0 10px;border-radius:0;font-size:12px}
 .document-tab .tab-close{width:28px;height:28px;border-radius:6px}
 .display-options button{min-height:38px;font-size:12px;padding:0 12px}
 .library,.outline{padding:0 var(--panel-spacing) 12px}
 .library-heading,.outline-heading{height:calc(var(--control) + 16px);flex-shrink:0}
-.library-heading h1,.outline-heading h2{font-size:14px;font-weight:600}
+
 .library-heading button,.outline-heading>button{width:var(--control);height:var(--control)}
 .search-box{height:38px;border-radius:var(--radius)}
 .search-box input,#chapter-search{font-size:12px}
@@ -61,18 +61,18 @@ button svg{width:20px;height:20px;flex-shrink:0;stroke-width:1.7}
 .workspace-controls>div:not(.file-location){display:flex;flex-wrap:wrap;gap:2px;margin-top:8px}
 .text-button{font-size:12px;min-height:30px;padding:5px 7px;color:var(--muted)}
 .text-button:hover{color:var(--accent)}
-.file-location{gap:8px;margin-top:12px}
+.file-location{margin-top:12px}
 .file-location select{height:30px;padding:3px 6px}
 .library-label{font-size:11px;margin:14px 0 8px}
 .doc-list{min-height:0}
-.doc-info strong{font-size:12px}
-.doc-info small{font-size:10px;line-height:1.4}
+
+
 .doc-item{border-radius:var(--radius)}
 .doc-open{padding:9px 8px;min-height:38px}
 .doc-menu{opacity:1;color:var(--muted);min-width:28px;min-height:28px}
 .github-connect strong{font-size:12px}
 .github-connect small{font-size:10px}
-.chapter{font-size:12px;padding:12px 8px;border-radius:var(--radius)}
+.chapter{font-size:12px;padding:12px 8px;}
 .outline-actions{flex-wrap:wrap;gap:4px}
 #chapter-search{height:38px}
 .quickbar{height:52px;gap:2px;padding:4px 12px}
@@ -92,15 +92,15 @@ button svg{width:20px;height:20px;flex-shrink:0;stroke-width:1.7}
 #start-page h2{margin:24px 0 12px}
 .recent-files{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
 .recent-files>button{border:1px solid var(--line);border-radius:var(--radius);padding:14px;text-align:left;justify-content:flex-start;gap:12px;min-width:0}
-.recent-files strong{font-size:13px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;display:block}
+.recent-files strong{font-size:13px;white-space:nowrap;overflow:hidden;display:block}
 .recent-files small{font-size:11px;color:var(--muted);display:block;margin-top:4px}
 .recent-files .file-kind{font-size:10px;border-radius:5px;padding:5px;min-width:38px}
 dialog{padding:0;width:min(600px,calc(100vw - 32px));max-height:calc(100dvh - 40px);border:1px solid var(--line);border-radius:calc(var(--radius) + 4px);background:var(--paper)}
-#dialog-form{padding:0;display:flex;flex-direction:column;max-height:calc(100dvh - 42px)}
+#dialog-form{padding:0;display:flex;flex-direction:column;}
 .dialog-heading{padding:18px 24px;border-bottom:1px solid var(--line);margin:0;flex-shrink:0}
 .dialog-heading h2{font-size:18px}
 .dialog-heading button{min-width:36px;min-height:36px}
-#dialog-body{padding:20px 24px;overflow:auto;min-height:0}
+#dialog-body{overflow:auto;}
 #dialog-body label{font-size:13px}
 #dialog-body input:not([type=checkbox]):not([type=radio]),#dialog-body select,#dialog-body textarea{min-height:38px}
 #dialog-error{padding:0 24px;margin:0}
@@ -108,12 +108,12 @@ dialog{padding:0;width:min(600px,calc(100vw - 32px));max-height:calc(100dvh - 40
 .primary,.secondary{min-height:38px;border-radius:var(--radius);padding:9px 15px}
 dialog.settings-dialog{width:min(920px,calc(100vw - 40px))}
 .settings-dialog #dialog-body{display:grid;grid-template-columns:160px minmax(0,1fr);gap:24px;padding:0 24px 24px}
-.settings-navigation{position:sticky;top:0;align-self:start;display:flex;flex-direction:column;gap:4px;padding-top:20px}
-.settings-navigation button{justify-content:flex-start;text-align:left;padding:12px;min-height:40px;color:var(--muted)}
+.settings-navigation{position:sticky;top:0;align-self:start;display:flex;flex-direction:column;padding-top:20px}
+.settings-navigation button{justify-content:flex-start;text-align:left;padding:12px;color:var(--muted)}
 .settings-content{min-width:0}
-.settings-section{padding:20px 0;border-bottom:1px solid var(--line);scroll-margin-top:12px}
+.settings-section{padding:20px 0;border-bottom:1px solid var(--line);}
 .settings-section:last-child{border:0}
-.settings-section h3{font-size:14px;margin:0 0 18px}
+
 .settings-section label{margin:12px 0}
 .settings-section>.secondary{margin:4px 6px 4px 0}
 .settings-section p{font-size:12px;color:var(--muted);line-height:1.6}
@@ -121,8 +121,8 @@ dialog.settings-dialog{width:min(920px,calc(100vw - 40px))}
 .palette-choice{padding:10px;border-radius:var(--radius)}
 .github-view,.subscriptions-view{padding:28px clamp(20px,4vw,56px)}
 .github-topbar{gap:12px}
-.empty-state{max-width:560px;margin:40px auto;padding:32px;border:1px solid var(--line);border-radius:calc(var(--radius) + 4px);background:var(--paper)}
-.empty-state>svg{width:42px;height:42px;margin-bottom:12px;color:var(--muted)}
+.empty-state{max-width:560px;margin:40px auto;padding:32px;border:1px solid var(--line);border-radius:calc(var(--radius) + 4px);}
+.empty-state>svg{width:42px;height:42px;margin-bottom:12px;}
 .empty-state h2{font-size:22px}
 .empty-state p{color:var(--muted);font-size:13px;line-height:1.7}
 .button-row{flex-wrap:wrap;gap:10px}
@@ -151,7 +151,7 @@ dialog.settings-dialog{width:min(920px,calc(100vw - 40px))}
 .vela-sections{display:flex;flex-direction:column;top:0;align-self:start;gap:4px;margin:0}
 .vela-sections button{justify-content:flex-start;min-height:40px;padding:10px 12px;border:0;color:var(--muted)}
 .vela-config-grid{display:flex;flex-direction:column;gap:16px;min-width:0;min-height:0;overflow:auto;overscroll-behavior:contain;padding:0 4px 16px;scroll-padding-top:4px}
-.vela-card{border:1px solid var(--line);border-radius:var(--radius);background:var(--paper);padding:24px;scroll-margin-top:16px}
+.vela-card{border:1px solid var(--line);border-radius:var(--radius);padding:24px;scroll-margin-top:16px}
 .vela-card h3{font-size:16px;margin:0 0 20px}
 .vela-card label{font-size:13px}
 .vela-card input,.vela-card select{min-height:38px}
@@ -213,16 +213,16 @@ dialog{width:calc(100vw - 20px);max-height:calc(100dvh - 20px)}
 #dialog-form{max-height:calc(100dvh - 22px)}
 .dialog-heading{padding:14px 16px}
 .dialog-heading h2{font-size:16px}
-#dialog-body{padding:16px}
+
 .dialog-actions{padding:12px 16px}
 dialog.settings-dialog{width:calc(100vw - 20px)}
 .settings-navigation{flex-direction:row;overflow-x:auto;padding:8px 0;background:var(--paper);z-index:1;top:0;border-bottom:1px solid var(--line)}
-.settings-navigation button{flex-shrink:0;padding:8px 10px;min-height:36px;font-size:12px}
+.settings-navigation button{flex-shrink:0;}
 .settings-section{padding:18px 0}
 body[data-ui="android"] dialog{margin:auto 0 0;width:100%;max-width:100%;max-height:calc(100dvh - 20px);border-radius:20px 20px 0 0}
 body[data-ui="android"] #dialog-form{padding-bottom:var(--safe-bottom,0px)}
 body[data-ui="android"] dialog.settings-dialog{width:100%}
-.github-view,.subscriptions-view{padding:20px 16px}
+
 .empty-state{margin:20px auto;padding:24px 18px}
 .repo-grid{grid-template-columns:1fr}
 .reader-books{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
@@ -251,7 +251,7 @@ body[data-ui="android"] dialog.settings-dialog{width:100%}
 .glossary-tools{display:flex;align-items:center;gap:12px}
 .glossary-tools input{flex:1;min-width:0}
 .glossary-tools output{color:var(--muted);font-size:12px}
-.glossary-entry{padding:20px;margin-bottom:12px;border:1px solid var(--line);border-radius:var(--radius);background:var(--paper);display:flex;flex-direction:column;gap:14px}
+.glossary-entry{padding:20px;margin-bottom:12px;border:1px solid var(--line);border-radius:var(--radius);display:flex;flex-direction:column;gap:14px}
 .glossary-error{max-width:600px;margin:auto}
 .glossary-tools button{flex-shrink:0}
 @media(max-width:600px){.glossary-surface{padding:16px}
@@ -318,7 +318,7 @@ body[data-ui="android"] dialog.settings-dialog{height:66.6667dvh;max-height:66.6
 @media(prefers-reduced-motion:reduce){.settings-dialog[open],.settings-dialog::backdrop{animation:none}}
 .breadcrumb{min-width:0}
 .breadcrumb #current-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-#toolbar-overflow{max-height:calc(100dvh - var(--shell-top) - var(--safe-top,0px) - 18px);overflow:auto;overscroll-behavior:contain}
+#toolbar-overflow{max-height:calc(100dvh - var(--shell-top) - var(--safe-top,0px) - 18px);}
 /* Project commits freeze host controls while owned plugin pages remain available. */
 body.project-busy #workspace,body.project-busy #doc-list,body.project-busy .topbar{pointer-events:none}
 /* Constrain text to the card even while sidebar width is animating. */
@@ -416,20 +416,20 @@ body{position:fixed;inset:0}
 
 @layer app{
 .planning-preview{padding:0;overflow:hidden;min-height:0}
-.planning-surface{height:100%;min-height:300px;display:flex;flex-direction:column;background:var(--paper)}
-.planning-toolbar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding:10px;border-bottom:1px solid var(--line);flex:none}
-.planning-toolbar strong{flex:1}.planning-toolbar button{min-height:36px;padding:6px 10px;background:var(--soft)}
-.outline-body{display:flex;flex:1;min-height:0;position:relative}.outline-detail{width:340px;max-width:100%;overflow:auto;border-left:1px solid var(--line)}
-.outline-detail-surface{padding:16px;background:var(--panel);min-height:100%}.outline-detail form,.outline-detail label{display:flex;flex-direction:column;gap:8px}.outline-detail form{gap:12px}.outline-markdown{overflow-wrap:anywhere}
-@media(max-width:899px){.outline-detail{position:absolute;inset:30% 0 0;width:100%;z-index:3;border-top:1px solid var(--line);border-radius:16px 16px 0 0;box-shadow:var(--shadow)}}
+.planning-surface{display:flex;flex-direction:column;}
+.planning-toolbar{display:flex;}
+.planning-toolbar strong{flex:1}
+.outline-body{display:flex;flex:1;min-height:0;position:relative}.outline-detail{max-width:100%;border-left:1px solid var(--line)}
+.outline-detail form,.outline-detail label{display:flex;flex-direction:column;gap:8px}.outline-detail form{gap:12px}.outline-markdown{overflow-wrap:anywhere}
+@media(max-width:899px){.outline-detail{border-top:1px solid var(--line);}}
 }
 
-@layer app{.outline-graph{flex:1;min-width:0;min-height:0;position:relative}.outline-plane{position:absolute;inset:0;overflow:hidden;touch-action:none}.outline-graph-stage{position:absolute;transform-origin:0 0}.outline-lines{position:absolute;overflow:visible;pointer-events:none}.outline-lines path{fill:none;stroke:var(--line);stroke-width:2}.outline-lines text{fill:var(--muted);font-size:12px}.outline-lines .outline-relation-edge{stroke:var(--accent);stroke-width:3;cursor:pointer}.outline-graph-card{position:absolute;width:210px;min-height:64px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius)}.outline-graph-card>[data-node]{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-height:64px;width:100%;padding:10px 20px 10px 10px}.outline-graph-card [aria-selected=true]{box-shadow:inset 0 0 0 2px var(--accent)}.outline-graph-card small{max-width:175px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.outline-graph-card [data-edge-handle]{position:absolute;right:-12px;top:20px;width:24px;height:24px;border:1px solid var(--accent);background:var(--paper);border-radius:50%}}
+@layer app{.outline-graph{flex:1;min-width:0;min-height:0;position:relative}.outline-plane{position:absolute;inset:0;overflow:hidden;touch-action:none}.outline-graph-stage{position:absolute;transform-origin:0 0}.outline-lines{position:absolute;overflow:visible;pointer-events:none}.outline-lines path{fill:none;stroke:var(--line);stroke-width:2}.outline-lines text{fill:var(--muted);font-size:12px}.outline-lines .outline-relation-edge{stroke:var(--accent);cursor:pointer}.outline-graph-card{position:absolute;width:210px;min-height:64px;}.outline-graph-card>[data-node]{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;width:100%;}.outline-graph-card small{max-width:175px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.outline-graph-card [data-edge-handle]{position:absolute;border:1px solid var(--accent);border-radius:50%}}
 
 @layer app{.outline-jump-menu{position:absolute;bottom:60px;left:20px;z-index:5;padding:12px;background:var(--panel);box-shadow:var(--shadow)}}
 .outline-line-marker{width:16px;color:var(--accent);font-size:16px;padding:0;cursor:pointer}.outline-anchor-flash .cm-selectionBackground{animation:outline-flash .25s 4 alternate}@keyframes outline-flash{to{opacity:.25}}
 
-@layer app{.map-stage{position:relative;flex:1;min-height:240px;overflow:hidden}.map-stage canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}.map-toolbar [aria-pressed=true]{background:var(--accent);color:var(--paper)}}
+@layer app{.map-stage{position:relative;flex:1;overflow:hidden}.map-stage canvas{position:absolute;inset:0;width:100%;height:100%;touch-action:none}.map-toolbar [aria-pressed=true]{background:var(--accent);color:var(--paper)}}
 
 
 
@@ -438,8 +438,8 @@ body{position:fixed;inset:0}
 
 
 
-@layer app{.file-kind svg,.doc-symbol svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7}.outline-detail textarea{background:transparent}}
+@layer app{.file-kind svg,.doc-symbol svg{width:18px;height:18px;stroke:currentColor;fill:none;stroke-width:1.7}}
 
-@layer app{.outline-graph-card [data-graph-fold]{position:absolute;right:-12px;top:20px;width:24px;height:24px;background:var(--soft);border-radius:50%}}
+@layer app{.outline-graph-card [data-graph-fold]{right:-12px;}}
 
 @layer app{.map-info-form textarea{background:transparent}.planning-preview:not(.map-preview):not(.outline-preview)>section{min-height:0;overflow:auto;padding:16px}.planning-preview:not(.map-preview):not(.outline-preview)>section>pre{white-space:pre-wrap;overflow-wrap:anywhere}}

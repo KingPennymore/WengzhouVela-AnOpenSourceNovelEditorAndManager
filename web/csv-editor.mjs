@@ -5,12 +5,14 @@ import { csvGridEditing } from './csv-grid-editor.mjs';
 import { mountPlanningChrome } from './planning-chrome.mjs';
 import { icon } from './icons.mjs';
 import { t } from './i18n.mjs';
+import { mountMenu } from './menu-controller.mjs';
 
 /** The source editor owns text, history and saving. Only transient view/draft state lives here. */
 export class CsvEditor {
   constructor(ports) { this.ports = ports; this.parser = new CsvParser(); this.epoch = 0; }
   reset() { this.dispose(); this.docId = null; this.active = null; this.anchor = null; this.sortOrder = null; this.query = ''; }
   dispose() {
+    this.closeMenu?.();
     this.ports.root.removeAttribute('aria-busy');
     this.epoch++; this.parser.cancel(); this.events?.abort(); this.grid?.dispose(); if (this.grid) this.grid.disposed = true;
     this.ports.root.planningChromeDispose?.(); clearTimeout(this.pressTimer); clearTimeout(this.keyboardTimer); this.grid = null; this.editing = null; this.space = false; this.pending = false;
@@ -47,15 +49,16 @@ export class CsvEditor {
       <div class="csv-find" hidden><input type="search" id="csv-search" aria-label="${t('在表格中查找')}" placeholder="${t('在表格中查找')}"><button id="csv-find-next">${t('下一处')}</button><label><input type="checkbox" id="csv-filter">${t('筛选行')}</label><output id="csv-find-count">0</output><button id="csv-find-close" aria-label="${t('关闭')}">×</button></div>
       <div class="csv-grid-mount"></div><div class="csv-editor-layer" hidden><textarea id="csv-input" data-user-content spellcheck="false" aria-label="${t('编辑单元格')}"></textarea><div><button id="csv-commit">${t('确定')}</button><button id="csv-cancel">${t('取消')}</button></div></div>
       <footer class="csv-status" role="status"><span id="csv-cell-reference">${t('选择单元格')}</span><span id="csv-selection-summary"></span></footer>
-      <div class="planning-bottom-actions">${button('add-row','新增行','csvAddRow')}${button('add-column','新增列','csvAddColumn')}${button('edit-cell','编辑','csvEdit')}${button('fit','适应全表','csvFit')}<button type="button" id="csv-actual" aria-label="100%" title="100%">${icon('actualSize')}<span>100%</span></button><button id="csv-zoom-out" aria-label="${t('缩小')}">${icon('zoomOut')}</button><button id="csv-zoom" aria-label="${t('缩放比例')}">100%</button><button id="csv-zoom-in" aria-label="${t('放大')}">${icon('zoomIn')}</button></div>
+      <div class="planning-bottom-actions">${button('add-row','新增行','csvAddRow')}${button('add-column','新增列','csvAddColumn')}${button('delete-row','删除行','csvDeleteRow')}${button('delete-column','删除列','csvDeleteColumn')}${button('fit','适应全图','focus')}<button id="csv-zoom-out" aria-label="${t('缩小')}">${icon('zoomOut')}</button><button id="csv-zoom" aria-label="${t('缩放比例')}">100%</button><button id="csv-zoom-in" aria-label="${t('放大')}">${icon('zoomIn')}</button></div>
       </div></section>`;
     this.events = new AbortController();
     this.mountGrid(); this.bindInput();
     const bind = (id, fn) => p.root.querySelector('#csv-' + id).onclick = () => this.attempt(fn);
     bind('add-row', () => { const at = this.active ? this.active.row + 1 : this.model.rows.length; this.sortOrder = null; return this.apply(insertCsvRow(this.model, at), { row: at, column: this.active?.column || 0 }); });
     bind('add-column', () => { const at = this.active ? this.active.column + 1 : this.model.columns; return this.apply(csvColumns(this.model, 'insert', at), { row: this.active?.row ?? this.grid.order[0] ?? 0, column: at }); });
-    bind('edit-cell', () => this.editCell()); bind('header', () => { if (p.readOnly()) return; doc.csvHeader = !doc.csvHeader; this.active = this.anchor = null; this.refreshGrid(); p.root.querySelector('#csv-header').setAttribute('aria-pressed', String(doc.csvHeader)); p.save(); });
-    bind('find', () => this.openFind()); bind('fit', () => this.grid.fit()); bind('actual', () => this.grid.zoom(1));
+    bind('delete-row', () => this.deleteRow()); bind('delete-column', () => this.deleteColumn());
+    bind('header', () => { if (p.readOnly()) return; doc.csvHeader = !doc.csvHeader; this.active = this.anchor = null; this.refreshGrid(); p.root.querySelector('#csv-header').setAttribute('aria-pressed', String(doc.csvHeader)); p.save(); });
+    bind('find', () => this.openFind()); bind('fit', () => this.grid.fit());
     bind('zoom-in', () => this.grid.zoom(this.grid.plane.scale * 1.2)); bind('zoom-out', () => this.grid.zoom(this.grid.plane.scale / 1.2)); bind('zoom', () => this.zoomMenu());
     bind('reset-widths', () => { this.state.widths = []; this.refreshGrid(); this.saveView(); });
     bind('reset-order', () => { this.sortOrder = null; this.refreshGrid(); });
@@ -66,7 +69,7 @@ export class CsvEditor {
     p.root.querySelector('#csv-delimiter').onchange = e => { const next = parseCsvModel(p.source(), e.target.value); if (next.error) { e.target.value = model.delimiter; p.fail(Error(t(next.error))); return; } doc.delimiter = e.target.value; p.save(); this.render(); };
     window.addEventListener('keyup', e => { if (e.key === ' ') this.space = false; }, { signal: this.events.signal });
     window.addEventListener('blur', () => { this.space = false; this.cancelPointer(); }, { signal: this.events.signal });
-    document.addEventListener('pointerdown', e => { if (!e.target.closest('.csv-context-menu')) p.root.querySelector('.csv-context-menu')?.remove(); }, { signal: this.events.signal });
+    document.addEventListener('pointerdown', e => { if (!e.target.closest('.csv-context-menu')) this.closeMenu?.(); }, { signal: this.events.signal });
     mountPlanningChrome(p.root);
     // The planning chrome moves the bottom actions into the shell footer. Keep the table's own actions
     // first and labelled there instead of stacking them after the text editor's quick actions.
@@ -90,12 +93,14 @@ export class CsvEditor {
   async reload(changes, reveal) {
     const p = this.ports, doc = p.doc(), source = p.source(), epoch = ++this.epoch;
     this.pending = true; p.root.setAttribute('aria-busy', 'true');
-    for (const id of ['add-row', 'add-column', 'edit-cell']) this.control(id).disabled = true;
+    for (const id of ['add-row', 'add-column', 'delete-row', 'delete-column']) this.control(id).disabled = true;
     try {
       const model = patchCsvModel(this.model, changes, source) || await this.parser.parse(source, this.model.delimiter);
       if (!model || epoch !== this.epoch || p.doc() !== doc || p.source() !== source || !this.grid) return;
       if (model.error) { await this.render(); return; }
       const columns = this.model.columns;
+      // All structural entry points (menus, toolbar, paste) share this invalidation.
+      if (model.rows.length !== this.model.rows.length) this.sortOrder = null;
       this.model = model; this.rows = model.rows; doc.csvFormat = { ...model.format };
       if (columns !== model.columns) this.state.widths = [];
       let order = this.sortOrder || model.rows.map((_, r) => r);
@@ -122,9 +127,10 @@ export class CsvEditor {
   setCell(row, column, value) { this.apply(setCsvCell(this.model, row, column, value)); }
   focus(row, column) { this.select(row, column, false, true); }
   zoomMenu() {
-    const root = this.ports.root; root.querySelector('.csv-context-menu')?.remove(); const menu = document.createElement('div'); menu.className = 'csv-context-menu csv-zoom-menu'; menu.setAttribute('role', 'menu');
-    for (const value of [.5, 1, 1.5, 2, 'width']) { const button = document.createElement('button'); button.textContent = value === 'width' ? t('适应宽度') : value * 100 + '%'; button.onclick = () => { menu.remove(); value === 'width' ? this.grid.fit(true) : this.grid.zoom(value); }; menu.append(button); }
+    const root = this.ports.root; this.closeMenu?.(); const menu = document.createElement('div'); menu.className = 'csv-context-menu csv-zoom-menu';
+    for (const value of [.5, 1, 1.5, 2, 'width']) { const button = document.createElement('button'); button.textContent = value === 'width' ? t('适应宽度') : value * 100 + '%'; button.onclick = () => { value === 'width' ? this.grid.fit(true) : this.grid.zoom(value); }; menu.append(button); }
     root.querySelector('.csv-panel').append(menu);
+    this.closeMenu = mountMenu(menu,{opener:this.control('zoom'),signal:this.events.signal});
   }
 }
 Object.assign(CsvEditor.prototype, csvGridEditing);

@@ -3,9 +3,10 @@
 // with 16 characters of context, so they can be found again after the TXT was edited outside Vela.
 // See docs/VELA-V3-DESIGN.md.
 import {textFingerprint} from './document-service.mjs';
+import {MB} from './text-utils.mjs';
 
 export const SIDECAR_SUFFIX='.vela';
-export const MAX_SIDECAR_CHARS=4*1024*1024;
+export const MAX_SIDECAR_CHARS=4*MB;
 export const MAX_ENTRIES=50000;
 const CONTEXT=16,GROUPS=['marks','blocks','inserts'];
 /** Formats the editor can apply. Other types in a sidecar are kept and re-anchored but not rendered. */
@@ -152,7 +153,7 @@ export function buildSidecar(target,text,entries,review=[],previous={}){
 // verify the place. `prefix`/`suffix` are written only where the quote occurs more than once in its line.
 
 const LINE_CONTEXT=8,HEAD=12;
-export const MAX_VELA_CHARS=8*1024*1024;
+export const MAX_VELA_CHARS=8*MB;
 const lineTable=text=>{const lines=text.split('\n'),starts=new Array(lines.length);let at=0;for(let i=0;i<lines.length;i++){starts[i]=at;at+=lines[i].length+1;}return {lines,starts};};
 const occurrences=(line,quote)=>{let n=0;for(let at=line.indexOf(quote);at>=0&&n<2;at=line.indexOf(quote,at+1))n++;return n;};
 const recordFailure=(path,message)=>Error('格式记录 '+path+' 无效：'+message);

@@ -1,7 +1,8 @@
 import {error,relativePath,within,mime,sha256} from './project-contract.mjs';
 import {fromBase64,toBase64} from './plugin-package.mjs';
+import {MB} from './text-utils.mjs';
 
-export const ARCHIVE_LIMIT=8*1024*1024;
+export const ARCHIVE_LIMIT=8*MB;
 /** Validate the central directory before allocating any expanded file buffers. */
 export function inspectZip(data){
   if(data.byteLength>ARCHIVE_LIMIT||data.byteLength<22)throw error('E_LIMIT','此平台 ZIP 限制为 8 MB。');

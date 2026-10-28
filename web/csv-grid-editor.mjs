@@ -2,6 +2,8 @@ import { csvColumnName } from './csv-view.mjs';
 import { parseCsv, writeCsv } from './csv.mjs';
 import { replaceCells, insertCsvRow, deleteCsvRows, csvColumns, reorderCsvRows } from './csv-model.mjs';
 import { t } from './i18n.mjs';
+import { mountMenu } from './menu-controller.mjs';
+import { movedBeyond } from './tap-guard.mjs';
 
 // Input/selection controller kept separate from mounting and asynchronous parsing.
 export const csvGridEditing = {
@@ -55,7 +57,7 @@ export const csvGridEditing = {
     const cellId = active ? `csv-cell-${active.row}-${active.column}` : null;
     if (cellId && root.querySelector('#' + cellId)) root.querySelector('[role=grid]').setAttribute('aria-activedescendant', cellId); else root.querySelector('[role=grid]').removeAttribute('aria-activedescendant');
     for (const heading of root.querySelectorAll('[data-csv-row],[data-csv-column]')) heading.classList.toggle('csv-active-axis', !!active && (heading.dataset.csvRow !== undefined ? this.contains(Number(heading.dataset.csvRow), active.column) : this.contains(active.row, Number(heading.dataset.csvColumn))));
-    const edit = this.control('edit-cell'); if (edit) edit.disabled = this.pending || !active || this.ports.readOnly();
+    for (const id of ['delete-row', 'delete-column']) { const button = this.control(id); if (button) button.disabled = this.pending || !active || this.ports.readOnly(); }
     const count = active ? (selection.r1 - selection.r0 + 1) * (selection.c1 - selection.c0 + 1) : 0;
     const key = active ? `${selection.r0}:${selection.r1}:${selection.c0}:${selection.c1}` : '';
     if (this.selectionStats?.model !== this.model || this.selectionStats?.order !== this.grid.order || this.selectionStats.key !== key) {
@@ -81,7 +83,7 @@ export const csvGridEditing = {
   },
   pointerDown(e) {
     if (!this.grid || e.button > 0 || e.target.closest('button,input,textarea,select,.csv-menu')) return;
-    this.ports.root.querySelector('.csv-context-menu')?.remove();
+    this.closeMenu?.();
     const resize = e.target.closest('[data-resize-column]');
     if (resize) { e.preventDefault(); e.stopPropagation(); this.resizing = { column: Number(resize.dataset.resizeColumn), x: e.clientX, width: this.grid.metrics.widths[Number(resize.dataset.resizeColumn)] }; this.ports.root.setPointerCapture(e.pointerId); return; }
     const handle = e.target.closest('[data-selection-handle]');
@@ -100,7 +102,7 @@ export const csvGridEditing = {
   },
   pointerMove(e) {
     if (this.resizing) { const { column, x, width } = this.resizing; this.state.widths = [...this.grid.metrics.widths]; this.state.widths[column] = Math.max(64, Math.min(640, width + (e.clientX - x) / this.grid.plane.scale)); this.grid.metrics.widths = this.state.widths; this.rebuildMetrics(); this.grid.paint(); return; }
-    if (this.pointer && Math.hypot(e.clientX - this.pointer.x, e.clientY - this.pointer.y) > 8) { this.pointer.moved = true; clearTimeout(this.pressTimer); }
+    if (this.pointer && movedBeyond(this.pointer, e)) { this.pointer.moved = true; clearTimeout(this.pressTimer); }
     if (this.dragSelection) { const hit = this.grid.hit(e); if (hit) { this.active = { row: hit.row, column: hit.column }; this.showSelection(); } }
   },
   pointerEnd(e) {
@@ -185,26 +187,39 @@ export const csvGridEditing = {
     const target = this.navigationTarget(key, shift);
     if (target) this.select(target.row, target.column, target.extend, true);
   },
+  deleteRow() {
+    if (!this.active || this.pending) return;
+    this.cancelEdit(false);
+    const { row, column } = this.active; this.sortOrder = null;
+    return this.apply(deleteCsvRows(this.model, row), { row: Math.max(0, Math.min(row, this.model.rows.length - 2)), column });
+  },
+  deleteColumn() {
+    if (!this.active || this.pending) return;
+    this.cancelEdit(false);
+    const { row, column } = this.active;
+    return this.apply(csvColumns(this.model, 'delete', column), { row, column: Math.max(0, Math.min(column, this.model.columns - 2)) });
+  },
   menu(event) {
     if (!this.active) return;
-    const root = this.ports.root; root.querySelector('.csv-context-menu')?.remove();
+    const root = this.ports.root; this.closeMenu?.();
     const menu = document.createElement('div'); menu.className = 'csv-context-menu csv-menu'; menu.setAttribute('role', 'menu');
     const button = (label, action, disabled = false) => { const b = document.createElement('button'); b.textContent = t(label); b.disabled = disabled; b.setAttribute('role', 'menuitem'); b.onclick = () => { menu.remove(); this.attempt(action); }; menu.append(b); };
     const r = this.active.row, c = this.active.column, locked = this.ports.readOnly();
     const rowAxis = event.target.closest('[data-csv-row]'), colAxis = event.target.closest('[data-csv-column]');
     if (!colAxis) {
       button('在上方插入行', () => this.apply(insertCsvRow(this.model, r), { row: r, column: c }), locked); button('在下方插入行', () => this.apply(insertCsvRow(this.model, r + 1), { row: r + 1, column: c }), locked);
-      button('删除行', () => this.apply(deleteCsvRows(this.model, r)), locked);
+      button('删除行', () => this.deleteRow(), locked);
       const firstRow = this.ports.doc().csvHeader ? 1 : 0;
       for (const [label, delta] of [['上移行', -1], ['下移行', 1]]) button(label, () => { const order = this.model.rows.map((_, i) => i); [order[r], order[r + delta]] = [order[r + delta], order[r]]; this.apply(reorderCsvRows(this.model, order), { row: r + delta, column: c }); }, locked || r + delta < firstRow || r + delta >= this.model.rows.length);
     }
     if (!rowAxis) {
-      button('在左侧插入列', () => this.apply(csvColumns(this.model, 'insert', c)), locked); button('在右侧插入列', () => this.apply(csvColumns(this.model, 'insert', c + 1)), locked); button('删除列', () => this.apply(csvColumns(this.model, 'delete', c)), locked);
+      button('在左侧插入列', () => this.apply(csvColumns(this.model, 'insert', c)), locked); button('在右侧插入列', () => this.apply(csvColumns(this.model, 'insert', c + 1)), locked); button('删除列', () => this.deleteColumn(), locked);
       for (const [label, delta] of [['左移列', -1], ['右移列', 1]]) button(label, () => this.apply(csvColumns(this.model, 'move', c, c + delta), { row: r, column: c + delta }), locked || c + delta < 0 || c + delta >= this.model.columns);
       for (const [label, descending, write] of [['升序 · 仅显示', false, false], ['降序 · 仅显示', true, false], ['升序 · 写入文件', false, true], ['降序 · 写入文件', true, true]]) button(label, () => this.sort(c, descending, write), write && locked);
     }
     button('清空选择', () => this.clear(), locked); button('编辑单元格', () => this.editCell(), locked);
-    root.querySelector('.csv-panel').append(menu); const box = root.querySelector('.csv-panel').getBoundingClientRect(); menu.style.left = Math.max(0, Math.min(event.clientX - box.left, box.width - menu.offsetWidth)) + 'px'; menu.style.top = Math.max(0, Math.min(event.clientY - box.top, box.height - menu.offsetHeight)) + 'px'; menu.querySelector('button:not(:disabled)')?.focus();
+    root.querySelector('.csv-panel').append(menu); const box = root.querySelector('.csv-panel').getBoundingClientRect(); menu.style.left = Math.max(0, Math.min(event.clientX - box.left, box.width - menu.offsetWidth)) + 'px'; menu.style.top = Math.max(0, Math.min(event.clientY - box.top, box.height - menu.offsetHeight)) + 'px';
+    this.closeMenu = mountMenu(menu,{opener:this.grid.surface,signal:this.events.signal});
   },
   sort(column, descending, write) {
     const order = this.model.rows.map((_, i) => i).filter(i => !this.ports.doc().csvHeader || i !== 0);

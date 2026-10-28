@@ -1,6 +1,7 @@
 import { repoPath, MAX_TEXT_BYTES } from './model.mjs';
 import { dependencyPaths } from './sync-plan.mjs';
 import { syncBlobCache } from './sync-blob-cache.mjs';
+import {MB} from './text-utils.mjs';
 
 /** Read one immutable remote snapshot; workspace writes remain a separate reviewed step. */
 export async function pullRepository(
@@ -78,11 +79,11 @@ export async function pullRepository(
     if (
       !Number.isFinite(entry.size) ||
       entry.size < 0 ||
-      (!metadataOnly && entry.size > 8 * 1024 * 1024)
+      (!metadataOnly && entry.size > 8*MB)
     )
       throw new Error('仓库文件超过 8 MB：' + entry.path + '。工作区未修改。');
     total += entry.size;
-    if (!metadataOnly && total > 64 * 1024 * 1024)
+    if (!metadataOnly && total > 64*MB)
       throw new Error('仓库超过 64 MB，工作区未修改。');
     blobs.push(entry);
   }
@@ -117,7 +118,7 @@ export async function pullRepository(
         throw new Error('无法读取仓库文件：' + entry.path);
       data = blob.content.replace(/\s/g, '');
       downloaded++;
-      if (data.length > 12 * 1024 * 1024) throw Error('仓库文件超过限制：' + entry.path);
+      if (data.length > 12*MB) throw Error('仓库文件超过限制：' + entry.path);
     }
     const bytes = Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
     if (bytes.length !== entry.size) throw new Error('仓库文件大小不一致：' + entry.path);
@@ -146,7 +147,7 @@ export async function pullRepository(
         if (!Number.isFinite(resource.size) || resource.size > MAX_TEXT_BYTES)
           throw Error('依赖文件超过限制：' + resource.path);
         total += resource.size;
-        if (total > 64 * 1024 * 1024 || blobs.length >= 5000) throw Error('依赖资源超过拉取限制。');
+        if (total > 64*MB || blobs.length >= 5000) throw Error('依赖资源超过拉取限制。');
         paths.add(resource.path);
         blobs.push(resource);
       }

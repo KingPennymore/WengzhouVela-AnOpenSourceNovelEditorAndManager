@@ -130,7 +130,7 @@ final class NativeBridge {
             case "initializeStorage": case "refreshFolder": return files.scan();
             case "manageFiles": return files.manage(data.optString("action"), data.optString("path"), data.optString("destination"));
             case "listTrash": return files.listTrash();
-            case "restoreTrash": return files.restoreTrash(data.optString("id"), data.optBoolean("permanent"));
+            case "restoreTrash": return data.has("ids") ? files.restoreTrashBatch(data.getJSONArray("ids"), data.optBoolean("permanent")) : files.restoreTrash(data.optString("id"), data.optBoolean("permanent"));
             case "readWorkspaceFile": return files.readFileBase64(data.optString("path"));
             case "readWorkspaceAsset": return files.readAsset(data.optString("path"));
             case "previewHtml":

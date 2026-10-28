@@ -1,6 +1,7 @@
 import {mapSamples} from './map-samples.mjs';
 import {updateDrawingFill} from './map-fill.mjs';
 import {mapText} from './map.mjs';
+import {textBytes} from './text-utils.mjs';
 
 export const isTerrain=layer=>layer?.algorithm==='terrain';
 export function terrainBounds(layer){
@@ -30,6 +31,6 @@ export function convertDrawingTerrain(source,settings={},id='terrain-1'){
  const terrain={...structuredClone(fill),id,algorithm:'terrain',label:'地形',paths:fill.paths||[]};delete terrain.params;
  // Keep an empty drawing layer for older readers; future drawing regenerates only new samples.
  next.generated=next.generated.filter(g=>g.id!=='g-drawing-fill');next.generated.push({id:'g-drawing-fill',algorithm:'drawing-fill',paths:[],regions:[]},terrain);
- const bytes=text=>new TextEncoder().encode(text).length;
+ const bytes=text=>textBytes(text);
  return {value:next,removed,kept,beforeBytes:bytes(mapText(source)),afterBytes:bytes(mapText(next))};
 }

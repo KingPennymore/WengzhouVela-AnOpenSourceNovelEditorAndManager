@@ -1,5 +1,6 @@
+import { MB } from './text-utils.mjs';
 import {documentSourceProvider} from './document-components.mjs';
-export const MAX_TEXT_BYTES = 8 * 1024 * 1024;
+export const MAX_TEXT_BYTES = 8 * MB;
 export function newDocument(name = '未命名文稿.md', text = '') {
   return { id: crypto.randomUUID(), name, text, updatedAt: Date.now(), remote: null };
 }

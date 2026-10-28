@@ -1,9 +1,10 @@
 import {pointHex,hexVertices} from './map-geometry.mjs';
+import {MB} from './text-utils.mjs';
 
 // A rectangular period contains two hexagons. Share small raster tiles across
 // documents; a canvas retains only its most recently used pattern.
 const tiles=new Map(),patterns=new WeakMap();let tileBytes=0;
-const MAX_BYTES=8*1024*1024,MAX_TILES=12;
+const MAX_BYTES=8*MB,MAX_TILES=12;
 export function clearHexGridCache(){tiles.clear();tileBytes=0;}
 export function hexGridCacheInfo(){return {tiles:tiles.size,bytes:tileBytes};}
 function gridTile(ctx,orientation,radius,dpr,color){

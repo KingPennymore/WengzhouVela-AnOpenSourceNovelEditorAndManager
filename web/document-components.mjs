@@ -1,12 +1,13 @@
 // Shared registry: optional document engines live entirely in plugin bundles.
 import {flatOdfText,parseFlatOdf} from './odf-base.mjs';
+import {textBytes,MB} from './text-utils.mjs';
 export const ODF_ID='vela.component.odf';
 export const ODF_PACKED=/\.(odt|ott|ods|ots|odp|otp|odg|otg)$/i;
 export const ODF_FLAT=/\.(velaodt|vodt|fodt|fods|fodp|fodg)$/i;
 const providers=new Map(),listeners=new Set(),mounts=new Set(),imports=new Set();
 const extension=name=>'.'+String(name).split('.').pop().toLowerCase();
-const textBytes=text=>new TextEncoder().encode(text).length;
-export const MAX_FORMAT_IMPORT_BYTES=32*1024*1024;
+
+export const MAX_FORMAT_IMPORT_BYTES=32*MB;
 export function onDocumentFormatsChange(fn){listeners.add(fn);return ()=>listeners.delete(fn);}
 export function registerDocumentFormat(owner,provider){
  if(!provider||typeof provider.id!=='string'||!Array.isArray(provider.extensions)||!provider.extensions.length||provider.extensions.some(ext=>!/^\.[a-z0-9]+$/.test(ext))||typeof provider.render!=='function'||typeof provider.importBytes!=='function'||typeof provider.toHtml!=='function'||typeof provider.plainText!=='function')throw Error('文档组件缺少有效的格式、导入、预览或纯文本接口。');
@@ -25,7 +26,7 @@ export function isComponentDocument(doc){return doc?.kind==='PLUGIN'||ODF_FLAT.t
 export async function importDocumentBytes(bytes,name,{signal}={}){
  const provider=documentProvider(name);
  if(!provider)throw Error('请先安装并启用支持 '+extension(name)+' 的文档插件。');
- if(!(bytes instanceof Uint8Array)||bytes.length>(provider.maxImportBytes??8*1024*1024))throw Error('文件超过文档插件的导入大小限制。');
+ if(!(bytes instanceof Uint8Array)||bytes.length>(provider.maxImportBytes??8*MB))throw Error('文件超过文档插件的导入大小限制。');
  signal?.throwIfAborted();
  const controller=new AbortController(),pending={provider,controller},abort=()=>controller.abort(signal.reason);let onAbort,result;
  signal?.addEventListener('abort',abort,{once:true});imports.add(pending);
@@ -33,7 +34,7 @@ export async function importDocumentBytes(bytes,name,{signal}={}){
  finally{imports.delete(pending);signal?.removeEventListener('abort',abort);controller.signal.removeEventListener('abort',onAbort);}
  controller.signal.throwIfAborted();
  if(documentProvider(name)!==provider)throw Object.assign(Error('文档插件已停用，请重新导入。'),{code:'E_PLUGIN_STOPPED'});
- if(!result||typeof result.name!=='string'||!result.name.trim()||result.name.length>160||/[\\/\x00-\x1f]/.test(result.name)||typeof result.text!=='string'||textBytes(result.text)>8*1024*1024)throw Error('文档插件返回了无效的编辑源文件。');
+ if(!result||typeof result.name!=='string'||!result.name.trim()||result.name.length>160||/[\\/\x00-\x1f]/.test(result.name)||typeof result.text!=='string'||textBytes(result.text)>8*MB)throw Error('文档插件返回了无效的编辑源文件。');
  if(documentSourceProvider(result.name)!==provider)throw Error('编辑源文件必须使用此插件声明的 sourceExtensions。');
  if(/\.(epub|mobi|azw|azw3|azw4|pdf|zip|odt|ott|ods|ots|odp|otp|odg|otg)$/i.test(result.name))throw Error('请使用独立的文本编辑源扩展名，不能将编辑源写入二进制书籍。');
  provider.validate?.(result.text);
@@ -54,7 +55,7 @@ export function renderComponentDocument(options){
  const owner=[...providers.values()].find(item=>item.provider===provider).owner;
  let old;const mount={owner,provider,dispose(){if(!mounts.delete(mount))return;controller.abort();if(root.odfDispose===mount.dispose)root.odfDispose=null;try{old?.();}finally{if(typeof cleanup==='function')cleanup();}}};
  const alive=()=>{if(controller.signal.aborted)throw Object.assign(Error('文档预览已关闭。'),{code:'E_PLUGIN_STOPPED'});};
- const checkedSource=text=>{if(typeof text!=='string'||textBytes(text)>8*1024*1024)throw Error('编辑源超过 8 MB 或内容无效。');provider.validate?.(text);};
+ const checkedSource=text=>{if(typeof text!=='string'||textBytes(text)>8*MB)throw Error('编辑源超过 8 MB 或内容无效。');provider.validate?.(text);};
  mounts.add(mount);
  root.replaceChildren();
  try{

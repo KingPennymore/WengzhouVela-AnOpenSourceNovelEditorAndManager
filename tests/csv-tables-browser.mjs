@@ -1,3 +1,4 @@
+import { setCsvZoom } from './csv-grid-helper.mjs';
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { mkdir, readFile } from 'node:fs/promises';
@@ -102,8 +103,8 @@ try {
         return rect.width === 0 || (rect.left >= box.left - 1 && rect.right <= box.right + 1);
       });
     }), true, 'toolbar controls stay inside the panel');
-    assert.equal(await page.locator('#csv-actual').isVisible(), true);
-    assert.equal(await page.locator('#csv-actual').textContent(), '100%');
+    assert.equal(await page.locator('#csv-actual,#csv-edit-cell').count(), 0);
+    assert.equal(await page.locator('#csv-fit svg path').getAttribute('d'), 'M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5');
     // The source editor is reached from the top display switch, not from the table's more menu.
     await page.locator('#csv-tools').click();
     assert.equal(await page.locator('.planning-menu #csv-source').count(), 0);
@@ -127,7 +128,7 @@ try {
     // Edit: select a cell, open the editor (a bottom sheet on phones), commit; it lands in the document history.
     const edit = async (target, value) => {
       await target.click();
-      await page.locator('#csv-edit-cell').click();
+      await page.keyboard.press('Enter');
       await page.locator('#csv-input').fill(value);
       await page.locator('#csv-commit').click();
       await page.locator('.csv-editor-layer').waitFor({ state: 'hidden' });
@@ -289,7 +290,7 @@ try {
       );
       await page.locator('[data-display=preview]').click();
       // A large table opens fitted, drawn as an overview; at 100% only the visible part of the grid is in the DOM.
-      await page.locator('#csv-actual').click();
+      await setCsvZoom(page);
       await page.locator('.csv-grid-cell').first().waitFor();
       const pinVisible = () => page.evaluate(() => [...document.querySelectorAll('.csv-row-pin .csv-row-heading')].some((element) => { const rect = element.getBoundingClientRect(); return rect.bottom > 0 && rect.top < innerHeight; }));
       if (!(await pinVisible())) {
@@ -309,7 +310,7 @@ try {
       await page.setViewportSize({ width, height: 440 });
       await page.evaluate(() => (document.body.dataset.keyboard = 'true'));
       assert.ok((await page.locator('.csv-grid-mount').boundingBox()).height >= 44);
-      assert.ok(await page.locator('#csv-edit-cell').isVisible());
+      assert.ok(await page.locator('#csv-delete-row').isVisible());
       await fits();
       await page.setViewportSize({ width, height: 900 });
       await page.evaluate(() => (document.body.dataset.keyboard = 'false'));

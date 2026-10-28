@@ -40,6 +40,7 @@ interface BridgeRequest {
   titlePage?: boolean;
   fontSize?: number;
   language?: string;
+  readerTheme?: string;
   background?: string;
   foreground?: string;
   theme?: string;
@@ -51,6 +52,7 @@ interface BridgeRequest {
   action?: string;
   destination?: string;
   id?: string;
+  ids?: string[];
   permanent?: boolean;
   enabled?: boolean;
   layout?: ReaderLayout;
@@ -305,7 +307,7 @@ export class NativeBridge {
       if (operation === 'initializeStorage') return this.success(await this.workspaceFiles.initialize());
       if (operation === 'manageFiles') return this.success(this.workspaceFiles.manage(data.action || '', data.path || '', data.destination || ''));
       if (operation === 'listTrash') return this.success(this.workspaceFiles.listTrash());
-      if (operation === 'restoreTrash') return this.success(this.workspaceFiles.restoreTrash(data.id || '', data.permanent === true));
+      if (operation === 'restoreTrash') return this.success(Array.isArray(data.ids) ? this.workspaceFiles.restoreTrashBatch(data.ids as string[], data.permanent === true) : this.workspaceFiles.restoreTrash(data.id || '', data.permanent === true));
       if (operation === 'refreshFolder') return this.success(this.workspaceFiles.scan());
       if (operation === 'readWorkspaceFile') return this.success(this.workspaceFiles.readFileBase64(data.path || ''));
       if (operation === 'readWorkspaceAsset') return this.success(this.workspaceFiles.readAsset(data.path || ''));
@@ -321,6 +323,7 @@ export class NativeBridge {
         HtmlPreviewSession.titlePage = data.titlePage !== false;
         HtmlPreviewSession.english = data.language === 'en';
         HtmlPreviewSession.fontSize = data.fontSize || 16;
+        HtmlPreviewSession.readerTheme = data.readerTheme || '{}';
         HtmlPreviewSession.layout = data.layout || { lineHeight: 1.9, marginTop: 24, marginBottom: 24, marginLeft: 35, marginRight: 35 };
         if (!Runtime.mainWindow) throw new Error('预览页面尚未准备好。');
         await Runtime.mainWindow.getUIContext().getRouter().pushUrl({ url: 'pages/HtmlPreview' });

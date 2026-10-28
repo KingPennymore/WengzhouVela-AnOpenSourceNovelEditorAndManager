@@ -5,6 +5,7 @@
 // for the catalog and for a release from after signing (v0.9.9). The page trusts a throwaway key passed to the bundle.
 import {signText,testKey} from './fixtures/release-test-key.mjs';
 import {chromium} from 'playwright';
+import {build} from 'esbuild';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
 import {zipSync,strToU8} from 'fflate';
@@ -39,7 +40,7 @@ process.env.VELA_TEST_RELEASE_KEYS=JSON.stringify([testKey]);
 const server=await startSourceAppServer();
 const browser=await chromium.launch({headless:true,...(process.env.WENZHOU_CHROME?{executablePath:process.env.WENZHOU_CHROME}:{})});
 let failed=0;
-const check=async(name,run)=>{try{await run();console.log('PASS',name);}catch(error){failed++;console.error('FAIL',name,'\n',error);}};
+const check=async(name,run)=>{if(process.env.VELA_TEST_FILTER&&!name.includes(process.env.VELA_TEST_FILTER))return;try{await run();console.log('PASS',name);}catch(error){failed++;console.error('FAIL',name,'\n',error);}};
 
 /** One page with a mocked native bridge. `scenario` maps "<host>:<file>" to ok | fail | corrupt | hang. */
 async function nativePage({platform='windows',scenario={},installed=[],catalog=false,texts={},releases=githubReleases}={}){
@@ -61,6 +62,7 @@ async function nativePage({platform='windows',scenario={},installed=[],catalog=f
       call:async(operation,json)=>{
         const data=JSON.parse(json||'{}');
         if(operation==='initializeStorage')return ok({storage:{id:'',needsSetup:false},documents:[],folders:[],entries:[]});
+        if(operation==='publicApi'&&mock.holdApi)await new Promise(resolve=>mock.releaseApi=resolve);
         if(operation==='publicApi')return ok(data.provider==='gitee'?{status:200,body:[{tag_name:'tex-0.1.1',assets:[]}]}:{status:200,body:githubReleases});
         if(operation==='downloadComponent'||operation==='downloadUpdate'){
           const url=new URL(data.url),host=url.hostname,file=url.pathname.split('/').pop(),mode=scenario[host+':'+file]||scenario[file]||'ok';
@@ -92,6 +94,28 @@ const downloadCard=page=>page.locator('[data-download-card="tex"]');
 const installedCard=(page,id)=>page.locator('.plugin-list .plugin-card').filter({hasText:id});
 
 try{
+  await check('review: a delayed update check cannot replace another dialog',async()=>{
+    const {page,context}=await nativePage();
+    await page.evaluate(()=>{window.__mock.holdApi=true;window.__updateResult=document.querySelector('#check-update').onclick();});
+    await page.waitForFunction(()=>typeof window.__mock.releaseApi==='function');
+    await page.locator('#dialog-cancel').click();await page.locator('#more-tools').click();await page.locator('#settings').click();
+    await page.evaluate(()=>{window.__mock.holdApi=false;window.__mock.releaseApi();});await page.evaluate(()=>window.__updateResult);
+    assert.equal(await page.locator('#dialog-title').textContent(),'编辑器设置');assert.equal(await page.locator('[name=fontSize]').count(),1);
+    await context.close();
+  });
+  await check('review: download views release listeners when closed or completed',async()=>{
+    const {page,context}=await nativePage();
+    const bundle=await build({entryPoints:['web/component-download-view.mjs'],bundle:true,write:false,format:'iife',globalName:'DownloadReview',define:{__VELA_TEST_RELEASE_KEYS__:'[]'}});
+    await page.route('**/__download-review.js',route=>route.fulfill({contentType:'text/javascript',body:bundle.outputFiles[0].text}));
+    await page.addScriptTag({url:server.url+'/__download-review.js'});
+    const result=await page.evaluate(async()=>{
+      const job={state:'running',listeners:new Set()},counts=[];DownloadReview._jobs.set('probe',job);
+      const host={native:false,platform:'browser',descriptor:async()=>null,installed:async()=>new Map()};
+      for(let i=0;i<4;i++){const root=document.createElement('div');document.body.append(root);const view=DownloadReview.mountComponentDownloads(root,host);counts.push(job.listeners.size);view.dispose();root.remove();counts.push(job.listeners.size);}
+      const root=document.createElement('div');document.body.append(root);const view=DownloadReview.mountComponentDownloads(root,host);job.state='cancelled';for(const listener of [...job.listeners])listener();counts.push(job.listeners.size);view.dispose();root.remove();DownloadReview._jobs.delete('probe');return counts;
+    });
+    assert.deepEqual(result,[1,0,1,0,1,0,1,0,0]);await context.close();
+  });
   await check('Gitee failure falls back to GitHub, the ZIP is verified and the single TeX package installs',async()=>{
     const {page,context,errors}=await nativePage({scenario:{'gitee.com:Vela-TeX-0.1.1.zip':'fail'}});
     await openPlugins(page);

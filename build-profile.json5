@@ -1,15 +1,58 @@
 {
   "app": {
-    "signingConfigs": [],
-    "products": [{
-      "name": "default",
-      "compileSdkVersion": "6.1.1(24)",
-      "targetSdkVersion": "6.1.1(24)",
-      "compatibleSdkVersion": "5.0.0(12)",
-      "runtimeOS": "HarmonyOS",
-      "buildOption": { "strictMode": { "caseSensitiveCheck": true, "useNormalizedOHMUrl": true } }
-    }],
-    "buildModeSet": [{ "name": "debug" }, { "name": "release" }]
+    "signingConfigs": [
+      {
+        "name": "default",
+        "type": "HarmonyOS",
+        "material": {
+          "storeFile": "D:/鸿蒙证书相关/123.p12",
+          "storePassword": "0000001ACA8B94D824A05B275CA049DD41D15B6EE81955F3B8C870ECDD90D066231EDB4340A8667039A8",
+          "keyAlias": "123",
+          "keyPassword": "0000001A87BD1CAEB90B79B0E3070D1580970B86A0736D199BF6E2104AF64C61395DE8BDC186D7A141E2",
+          "signAlg": "SHA256withECDSA",
+          "profile": "C:/Users/renyu/Downloads/123123Release.p7b",
+          "certpath": "D:/鸿蒙证书相关/发布证书.cer"
+        }
+      }
+    ],
+    "products": [
+      {
+        "name": "default",
+        "signingConfig": "default",
+        "bundleName": "me.wenzhou.write",
+        "compileSdkVersion": "6.1.1(24)",
+        "targetSdkVersion": "6.1.1(24)",
+        "compatibleSdkVersion": "5.0.0(12)",
+        "runtimeOS": "HarmonyOS",
+        "buildOption": {
+          "strictMode": {
+            "caseSensitiveCheck": true,
+            "useNormalizedOHMUrl": true
+          }
+        },
+        "output": {
+          "artifactName": "me.wenzhou.write-0.9.6"
+        }
+      }
+    ],
+    "buildModeSet": [
+      {
+        "name": "release"
+      }
+    ]
   },
-  "modules": [{ "name": "entry", "srcPath": "./entry", "targets": [{ "name": "default", "applyToProducts": ["default"] }] }]
+  "modules": [
+    {
+      "name": "entry",
+      "srcPath": "./entry",
+      "targets": [
+        {
+          "name": "default",
+          "applyToProducts": [
+            "default"
+          ]
+        }
+      ]
+    }
+  ]
 }

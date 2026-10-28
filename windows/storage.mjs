@@ -194,8 +194,28 @@ export class WorkspaceStorage{
     });
   }
   restoreTrash(id,permanent=false){
-    const records=this.records(),item=records.find(item=>item.id===id);if(!item||!/^[-\w]+$/.test(id))throw new Error('回收站项目不存在。');const payload=path.join(this.base,'trash-payload',id);noLinks(this.base,payload);
-    return this.transaction(tx=>{if(!permanent){const dest=this.target(item.path);if(fs.existsSync(dest))throw new Error('原路径已有同名项目。');tx.move(payload,dest);const old=this.metadata();old.documents.push(...item.documents);old.repositories=[...(old.repositories||[]),...item.repositories];tx.write(this.cache,JSON.stringify(old));}else tx.move(payload,path.join(tx.folder,'discard'));tx.write(this.trash,JSON.stringify(records.filter(item=>item.id!==id)));return this.scan();});
+    const result=this.restoreTrashBatch([id],permanent);if(result.failed.length)throw Error(result.errors[0].message);return result.state;
+  }
+  restoreTrashBatch(ids,permanent=false){
+    if(!Array.isArray(ids)||ids.length>1000)throw Error('回收站批量项目无效。');
+    const records=this.records(),byId=new Map(records.map(item=>[item.id,item])),old=this.metadata(),done=new Set(),failed=[],errors=[];
+    old.repositories||=[];
+    return this.transaction(tx=>{
+      for(const id of new Set(ids)){
+        let item,payload,dest;
+        try{
+          item=byId.get(id);if(!item||typeof id!=='string'||!/^[-\w]+$/.test(id)||!Array.isArray(item.documents))throw Error('回收站项目不存在。');
+          payload=path.join(this.base,'trash-payload',id);noLinks(this.base,payload);if(!fs.existsSync(payload))throw Error('回收站文件已移除。');
+          dest=permanent?path.join(tx.folder,'discard-'+id):this.target(item.path);if(fs.existsSync(dest))throw Error('原路径已有同名项目。');
+        }catch(error){failed.push(id);errors.push({id,message:error.message});continue;}
+        // I/O failures after mutation roll back the transaction, rather than marking a moved payload failed.
+        tx.move(payload,dest);
+        if(!permanent){old.documents.push(...item.documents);old.repositories.push(...(item.repositories||[]));}
+        done.add(id);
+      }
+      if(done.size){if(!permanent)tx.write(this.cache,JSON.stringify(old));tx.write(this.trash,JSON.stringify(records.filter(item=>!done.has(item.id))));}
+      return {state:this.scan(),failed,errors};
+    });
   }
   resource(relative,html=false){const type=html?'text/html':mime(relative);let bytes=this.read(this.target(relative));if(type.startsWith('text/')||['image/svg+xml','application/json'].includes(type)){let text=decodeText(bytes,relative);if(type==='text/html')text='<meta name="viewport" content="width=device-width,initial-scale=1">'+text.replace(/(<meta\b[^>]*charset\s*=\s*["']?)[a-z0-9_-]+/gi,'$1utf-8');bytes=Buffer.from(text);}return {mime:type,bytes};}
   asset(relative){const resource=this.resource(relative);if(!/^image\/(png|jpeg|gif|webp)$/.test(resource.mime))throw new Error('不支持此附件类型。');return 'data:'+resource.mime+';base64,'+resource.bytes.toString('base64');}

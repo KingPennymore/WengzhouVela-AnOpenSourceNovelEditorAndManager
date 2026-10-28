@@ -1,4 +1,5 @@
 import { MAX_TEXT_BYTES } from './model.mjs';
+import {textBytes} from './text-utils.mjs';
 export const MAX_CSV_CELLS = 200000;
 export function csvDelimiter(source) {
   const text = source.replace(/^\uFEFF/, ''), explicit = text.match(/^sep=([,;\t])\r?\n/i);
@@ -23,6 +24,7 @@ export function parseCsvModel(source, delimiter, { maxCells = 200000, maxBytes =
   const sep = !fragment && source.slice(start).match(/^sep=([,;\t])(?:\r\n|\n|\r)/i), sepLine = sep?.[0] || ''; start += sepLine.length;
   let i = start, from = start, rowFrom = start, row = [], spans = [], value = '', quoted = false, inQuote = false, closed = false, cells = 0;
   const format = { bom, newline: '\n', sepLine, trailingNewline: /[\r\n]$/.test(source), consistent: true };
+  // Stays self-contained: this function is also serialised into an inline worker (see below).
   const bytes = new TextEncoder().encode(source).length;
   const result = () => ({ source, delimiter, rows, records, columns: 1, cells, bytes, format, start });
   const failure = message => { const lines = source.slice(0, i).split(/\r\n|\r|\n/); return { ...result(), error: message, line: lines.length, column: lines.at(-1).length + 1, offset: i }; };
@@ -68,7 +70,7 @@ export function mergeCsvChanges(model, changes) {
     }
     if (group) compact.push({ ...group, insert: parts.join('') }); result = compact;
   }
-  const encode = s => new TextEncoder().encode(s).length, delta = result.reduce((n, c) => n + encode(c.insert) - encode(model.source.slice(c.from, c.to)), 0);
+  const encode = s => textBytes(s), delta = result.reduce((n, c) => n + encode(c.insert) - encode(model.source.slice(c.from, c.to)), 0);
   if (model.bytes + delta > MAX_TEXT_BYTES) throw Error('表格不能超过 8 MB。'); return result;
 }
 export function replaceCells(model, entries) {

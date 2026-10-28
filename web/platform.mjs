@@ -1,5 +1,6 @@
 export const native = typeof window !== 'undefined' && !!window.WenzhouNative;
 import {gitIdentity, gitHostKey, gitApiBase, validateGitApiPath} from './git-host.mjs';
+import {MB} from './text-utils.mjs';
 const sessionTokens=new Map();
 export async function transport(operation,payload={}) {
   if(native) {
@@ -131,7 +132,7 @@ export async function openAuthorization() {
 }
 
 export async function exportBinary(name,bytes,mime='application/vnd.oasis.opendocument.text'){
- if(typeof name!=='string'||!name||name.length>160||/[\\/\x00-\x1f]/.test(name)||!(bytes instanceof Uint8Array)||!bytes.length||bytes.length>32*1024*1024)throw Error('导出文件名或二进制数据无效，文件限 32 MB。');
+ if(typeof name!=='string'||!name||name.length>160||/[\\/\x00-\x1f]/.test(name)||!(bytes instanceof Uint8Array)||!bytes.length||bytes.length>32*MB)throw Error('导出文件名或二进制数据无效，文件限 32 MB。');
  if(native){let data='';for(let i=0;i<bytes.length;i+=16384)data+=String.fromCharCode(...bytes.subarray(i,i+16384));return transport(mime==='image/png'?'exportPng':mime==='application/pdf'?'exportPdf':mime==='application/vnd.oasis.opendocument.text'||mime==='application/epub+zip'?'exportOdt':'exportBinary',{name,data:btoa(data),mime});}
  const url=URL.createObjectURL(new Blob([bytes],{type:mime}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),3000);return true;
 }

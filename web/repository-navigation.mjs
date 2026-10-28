@@ -3,6 +3,7 @@ import { documentPath } from './workspace.mjs';
 import { syncTextEqual } from './vela-sync.mjs';
 import { personalFile } from './document-service.mjs';
 import { matchesBlob } from './sync-blob-cache.mjs';
+import {MB} from './text-utils.mjs';
 
 /** Include new and locally deleted manuscripts, not just the active editor. */
 export function branchChanges(workspace, target) {
@@ -56,8 +57,8 @@ export async function inspectBranchAttachments(workspace, target, readFile) {
         const data = await readFile(entry.path);
         if (
           typeof data !== 'string' ||
-          data.length > 12 * 1024 * 1024 ||
-          (total += data.length) > 96 * 1024 * 1024 ||
+          data.length > 12*MB ||
+          (total += data.length) > 96*MB ||
           !(await matchesBlob(data, association.baseFiles?.[relative]?.sha))
         )
           changed.add(entry.path);

@@ -1,11 +1,18 @@
-import {textPoint,characterRect} from './reading-position.mjs';
+import {textPoint,characterRect,textLength} from './reading-position.mjs';
 import {t} from './i18n.mjs';
 // Geometry overlays leave the text DOM (selection, pagination and anchors) untouched.
 export function renderReadingMarks(reader){
+  if(reader.kind==='CSV'){
+    const root=reader.csvGrid?.root;if(!root)return;
+    for(const cell of root.querySelectorAll('.csv-reader-hit,.csv-reader-marked')){cell.classList.remove('csv-reader-hit','csv-reader-marked');cell.removeAttribute('title');}
+    const marks=[...(reader.workspace().annotations?.[reader.id]||[])];if(reader.searchHit)marks.push({...reader.searchHit,kind:'search'});
+    for(const mark of marks){if(mark.needsReview)continue;const cell=mark.csvCell||reader.csvIndex.cellAt(mark.offset||0);if(!Number.isInteger(cell.row)||!Number.isInteger(cell.column))continue;const target=reader.csvGrid.header&&cell.row===0?root.querySelector(`[data-csv-column="${cell.column}"]`):root.querySelector(`[data-cell-row="${cell.row}"][data-cell-column="${cell.column}"]`);if(target){target.classList.add(mark.kind==='search'?'csv-reader-hit':'csv-reader-marked');if(mark.note)target.title=mark.note;}}
+    return;
+  }
   const viewport=reader.root.querySelector('.reader-viewport'),content=reader.root.querySelector('.reader-content');if(!viewport||!content||reader.kind==='HTML')return;
   let layer=viewport.querySelector('.reader-mark-layer');if(!layer){layer=document.createElement('div');layer.className='reader-mark-layer';viewport.append(layer);}
   layer.replaceChildren();layer.style.top=(reader.paged?0:viewport.scrollTop)+'px';layer.style.height=viewport.clientHeight+'px';layer.style.width=viewport.clientWidth+'px';
-  const base=reader.windowModel?.chunks[reader.paged?reader.chunk:reader.scrollFrom??reader.chunk]?.from||0,length=content.textContent.length,box=viewport.getBoundingClientRect();let count=0,bookmark=false;
+  const base=reader.windowModel?.chunks[reader.paged?reader.chunk:reader.scrollFrom??reader.chunk]?.from||0,length=textLength(content),box=viewport.getBoundingClientRect();let count=0,bookmark=false;
   const marks=[...(reader.workspace().annotations?.[reader.id]||[])];if(reader.searchHit)marks.push({...reader.searchHit,kind:'search'});
   for(const mark of marks){if(mark.needsReview)continue;if(reader.pdfPane){if(mark.pdfPage!==reader.pdfPane.page)continue;if(mark.kind==='bookmark')bookmark=true;continue;}
     if(mark.offset>=base+length||(mark.end??mark.offset)<base)continue;

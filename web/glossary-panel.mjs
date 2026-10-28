@@ -1,5 +1,6 @@
 import {ViewPlugin,Decoration,EditorView,hoverTooltip} from '@codemirror/view';
 import {t} from './i18n.mjs';
+import {mountIncrementalList} from './incremental-list.mjs';
 import {glossaryKeywords,matchesGlossary} from './glossary-search.mjs';
 let pressed=false;const release=()=>{pressed=false;};
 if(typeof addEventListener==='function'){addEventListener('pointerup',release,true);addEventListener('pointercancel',release,true);}
@@ -17,10 +18,10 @@ export function glossaryDecorations(getProject){
   return [plugin,press,tip];
 }
 export function renderGlossaryPanel(root,terms,{escape:esc,onOpen,onClose}){
-  const previousQuery=root.querySelector('input')?.value||'';
+  const previousQuery=root.querySelector('input')?.value||'';root.panelDispose?.();
   root.innerHTML=`<header><strong>${t('术语库')} · ${terms.length}</strong><input type="search" aria-label="${t('搜索词条')}" placeholder="${t('搜索词条…')}"><button type="button" aria-label="${t('关闭')}">×</button></header><div class="glossary-panel-rows"></div><footer></footer>`;
-  let page=0;const search=root.querySelector('input'),rows=root.querySelector('.glossary-panel-rows'),footer=root.querySelector('footer');
-  search.value=previousQuery;
-  const render=()=>{const query=glossaryKeywords(search.value),filtered=terms.filter(e=>matchesGlossary(e,query)),pages=Math.max(1,Math.ceil(filtered.length/40));page=Math.min(page,pages-1);rows.innerHTML=filtered.slice(page*40,page*40+40).map(e=>`<button type="button" data-source="${esc(e.source)}" title="${esc((e.sources||[]).join(' · '))}"><strong>${esc(e.term)}</strong><span>${esc(e.category)}</span><span>${esc(e.definition)}</span><small>${esc((e.aliases||[]).join('、'))} · ${esc((e.sources||[]).join(' · '))}</small></button>`).join('')||`<p>${t('暂无匹配词条')}</p>`;footer.innerHTML=`<button type="button" data-page="-1" ${page?'':'disabled'}>←</button><span>${page+1} / ${pages} · ${filtered.length}</span><button type="button" data-page="1" ${page+1<pages?'':'disabled'}>→</button>`;};
-  search.oninput=search.onsearch=()=>{page=0;rows.scrollTop=0;render();};root.querySelector('header button').onclick=onClose;rows.onclick=e=>{const b=e.target.closest('[data-source]');if(b)onOpen(b.dataset.source);};footer.onclick=e=>{const b=e.target.closest('[data-page]');if(b){page+=Number(b.dataset.page);render();}};render();
+  const search=root.querySelector('input'),rows=root.querySelector('.glossary-panel-rows'),footer=root.querySelector('footer');search.value=previousQuery;
+  const list=mountIncrementalList(rows,{items:[],empty:t('暂无匹配词条'),renderItem:e=>`<button type="button" data-source="${esc(e.source)}" title="${esc((e.sources||[]).join(' · '))}" data-user-content><strong>${esc(e.term)}</strong><span>${esc(e.category)}</span><span>${esc(e.definition)}</span><small>${esc((e.aliases||[]).join('、'))} · ${esc((e.sources||[]).join(' · '))}</small></button>`});
+  const render=()=>{const query=glossaryKeywords(search.value),filtered=terms.filter(e=>matchesGlossary(e,query));list.setItems(filtered);footer.textContent=filtered.length+' / '+terms.length;};
+  root.panelDispose=()=>list.dispose();search.oninput=search.onsearch=()=>{rows.scrollTop=0;render();};root.querySelector('header button').onclick=onClose;rows.onclick=e=>{const b=e.target.closest('[data-source]');if(b)onOpen(b.dataset.source);};render();
 }

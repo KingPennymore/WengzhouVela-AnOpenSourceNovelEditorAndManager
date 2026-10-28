@@ -1,8 +1,9 @@
 import {validateWorkspace,MAX_TEXT_BYTES} from './model.mjs';
 import {relativePath} from './project-contract.mjs';
 import {documentPath} from './workspace.mjs';
+import {MB} from './text-utils.mjs';
 const encoder=new TextEncoder(),fail=(message,code='E_INVALID_DATA')=>Object.assign(Error(message),{code});
-const MAX_BACKUP_BYTES=32*1024*1024;
+const MAX_BACKUP_BYTES=32*MB;
 
 /** Read and fully validate an exported workspace backup (the JSON written by “导出全部文稿备份”). */
 export function readWorkspaceBackup(bytes){

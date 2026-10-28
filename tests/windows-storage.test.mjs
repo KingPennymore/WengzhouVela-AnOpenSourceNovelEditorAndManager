@@ -9,6 +9,23 @@ import {GitHubBridge} from '../windows/github.mjs';
 const temp=()=>fs.mkdtempSync(path.join(os.tmpdir(),'vela-storage-qa-'));
 const clean=folder=>fs.rmSync(folder,{recursive:true,force:true});
 
+test('Windows batch trash scans once, retains conflicting records and rolls back I/O failures',()=>{
+  const base=temp(),rename=fs.renameSync;try{
+    const store=new WorkspaceStorage(base);
+    for(const name of ['a.txt','b.txt','c.txt']){fs.writeFileSync(store.target(name),name);store.manage('delete',name);}
+    const records=store.listTrash(),byPath=new Map(records.map(item=>[item.path,item.id]));
+    fs.writeFileSync(store.target('b.txt'),'existing');let scans=0;const scan=store.scan.bind(store);store.scan=()=>{scans++;return scan();};
+    const result=store.restoreTrashBatch(records.map(item=>item.id));
+    assert.equal(scans,1);assert.deepEqual(result.failed,[byPath.get('b.txt')]);assert.equal(store.listTrash().length,1);
+    assert.equal(fs.readFileSync(store.target('b.txt'),'utf8'),'existing');
+    for(const name of ['a.txt','c.txt'])store.manage('delete',name);
+    let fail=true;fs.renameSync=(from,to)=>{if(to===store.target('c.txt')&&fail){fail=false;throw Error('injected I/O error');}return rename(from,to);};
+    const ids=store.listTrash().filter(item=>item.path!=='b.txt').map(item=>item.id);
+    assert.throws(()=>store.restoreTrashBatch(ids),/injected I\/O/);assert.equal(fs.existsSync(store.target('a.txt')),false);assert.equal(store.listTrash().length,3);
+    fs.renameSync=rename;scans=0;const removed=store.restoreTrashBatch(store.listTrash().map(item=>item.id),true);assert.equal(scans,1);assert.equal(removed.failed.length,0);assert.equal(store.listTrash().length,0);
+  }finally{fs.renameSync=rename;clean(base);}
+});
+
 test('Windows trash moves payloads without copying, and rolls back a failed metadata write',()=>{
   const base=temp(),copy=fs.copyFileSync,rename=fs.renameSync;
   try{

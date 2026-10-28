@@ -2,7 +2,15 @@
 	"CommonInfo":{
 		"project.ide.version":"6.1.1.300",
 		"current.select.product":"default",
-		"current.select.buildMode":""
+		"current.select.buildMode":"",
+		"crossplatform.projectType":""
 	},
-	"BuildOptions":{}
+	"BuildOptions":{
+		"SELECT_BUILD_PRODUCT":"default",
+		"BUNDLE_NAME":"me.wenzhou.write",
+		"BUILD_PATH":{
+			"OUTPUT_PATH":"D:\\Wenzhou-HarmonyOS\\build\\outputs\\default"
+		},
+		"SELECT_BUILD_MODE":""
+	}
 }

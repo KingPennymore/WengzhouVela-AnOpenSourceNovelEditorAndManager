@@ -2,6 +2,7 @@ import {decodeContent,MAX_TEXT_BYTES} from './model.mjs';
 import {parseVela,readingItems,configFolder,velaVisiblePaths} from './vela.mjs';
 import {GitHub} from './github.mjs';
 import {t} from './i18n.mjs';
+import {textBytes,MB} from './text-utils.mjs';
 
 export function subscriptionRepo(value){
   const url=new URL(value.trim());
@@ -17,7 +18,7 @@ export function subscriptionChanged(previous,next){
 export class SubscriptionAPI {
   constructor(transport){this.transport=transport;this.client=new GitHub((_operation,payload)=>transport('publicApi',payload));this.blobs=new Map();}
   get(path,signal){return this.client.request(path,'GET',undefined,{signal});}
-  async blob(repo,sha,max=MAX_TEXT_BYTES,signal){const key=repo.toLowerCase()+'/'+sha,cached=this.blobs.get(key);if(cached){if(cached.size>max)throw Error('订阅文件过大或编码不受支持。');this.blobs.delete(key);this.blobs.set(key,cached);return cached.text;}const value=await this.get(`/repos/${repo}/git/blobs/${sha}`,signal);if(value.size>max||value.encoding!=='base64')throw new Error('订阅文件过大或编码不受支持。');const text=decodeContent(value.content);if(new TextEncoder().encode(text).length>max)throw Error('订阅文件过大或编码不受支持。');this.blobs.set(key,{text,size:value.size});let size=[...this.blobs.values()].reduce((sum,item)=>sum+item.text.length,0);while(size>4*1024*1024||this.blobs.size>64){const key=this.blobs.keys().next().value;size-=this.blobs.get(key).text.length;this.blobs.delete(key);}return text;}
+  async blob(repo,sha,max=MAX_TEXT_BYTES,signal){const key=repo.toLowerCase()+'/'+sha,cached=this.blobs.get(key);if(cached){if(cached.size>max)throw Error('订阅文件过大或编码不受支持。');this.blobs.delete(key);this.blobs.set(key,cached);return cached.text;}const value=await this.get(`/repos/${repo}/git/blobs/${sha}`,signal);if(value.size>max||value.encoding!=='base64')throw new Error('订阅文件过大或编码不受支持。');const text=decodeContent(value.content);if(textBytes(text)>max)throw Error('订阅文件过大或编码不受支持。');this.blobs.set(key,{text,size:value.size});let size=[...this.blobs.values()].reduce((sum,item)=>sum+item.text.length,0);while(size>4*MB||this.blobs.size>64){const key=this.blobs.keys().next().value;size-=this.blobs.get(key).text.length;this.blobs.delete(key);}return text;}
   async snapshot(repo,signal){
     const base='/repos/'+repo,info=await this.get(base,signal);let releases=[];try{releases=await this.get(base+'/releases?per_page=20',signal);}catch(error){if(error.status!==404)throw error;}
     const tree=await this.get(base+'/git/trees/'+encodeURIComponent(info.default_branch)+'?recursive=1',signal);

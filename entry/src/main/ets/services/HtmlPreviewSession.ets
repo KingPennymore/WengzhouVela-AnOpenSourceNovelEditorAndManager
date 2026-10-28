@@ -12,6 +12,7 @@ export class HtmlPreviewSession {
   static titlePage: boolean = true;
   static english: boolean = false;
   static fontSize: number = 16;
+  static readerTheme: string = '{}';
   static layout: ReaderLayout = { lineHeight: 1.9, marginTop: 24, marginBottom: 24, marginLeft: 35, marginRight: 35 };
   static pageUrl(): string {
     return 'https://wenzhou-preview.local/' + HtmlPreviewSession.path.split('/').map(part => encodeURIComponent(part)).join('/');

@@ -16,10 +16,28 @@ export function csvVisibleRange(prefix, offset, size, scale, buffer = 2) {
   return [Math.max(0, csvAxisAt(prefix, -offset / scale) - buffer), Math.min(prefix.length - 1, csvAxisAt(prefix, (size - offset) / scale) + buffer + 1)];
 }
 export function csvMetrics(rows, columns, widths = [], order = rows.map((_, r) => r)) {
-  const sizes = Array.from({ length: columns }, (_, c) => widths[c] || Math.min(320, Math.max(96, 28 + rows.slice(0, 80).reduce((n, row) => Math.max(n, ...String(row[c] || '').split(/\r\n|\r|\n/).map(s => [...s.slice(0, 80)].reduce((sum, ch) => sum + (ch.charCodeAt(0) > 255 ? 14 : 8), 0))), 0))));
+  const sizes = Array.from({length:columns}, (_, c) => widths[c] || 96);
+  for (const row of rows.slice(0,80)) for (let c = 0; c < row.length; c++) {
+    if (widths[c]) continue;
+    // Width estimation has a fixed sample budget, even for a single multiline cell.
+    let widest = 0;
+    for (const line of String(row[c]).slice(0, 512).split(/\r\n|\r|\n/).slice(0, 3)) {
+      let width = 0; for (const ch of line.slice(0,80)) width += ch.charCodeAt(0) > 255 ? 14 : 8;
+      widest = Math.max(widest, width);
+    }
+    sizes[c] = Math.max(sizes[c], Math.min(320, 28 + widest));
+  }
   const heights = order.map(r => {
     const row = rows[r]; let height = rowHeights.get(row);
-    if (height === undefined) { height = 20 + 24 * Math.min(3, row.reduce((n, value) => Math.max(n, String(value).split(/\r\n|\r|\n/).length), 1)); rowHeights.set(row, height); }
+    if (height === undefined) {
+      let lines = 1;
+      for (const value of row) {
+        const text = String(value); let count = 1, from = 0;
+        while (count < 3) { const lf = text.indexOf('\n',from), cr = text.indexOf('\r',from), at = lf < 0 ? cr : cr < 0 ? lf : Math.min(lf,cr); if (at < 0) break; count++; from = at + (text[at] === '\r' && text[at+1] === '\n' ? 2 : 1); }
+        lines = Math.max(lines,count); if (lines === 3) break;
+      }
+      height = 20 + 24 * lines; rowHeights.set(row, height);
+    }
     return height;
   });
   return { widths: sizes, heights, x: prefixSizes(sizes), y: prefixSizes(heights) };
@@ -93,6 +111,7 @@ export class CsvGrid {
     const box = this.rect(row, column); if (!box) return;
     const shift = (pos, size, extent) => pos < 24 ? 24 - pos : pos + size > extent - 24 ? Math.min(24 - pos, extent - 24 - pos - size) : 0;
     this.plane.x += shift(box.x, box.width, this.surface.clientWidth); this.plane.y += shift(box.y, box.height, this.surface.clientHeight);
+    if (this.readOnly) { this.root.scrollLeft = -this.plane.x; this.root.scrollTop = -this.plane.y; this.plane.x = -this.root.scrollLeft; this.plane.y = -this.root.scrollTop; }
     this.paint(); this.onView();
   }
   clamp() {
@@ -193,16 +212,39 @@ export class CsvGrid {
     ctx.scale(ratio, ratio); const css = getComputedStyle(this.root), size = this.contentSize();
     ctx.fillStyle = css.getPropertyValue('--soft') || '#eee'; ctx.fillRect(0, 0, width, height);
     const sx = mini ? width / size.width : this.plane.scale, sy = mini ? height / size.height : sx, tx = mini ? 0 : this.plane.x, ty = mini ? 0 : this.plane.y;
+    if (mini) {
+      const colors = [css.getPropertyValue('--soft'),css.getPropertyValue('--panel'),css.getPropertyValue('--accent')].join('|');
+      if (!this.miniBase || this.miniModel !== this.model || this.miniMetrics !== this.metrics || this.miniColors !== colors) {
+        const base = document.createElement('canvas'); base.width = 224; base.height = 144;
+        const paint = base.getContext('2d'), occupied = new Uint8Array(base.width * base.height);
+        for (let index = 0; index < this.order.length; index++) {
+          const y = Math.min(base.height-1, Math.floor((CSV_HEADING + this.metrics.y[index]) / size.height * base.height));
+          const row = this.model.rows[this.order[index]];
+          for (let c = 0; c < row.length; c++) if (row[c]) {
+            const x = Math.min(base.width-1, Math.floor((CSV_GUTTER + this.metrics.x[c]) / size.width * base.width));
+            occupied[y * base.width + x] = 1;
+          }
+        }
+        paint.fillStyle = css.getPropertyValue('--soft') || '#eee'; paint.fillRect(0,0,base.width,base.height);
+        paint.fillStyle = css.getPropertyValue('--accent') || '#36785c'; paint.globalAlpha = .4;
+        for (let i = 0; i < occupied.length; i++) if (occupied[i]) paint.fillRect(i % base.width,Math.floor(i / base.width),1,1);
+        this.miniBase = base; this.miniModel = this.model; this.miniMetrics = this.metrics; this.miniColors = colors;
+      }
+      ctx.drawImage(this.miniBase,0,0,width,height);
+      ctx.strokeStyle = css.getPropertyValue('--accent') || '#36785c'; ctx.lineWidth = 2;
+      ctx.strokeRect(-this.plane.x / this.plane.scale * sx,-this.plane.y / this.plane.scale * sy,this.surface.clientWidth / this.plane.scale * sx,this.surface.clientHeight / this.plane.scale * sy);
+      return;
+    }
     // Header bands stay part of the overview, just like they are part of the table.
     ctx.globalAlpha = 1; ctx.fillStyle = css.getPropertyValue('--panel') || '#f4f5f2';
     ctx.fillRect(tx, ty, size.width * sx, CSV_HEADING * sy); ctx.fillRect(tx, ty, CSV_GUTTER * sx, size.height * sy);
     ctx.fillStyle = css.getPropertyValue('--accent') || '#36785c';
-    // Bound painting to screen pixels even for 200,000-cell tables.
-    const step = Math.max(1, Math.ceil(this.order.length / Math.max(1, height * 2)));
-    for (let index = 0; index < this.order.length; index += step) {
-      const y = ty + (CSV_HEADING + this.metrics.y[index]) * sy, h = Math.max(1, (this.metrics.y[Math.min(this.order.length, index + step)] - this.metrics.y[index]) * sy);
+    // Both axes are bounded by the viewport; off-screen columns are never scanned.
+    const [firstRow,lastRow] = csvVisibleRange(this.metrics.y,ty + CSV_HEADING * sy,height,sy), [firstColumn,lastColumn] = csvVisibleRange(this.metrics.x,tx + CSV_GUTTER * sx,width,sx);
+    for (let index = firstRow; index < lastRow; index++) {
+      const y = ty + (CSV_HEADING + this.metrics.y[index]) * sy, h = this.metrics.heights[index] * sy;
       if (y + h < 0 || y > height) continue; const row = this.model.rows[this.order[index]];
-      for (let c = 0; c < this.model.columns; c++) {
+      for (let c = firstColumn; c < lastColumn; c++) {
         const x = tx + (CSV_GUTTER + this.metrics.x[c]) * sx, w = this.metrics.widths[c] * sx;
         if (x + w < 0 || x > width || !row[c]) continue;
         ctx.globalAlpha = .35; ctx.fillRect(x + 1, y + 1, Math.max(1, w - 2), Math.max(1, h - 2));

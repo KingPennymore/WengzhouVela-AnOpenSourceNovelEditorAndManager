@@ -98,7 +98,7 @@ async function dispatch(operation,data){
     case 'initializeStorage':case 'refreshFolder':return files.scan();
     case 'manageFiles':return files.manage(data.action,data.path,data.destination);
     case 'listTrash':return files.listTrash();
-    case 'restoreTrash':return files.restoreTrash(data.id,data.permanent===true);
+    case 'restoreTrash':return Array.isArray(data.ids)?files.restoreTrashBatch(data.ids,data.permanent===true):files.restoreTrash(data.id,data.permanent===true);
     case 'writeWorkspaceFiles':return files.writeFiles(data.files||[],data.folders||[],data.deletions||[]);
     case 'readWorkspaceFile':return files.read(files.target(data.path)).toString('base64');
     case 'readWorkspaceAsset':return files.asset(data.path);

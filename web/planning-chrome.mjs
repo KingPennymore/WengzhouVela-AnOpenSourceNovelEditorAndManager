@@ -1,4 +1,5 @@
 import {t} from './i18n.mjs';
+import {menuKey} from './menu-controller.mjs';
 export function mountPlanningChrome(root){
  root.planningChromeDispose?.();
  const bar=root.querySelector('.planning-toolbar'),primary=bar.querySelector('.planning-primary'),more=bar.querySelector('.planning-overflow'),menu=bar.querySelector('.planning-menu'),list=menu.firstElementChild,bottom=root.querySelector('.planning-bottom-actions'),buttons=[...primary.children],anchor=document.querySelector('#quick-git'),slots=[...root.querySelectorAll('[data-planning-slot="planning-bottom"]')];
@@ -25,7 +26,7 @@ export function mountPlanningChrome(root){
  more.onclick=()=>{menu.hidden=!menu.hidden;more.setAttribute('aria-expanded',String(!menu.hidden));if(!menu.hidden)items()[0]?.focus();};
  menu.addEventListener('click',e=>{if(e.target.closest('button'))close();});
  const outside=e=>{if(!menu.hidden&&!menu.contains(e.target)&&!more.contains(e.target))close();};
- const keys=e=>{if(menu.hidden)return;if(e.key==='Escape'){e.preventDefault();e.stopPropagation();close();more.focus();}else if(['ArrowDown','ArrowUp','Home','End'].includes(e.key)){e.preventDefault();const buttons=items(),at=buttons.indexOf(document.activeElement),next=e.key==='Home'?0:e.key==='End'?buttons.length-1:(at+(e.key==='ArrowDown'?1:-1)+buttons.length)%buttons.length;buttons[next]?.focus();}};
+ const keys=e=>{if(!menu.hidden)menuKey(e,items(),{close,returnFocus:more});};
  document.addEventListener('pointerdown',outside);menu.addEventListener('keydown',keys);more.title=t('更多操作');resize();
  root.planningChromeDispose=()=>{disposed=true;observer.disconnect();cancelAnimationFrame(frame);document.removeEventListener('pointerdown',outside);menu.removeEventListener('keydown',keys);bottom?.remove();root.planningBottomActions=null;root.planningRefreshTools=null;root.planningChromeDispose=null;};
 }

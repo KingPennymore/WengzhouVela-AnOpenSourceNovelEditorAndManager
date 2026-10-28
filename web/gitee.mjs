@@ -1,5 +1,6 @@
 import {GitHub,GitHubError} from './github.mjs';
 import {encodeContent,repoPath,MAX_TEXT_BYTES} from './model.mjs';
+import {textBytes,MB} from './text-utils.mjs';
 
 // Gitee v5 has Contents and Git read APIs, and a separate atomic multi-file commit API.
 export class Gitee extends GitHub {
@@ -14,7 +15,7 @@ export class Gitee extends GitHub {
   }
   createBranch(repo,from,name){if(!name.trim())throw Error('请输入分支名称。');return this.request(`${this.base(repo)}/branches`,'POST',{refs:from,branch_name:name.trim()});}
   async commit({repo,branch,path,sha,text,message}){
-    if(!message.trim())throw Error('请填写提交说明。');if(new TextEncoder().encode(text).length>MAX_TEXT_BYTES)throw Error('单次提交文稿不能超过 8 MB。');
+    if(!message.trim())throw Error('请填写提交说明。');if(textBytes(text)>MAX_TEXT_BYTES)throw Error('单次提交文稿不能超过 8 MB。');
     return this.request(this.contentURL(repo,path),sha?'PUT':'POST',{branch,content:encodeContent(text),message:message.trim(),...(sha?{sha}:{})});
   }
   async pullRepository(repo,branch,options){return {...await super.pullRepository(repo,branch,options),provider:'gitee'};}
@@ -22,7 +23,7 @@ export class Gitee extends GitHub {
     if(!message.trim())throw Error('请填写提交说明。');if(!Array.isArray(files)||!files.length||files.length>5000)throw Error('工作区须包含 1–5000 个文件。');if(prefix)prefix=repoPath(prefix);
     const head=await this.request(`${this.base(repo)}/git/ref/heads/${encodeURIComponent(branch)}`);if(expectedHead&&head.object.sha!==expectedHead)throw new GitHubError(409,{});
     const actions=[],paths=new Set();let size=0;
-    for(const file of files){repoPath(file.path);if(paths.has(file.path))throw Error('工作区含重复文件路径。');paths.add(file.path);const bytes=file.delete?0:typeof file.text==='string'?new TextEncoder().encode(file.text).length:typeof file.data==='string'?Math.ceil(file.data.length*3/4):Infinity;size+=bytes;if(bytes>MAX_TEXT_BYTES||size>64*1024*1024)throw Error('工作区文件超过提交大小限制。');
+    for(const file of files){repoPath(file.path);if(paths.has(file.path))throw Error('工作区含重复文件路径。');paths.add(file.path);const bytes=file.delete?0:typeof file.text==='string'?textBytes(file.text):typeof file.data==='string'?Math.ceil(file.data.length*3/4):Infinity;size+=bytes;if(bytes>MAX_TEXT_BYTES||size>64*MB)throw Error('工作区文件超过提交大小限制。');
       const path=(prefix?prefix+'/':'')+file.path;let exists=true;try{await this.contents(repo,head.object.sha,path);}catch(error){if(error.status!==404)throw error;exists=false;}
       if(file.delete&&!exists)continue;
       let lastCommit;if(exists){const history=await this.request(`${this.base(repo)}/commits?sha=${head.object.sha}&path=${encodeURIComponent(path)}&per_page=1`);lastCommit=history[0]?.sha;if(!lastCommit)throw Error('无法确认文件版本，未提交：'+path);}

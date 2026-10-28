@@ -2,6 +2,7 @@ import {tablesByLine,csvTableMarkup,CSV_TABLE_EXPORT_CSS} from './csv-embed.mjs'
 // Formatted export of TXT chapters (.vela v3 formats) as Markdown or HTML. Plain TXT export stays in chapter-export.mjs.
 import {inlineSegments,alignedLines,styledLines,imagesByLine} from './rich-text.mjs';
 import {styleSheet} from './rich-text-styles.mjs';
+import {escapeHtml} from './text-utils.mjs';
 
 const blank=line=>!line.trim();
 const lineStarts=text=>{const starts=[0];for(let i=0;i<text.length;i++)if(text.charCodeAt(i)===10)starts.push(i+1);return starts;};
@@ -24,7 +25,7 @@ export function insertExportOptions(text,entries,options){const starts=lineStart
   for(const entry of entries.filter(item=>item.group==='inserts')){let row=0;while(row+1<starts.length&&starts[row+1]<=entry.from)row++;keepLines.add(row);}
   return {...options,keepLines};
 }
-export const escapeHtml=value=>value.replace(/[&<>"]/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'})[char]);
+export {escapeHtml};
 const punctuation=/^[\p{P}\p{S}]|[\p{P}\p{S}]$/u;
 // CommonMark delimiter rules fail next to CJK punctuation (**“他”**说), so such runs use inline HTML instead.
 const markdownRun=(value,types)=>{

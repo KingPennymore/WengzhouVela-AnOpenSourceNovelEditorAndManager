@@ -1,13 +1,13 @@
 @layer app{
-.workspace-folder>summary{display:flex;align-items:center;justify-content:space-between;gap:6px;min-height:34px}
+.workspace-folder>summary{display:flex;align-items:center;justify-content:space-between;gap:6px;}
 .workspace-folder>summary>span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
 .workspace-folder>summary .doc-menu{position:static;flex:none;opacity:1;width:26px;height:26px}
 .selected-folder{background:var(--soft);border-radius:4px}
 .workspace-other.doc-item{display:flex;align-items:center}
 .workspace-other .doc-info{flex:1;min-width:0}
-.file-location{display:flex;align-items:center;margin:8px 0;font-size:10px;color:var(--muted)}
+.file-location{display:flex;margin:8px 0;color:var(--muted)}
 .file-location>span{flex:1;overflow-wrap:anywhere}
-.file-location>select{width:90px;padding:4px;font-size:10px}
+.file-location>select{width:90px;padding:4px;}
 .file-actions{flex-wrap:wrap}
 .trash-row{display:flex;align-items:center;gap:7px;border-bottom:1px solid var(--line);padding:10px 0;font-size:12px}
 .trash-row>span{flex:1;min-width:0;overflow-wrap:anywhere}

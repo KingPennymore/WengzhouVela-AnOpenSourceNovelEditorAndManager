@@ -1,0 +1,30 @@
+:root{--startup-bg:#eef3ef;--startup-paper:#fcfefc;--startup-text:#28372f;--startup-accent:#23744e;--startup-veil:rgba(0,0,0,.10)}
+#startup-screen{display:none}
+html[data-startup] #startup-screen{position:fixed;inset:0;z-index:1000;display:grid;place-items:center;isolation:isolate;color:var(--startup-text);pointer-events:auto}
+#startup-screen::before{content:'';position:absolute;inset:0;z-index:-1;background:linear-gradient(var(--startup-veil),var(--startup-veil)),var(--startup-bg);transition:opacity 260ms cubic-bezier(.4,0,.2,1)}
+/* The mark is centred on the viewport and fully drawn from the first frame: Android / HarmonyOS launch windows show the
+   same 88dp mark in the same place, so a fade or an offset would read as a blink or a jump at the hand-off. */
+.startup-brand{position:relative}
+.startup-brand svg{display:block;width:88px;height:88px;border-radius:22px;background:var(--startup-accent);color:var(--startup-paper)}
+.startup-brand span{position:absolute;top:calc(100% + 18px);left:50%;transform:translateX(-50%);white-space:nowrap;font-family:var(--app-font-family,'HarmonyOS Sans SC','Microsoft YaHei',sans-serif);font-size:18px;letter-spacing:.22em;padding-left:.22em;font-weight:500;animation:vela-name-enter 260ms cubic-bezier(.22,1,.36,1) both}
+html[data-startup=loading] #app{opacity:0;pointer-events:none}
+/* Keep document chrome visible; only the body waits until the logo has gone. */
+html[data-startup] #app :is(#editor,#preview,#start-page,#glossary-panel,#subscriptions-view,#reader-view,#github-view){visibility:hidden!important;content-visibility:hidden}
+html[data-startup=assembling] #startup-screen::before,html[data-startup=finishing] #startup-screen::before{opacity:0}
+html[data-startup=assembling] .topbar{animation:vela-layout-top 180ms cubic-bezier(.22,1,.36,1) 0ms both}
+html[data-startup=assembling] .file-rowbar{animation:vela-layout-top 180ms cubic-bezier(.22,1,.36,1) 30ms both}
+html[data-startup=assembling] #writing-footer>.quickbar{animation:vela-layout-bottom 180ms cubic-bezier(.22,1,.36,1) 60ms both}
+html[data-startup=assembling] #writing-footer>.statusbar{animation:vela-layout-bottom 180ms cubic-bezier(.22,1,.36,1) 90ms both}
+html[data-startup=assembling] body.show-library #library-shell .library-panel{animation:vela-layout-left 180ms cubic-bezier(.22,1,.36,1) 90ms both}
+html[data-startup=assembling] body.show-outline #outline-shell>:is(.outline,.sidebar-view-body,.sidebar-view-bar){animation:vela-layout-right 180ms cubic-bezier(.22,1,.36,1) 90ms both}
+html[data-startup=finishing] .startup-brand{animation:vela-logo-exit 320ms linear both}
+@keyframes vela-name-enter{from{opacity:0;transform:translate(-50%,4px)}to{opacity:1;transform:translateX(-50%)}}
+@keyframes vela-logo-exit{0%{opacity:1;transform:translateY(0) scale(1);animation-timing-function:cubic-bezier(.15,.65,.3,1)}14%{transform:translateY(-14px) scale(1.03);animation-timing-function:cubic-bezier(.12,.8,.25,1)}38%{transform:translateY(-32px) scale(1.07);animation-timing-function:cubic-bezier(.6,0,.85,.35)}66%{transform:translateY(0) scale(.95);animation-timing-function:cubic-bezier(.2,.8,.3,1)}76%{opacity:1;transform:translateY(0) scale(1.01)}100%{opacity:0;transform:translateY(0) scale(.94)}}
+@keyframes vela-layout-top{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:none}}
+@keyframes vela-layout-bottom{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+body.vela-startup-in .paper{animation:vela-content-in 240ms cubic-bezier(.4,0,.2,1) both}
+@keyframes vela-content-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+@media(prefers-reduced-motion:reduce){.startup-brand,.startup-brand span,html[data-startup=assembling] #app *{animation:none!important;transition:none!important}}
+@keyframes vela-layout-left{from{opacity:0;transform:translateX(-8px)}to{opacity:1;transform:none}}
+@keyframes vela-layout-right{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:none}}
+@media(max-width:600px){html[data-startup=assembling] body.show-library #library-shell .library-panel,html[data-startup=assembling] body.show-outline #outline-shell>:is(.outline,.sidebar-view-body,.sidebar-view-bar){animation-name:vela-layout-bottom}}

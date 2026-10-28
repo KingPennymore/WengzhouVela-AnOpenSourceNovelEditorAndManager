@@ -61,6 +61,16 @@ try{
  await page.evaluate(()=>{document.body.dataset.ui='windows';const v=velaEditorView,text='普通正文。'.repeat(15000)+'\n星澜值守着灯塔。\n星';v.dispatch({changes:{from:0,to:v.state.doc.length,insert:text},selection:{anchor:text.length},userEvent:'input.type'});v.focus();});
  await page.waitForFunction(()=>document.querySelector('.cm-tooltip-autocomplete')?.textContent.includes('星澜'),null,{timeout:15000});
  console.log('PASS completion waits for all batches of the large-document noun index');
+ // Replacing a selection that starts right after "，"/"。" (a <wbr> wrap opportunity) through an IME must not keep the pinyin.
+ for(const punct of ['，','。','']){
+  await page.evaluate(punct=>{const v=velaEditorView,text='前文'+punct+'你好后文';v.dispatch({changes:{from:0,to:v.state.doc.length,insert:text}});v.focus();v.dispatch({selection:{anchor:2+punct.length,head:4+punct.length}});},punct);
+  await page.waitForTimeout(150);
+  for(const pre of ['t','ta'])await cdp.send('Input.imeSetComposition',{text:pre,selectionStart:pre.length,selectionEnd:pre.length});
+  await cdp.send('Input.insertText',{text:'他'});
+  await page.waitForFunction(()=>!velaEditorView.composing);
+  assert.equal(await page.evaluate(()=>velaEditorView.state.doc.toString()),'前文'+punct+'他后文',`IME selection replacement after "${punct}"`);
+ }
+ console.log('PASS IME replaces a selection after full-width punctuation without leftover pinyin');
  assert.deepEqual(errors,[]);
 
 }finally{await browser.close();await server.close();}

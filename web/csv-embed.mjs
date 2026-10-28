@@ -3,6 +3,7 @@ import { documentPath } from './workspace.mjs';
 import { MAX_TEXT_BYTES } from './model.mjs';
 import { decodeFileText } from './file-text.mjs';
 import { fromBase64 } from './plugin-package.mjs';
+import {textBytes,MB} from './text-utils.mjs';
 
 const escape = (value) =>
   String(value ?? '').replace(
@@ -91,11 +92,11 @@ export async function loadCsvTable(workspace, document, src, { readFile, loadDoc
     text = doc.text;
   } else if (readFile && workspace.entries?.some((item) => !item.directory && item.path === path)) {
     const data = await readFile(path);
-    if (typeof data !== 'string' || data.length > 12 * 1024 * 1024)
+    if (typeof data !== 'string' || data.length > 12*MB)
       throw Error('表格不能超过 8 MB。');
     text = decodeFileText(fromBase64(data));
   } else throw Error('找不到表格文件：' + path);
-  if (typeof text !== 'string' || new TextEncoder().encode(text).length > MAX_TEXT_BYTES)
+  if (typeof text !== 'string' || textBytes(text) > MAX_TEXT_BYTES)
     throw Error('表格不能超过 8 MB。');
   const delimiter = documentDelimiter(doc || { path, text }, text);
   return { path, name: path.split('/').at(-1), rows: parseCsv(text, delimiter), delimiter };

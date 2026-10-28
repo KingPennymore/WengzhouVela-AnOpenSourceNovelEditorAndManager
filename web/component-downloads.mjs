@@ -1,18 +1,19 @@
 import {readImportedArchive} from './imported-archive.mjs';
 import {verifySignature,unsignedRelease} from './release-signing.mjs';
+import {formatBytes,MB} from './text-utils.mjs';
 // Release mirrors. Downloads try Gitee first (reachable in mainland China), then GitHub; tags and file names are identical.
 export const releaseSources=Object.freeze([
   Object.freeze({id:'gitee',label:'Gitee',provider:'gitee',repository:'kingpennymore/wenzhou-vela-mirror-repository'}),
   Object.freeze({id:'github',label:'GitHub',provider:'github',repository:'KingPennymore/WengzhouVela-AnOpenSourceNovelEditorAndManager'})
 ]);
-export const COMPONENT_LIMIT=96*1024*1024;
+export const COMPONENT_LIMIT=96*MB;
 const SAFE_NAME=/^[A-Za-z0-9][A-Za-z0-9._-]{0,159}$/,SAFE_TAG=/^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$/;
 export function releaseUrl(source,tag,name){
   if(!SAFE_TAG.test(tag)||!SAFE_NAME.test(name))throw Error('发布文件名无效。');
   return `https://${source.id==='gitee'?'gitee.com':'github.com'}/${source.repository}/releases/download/${tag}/${name}`;
 }
 export async function sha256Hex(bytes){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes)),b=>b.toString(16).padStart(2,'0')).join('');}
-export const formatBytes=bytes=>bytes>=1024*1024?(bytes/1024/1024).toFixed(1)+' MB':bytes>=1024?Math.round(bytes/1024)+' KB':bytes+' B';
+export {formatBytes};
 const cancelled=()=>Object.assign(Error('下载已取消。'),{code:'E_CANCELLED'});
 let sequence=0;
 /**

@@ -3,6 +3,7 @@ import { gitIdentity, sameGitHost } from './git-host.mjs';
 import { newDocument, repoPath, MAX_TEXT_BYTES } from './model.mjs';
 import { documentPath, uniquePath } from './workspace.mjs';
 import { personalFile, textFingerprint } from './document-service.mjs';
+import {textBytes} from './text-utils.mjs';
 
 export function resolveRepositoryConflict(
   workspace,
@@ -134,7 +135,7 @@ export function applyRepository(workspace, result, folder) {
     ]),
   ];
   for (const file of result.files) {
-    if (file.text === null || new TextEncoder().encode(file.text).length > MAX_TEXT_BYTES) continue;
+    if (file.text === null || textBytes(file.text) > MAX_TEXT_BYTES) continue;
     const path = folder + '/' + file.path;
     const exact = workspace.documents.find((doc) => documentPath(doc) === path);
     const tracked = workspace.documents.find(

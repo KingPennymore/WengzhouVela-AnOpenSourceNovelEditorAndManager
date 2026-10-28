@@ -3,9 +3,10 @@ import {documentPath} from './workspace.mjs';
 import {projectConfig,globalConfig} from './vela.mjs';
 import {t} from './i18n.mjs';
 import {glossaryCandidates} from './completion-core.mjs';
+import {MB} from './text-utils.mjs';
 
 export function parseGlossary(text){
-  if(typeof text!=='string'||text.length>1024*1024)throw Error('术语库最多 1 MB。');
+  if(typeof text!=='string'||text.length>MB)throw Error('术语库最多 1 MB。');
   const value=JSON.parse(text);
   if(!value||value.version!==1||!Array.isArray(value.entries)||value.entries.length>5000)throw Error('术语库需要 version: 1 和 entries 数组（最多 5000 项）。');
   const terms=new Set(),ids=new Set();

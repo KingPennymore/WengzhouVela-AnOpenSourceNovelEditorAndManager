@@ -5,7 +5,7 @@ import { decodeFileText, encodeFileText } from './FileText';
 import { PreviewResource, previewMime } from './PreviewResource';
 import { DeltaMessage, SkeletonWorkspace, StoreIndex, StoredText, SKELETON_PREFIX, hydrateWorkspace, storeFile, storeFolder, storeNames } from './WorkspaceStore';
 
-export interface StoredDocument { id: string; name: string; path?: string; kind?: string; delimiter?: string; text: string; updatedAt: number; remote: Object | null; subscription?: Object; }
+export interface StoredDocument { id: string; name: string; path?: string; kind?: string; delimiter?: string; csvHeader?: boolean; csvFormat?: Object; text: string; updatedAt: number; remote: Object | null; subscription?: Object; }
 export interface StorageInfo { id: string; label: string; root: string; needsSetup: boolean; internal?: boolean; }
 export interface FolderEntry { path: string; name: string; directory: boolean; size: number; editable: boolean; reason: string; }
 interface RepositoryLink { repo: string; branch: string; folder: string; commit: string; }
@@ -17,6 +17,9 @@ interface SavedWorkspace { pluginProject?: PluginIndex; version: number; storage
 export interface BinaryWorkspaceFile { path: string; data: string; }
 export interface SyncDeletion { path: string; expectedData: string; expectedText?: string; }
 export interface TrashItem { id: string; path: string; directory: boolean; createdAt: number; }
+interface TrashFailure { id: string; message: string; }
+export interface TrashBatchResult { state: FolderState; failed: string[]; errors: TrashFailure[]; }
+interface TrashMove { source: string; target: string; }
 interface ChangedText { id: string; relative: string; text: string; }
 interface TrashRecord extends TrashItem { workspaceId: string; documents: StoredDocument[]; repositories: RepositoryLink[]; }
 
@@ -148,7 +151,7 @@ export class WorkspaceFiles {
         if (this.lazyPaths.includes(relative) && !old.some(doc => (doc.path || doc.name) === relative) && name !== ".vela") { entry.editable = this.lazyTexts.includes(relative) || /\.(txt|md|csv|tsv|json|html?|css|[cm]?js|ts|py|java|ets|tex|yaml|yml|xml|toml|velaodt|vodt|fodt|fods|fodp|fodg|gly|glossary|process|pcs|velamap|vlmp)$/i.test(name); entry.reason = "按需读取项目文件"; continue; }
         try {
           const text = this.readText(path), previous = old.find(doc => (doc.path || doc.name) === relative);
-          const doc: StoredDocument = { id: previous?.id || util.generateRandomUUID(), name: name, path: relative, kind: previous?.kind, delimiter: previous?.delimiter, text: text, updatedAt: previous?.text === text ? previous.updatedAt : Date.now(), remote: previous?.remote || null, subscription: previous?.subscription };
+          const doc: StoredDocument = { id: previous?.id || util.generateRandomUUID(), name: name, path: relative, kind: previous?.kind, delimiter: previous?.delimiter, csvHeader: previous?.csvHeader, csvFormat: previous?.csvFormat, text: text, updatedAt: previous?.text === text ? previous.updatedAt : Date.now(), remote: previous?.remote || null, subscription: previous?.subscription };
           documents.push(doc); entry.editable = true;
         } catch (error) { entry.reason = stat.size > 8 * 1024 * 1024 ? '超过 8 MB，保留在工作区中' : '二进制或不支持的文本编码，保留在工作区中'; }
       }
@@ -395,7 +398,7 @@ export class WorkspaceFiles {
   private remap(doc: StoredDocument, source: string, destination: string, copy: boolean): StoredDocument {
     const path = destination + (doc.path || doc.name).substring(source.length);
     return { id: copy ? util.generateRandomUUID() : doc.id, name: path.substring(path.lastIndexOf('/') + 1), path: path,
-      text: doc.text, kind: doc.kind, delimiter: doc.delimiter, updatedAt: doc.updatedAt, remote: copy ? null : doc.remote };
+      text: doc.text, kind: doc.kind, delimiter: doc.delimiter, csvHeader: doc.csvHeader, csvFormat: doc.csvFormat, updatedAt: doc.updatedAt, remote: copy ? null : doc.remote, subscription: doc.subscription };
   }
   private cache(): SavedWorkspace {
     const root = this.getRoot();
@@ -434,6 +437,10 @@ export class WorkspaceFiles {
     return path;
   }
   listTrash(): TrashItem[] {
+    const root = this.getRoot();
+    if (root) for (const name of fs.listFileSync(root.path)) if (/^\.trash-[A-Za-z0-9_-]+\.wenzhou-tmp\.discard\.wenzhou-tmp$/.test(name)) {
+      try { this.removeTree(root.path + '/' + name); } catch { /* Retry cleanup on the next visit. */ }
+    }
     return this.trashRecords().filter(item => item.workspaceId === this.getRoot()?.id)
       .map((item): TrashItem => ({ id: item.id, path: item.path, directory: item.directory, createdAt: item.createdAt }));
   }
@@ -493,20 +500,39 @@ export class WorkspaceFiles {
     }
   }
   restoreTrash(id: string, permanent: boolean): FolderState {
-    const root = this.getRoot();
-    if (!root) throw new Error('工作区未初始化。');
-    const records = this.trashRecords(), item = records.find(value => value.id === id && value.workspaceId === root.id);
-    if (!item) throw new Error('回收站项目不存在。');
-    const source = this.trashPayload(id), old = this.cache(), before = JSON.stringify(old), previousTrash = JSON.stringify(records);
-    if (permanent) { if (fs.accessSync(source)) this.removeTree(source); this.text(this.trashPath(), JSON.stringify(records.filter(value => value.id !== id))); return this.scan(); }
-    if (!fs.accessSync(source)) throw new Error('回收站文件已在外部移除。');
-    const target = this.target(item.path);
-    if (fs.accessSync(target)) throw new Error('原路径已有同名项目，请先重命名后恢复。');
-    this.parent(target); fs.renameSync(source, target);
-    try {
-      old.documents = old.documents.concat(item.documents); old.repositories = (old.repositories || []).concat(item.repositories);
-      this.text(this.cachePath(root.id), JSON.stringify(old)); this.text(this.trashPath(), JSON.stringify(records.filter(value => value.id !== id)));
-      return this.scan();
-    } catch (error) { fs.renameSync(target, source); this.text(this.cachePath(root.id), before); this.text(this.trashPath(), previousTrash); throw error as Error; }
+    const result = this.restoreTrashBatch([id], permanent);
+    if (result.failed.length) throw new Error(result.errors[0].message);
+    return result.state;
   }
+  restoreTrashBatch(ids: string[], permanent: boolean): TrashBatchResult {
+    const root = this.getRoot();
+    if (!root || ids.length > 1000) throw new Error('回收站批量项目无效。');
+    const records = this.trashRecords(), old = this.cache(), before = JSON.stringify(old), previousTrash = JSON.stringify(records);
+    const done: string[] = [], failed: string[] = [], errors: TrashFailure[] = [], moved: TrashMove[] = [];
+    try {
+      for (const id of Array.from(new Set<string>(ids))) {
+        const item = records.find(value => value.id === id && value.workspaceId === root.id);
+        let source = '', target = '';
+        try {
+          if (!item) throw new Error('回收站项目不存在。');
+          source = this.trashPayload(id);
+          if (!fs.accessSync(source)) throw new Error('回收站文件已在外部移除。');
+          target = permanent ? source + '.discard.wenzhou-tmp' : this.target(item.path);
+          if (fs.accessSync(target)) throw new Error('原路径已有同名项目，请先重命名后恢复。');
+        } catch (error) { failed.push(id); errors.push({ id: id, message: (error as Error).message }); continue; }
+        this.parent(target); fs.renameSync(source, target); moved.push({ source: source, target: target });
+        if (!permanent && item) { old.documents = old.documents.concat(item.documents); old.repositories = (old.repositories || []).concat(item.repositories); }
+        done.push(id);
+      }
+      if (done.length) { if (!permanent) this.text(this.cachePath(root.id), JSON.stringify(old)); this.text(this.trashPath(), JSON.stringify(records.filter(value => !done.includes(value.id)))); }
+      const state = this.scan();
+      // Metadata is committed before discarding payloads; a cleanup failure cannot make a restore record lie.
+      if (permanent) for (const move of moved) { try { this.removeTree(move.target); } catch (error) { errors.push({ id: done[moved.indexOf(move)], message: '项目已移出回收站，清理文件时出错：' + (error as Error).message }); } }
+      return { state: state, failed: failed, errors: errors };
+    } catch (error) {
+      for (let i = moved.length - 1; i >= 0; i--) if (fs.accessSync(moved[i].target)) fs.renameSync(moved[i].target, moved[i].source);
+      this.text(this.cachePath(root.id), before); this.text(this.trashPath(), previousTrash); throw error as Error;
+    }
+  }
+
 }

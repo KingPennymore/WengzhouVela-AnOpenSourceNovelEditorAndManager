@@ -1,14 +1,15 @@
 import {documentProvider,documentSourceProvider,importDocumentBytes,validateComponentSource,ODF_FLAT} from './document-components.mjs';
+import {MB} from './text-utils.mjs';
 
 export const BINARY_DOCUMENT_EXTENSIONS=['.epub','.mobi','.azw','.azw3','.azw4','.pdf','.zip','.odt','.ott','.ods','.ots','.odp','.otp','.odg','.otg'];
 export const binaryDocumentName=name=>BINARY_DOCUMENT_EXTENSIONS.some(ext=>String(name).toLowerCase().endsWith(ext));
-export const documentImportLimit=name=>documentProvider(name)?.maxImportBytes??8*1024*1024;
+export const documentImportLimit=name=>documentProvider(name)?.maxImportBytes??8*MB;
 
 // The persisted document is text. Binary books always become separate source files.
 export async function prepareDocumentImport(bytes,name,decode,options={}){
  if(documentProvider(name))return importDocumentBytes(bytes,name,options);
  if(binaryDocumentName(name))throw Error('请先安装并启用支持此格式的文档插件，原始文件已保留。');
- if(!(bytes instanceof Uint8Array)||bytes.length>8*1024*1024)throw Error('请选择 8 MB 以内的编辑源文件。');
+ if(!(bytes instanceof Uint8Array)||bytes.length>8*MB)throw Error('请选择 8 MB 以内的编辑源文件。');
  const text=decode(bytes,{preserveBom:/\.(csv|tsv)$/i.test(name)}),provider=documentSourceProvider(name);
  validateComponentSource(text,name);
  return {name,text,...(provider?{kind:ODF_FLAT.test(name)?'VODT':'PLUGIN',formatId:provider.id}:{})};

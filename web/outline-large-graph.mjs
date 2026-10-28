@@ -5,6 +5,7 @@ import {outlineNodeSize} from './outline-card.mjs';
 import {relationDegrees,relationSize} from './outline-collections.mjs';
 import {outlineEdges,outlineEdgeGeometry,createOutlineEdge,updateOutlineEdge} from './outline-edges.mjs';
 import {t} from './i18n.mjs';
+import {TAP_SLOP,movedBeyond} from './tap-guard.mjs';
 
 const models=new Map();let retainedNodes=0,retainedEdges=0;
 const intersects=(a,b)=>a.left<=b.right&&a.right>=b.left&&a.top<=b.bottom&&a.bottom>=b.top;
@@ -78,11 +79,11 @@ export function renderLargeOutlineGraph({root,value,state,escape:esc,onSelect,on
  root.graphFit=()=>fitBounds(model.bounds);root.graphInitialize=()=>{if(!state.initialized){if(state.selected)reveal(state.selected);else root.graphFit();}else paint();};
  function moveNode(id,p){positions[id]=p;const record=nodes.find(n=>n.id===id);record.p=p;const card=cards.get(id);if(card){card.style.left=p.x+'px';card.style.top=p.y+'px';}for(const record of model.adjacent.get(id)||[]){record.geometry=outlineEdgeGeometry(record.edge,positions,sizes,relations);record.bounds=edgeBounds(record.geometry);const group=edgeViews.get(record);if(group)updateOutlineEdge(group,record.geometry);}}
  surface.addEventListener('pointerdown',event=>{if(event.button>0||event.isPrimary===false)return;press={x:event.clientX,y:event.clientY};const handle=event.target.closest('[data-edge-handle]'),node=event.target.closest('[data-node]');if(handle){link=handle.dataset.edgeHandle;surface.setPointerCapture(event.pointerId);event.preventDefault();}else if(node){const id=node.dataset.node;drag={id,x:event.clientX,y:event.clientY,origin:{...positions[id]}};moved=false;surface.setPointerCapture(event.pointerId);}});
- surface.addEventListener('pointermove',event=>{if(!drag)return;const dx=event.clientX-drag.x,dy=event.clientY-drag.y;if(Math.hypot(dx,dy)>8)moved=true;if(moved)moveNode(drag.id,{x:drag.origin.x+dx/plane.scale,y:drag.origin.y+dy/plane.scale});});
+ surface.addEventListener('pointermove',event=>{if(!drag)return;const dx=event.clientX-drag.x,dy=event.clientY-drag.y;if(Math.hypot(dx,dy)>TAP_SLOP)moved=true;if(moved)moveNode(drag.id,{x:drag.origin.x+dx/plane.scale,y:drag.origin.y+dy/plane.scale});});
  surface.addEventListener('pointerup',event=>{
   if(link){const target=document.elementFromPoint(event.clientX,event.clientY)?.closest('[data-card]')?.dataset.card;if(target&&target!==link)onEdge(link,target);link=null;}
   if(drag){const {id}=drag;drag=null;if(moved){if(models.delete(state)){retainedNodes-=model.nodes.length;retainedEdges-=model.edges.length;}onMove(id,positions[id]);}else{onSelect(id);request();}press=null;return;}
-  if(level==='overview'&&press&&Math.hypot(event.clientX-press.x,event.clientY-press.y)<8){const rect=surface.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top;let found,distance=16;for(const c of clusters.values()){const next=Math.hypot(c.x-x,c.y-y);if(next<distance){distance=next;found=c;}}if(found){if(found.nodes.length===1){const id=found.nodes[0].id;reveal(id);onSelect(id);}else{const b={left:Infinity,right:-Infinity,top:Infinity,bottom:-Infinity};for(const record of found.nodes){const r=nodeBounds(record);b.left=Math.min(b.left,r.left);b.right=Math.max(b.right,r.right);b.top=Math.min(b.top,r.top);b.bottom=Math.max(b.bottom,r.bottom);}fitBounds(b);}}}
+  if(level==='overview'&&press&&!movedBeyond(press,event)){const rect=surface.getBoundingClientRect(),x=event.clientX-rect.left,y=event.clientY-rect.top;let found,distance=16;for(const c of clusters.values()){const next=Math.hypot(c.x-x,c.y-y);if(next<distance){distance=next;found=c;}}if(found){if(found.nodes.length===1){const id=found.nodes[0].id;reveal(id);onSelect(id);}else{const b={left:Infinity,right:-Infinity,top:Infinity,bottom:-Infinity};for(const record of found.nodes){const r=nodeBounds(record);b.left=Math.min(b.left,r.left);b.right=Math.max(b.right,r.right);b.top=Math.min(b.top,r.top);b.bottom=Math.max(b.bottom,r.bottom);}fitBounds(b);}}}
   press=null;
  });
  const cancel=()=>{if(drag)moveNode(drag.id,drag.origin);drag=null;link=null;press=null;request();};surface.addEventListener('pointercancel',cancel);

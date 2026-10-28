@@ -1,0 +1,1 @@
+import{h as r}from"./chunk-7XBPXTAC.js";import{a as e}from"./chunk-4L2AT3NG.js";import"./chunk-V4WMNJVF.js";import"./chunk-NNIEJKTU.js";import{La as o}from"./chunk-SLMDXJDH.js";import{d as t}from"./chunk-TTC262CJ.js";t();var m=o.define(e),x=()=>[m,r()];export{x as latexSupport};

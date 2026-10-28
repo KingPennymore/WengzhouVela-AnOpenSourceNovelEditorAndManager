@@ -1,8 +1,9 @@
+import {textBytes,MB} from './text-utils.mjs';
 // Core fallback contains no renderer, image pipeline or ZIP converter.
 export const OFFICE_NS='urn:oasis:names:tc:opendocument:xmlns:office:1.0';
 export const TEXT_NS='urn:oasis:names:tc:opendocument:xmlns:text:1.0';
 export function parseFlatOdf(source){
- if(typeof source!=='string'||new TextEncoder().encode(source).length>8*1024*1024)throw Error('文档超过 8 MB。');
+ if(typeof source!=='string'||textBytes(source)>8*MB)throw Error('文档超过 8 MB。');
  if(/<!DOCTYPE|<!ENTITY/i.test(source))throw Error('不允许 XML 外部实体或 DTD。');
  const xml=new DOMParser().parseFromString(source,'application/xml');
  if(xml.querySelector('parsererror')||xml.documentElement.namespaceURI!==OFFICE_NS||!['document','document-content'].includes(xml.documentElement.localName)||!xml.getElementsByTagNameNS(OFFICE_NS,'body').length)throw Error('ODF XML 格式错误。');

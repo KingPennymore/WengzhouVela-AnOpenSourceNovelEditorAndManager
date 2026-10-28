@@ -2,6 +2,7 @@ import {NativeArchiveBackend} from './project-archive.mjs';
 import {native,transport} from './platform.mjs';
 import {error,relativePath,within,mime,sha256,revision,bytes} from './project-contract.mjs';
 import {fromBase64,toBase64} from './plugin-package.mjs';
+import {MB} from './text-utils.mjs';
 
 const request=req=>new Promise((resolve,reject)=>{req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(error('E_QUOTA','项目存储不可用，请检查空间。'));});
 const database=()=>new Promise((resolve,reject)=>{const open=indexedDB.open('vela-project-api',2);open.onupgradeneeded=()=>{for(const name of ['files','state','snapshots','trash'])if(!open.result.objectStoreNames.contains(name))open.result.createObjectStore(name);};open.onsuccess=()=>resolve(open.result);open.onerror=()=>reject(error('E_UNSUPPORTED','浏览器项目存储不可用。'));});
@@ -19,7 +20,7 @@ export class BrowserProjectBackend {
   }
   async tree(root){const files=await this.files();await this.overlayDocuments(files);const entries=[];for(const [full,f] of files)if(full!==root&&within(root,full)){const path=full.slice(root?root.length+1:0);entries.push({path,kind:f.directory?'directory':'file',mime:f.directory?'inode/directory':mime(path),size:f.directory?0:f.blob.size,revision:f.revision,modifiedAt:f.modifiedAt});}
     entries.sort((a,b)=>a.path.localeCompare(b.path));for(const e of entries.filter(e=>e.kind==='directory').sort((a,b)=>b.path.length-a.path.length))e.revision=await revision(JSON.stringify(entries.filter(child=>child!==e&&within(e.path,child.path)).map(child=>[child.path,child.revision])));return {entries,totalBytes:entries.reduce((s,e)=>s+e.size,0)};}
-  async call(action,owner,a){const MB=1024*1024;switch(action){
+  async call(action,owner,a){switch(action){
     case 'receipt':return localStorage.getItem('wenzhou.workspace')||'';
     case 'capabilities':return {limits:{textBytes:8*MB,readChunkBytes:256*1024,bridgeChunkBytes:256*1024,importFileBytes:32*MB,projectEntries:2000,archiveExpandedBytes:0,archiveEntries:0,projectBytes:64*MB,snapshotBytes:64*MB},resource:{range:false,worker:typeof Worker!=='undefined',canvas2d:true},features:{filesystem:true,transactions:true,assetSessions:true,archives:false,snapshots:true,nativePicker:false,independentPreview:false,externalWatch:false}};
     case 'tree':return this.tree(a.root);

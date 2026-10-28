@@ -1,5 +1,6 @@
 import { encodeContent, decodeContent, repoPath, MAX_TEXT_BYTES } from './model.mjs';
 import {pullRepository} from './repository-pull.mjs';
+import {textBytes,MB} from './text-utils.mjs';
 export class GitHubError extends Error {
   constructor(status, body) {
     const hints = {401:'登录已失效，请重新登录 GitHub。',403:'请求受限：请检查令牌权限、组织授权或 GitHub 速率限制。',404:'仓库、分支或文件不存在，或当前账号没有访问权限。',409:'远端版本已变化。请重新读取远端并对照修改，本地文稿已保留。',422:'GitHub 未接受此操作，请检查名称、权限及文件版本。'};
@@ -48,14 +49,14 @@ export class GitHub {
     if(file.encoding==='none'&&/^[a-f0-9]{40,64}$/i.test(file.sha||'')) content=await this.request(`${this.base(repo)}/git/blobs/${file.sha}`);
     if(content.encoding!=='base64' || typeof content.content!=='string') throw new Error('GitHub 未提供可读取的文本内容。');
     const text=decodeContent(content.content);
-    if(new TextEncoder().encode(text).length>MAX_TEXT_BYTES) throw new Error('仅支持 8 MB 以内的 UTF-8 文本文件。');
+    if(textBytes(text)>MAX_TEXT_BYTES) throw new Error('仅支持 8 MB 以内的 UTF-8 文本文件。');
     if(text.includes('\0')) throw new Error('此文件是二进制文件，无法作为文稿打开。');
     return {text,sha:file.sha};
   }
   pullRepository(repo,branch,options) { return pullRepository(this,repo,branch,options); }
   async commit({repo,branch,path,sha,text,message}) {
     if(!message.trim()) throw new Error('请填写提交说明。');
-    if(new TextEncoder().encode(text).length>MAX_TEXT_BYTES) throw new Error('单次提交文稿不能超过 8 MB。');
+    if(textBytes(text)>MAX_TEXT_BYTES) throw new Error('单次提交文稿不能超过 8 MB。');
     // Never fetch a newer SHA and silently overwrite it. The editor's base SHA is authoritative.
     const body={branch,content:encodeContent(text),message:message.trim()};
     if(sha) body.sha=sha;
@@ -65,8 +66,8 @@ export class GitHub {
     if(!message.trim())throw new Error('请填写提交说明。');
     if(!Array.isArray(files)||!files.length||files.length>5000)throw new Error('工作区须包含 1–5000 个文件。');
     if(prefix)prefix=repoPath(prefix);const paths=new Set();let size=0;
-    for(const file of files){repoPath(file.path);if(paths.has(file.path))throw new Error('工作区含重复文件路径。');paths.add(file.path);const bytes=file.delete?0:typeof file.text==='string'?new TextEncoder().encode(file.text).length:typeof file.data==='string'?Math.floor(file.data.length*3/4):Infinity;if(bytes>MAX_TEXT_BYTES)throw new Error('工作区文件不能超过 8 MB。');size+=bytes;}
-    if(size>64*1024*1024)throw new Error('一次工作区提交不能超过 64 MB。');
+    for(const file of files){repoPath(file.path);if(paths.has(file.path))throw new Error('工作区含重复文件路径。');paths.add(file.path);const bytes=file.delete?0:typeof file.text==='string'?textBytes(file.text):typeof file.data==='string'?Math.floor(file.data.length*3/4):Infinity;if(bytes>MAX_TEXT_BYTES)throw new Error('工作区文件不能超过 8 MB。');size+=bytes;}
+    if(size>64*MB)throw new Error('一次工作区提交不能超过 64 MB。');
     const base=this.base(repo),refPath=base+'/git/refs/heads/'+encodeURIComponent(branch),head=await this.request(base+'/git/ref/heads/'+encodeURIComponent(branch)),parent=head.object.sha,commit=await this.request(base+'/git/commits/'+parent),tree=[];
     if(expectedHead&&expectedHead!==parent)throw new GitHubError(409,{message:'远端分支已变化。'});
     for(const file of files){const entry={path:(prefix?prefix+'/':'')+file.path,mode:'100644',type:'blob'};if(file.delete)entry.sha=null;else if(typeof file.text==='string')entry.content=file.text;else{const blob=await this.request(base+'/git/blobs','POST',{content:file.data,encoding:'base64'});entry.sha=blob.sha;}tree.push(entry);}

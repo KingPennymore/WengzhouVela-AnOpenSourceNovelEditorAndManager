@@ -1,3 +1,4 @@
+import { setCsvZoom } from './csv-grid-helper.mjs';
 import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { startSourceAppServer } from './source-app-server.mjs';
@@ -17,6 +18,21 @@ try {
   await openRecentFile(page, page.locator('[data-recent=csv]'));
   await page.locator('.csv-grid-cell').first().waitFor();
 
+  assert.equal(await page.locator('#csv-actual,#csv-edit-cell').count(), 0);
+  assert.equal(await page.locator('#csv-delete-row').isDisabled(), true);
+  assert.deepEqual(await page.locator('.csv-bottom-actions button').evaluateAll(buttons => buttons.map(b => b.id)), ['csv-add-row','csv-add-column','csv-delete-row','csv-delete-column','csv-fit','csv-zoom-out','csv-zoom','csv-zoom-in']);
+  assert.equal(await page.locator('#csv-fit svg path').getAttribute('d'), 'M8 3H3v5M16 3h5v5M21 16v5h-5M8 21H3v-5');
+  await page.locator('[data-csv-row="1"]').first().click();
+  await page.locator('#csv-delete-row').click();
+  await page.waitForFunction(() => velaEditorView.state.doc.toString() === 'alpha,beta\nabc,xyz');
+  await page.locator('.csv-plane').focus(); await page.keyboard.press('Control+z');
+  await page.waitForFunction(() => document.querySelector('.csv-grid-host')?.getAttribute('aria-rowcount') === '3');
+  await page.locator('[data-csv-column="1"]').click();
+  await page.locator('#csv-delete-column').click();
+  await page.waitForFunction(() => velaEditorView.state.doc.toString() === 'alpha\nfoo\nabc');
+  await page.locator('.csv-plane').focus(); await page.keyboard.press('Control+z');
+  await page.waitForFunction(() => document.querySelector('.csv-grid-host')?.getAttribute('aria-colcount') === '2');
+
   // Typing through partial matches must leave focus in the search box, including filtered searches.
   const original = await page.evaluate(() => velaEditorView.state.doc.toString());
   await page.locator('#csv-find').click();
@@ -35,10 +51,10 @@ try {
   await page.evaluate(() => velaEditorView.dispatch({ changes: { from: 0, to: velaEditorView.state.doc.length, insert: 'h1,h2\n' + Array.from({ length: 5000 }, (_, r) => r + ',' + 'x'.repeat(60)).join('\n') } }));
   await page.locator('[data-display=preview]').click();
   await page.locator('.csv-grid-cell').first().waitFor();
-  await page.locator('#csv-actual').click();
+  await setCsvZoom(page);
   await page.locator('[data-cell-row="1"][data-cell-column="0"]').click();
   for (const [key, value, reference] of [['Tab', 'changed', 'B2'], ['Shift+Tab', 'note', 'A2'], ['Enter', 'second', 'A3']]) {
-    await page.locator('#csv-edit-cell').click();
+    await page.keyboard.press('Enter');
     await page.locator('#csv-input').fill(value);
     await page.locator('#csv-input').press(key);
     await page.waitForFunction(reference => document.querySelector('#csv-cell-reference')?.textContent === reference, reference);
@@ -52,7 +68,7 @@ try {
     const send = Worker.prototype.postMessage;
     Worker.prototype.postMessage = function(value, ...rest) { if (value?.source && value?.delimiter) window.csvWorkerCalls++; return send.call(this, value, ...rest); };
   });
-  await page.locator('#csv-edit-cell').click();await page.locator('#csv-input').fill('local edit');
+  await page.keyboard.press('Enter');await page.locator('#csv-input').fill('local edit');
   const editedAt = Date.now();await page.locator('#csv-commit').click();
   await page.waitForFunction(() => document.querySelector('[data-cell-row="2"][data-cell-column="0"]')?.textContent === 'local edit');
   assert.equal(await page.evaluate(() => window.csvWorkerCalls), 0);
@@ -65,7 +81,7 @@ try {
   await page.waitForFunction(() => document.querySelector('.csv-grid-host')?.getAttribute('aria-colcount') === '3');
   assert.match(await page.evaluate(() => velaEditorView.state.doc.toString()), /second,,note/);
   assert.equal(await page.evaluate(() => document.querySelector('.csv-plane') === window.csvPlaneBefore), true);
-  for (const id of ['add-row','add-column','edit-cell','fit','actual','zoom-in','zoom-out']) assert.equal(await page.locator('#csv-'+id+' svg path').count(),1);
+  for (const id of ['add-row','add-column','delete-row','delete-column','fit','zoom-in','zoom-out']) assert.equal(await page.locator('#csv-'+id+' svg path').count(),1);
   await page.locator('#csv-find').click();await page.locator('#csv-search').fill('local edit');await page.locator('#csv-find-close').click();
 
   // Sample the very next rendered frame while the wheel gesture is still active.

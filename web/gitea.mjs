@@ -1,6 +1,7 @@
 import { GitHub, GitHubError } from './github.mjs';
 import { encodeContent, repoPath, MAX_TEXT_BYTES } from './model.mjs';
 import { gitIdentity, normalizeGiteaServer } from './git-host.mjs';
+import {textBytes,MB} from './text-utils.mjs';
 
 /** Gitea API v1. Keep GitHub's read protocol, adapting response shapes and writes. */
 export class Gitea extends GitHub {
@@ -89,7 +90,7 @@ export class Gitea extends GitHub {
   }
   async commit({ repo, branch, path, sha, text, message }) {
     if (!message.trim()) throw Error('请填写提交说明。');
-    if (new TextEncoder().encode(text).length > MAX_TEXT_BYTES)
+    if (textBytes(text) > MAX_TEXT_BYTES)
       throw Error('单次提交文稿不能超过 8 MB。');
     return this.request(this.contentURL(repo, path), sha ? 'PUT' : 'POST', {
       branch,
@@ -113,12 +114,12 @@ export class Gitea extends GitHub {
       const bytes = file.delete
         ? 0
         : typeof file.text === 'string'
-          ? new TextEncoder().encode(file.text).length
+          ? textBytes(file.text)
           : typeof file.data === 'string'
             ? Math.ceil((file.data.length * 3) / 4)
             : Infinity;
       size += bytes;
-      if (bytes > MAX_TEXT_BYTES || size > 64 * 1024 * 1024)
+      if (bytes > MAX_TEXT_BYTES || size > 64*MB)
         throw Error('工作区文件超过提交大小限制。');
     }
     const refPath = `${this.base(repo)}/git/ref/heads/${encodeURIComponent(branch)}`;

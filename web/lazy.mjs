@@ -1,4 +1,5 @@
 import {t} from './i18n.mjs';
+import {escapeHtml} from './text-utils.mjs';
 // Features split out of the startup bundle (scripts/build.mjs builds ESM chunks into web/chunks/). Each loader
 // imports its chunk once; a failed import is not kept, so the next use retries, and the error names the feature
 // so callers can show it in place of the missing view (chunkFailure) instead of leaving it blank.
@@ -25,7 +26,7 @@ export const loadReader=lazy('reader',()=>import('./reader.mjs'));
 export const loadLatexEditor=lazy('latex',()=>import('./latex-editor.mjs'));
 export const loadLatexLanguage=lazy('latex-language',()=>import('./latex-language.mjs'));
 
-const escapeHtml=value=>String(value).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
 /** Shows a load failure inside `root` with a retry button. */
 export function chunkFailure(root,error,retry){
   if(!root)return;

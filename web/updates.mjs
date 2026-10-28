@@ -1,8 +1,9 @@
 import {releaseSources,findRelease,trustedAssets,releaseUrl,releaseComponents,formatBytes} from './component-downloads.mjs';
 export const updateRepository=releaseSources.find(source=>source.id==='github').repository;
-export const UPDATE_LIMIT=256*1024*1024;
+export const UPDATE_LIMIT=256*MB;
 const APP_TAG=/^v?\d+\.\d+\.\d+(?:\.\d+)?$/;
 import {compareVersions} from './version-compare.mjs';
+import {MB} from './text-utils.mjs';
 export {compareVersions};
 export const releasePage=(sourceLabel,tag)=>sourceLabel==='Gitee'?`https://gitee.com/${releaseSources[0].repository}/releases/tag/${tag}`:`https://github.com/${updateRepository}/releases/tag/${tag}`;
 /** The installer this platform can apply in place. HarmonyOS apps cannot be side-loaded, so it only gets the release page. */

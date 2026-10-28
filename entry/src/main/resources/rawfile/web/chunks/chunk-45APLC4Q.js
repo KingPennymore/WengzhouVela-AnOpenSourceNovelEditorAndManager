@@ -1,0 +1,1 @@
+import{d as h}from"./chunk-TTC262CJ.js";h();function c(e,t,i,{padding:r=24,maxScale:x=1}={}){if(!e||![e.x,e.y,e.width,e.height,t,i].every(Number.isFinite)||e.width<=0||e.height<=0||t<=r*2||i<=r*2)return null;let l=Math.min(x,(t-r*2)/e.width,(i-r*2)/e.height);return{x:t/2-(e.x+e.width/2)*l,y:i/2-(e.y+e.height/2)*l,scale:l}}export{c as a};
