@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { existsSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
-import { join } from 'node:path';
+import { join, posix } from 'node:path';
 
 export const resourceDir = 'entry/src/main/resources/rawfile/web';
 const manifestName = 'build-manifest.json';
@@ -38,16 +38,57 @@ export function recordBundle(root) {
   writeFileSync(join(root, resourceDir, manifestName), JSON.stringify({ format: 1, source: sourceDigest(root), outputs }, null, 2));
 }
 
-export function bundleIsCurrent(root) {
+// Check the generated files independently of the source tree (also useful for source archives).
+export function rawfileProblems(root) {
+  const directory = join(root, resourceDir), problems = [];
+  let manifest;
+  try {
+    manifest = JSON.parse(readFileSync(join(directory, manifestName), 'utf8'));
+  } catch (error) {
+    return [`无法读取构建清单 ${resourceDir}/${manifestName}：${error.message}`];
+  }
+  if (manifest?.format !== 1 || !manifest.outputs || typeof manifest.outputs !== 'object' || Array.isArray(manifest.outputs)) {
+    return ['构建清单格式无效：需要 format: 1 和 outputs 文件哈希表。'];
+  }
+  const safe = file => file && !file.includes('\\') && !file.includes(':') && !file.includes('\0') &&
+    !file.split('/').some(part => !part || part === '.' || part === '..');
+  for (const file of required) if (!Object.hasOwn(manifest.outputs, file)) problems.push(`构建清单缺少必需文件：${file}`);
+  for (const [file, hash] of Object.entries(manifest.outputs)) {
+    if (!safe(file)) { problems.push(`构建清单包含非法路径：${file}`); continue; }
+    if (typeof hash !== 'string' || !/^[a-f0-9]{64}$/.test(hash)) { problems.push(`文件 SHA-256 格式无效：${file}`); continue; }
+    try {
+      if (digest(join(directory, file)) !== hash) problems.push(`文件 SHA-256 不一致：${file}`);
+    } catch (error) {
+      problems.push(`文件缺失或无法读取：${file}（${error.code || error.message}）`);
+    }
+  }
+  // esbuild emits literal relative imports. Follow both static and dynamic imports,
+  // including shared chunks reached through other chunks, even if omitted from the manifest.
+  const queue = ['app.js'], visited = new Set();
+  while (queue.length) {
+    const file = queue.shift();
+    if (visited.has(file)) continue;
+    visited.add(file);
+    let source;
+    try { source = readFileSync(join(directory, file), 'utf8'); }
+    catch { problems.push(`无法读取分包模块：${file}`); continue; }
+    for (const match of source.matchAll(/(?:\bimport\s*\(\s*|\bfrom\s*|\bimport\s*)["'](\.\.?\/[^"'?#]+\.m?js)(?:[?#][^"']*)?["']/g)) {
+      const target = posix.normalize(posix.join(posix.dirname(file), match[1]));
+      if (!safe(target)) { problems.push(`模块引用越出资源目录：${file} → ${match[1]}`); continue; }
+      if (!Object.hasOwn(manifest.outputs, target)) problems.push(`引用的分包未列入构建清单：${file} → ${target}`);
+      if (!existsSync(join(directory, target))) problems.push(`引用的分包文件缺失：${file} → ${target}`);
+      else queue.push(target);
+    }
+  }
+  return problems;
+}
+
+export function bundleIsCurrent(root, { flavor } = {}) {
   try {
     const manifest = JSON.parse(readFileSync(join(root, resourceDir, manifestName), 'utf8'));
     if (manifest.format !== 1 || manifest.source !== sourceDigest(root)) return false;
-    if (!required.every(file => manifest.outputs[file])) return false;
-    return Object.entries(manifest.outputs).every(([file, hash]) => {
-      if (file.split('/').some(part => part === '..') || file.includes('\\') || file.startsWith('/')) return false;
-      const absolute = join(root, resourceDir, file);
-      return existsSync(absolute) && digest(absolute) === hash;
-    });
+    if (flavor && JSON.parse(readFileSync(join(root, resourceDir, 'version.json'), 'utf8')).flavor !== flavor) return false;
+    return rawfileProblems(root).length === 0;
   } catch {
     return false;
   }

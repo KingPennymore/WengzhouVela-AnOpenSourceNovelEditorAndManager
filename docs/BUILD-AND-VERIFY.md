@@ -1,6 +1,6 @@
 # 构建与发布检查
 
-`npm run verify` 是统一检查入口：构建共享前端、核对三端版本和资源摘要，然后把逻辑测试和各组浏览器检查放进进程池并行运行（文件管理、侧栏、编辑、阅读、三端界面、术语库、GitHub / Gitee、同步等）。预览服务监听空闲端口，不占用已有的 4173 端口，结束时自动关闭。
+`npm run verify` 是统一检查入口：构建共享前端、运行 `check:rawfile`、核对三端版本和资源摘要，然后把逻辑测试和各组浏览器检查放进进程池并行运行（文件管理、侧栏、编辑、阅读、三端界面、术语库、GitHub / Gitee、同步等）。预览服务监听空闲端口，不占用已有的 4173 端口，结束时自动关闭。
 
 - 并行度默认等于 CPU 核数，可用 `--jobs N` 或环境变量 `VELA_VERIFY_JOBS` 调整；`--only a,b` 只跑指定的组（组名即 `tests/` 下去掉 `.mjs` 的文件名，逻辑测试为 `unit`）。每组使用独立的 Chromium，写入各自的 `test-results` 路径。按上次各组的耗时，慢的组先启动。
 - 某组失败不会中断其他组，最后统一返回失败。失败组的完整输出在 `test-results/verify/<组名>/output.log`；`tests/verify-capture.mjs` 会在浏览器关闭时截下仍打开的页面，并在失败时保存到同一目录：`page-N.png` 是截图，`state.json` 记录地址、对话框和提示文字、localStorage 大小、页面错误和控制台错误。通过的组只保留 `test-results/verify/<组名>.log`，摘要在 `results.json`，其中包括总耗时和并行度。
@@ -27,6 +27,20 @@ GitHub Actions 的 `Verify` 工作流在 master 推送、拉取请求或手动�
 验证日志记录实际结果，架构取舍和后续变更写入 ADR。
 
 ## 前端打包结构
+
+`entry/src/main/resources/rawfile/web/` 整个目录（包括 `tex/`）是被 Git 忽略的构建产物，`dist/web/` 同样不入库。这样主包、带哈希的分包、样式及许可证总是来自同一次本机构建，避免提交主包却漏交分包，也避免每次构建产生大量 diff。移除跟踪只操作 Git 索引，不删除本机资源。
+
+鸿蒙沿用 `entry/hvigorfile.ts` 的 `PrepareEditor` 任务：`postDependencies: ['default@PreBuild']` 让 PreBuild 等待资源准备完成。任务调用 `node scripts/prepare-editor.mjs`，按源码摘要、所有输出 SHA-256、分包引用和 full/lite 类型决定是否调用 `node scripts/build.mjs`，失败会中止 HAP 构建。`build-profile.json5` 和根 `hvigorfile.ts` 无需调整，当前模块只有 `default` target。Git 检出后先在根目录执行 `npm ci`；缺少依赖时任务会给出中文提示，不会继续打包残缺资源。完整版和轻量版都需要现有 `vendor/wasmtex` 源资源及 npm 依赖；轻量版只是省去内置引擎，并非省去组件打包输入。
+
+默认构建完整版。轻量鸿蒙包需在启动 DevEco / Hvigor 的环境中设置 `VELA_BUILD_FLAVOR=lite`；仅提前运行 `npm run build:lite` 不会改变随后 Hvigor 的默认类型。PowerShell 例子：
+
+```powershell
+$env:VELA_BUILD_FLAVOR = 'lite'
+.\scripts\build-hap.ps1 -DevEco 'D:\DevEco Studio'
+Remove-Item Env:VELA_BUILD_FLAVOR
+```
+
+`npm run check:rawfile` 不触发构建，读取 `rawfile/web/build-manifest.json`，逐个检查列出的文件是否可读、SHA-256 是否匹配，并从 `app.js` 递归检查 esbuild 生成的静态 import / 动态 import() 分包是否存在且登记在清单中。缺失清单、损坏 JSON、非法路径、内容变动和遗漏分包都会以具体文件的中文提示及非零退出码报错；修复时运行 `npm run build` 或 `npm run build:lite`。它检查产物内部一致性，源码是否过期由 `prepare-editor.mjs` 和 `check-build.mjs` 另外检查。发行源码 ZIP 仍由 `scripts/package.py` 校验并附带预构建资源；Git 仓库与发行源码 ZIP 的内容不同。
 
 `scripts/build.mjs` 把 `web/app.js` 打成 ES 模块（`format:'esm'`、`splitting:true`、`target:'chrome105'`），由 `index.html` 的 `<script type="module" src="./app.js">` 加载。`import()` 引入的模块单独成块，放在 `chunks/<名称>-<内容哈希>.js`：
 

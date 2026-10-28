@@ -14,3 +14,4 @@ test-results/
 **/.gradle/
 *.jks
 android/app/src/main/assets/web/
+/entry/src/main/resources/rawfile/web/
