@@ -10,6 +10,8 @@ hvigor.nodesEvaluated(() => {
   const root = resolve(entry.getNodeDir().getPath(), '..');
   entry.registerTask({
     name: 'PrepareEditor',
+    // Generate and validate ignored rawfile/web assets before HarmonyOS reads resources.
+    // prepare-editor.mjs reuses only a complete bundle of the requested full/lite flavor.
     postDependencies: ['default@PreBuild'],
     run: () => {
       const result = spawnSync(process.execPath, [resolve(root, 'scripts/prepare-editor.mjs')], {

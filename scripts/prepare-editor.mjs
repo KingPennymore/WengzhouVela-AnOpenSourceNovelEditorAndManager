@@ -5,14 +5,15 @@ import { spawnSync } from 'node:child_process';
 import { bundleIsCurrent } from './frontend-state.mjs';
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
-if (!bundleIsCurrent(root)) {
+const flavor = process.env.VELA_BUILD_FLAVOR === 'lite' ? 'lite' : 'full';
+if (!bundleIsCurrent(root, { flavor })) {
   if (!existsSync(resolve(root, 'node_modules/esbuild/package.json'))) {
-    console.error('编辑器资源缺失或与源码不一致。请在工程根目录执行 npm.cmd ci，然后重新构建；DevEco 会自动打包编辑器。完整发行源码包已包含可直接构建的资源。');
+    console.error('编辑器资源缺失、损坏、与源码或 full/lite 版本不一致。请在工程根目录执行 npm ci，然后重新构建；DevEco 会自动打包编辑器。Git 仓库不跟踪 rawfile/web 构建产物。');
     process.exit(1);
   }
   const result = spawnSync(process.execPath, [resolve(root, 'scripts/build.mjs')], { cwd: root, stdio: 'inherit' });
   if (result.error) throw result.error;
   if (result.status !== 0) process.exit(result.status ?? 1);
-  if (!bundleIsCurrent(root)) throw new Error('编辑器打包后资源校验失败。');
+  if (!bundleIsCurrent(root, { flavor })) throw new Error('编辑器打包后资源校验失败，请运行 npm run check:rawfile 查看详情。');
 }
 console.log('文舟编辑器资源检查通过');

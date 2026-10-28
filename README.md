@@ -83,7 +83,8 @@ npm.cmd run build:windows  # Windows 安装包与 ZIP
 
 - 仓库不含任何签名私钥或口令。安卓发布签名用 `scripts/sign-android.ps1`；鸿蒙在 DevEco Studio 中配置自己的签名。
 - 在 DevEco Studio 中打开工程时，请使用磁盘上的真实路径大小写，否则 Hvigor 可能报 `00303149 Path not found`。`DEVECO_SDK_HOME` 应指向 `DevEco Studio\sdk`。
-- 发行源码包已包含构建好的编辑器资源，可直接在 DevEco Studio 构建。
+- Git 仓库不跟踪 `entry/src/main/resources/rawfile/web/`（包括 TeX）；先执行 `npm ci`，DevEco / Hvigor 会在 `default@PreBuild` 前自动生成并校验资源。默认完整版，设置 `VELA_BUILD_FLAVOR=lite` 构建轻量版；已有完整且与源码、版本类型一致的产物会复用。发行源码包仍包含预构建资源。
+- `npm run check:rawfile` 单独核对构建清单的 SHA-256 与全部分包引用；构建与验证细节见 [BUILD-AND-VERIFY.md](docs/BUILD-AND-VERIFY.md)。
 
 ## 验证
 

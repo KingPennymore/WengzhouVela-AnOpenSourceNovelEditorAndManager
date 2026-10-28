@@ -37,7 +37,7 @@ async function pool(tasks){
 }
 try{
   if(!await run('core',['scripts/check-core.mjs']))throw Error('核心代码检查失败，未运行构建与测试');
-  if(!await run('build',['scripts/build.mjs',...(lite?['--lite']:[])])||!await run('build-integrity',['scripts/check-build.mjs']))throw Error('构建失败，未运行测试');
+  if(!await run('build',['scripts/build.mjs',...(lite?['--lite']:[])])||!await run('rawfile-integrity',['scripts/check-rawfile.mjs'])||!await run('build-integrity',['scripts/check-build.mjs']))throw Error('构建失败，未运行测试');
   const unit=(await readdir('tests')).filter(name=>name.endsWith('.test.mjs')).map(name=>'tests/'+name),writer=(await readdir('vendor/acode-writer/tests')).filter(name=>name.endsWith('.test.cjs')).map(name=>'vendor/acode-writer/tests/'+name);
   server=spawn(process.execPath,['scripts/serve.mjs'],{cwd:root,env:{...process.env,VELA_PREVIEW_PORT:'0'},stdio:['ignore','pipe','pipe']});
   const url=await new Promise((resolve,reject)=>{const timer=setTimeout(()=>reject(Error('预览服务启动超时。')),15000);server.once('error',error=>{clearTimeout(timer);reject(error);});server.once('exit',()=>{clearTimeout(timer);reject(Error('预览服务提前退出。'));});let output='';server.stdout.on('data',chunk=>{output+=chunk;const match=output.match(/VELA_PREVIEW_URL=(http:\/\/127\.0\.0\.1:\d+)/);if(match){clearTimeout(timer);resolve(match[1]);}});});
