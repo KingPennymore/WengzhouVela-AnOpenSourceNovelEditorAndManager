@@ -5,25 +5,409 @@ import {mapSymbols,factionFrame,echelonLabel} from './map-symbols.mjs';
 import {arrowStyles} from './map-arrows.mjs';
 import {hexPoint,pointHex} from './map-geometry.mjs';
 import {icon} from './icons.mjs';
-import {t} from './i18n.mjs';
+import {t,say} from './i18n.mjs';
 import {mapSnapshot} from './map-history.mjs';
 export function bindMapToolPanel({root,value,state,settings,escape:esc,commit,request,drawMapLayers,hitMapLayer,onFinish=()=>{}}){
- const panel=document.createElement('aside');panel.className='map-tools-panel';panel.hidden=true;panel.dataset.planningPanel='tools';panel.setAttribute('aria-label',t('工具设置'));panel.addEventListener('keydown',e=>{if(e.key==='Escape'){e.stopPropagation();close();}});root.querySelector('.planning-surface').append(panel);state.arrowOptions||={style:'attack',color:'#c00000',width:2,curve:.5,head:'swallowtail',label:'',faction:settings.factions?.[0]?.id||''};state.symbolOptions||={type:'unit.infantry',faction:settings.factions?.[1]?.id||'',affiliation:'',echelon:'brigade',label:'',rotation:0,scale:1,snap:false,image:'',width:96,height:96};state.arrowPath||=[];let drag=null,current='arrow';
- const categories=[['unit','部队'],['facility','军事设施'],['terrain','自然地形'],['building','建筑'],['event','事件'],['image','我的图片'],['plugin','插件元素']],category=()=>opts().type==='image'?'image':['unit','facility','terrain','building','event'].includes(opts().type.split('.')[0])?opts().type.split('.')[0]:'plugin',types=kind=>Object.entries(mapSymbols).filter(([id])=>kind==='plugin'?!['unit','facility','terrain','building','event'].includes(id.split('.')[0]):id.startsWith(kind+'.')).map(([id,s])=>[id,s.label]);
- const selection=()=>state.layerSelection&&value[state.layerSelection.layer]?.find(o=>o.id===state.layerSelection.id),opts=()=>current==='arrow'?state.arrowOptions:state.symbolOptions,field=(label,html)=>`<label>${t(label)}${html}</label>`,input=(name,label,type='text',extra='')=>field(label,`<input name="${name}" type="${type}" ${extra}>`),select=(name,label,items)=>field(label,`<select name="${name}">${items.map(([id,title])=>`<option value="${esc(id)}">${esc(t(title))}</option>`).join('')}</select>`);
- function read(){const form=panel.querySelector('form');if(!form)return;for(const el of form.querySelectorAll('[name]'))opts()[el.name]=el.type==='checkbox'?el.checked:el.type==='number'?Number(el.value):el.value;}
- function symbolFields(){const kind=category();return '<div class="map-symbol-preview" data-symbol-preview></div>'+field('元素分类',`<select data-symbol-category>${categories.map(([id,label])=>`<option value="${id}" ${id===kind?'selected':''}>${t(label)}</option>`).join('')}</select>`)+(kind==='image'?select('image','图片',Object.entries(value.images||{}).map(([id,a])=>[id,a.name]))+`<button type="button" data-import-image>${t('导入图片')}</button><input data-image-file type="file" accept="image/png,image/jpeg,image/webp" hidden><small>${t('静态 PNG、JPEG、WebP；原图不超过 20 MB、1600 万像素，自动缩小到 1024 像素以内和 256 KB。')}</small><p data-image-status role="status"></p>${value.images?.[opts().image]?`<img class="map-image-preview" alt="${esc(value.images[opts().image].name)}" src="${esc(value.images[opts().image].data)}"><button type="button" data-remove-image>${t('移除未使用的图片')}</button>`:''}`+input('width','图片宽度','number','min="1" max="2048"')+input('height','图片高度','number','min="1" max="2048"'):select('type','符号',types(kind))+(['terrain','building'].includes(kind)?'':select('affiliation','阵营外框',[['','跟随阵营'],['friendly','友军'],['hostile','敌军'],['neutral','中立'],['unknown','未知']])+select('echelon','编制等级',['team','squad','platoon','company','battalion','regiment','brigade','division','corps','army'].map(id=>[id,echelonLabel(id)]))))+input('rotation','旋转','number','step="5"')+input('scale','缩放','number','min="0.1" max="20" step="0.1"')+field('吸附格心','<input name="snap" type="checkbox">');}
- function symbolPreview(){const target=panel.querySelector('[data-symbol-preview]'),s=opts(),definition=mapSymbols[s.type];if(!target)return;target.hidden=!definition;if(definition)target.innerHTML=`<svg viewBox="-36 -36 72 72" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${s.type.startsWith('unit.')?`<path d="${factionFrame(s.affiliation||(s.faction==='red'?'hostile':'friendly'))}"/>`:''}<path d="${esc(definition.path)}"/></svg><strong>${esc(t(definition.label))}</strong>`;}
- function render(){root.querySelector('.map-algorithm-dialog')?.planningClose?.();root.querySelector('.planning-sheet')?.planningClose?.(true);cancelPlanningClose(panel);root.querySelectorAll('button[data-tool=arrow],button[data-tool=symbol]').forEach(b=>b.setAttribute('aria-expanded',String(b.dataset.tool===current)));const arrow=current==='arrow',obj=selection();panel.hidden=false;panel.innerHTML=`<div class="map-tools-surface"><header><strong>${t(arrow?'箭头':'元素')}</strong>${arrow?`<small class="map-panel-hint">${t('双击地图完成箭头 · 电脑右键完成')}</small>`:''}<button data-tools-close aria-label="${t('关闭')}">${icon('close')}</button></header><div class="map-tools-scroll"><p>${t(arrow?'依次点按绘制点建立路径，然后完成箭头。':'点按地图放置元素，拖动可调整位置。')}</p><p class="map-tools-mobile-hint">${t('关闭侧栏后仍可在地图上操作，再点工具按钮继续设置或完成箭头。')}</p><form class="map-info-form">${arrow?select('style','箭头样式',arrowStyles)+input('color','颜色','color')+input('width','粗细','number','min="0.5" max="40" step="0.5"')+input('curve','弧度','number','min="0" max="1" step="0.1"'):symbolFields()}${select('faction','阵营',[['','未设置'],...(settings.factions||[]).map(f=>[f.id,f.label])])+input('label','标签')}${obj?`<button type="submit" class="primary">${t('保存属性')}</button><button type="button" data-remove-object>${t(arrow?'删除箭头':'删除元素')}</button>${arrow?`<button type="button" data-reverse-arrow>${t('反转方向')}</button>`:''}`:arrow?`<p data-path-count role="status"></p><button type="button" data-arrow-finish class="primary">${t('完成箭头')}</button><button type="button" data-arrow-back>${t('撤回路径点')}</button><button type="button" data-arrow-cancel>${t('清空路径')}</button>`:''}</form></div></div>`;
-  const form=panel.querySelector('form');arrangeFields(form,arrow);for(const el of form.querySelectorAll('[name]')){if(el.type==='checkbox')el.checked=!!opts()[el.name];else{const v=opts()[el.name]??'';if(el.tagName==='SELECT'&&v&&![...el.options].some(o=>o.value===String(v)))el.add(new Option(v,v));el.value=v;}}symbolPreview();form.oninput=()=>{read();symbolPreview();request();};panel.querySelector('[data-symbol-category]')?.addEventListener('change',e=>{read();const kind=e.target.value;state.symbolOptions.type=kind==='image'?'image':types(kind)[0]?.[0]||kind+'.unknown';if(kind==='image'&&!value.images?.[state.symbolOptions.image])chooseImage(Object.keys(value.images||{})[0]||'');render();request();});panel.querySelector('[name=image]')?.addEventListener('change',e=>{chooseImage(e.target.value);render();request();});panel.querySelector('[data-import-image]')?.addEventListener('click',()=>native?upload(pickNativeMapImage):panel.querySelector('[data-image-file]').click());panel.querySelector('[data-image-file]')?.addEventListener('change',e=>upload(e.target.files[0]));panel.ondragover=e=>{if(current==='symbol'){e.preventDefault();}};panel.ondrop=e=>{if(current==='symbol'){e.preventDefault();upload(e.dataTransfer.files[0]);}};panel.querySelector('[data-remove-image]')?.addEventListener('click',()=>{const status=panel.querySelector('[data-image-status]');if(value.symbols.some(s=>s.type==='image'&&s.image===opts().image)){status.textContent=t('图片仍被元素使用，请先删除相关元素。');return;}const before=mapSnapshot(value,['images']);delete value.images[opts().image];if(commit(before)){chooseImage(Object.keys(value.images)[0]||'');render();}});form.onsubmit=e=>{e.preventDefault();read();const target=selection();if(!target)return;const before=structuredClone(value),next={...opts()};delete next.snap;Object.assign(target,next);if(commit(before))render();};panel.querySelector('[data-tools-close]').onclick=close;panel.querySelector('[data-remove-object]')?.addEventListener('click',()=>{const hit=state.layerSelection,before=mapSnapshot(value,[hit.layer]);value[hit.layer]=value[hit.layer].filter(o=>o.id!==hit.id);state.layerSelection=null;commit(before);render();});panel.querySelector('[data-reverse-arrow]')?.addEventListener('click',()=>{const before=structuredClone(value);selection().path.reverse();commit(before);request();});panel.querySelector('[data-arrow-finish]')?.addEventListener('click',finish);panel.querySelector('[data-arrow-back]')?.addEventListener('click',()=>{state.arrowPath.pop();update();request();});panel.querySelector('[data-arrow-cancel]')?.addEventListener('click',()=>{state.arrowPath=[];update();request();});update();
- }
- function arrangeFields(form,arrow){form.id='map-tools-form';const groups=arrow?[['外观',['style','color','width','curve']],['标注',['faction','label']]]:[['元素',['type','image','affiliation','echelon']],['位置与尺寸',['rotation','scale','width','height','snap']],['标注',['faction','label']]];for(const [title,names] of groups){const labels=[...form.children].filter(e=>e.tagName==='LABEL'&&(names.includes(e.querySelector('[name]')?.name)||title==='元素'&&e.querySelector('[data-symbol-category]')));if(!labels.length)continue;const group=document.createElement('fieldset'),legend=document.createElement('legend'),grid=document.createElement('div');legend.textContent=t(title);grid.className='map-panel-grid';group.append(legend,grid);form.insertBefore(group,labels[0]);for(const label of labels)grid.append(label);}const buttons=[...form.children].filter(e=>e.tagName==='BUTTON'&&!e.matches('[data-import-image],[data-remove-image]'));if(buttons.length){const footer=document.createElement('footer');footer.className='map-panel-actions map-tools-actions';for(const b of buttons){if(b.type==='submit')b.setAttribute('form',form.id);footer.append(b);}panel.querySelector('.map-tools-surface').append(footer);}}
- function chooseImage(id){const a=value.images?.[id];Object.assign(state.symbolOptions,{image:id,width:a?Math.max(1,Math.round(96*a.width/Math.max(a.width,a.height))):96,height:a?Math.max(1,Math.round(96*a.height/Math.max(a.width,a.height))):96});}
- async function upload(source){if(!source)return;const status=panel.querySelector('[data-image-status]'),button=panel.querySelector('[data-import-image]');if(button?.disabled)return;if(button)button.disabled=true;if(status)status.textContent=t('正在处理图片…');try{const file=typeof source==='function'?await source():source;if(!file){if(status)status.textContent='';return;}const {id,asset}=await importMapImage(file);if(!panel.isConnected)return;const before=mapSnapshot(value,['images']);value.images||={};value.images[id]||=asset;if(commit(before)){state.symbolOptions.type='image';chooseImage(id);if(current==='symbol'){render();panel.querySelector('[data-image-status]').textContent=t('图片已导入，点按地图放置。');}}else if(status)status.textContent=t('图片未导入，请查看地图保存提示。');}catch(e){if(panel.isConnected&&status)status.textContent=t(e.message);}finally{if(button)button.disabled=false;}}
- function update(){const count=panel.querySelector('[data-path-count]');if(count)count.textContent=t('{n} 个路径点').replace('{n}',state.arrowPath.length);const finish=panel.querySelector('[data-arrow-finish]');if(finish)finish.disabled=state.arrowPath.length<2;}
- function close(){root.querySelectorAll('button[data-tool=arrow],button[data-tool=symbol]').forEach(b=>b.setAttribute('aria-expanded','false'));closePlanningPanel(panel,()=>{panel.hidden=true;panel.getAnimations().forEach(a=>a.cancel());});request();}
- function finish(){read();if(state.arrowPath.length<2)return;const before=mapSnapshot(value,['arrows']);value.arrows.push({...state.arrowOptions,id:'r-'+crypto.randomUUID(),path:[...state.arrowPath]});if(commit(before)){state.arrowPath=[];state.layerSelection=null;close();onFinish();}request();}
- function open(tool,hit){current=tool;if(hit){state.layerSelection={layer:hit.layer,id:hit.object.id};for(const key of Object.keys(opts()))if(Object.hasOwn(hit.object,key))opts()[key]=hit.object[key];}else state.layerSelection=null;render();}
- const moveObject=(p)=>{const obj=drag&&value[drag.layer].find(o=>o.id===drag.id);if(!obj)return;if(drag.layer==='symbols'){obj.x=drag.ox+p.x-drag.p.x;obj.y=drag.oy+p.y-drag.p.y;}else{const start=pointHex(drag.p.x,drag.p.y,value.grid.size,value.grid.orientation),end=pointHex(p.x,p.y,value.grid.size,value.grid.orientation);obj.path=drag.path.map(key=>{const [q,r]=key.split(',').map(Number);return (q+end.q-start.q)+','+(r+end.r-start.r);});}request();};
- panel.planningClose=close;return {open,close,pickSymbol(hit){const same=state.layerSelection?.layer==='symbols'&&state.layerSelection.id===hit.object.id;current='symbol';state.layerSelection={layer:'symbols',id:hit.object.id};if(!same)for(const key of Object.keys(state.symbolOptions))if(Object.hasOwn(hit.object,key))state.symbolOptions[key]=hit.object[key];if(root.clientWidth>=900){if(!same||panel.hidden||panel.dataset.closing)render();}else if(!same)close();},resizeSelection(wide){if(state.layerSelection?.layer!=='symbols')return;if(wide){current='symbol';render();}else close();},editSelection(){const obj=selection();if(!obj)return;if(!panel.hidden&&!panel.dataset.closing&&current==='symbol')close();else open('symbol',{layer:'symbols',object:obj});},syncSelection(){const obj=selection();if(!obj)return;Object.assign(state.symbolOptions,{x:obj.x,y:obj.y,rotation:obj.rotation||0,scale:obj.scale||1});for(const key of ['rotation','scale']){const el=panel.querySelector('[name='+key+']');if(el)el.value=state.symbolOptions[key];}},isOpen:tool=>!panel.hidden&&!panel.dataset.closing&&current===tool,refresh(){if(!panel.hidden){if(state.layerSelection&&!selection())state.layerSelection=null;render();}},deleteScope:()=>state.deleteScope||'all',draw:(ctx,bounds,preview,override)=>drawMapLayers(ctx,{...(override||value),arrows:state.arrowPath.length>1?[...value.arrows,{id:'r-preview',path:state.arrowPath,...state.arrowOptions}]:(override||value).arrows,generated:preview?[...value.generated.filter(g=>g.id!==preview.id),preview]:(override||value).generated},settings,bounds,state.layerSelection),deleteAt(p){const scope=state.deleteScope||'all',hit=hitMapLayer(value,p,scope,8/state.plane.scale);if(hit){value[hit.layer]=value[hit.layer].filter(o=>o.id!==hit.object.id);return true;}return !['all','cells'].includes(scope);},down(p,key){if(state.tool==='arrow'){if(!state.layerSelection&&value.cells[key]&&state.arrowPath.at(-1)!==key)state.arrowPath.push(key);update();request();return true;}if(state.tool==='symbol'){if(state.layerSelection)return true;read();if(state.symbolOptions.type==='image'&&!value.images?.[state.symbolOptions.image]){if(panel.hidden)render();panel.querySelector('[data-image-status]').textContent=t('请先导入或选择图片。');return true;}const before=mapSnapshot(value,['symbols']),options={...state.symbolOptions},position=options.snap?hexPoint(...key.split(',').map(Number),value.grid.size,value.grid.orientation):p;delete options.snap;const s={...options,id:'s-'+crypto.randomUUID(),x:position.x,y:position.y};value.symbols.push(s);drag={before,layer:'symbols',id:s.id,p,ox:s.x,oy:s.y};request();return true;}if(state.tool==='select'){const hit=hitMapLayer(value,p);if(hit&&['arrows','symbols'].includes(hit.layer)){open(hit.layer==='arrows'?'arrow':'symbol',hit);drag={before:mapSnapshot(value,[hit.layer]),layer:hit.layer,id:hit.object.id,p,ox:hit.object.x,oy:hit.object.y,path:hit.object.path?.slice()};}else{state.layerSelection=null;close();}return true;}return false;},move:moveObject,up(){if(drag){commit(drag.before);drag=null;}},cancel(){if(drag){Object.assign(value,drag.before);drag=null;}request();},finish};
+  const panel=document.createElement('aside');
+  panel.className='map-tools-panel';
+  panel.hidden=true;
+  panel.dataset.planningPanel='tools';
+  panel.setAttribute('aria-label',t('工具设置'));
+  panel.addEventListener('keydown',e=>{
+    if(e.key==='Escape'){
+      e.stopPropagation();
+      close();
+    }
+  });
+  root.querySelector('.planning-surface').append(panel);
+  state.arrowOptions||={style:'attack',color:'#c00000',width:2,curve:.5,head:'swallowtail',label:'',faction:settings.factions?.[0]?.id||''};
+  state.symbolOptions||={type:'unit.infantry',faction:settings.factions?.[1]?.id||'',affiliation:'',echelon:'brigade',label:'',rotation:0,scale:1,snap:false,image:'',width:96,height:96};
+  state.arrowPath||=[];
+  let drag=null,current='arrow';
+  const categories=[['unit','部队'],['facility','军事设施'],['terrain','自然地形'],['building','建筑'],['event','事件'],['image','我的图片'],['plugin','插件元素']],
+    category=()=>opts().type==='image'?'image':['unit','facility','terrain','building','event'].includes(opts().type.split('.')[0])?opts().type.split('.')[0]:'plugin',
+    types=kind=>Object.entries(mapSymbols).filter(([id])=>kind==='plugin'?!['unit','facility','terrain','building','event'].includes(id.split('.')[0]):id.startsWith(kind+'.')).map(([id,s])=>[id,s.label]);
+  const selection=()=>state.layerSelection&&value[state.layerSelection.layer]?.find(o=>o.id===state.layerSelection.id),
+    opts=()=>current==='arrow'?state.arrowOptions:state.symbolOptions,
+    field=(label,html)=>`<label>${t(label)}${html}</label>`,
+    input=(name,label,type='text',extra='')=>field(label,`<input name="${name}" type="${type}" ${extra}>`),
+    select=(name,label,items,translate=true)=>field(label,`<select name="${name}">${items.map(([id,title])=>`<option value="${esc(id)}">${esc(translate?t(title):title)}</option>`).join('')}</select>`);
+  function read(){
+    const form=panel.querySelector('form');
+    if(!form)return;
+    for(const el of form.querySelectorAll('[name]'))opts()[el.name]=el.type==='checkbox'?el.checked:el.type==='number'?Number(el.value):el.value;
+  }
+  function symbolFields(){
+    const kind=category();
+    return '<div class="map-symbol-preview" data-symbol-preview></div>'
+    +field('元素分类',`<select data-symbol-category>${categories.map(([id,label])=>`<option value="${id}" ${id===kind?'selected':''}>${t(label)}</option>`).join('')}</select>`)
+    +(kind==='image'
+      ?select('image','图片',Object.entries(value.images||{}).map(([id,a])=>[id,a.name]),false)
+      +`<button type="button" data-import-image>${t('导入图片')}</button>
+        <input data-image-file type="file" accept="image/png,image/jpeg,image/webp" hidden>
+        <small>${t('静态 PNG、JPEG、WebP；原图不超过 20 MB、1600 万像素，自动缩小到 1024 像素以内和 256 KB。')}</small>
+        <p data-image-status role="status">
+        </p>${value.images?.[opts().image]
+        ?`<img class="map-image-preview" alt="${esc(value.images[opts().image].name)}" src="${esc(value.images[opts().image].data)}"><button type="button" data-remove-image>${t('移除未使用的图片')}</button>`
+        :''}`
+      +input('width','图片宽度','number','min="1" max="2048"')
+      +input('height','图片高度','number','min="1" max="2048"')
+      :select('type','符号',types(kind))
+      +(['terrain','building'].includes(kind)
+        ?''
+        :select('affiliation','阵营外框',[['','跟随阵营'],['friendly','友军'],['hostile','敌军'],['neutral','中立'],['unknown','未知']])
+        +select('echelon','编制等级',['team','squad','platoon','company','battalion','regiment','brigade','division','corps','army'].map(id=>[id,echelonLabel(id)]))))
+    +input('rotation','旋转','number','step="5"')
+    +input('scale','缩放','number','min="0.1" max="20" step="0.1"')
+    +field('吸附格心','<input name="snap" type="checkbox">');
+  }
+  function symbolPreview(){
+    const target=panel.querySelector('[data-symbol-preview]'),s=opts(),definition=mapSymbols[s.type];
+    if(!target)return;
+    target.hidden=!definition;
+    if(definition)target.innerHTML=`<svg viewBox="-36 -36 72 72" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${s.type.startsWith('unit.')?`<path d="${factionFrame(s.affiliation||(s.faction==='red'?'hostile':'friendly'))}"/>`:''}<path d="${esc(definition.path)}"/>
+      </svg>
+      <strong>${esc(t(definition.label))}</strong>`;
+  }
+  function render(){
+    root.querySelector('.map-algorithm-dialog')?.planningClose?.();
+    root.querySelector('.planning-sheet')?.planningClose?.(true);
+    cancelPlanningClose(panel);
+    root.querySelectorAll('button[data-tool=arrow],button[data-tool=symbol]').forEach(b=>b.setAttribute('aria-expanded',String(b.dataset.tool===current)));
+    const arrow=current==='arrow',obj=selection();
+    panel.hidden=false;
+    panel.innerHTML=`<div class="map-tools-surface">
+        <header>
+          <strong>${t(arrow?'箭头':'元素')}</strong>${arrow?`<small class="map-panel-hint">${t('双击地图完成箭头 · 电脑右键完成')}</small>`:''}<button data-tools-close aria-label="${t('关闭')}">${icon('close')}</button>
+        </header>
+        <div class="map-tools-scroll">
+          <p>${t(arrow?'依次点按绘制点建立路径，然后完成箭头。':'点按地图放置元素，拖动可调整位置。')}</p>
+          <p class="map-tools-mobile-hint">${t('关闭侧栏后仍可在地图上操作，再点工具按钮继续设置或完成箭头。')}</p>
+          <form class="map-info-form">${arrow
+      ?select('style','箭头样式',arrowStyles)+input('color','颜色','color')+input('width','粗细','number','min="0.5" max="40" step="0.5"')+input('curve','弧度','number','min="0" max="1" step="0.1"')
+      :symbolFields()}${select('faction','阵营',[['',t('未设置')],...(settings.factions||[]).map(f=>[f.id,f.label])],false)+input('label','标签')}${obj
+      ?`<button type="submit" class="primary">${t('保存属性')}</button><button type="button" data-remove-object>${t(arrow?'删除箭头':'删除元素')}</button>${arrow?`<button type="button" data-reverse-arrow>${t('反转方向')}</button>`:''}`
+      :arrow
+        ?`<p data-path-count role="status"></p><button type="button" data-arrow-finish class="primary">${t('完成箭头')}</button><button type="button" data-arrow-back>${t('撤回路径点')}</button><button type="button" data-arrow-cancel>${t('清空路径')}</button>`
+        :''}</form>
+        </div>
+      </div>`;
+    const form=panel.querySelector('form');
+    arrangeFields(form,arrow);
+    for(const el of form.querySelectorAll('[name]')){
+      if(el.type==='checkbox')el.checked=!!opts()[el.name];else{
+        const v=opts()[el.name]??'';
+        if(el.tagName==='SELECT'&&v&&![...el.options].some(o=>o.value===String(v)))el.add(new Option(v,v));
+        el.value=v;
+      }
+    }
+    symbolPreview();
+    form.oninput=()=>{
+      read();
+      symbolPreview();
+      request();
+    };
+    panel.querySelector('[data-symbol-category]')?.addEventListener(
+      'change',
+      e=>{
+        read();
+        const kind=e.target.value;
+        state.symbolOptions.type=kind==='image'?'image':types(kind)[0]?.[0]||kind+'.unknown';
+        if(kind==='image'&&!value.images?.[state.symbolOptions.image])chooseImage(Object.keys(value.images||{})[0]||'');
+        render();
+        request();
+      });
+    panel.querySelector('[name=image]')?.addEventListener('change',e=>{
+      chooseImage(e.target.value);
+      render();
+      request();
+    });
+    panel.querySelector('[data-import-image]')?.addEventListener('click',()=>native?upload(pickNativeMapImage):panel.querySelector('[data-image-file]').click());
+    panel.querySelector('[data-image-file]')?.addEventListener('change',e=>upload(e.target.files[0]));
+    panel.ondragover=e=>{
+      if(current==='symbol'){
+        e.preventDefault();
+      }
+    };
+    panel.ondrop=e=>{
+      if(current==='symbol'){
+        e.preventDefault();
+        upload(e.dataTransfer.files[0]);
+      }
+    };
+    panel.querySelector('[data-remove-image]')?.addEventListener(
+      'click',
+      ()=>{
+        const status=panel.querySelector('[data-image-status]');
+        if(value.symbols.some(s=>s.type==='image'&&s.image===opts().image)){
+          status.textContent=t('图片仍被元素使用，请先删除相关元素。');
+          return;
+        }
+        const before=mapSnapshot(value,['images']);
+        delete value.images[opts().image];
+        if(commit(before)){
+          chooseImage(Object.keys(value.images)[0]||'');
+          render();
+        }
+      });
+    form.onsubmit=e=>{
+      e.preventDefault();
+      read();
+      const target=selection();
+      if(!target)return;
+      const before=structuredClone(value),next={...opts()};
+      delete next.snap;
+      Object.assign(target,next);
+      if(commit(before))render();
+    };
+    panel.querySelector('[data-tools-close]').onclick=close;
+    panel.querySelector('[data-remove-object]')?.addEventListener('click',()=>{
+      const hit=state.layerSelection,before=mapSnapshot(value,[hit.layer]);
+      value[hit.layer]=value[hit.layer].filter(o=>o.id!==hit.id);
+      state.layerSelection=null;
+      commit(before);
+      render();
+    });
+    panel.querySelector('[data-reverse-arrow]')?.addEventListener('click',()=>{
+      const before=structuredClone(value);
+      selection().path.reverse();
+      commit(before);
+      request();
+    });
+    panel.querySelector('[data-arrow-finish]')?.addEventListener('click',finish);
+    panel.querySelector('[data-arrow-back]')?.addEventListener('click',()=>{
+      state.arrowPath.pop();
+      update();
+      request();
+    });
+    panel.querySelector('[data-arrow-cancel]')?.addEventListener('click',()=>{
+      state.arrowPath=[];
+      update();
+      request();
+    });
+    update();
+  }
+  function arrangeFields(form,arrow){
+    form.id='map-tools-form';
+    const groups=arrow
+      ?[['外观',['style','color','width','curve']],['标注',['faction','label']]]
+      :[['元素',['type','image','affiliation','echelon']],['位置与尺寸',['rotation','scale','width','height','snap']],['标注',['faction','label']]];
+    for(const [title,names] of groups){
+      const labels=[...form.children].filter(e=>e.tagName==='LABEL'&&(names.includes(e.querySelector('[name]')?.name)||title==='元素'&&e.querySelector('[data-symbol-category]')));
+      if(!labels.length)continue;
+      const group=document.createElement('fieldset'),legend=document.createElement('legend'),grid=document.createElement('div');
+      legend.textContent=t(title);
+      grid.className='map-panel-grid';
+      group.append(legend,grid);
+      form.insertBefore(group,labels[0]);
+      for(const label of labels)grid.append(label);
+    }
+    const buttons=[...form.children].filter(e=>e.tagName==='BUTTON'&&!e.matches('[data-import-image],[data-remove-image]'));
+    if(buttons.length){
+      const footer=document.createElement('footer');
+      footer.className='map-panel-actions map-tools-actions';
+      for(const b of buttons){
+        if(b.type==='submit')b.setAttribute('form',form.id);
+        footer.append(b);
+      }
+      panel.querySelector('.map-tools-surface').append(footer);
+    }
+  }
+  function chooseImage(id){
+    const a=value.images?.[id];
+    Object.assign(state.symbolOptions,{image:id,width:a?Math.max(1,Math.round(96*a.width/Math.max(a.width,a.height))):96,height:a?Math.max(1,Math.round(96*a.height/Math.max(a.width,a.height))):96});
+  }
+  async function upload(source){
+    if(!source)return;
+    const status=panel.querySelector('[data-image-status]'),button=panel.querySelector('[data-import-image]');
+    if(button?.disabled)return;
+    if(button)button.disabled=true;
+    if(status)status.textContent=t('正在处理图片…');
+    try{
+      const file=typeof source==='function'?await source():source;
+      if(!file){
+        if(status)status.textContent='';
+        return;
+      }
+      const {id,asset}=await importMapImage(file);
+      if(!panel.isConnected)return;
+      const before=mapSnapshot(value,['images']);
+      value.images||={};
+      value.images[id]||=asset;
+      if(commit(before)){
+        state.symbolOptions.type='image';
+        chooseImage(id);
+        if(current==='symbol'){
+          render();
+          panel.querySelector('[data-image-status]').textContent=t('图片已导入，点按地图放置。');
+        }
+      }else if(status)status.textContent=t('图片未导入，请查看地图保存提示。');
+    }catch(e){
+      if(panel.isConnected&&status)status.textContent=t(e.message);
+    }finally{
+      if(button)button.disabled=false;
+    }
+  }
+  function update(){
+    const count=panel.querySelector('[data-path-count]');
+    if(count)count.textContent=say(`${state.arrowPath.length} 个路径点`,`${state.arrowPath.length} path points`);
+    const finish=panel.querySelector('[data-arrow-finish]');
+    if(finish)finish.disabled=state.arrowPath.length<2;
+  }
+  function close(){
+    root.querySelectorAll('button[data-tool=arrow],button[data-tool=symbol]').forEach(b=>b.setAttribute('aria-expanded','false'));
+    closePlanningPanel(panel,()=>{
+      panel.hidden=true;
+      panel.getAnimations().forEach(a=>a.cancel());
+    });
+    request();
+  }
+  function finish(){
+    read();
+    if(state.arrowPath.length<2)return;
+    const before=mapSnapshot(value,['arrows']);
+    value.arrows.push({...state.arrowOptions,id:'r-'+crypto.randomUUID(),path:[...state.arrowPath]});
+    if(commit(before)){
+      state.arrowPath=[];
+      state.layerSelection=null;
+      close();
+      onFinish();
+    }
+    request();
+  }
+  function open(tool,hit){
+    current=tool;
+    if(hit){
+      state.layerSelection={layer:hit.layer,id:hit.object.id};
+      for(const key of Object.keys(opts()))if(Object.hasOwn(hit.object,key))opts()[key]=hit.object[key];
+    }else state.layerSelection=null;
+    render();
+  }
+  const moveObject=(p)=>{
+    const obj=drag&&value[drag.layer].find(o=>o.id===drag.id);
+    if(!obj)return;
+    if(drag.layer==='symbols'){
+      obj.x=drag.ox+p.x-drag.p.x;
+      obj.y=drag.oy+p.y-drag.p.y;
+    }else{
+      const start=pointHex(drag.p.x,drag.p.y,value.grid.size,value.grid.orientation),end=pointHex(p.x,p.y,value.grid.size,value.grid.orientation);
+      obj.path=drag.path.map(key=>{
+        const [q,r]=key.split(',').map(Number);
+        return (q+end.q-start.q)+','+(r+end.r-start.r);
+      });
+    }
+    request();
+  };
+  panel.planningClose=close;
+  return {
+    open,
+    close,
+    pickSymbol(hit){
+      const same=state.layerSelection?.layer==='symbols'&&state.layerSelection.id===hit.object.id;
+      current='symbol';
+      state.layerSelection={layer:'symbols',id:hit.object.id};
+      if(!same)for(const key of Object.keys(state.symbolOptions))if(Object.hasOwn(hit.object,key))state.symbolOptions[key]=hit.object[key];
+      if(root.clientWidth>=900){
+        if(!same||panel.hidden||panel.dataset.closing)render();
+      }else if(!same)close();
+    },
+    resizeSelection(wide){
+      if(state.layerSelection?.layer!=='symbols')return;
+      if(wide){
+        current='symbol';
+        render();
+      }else close();
+    },
+    editSelection(){
+      const obj=selection();
+      if(!obj)return;
+      if(!panel.hidden&&!panel.dataset.closing&&current==='symbol')close();else open('symbol',{layer:'symbols',object:obj});
+    },
+    syncSelection(){
+      const obj=selection();
+      if(!obj)return;
+      Object.assign(state.symbolOptions,{x:obj.x,y:obj.y,rotation:obj.rotation||0,scale:obj.scale||1});
+      for(const key of ['rotation','scale']){
+        const el=panel.querySelector('[name='+key+']');
+        if(el)el.value=state.symbolOptions[key];
+      }
+    },
+    isOpen:tool=>!panel.hidden&&!panel.dataset.closing&&current===tool,
+    refresh(){
+      if(!panel.hidden){
+        if(state.layerSelection&&!selection())state.layerSelection=null;
+        render();
+      }
+    },
+    deleteScope:()=>state.deleteScope||'all',
+    draw:(ctx,bounds,preview,override)=>drawMapLayers(
+      ctx,
+      {
+        ...(override||value),
+        arrows:state.arrowPath.length>1?[...value.arrows,{id:'r-preview',path:state.arrowPath,...state.arrowOptions}]:(override||value).arrows,
+        generated:preview?[...value.generated.filter(g=>g.id!==preview.id),preview]:(override||value).generated
+      },
+      settings,
+      bounds,
+      state.layerSelection),
+    deleteAt(p){
+      const scope=state.deleteScope||'all',hit=hitMapLayer(value,p,scope,8/state.plane.scale);
+      if(hit){
+        value[hit.layer]=value[hit.layer].filter(o=>o.id!==hit.object.id);
+        return true;
+      }
+      return !['all','cells'].includes(scope);
+    },
+    down(p,key){
+      if(state.tool==='arrow'){
+        if(!state.layerSelection&&value.cells[key]&&state.arrowPath.at(-1)!==key)state.arrowPath.push(key);
+        update();
+        request();
+        return true;
+      }
+      if(state.tool==='symbol'){
+        if(state.layerSelection)return true;
+        read();
+        if(state.symbolOptions.type==='image'&&!value.images?.[state.symbolOptions.image]){
+          if(panel.hidden)render();
+          panel.querySelector('[data-image-status]').textContent=t('请先导入或选择图片。');
+          return true;
+        }
+        const before=mapSnapshot(value,['symbols']),options={...state.symbolOptions},position=options.snap?hexPoint(...key.split(',').map(Number),value.grid.size,value.grid.orientation):p;
+        delete options.snap;
+        const s={...options,id:'s-'+crypto.randomUUID(),x:position.x,y:position.y};
+        value.symbols.push(s);
+        drag={before,layer:'symbols',id:s.id,p,ox:s.x,oy:s.y};
+        request();
+        return true;
+      }
+      if(state.tool==='select'){
+        const hit=hitMapLayer(value,p);
+        if(hit&&['arrows','symbols'].includes(hit.layer)){
+          open(hit.layer==='arrows'?'arrow':'symbol',hit);
+          drag={before:mapSnapshot(value,[hit.layer]),layer:hit.layer,id:hit.object.id,p,ox:hit.object.x,oy:hit.object.y,path:hit.object.path?.slice()};
+        }else{
+          state.layerSelection=null;
+          close();
+        }
+        return true;
+      }
+      return false;
+    },
+    move:moveObject,
+    up(){
+      if(drag){
+        commit(drag.before);
+        drag=null;
+      }
+    },
+    cancel(){
+      if(drag){
+        Object.assign(value,drag.before);
+        drag=null;
+      }
+      request();
+    },
+    finish
+  };
 }

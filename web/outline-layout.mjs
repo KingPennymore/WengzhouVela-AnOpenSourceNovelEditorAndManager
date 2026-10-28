@@ -1,7 +1,82 @@
 import {outlineNodeSize} from './outline-card.mjs';
 import {relationDegrees,relationSize} from './outline-collections.mjs';
 import {outlineRoots} from './outline-tree.mjs';
-export function outlinePositions(value,collapsed=new Set(),rowGap=100){if(rowGap===180)return relationPositions(value);const positions=Object.create(null),todo=outlineRoots(value).reverse().map(id=>({id,depth:0}));let row=40;while(todo.length){const {id,depth}=todo.pop();positions[id]=value.nodes[id].layout||{x:depth*280+40,y:row};row+=outlineNodeSize(value.nodes[id]).height+32;if(!collapsed.has(id))for(const child of [...(value.nodes[id].children||[])].reverse())todo.push({id:child,depth:depth+1});}return positions;}
-export function pinOutlinePositions(value,rowGap=100){for(const [id,p] of Object.entries(outlinePositions(value,new Set(),rowGap)))value.nodes[id].layout={...p};}
-export function arrangeOutline(value,graph=false){if(!graph){const positions=outlinePositions({...value,nodes:Object.fromEntries(Object.entries(value.nodes).map(([id,n])=>[id,{...n,layout:undefined}]))});for(const [id,p] of Object.entries(positions))value.nodes[id].layout={...value.nodes[id].layout,...p};return;}const degrees=relationDegrees(value),ids=Object.keys(value.nodes).sort((a,b)=>degrees[b]-degrees[a]||a.localeCompare(b)),remaining=new Set(ids),adjacent=new Map(ids.map(id=>[id,new Set()]));for(const e of value.edges){adjacent.get(e.from)?.add(e.to);adjacent.get(e.to)?.add(e.from);}let left=40,top=40,rowHeight=0;for(const first of ids){if(!remaining.delete(first))continue;const queue=[first];for(let i=0;i<queue.length;i++)for(const next of [...adjacent.get(queue[i])].sort((a,b)=>degrees[b]-degrees[a]||a.localeCompare(b)))if(remaining.delete(next))queue.push(next);let rings=0,capacity=1;while(capacity<queue.length)capacity+=++rings*8;const radius=rings*300,extent=radius*2+210;if(left>40&&left+extent>1400){left=40;top+=rowHeight+70;rowHeight=0;}const center={x:left+extent/2,y:top+extent/2};let index=0;for(let ring=0;index<queue.length;ring++){const count=ring?Math.min(8*ring,queue.length-index):1;for(let i=0;i<count;i++){const id=queue[index++],size=relationSize(degrees[id]),angle=i/count*Math.PI*2-Math.PI/2;value.nodes[id].layout={...value.nodes[id].layout,x:center.x+Math.cos(angle)*ring*300-size.width/2,y:center.y+Math.sin(angle)*ring*300-size.height/2};}}left+=extent+70;rowHeight=Math.max(rowHeight,extent);}}
-export function relationPositions(value){if(Object.values(value.nodes).every(n=>n.layout))return Object.fromEntries(Object.entries(value.nodes).map(([id,n])=>[id,n.layout]));const auto={...value,nodes:Object.fromEntries(Object.entries(value.nodes).map(([id,n])=>[id,{...n}]))};arrangeOutline(auto,true);const degrees=relationDegrees(value),positions={},buckets=new Map();let bottom=0;const cell=(x,y)=>Math.floor(x/256)+','+Math.floor(y/256),insert=(id,p)=>{const size=relationSize(degrees[id]),c={x:p.x+size.width/2,y:p.y+size.height/2,r:size.width/2},key=cell(c.x,c.y);if(!buckets.has(key))buckets.set(key,[]);buckets.get(key).push(c);bottom=Math.max(bottom,p.y+size.height);positions[id]=p;},blocked=(id,p)=>{const size=relationSize(degrees[id]),x=p.x+size.width/2,y=p.y+size.height/2;for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)for(const c of buckets.get(cell(x+dx*256,y+dy*256))||[])if(Math.hypot(x-c.x,y-c.y)<size.width/2+c.r+30)return true;return false;};for(const [id,n] of Object.entries(value.nodes))if(n.layout)insert(id,n.layout);for(const [id,n] of Object.entries(value.nodes))if(!n.layout){let p=auto.nodes[id].layout;if(blocked(id,p))p={x:40,y:bottom+60};insert(id,p);}return positions;}
+export function outlinePositions(value,collapsed=new Set(),rowGap=100){
+  if(rowGap===180)return relationPositions(value);
+  const positions=Object.create(null),todo=outlineRoots(value).reverse().map(id=>({id,depth:0}));
+  let row=40;
+  while(todo.length){
+    const {id,depth}=todo.pop();
+    positions[id]=value.nodes[id].layout||{x:depth*280+40,y:row};
+    row+=outlineNodeSize(value.nodes[id]).height+32;
+    if(!collapsed.has(id))for(const child of [...(value.nodes[id].children||[])].reverse())todo.push({id:child,depth:depth+1});
+  }
+  return positions;
+}
+export function pinOutlinePositions(value,rowGap=100){
+  for(const [id,p] of Object.entries(outlinePositions(value,new Set(),rowGap)))value.nodes[id].layout={...p};
+}
+export function arrangeOutline(value,graph=false){
+  if(!graph){
+    const positions=outlinePositions({...value,nodes:Object.fromEntries(Object.entries(value.nodes).map(([id,n])=>[id,{...n,layout:undefined}]))});
+    for(const [id,p] of Object.entries(positions))value.nodes[id].layout={...value.nodes[id].layout,...p};
+    return;
+  }
+  const degrees=relationDegrees(value),ids=Object.keys(value.nodes).sort((a,b)=>degrees[b]-degrees[a]||a.localeCompare(b)),remaining=new Set(ids),adjacent=new Map(ids.map(id=>[id,new Set()]));
+  for(const e of value.edges){
+    adjacent.get(e.from)?.add(e.to);
+    adjacent.get(e.to)?.add(e.from);
+  }
+  let left=40,top=40,rowHeight=0;
+  for(const first of ids){
+    if(!remaining.delete(first))continue;
+    const queue=[first];
+    for(let i=0;i<queue.length;i++)for(const next of [...adjacent.get(queue[i])].sort((a,b)=>degrees[b]-degrees[a]||a.localeCompare(b)))if(remaining.delete(next))queue.push(next);
+    let rings=0,capacity=1;
+    while(capacity<queue.length)capacity+=++rings*8;
+    const radius=rings*300,extent=radius*2+210;
+    if(left>40&&left+extent>1400){
+      left=40;
+      top+=rowHeight+70;
+      rowHeight=0;
+    }
+    const center={x:left+extent/2,y:top+extent/2};
+    let index=0;
+    for(let ring=0;index<queue.length;ring++){
+      const count=ring?Math.min(8*ring,queue.length-index):1;
+      for(let i=0;i<count;i++){
+        const id=queue[index++],size=relationSize(degrees[id]),angle=i/count*Math.PI*2-Math.PI/2;
+        value.nodes[id].layout={...value.nodes[id].layout,x:center.x+Math.cos(angle)*ring*300-size.width/2,y:center.y+Math.sin(angle)*ring*300-size.height/2};
+      }
+    }
+    left+=extent+70;
+    rowHeight=Math.max(rowHeight,extent);
+  }
+}
+export function relationPositions(value){
+  if(Object.values(value.nodes).every(n=>n.layout))return Object.fromEntries(Object.entries(value.nodes).map(([id,n])=>[id,n.layout]));
+  const auto={...value,nodes:Object.fromEntries(Object.entries(value.nodes).map(([id,n])=>[id,{...n}]))};
+  arrangeOutline(auto,true);
+  const degrees=relationDegrees(value),positions={},buckets=new Map();
+  let bottom=0;
+  const cell=(x,y)=>Math.floor(x/256)+','+Math.floor(y/256),
+    insert=(id,p)=>{
+      const size=relationSize(degrees[id]),c={x:p.x+size.width/2,y:p.y+size.height/2,r:size.width/2},key=cell(c.x,c.y);
+      if(!buckets.has(key))buckets.set(key,[]);
+      buckets.get(key).push(c);
+      bottom=Math.max(bottom,p.y+size.height);
+      positions[id]=p;
+    },
+    blocked=(id,p)=>{
+      const size=relationSize(degrees[id]),x=p.x+size.width/2,y=p.y+size.height/2;
+      for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)for(const c of buckets.get(cell(x+dx*256,y+dy*256))||[])if(Math.hypot(x-c.x,y-c.y)<size.width/2+c.r+30)return true;
+      return false;
+    };
+  for(const [id,n] of Object.entries(value.nodes))if(n.layout)insert(id,n.layout);
+  for(const [id,n] of Object.entries(value.nodes))if(!n.layout){
+    let p=auto.nodes[id].layout;
+    if(blocked(id,p))p={x:40,y:bottom+60};
+    insert(id,p);
+  }
+  return positions;
+}

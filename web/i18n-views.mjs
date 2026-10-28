@@ -1,3 +1,20 @@
 // Messages from the map, outline, reading and workspace views.
 export const viewsTranslations={
+  '保存失败；改动和恢复历史仍保留。':'Save failed; changes and recovery history are kept.',
+  '每行一个人名、地名或专有名词':'One name, place or term per line',
+  '每行：名称 | 内容；使用 \\n 表示换行':'One per line: name | content; use \\n for line breaks',
+  '片段需使用“名称 | 内容”。':'Use “name | content” for snippets.',
+  '已添加书签':'Bookmark added',
+  '节点不存在。':'Node not found.',
+  '大纲已变化，请重新读取。':'The outline has changed. Read it again.',
+  '请输入有效的仓库名称。':'Enter a valid repository name.',
+  '订阅文件过大或编码不受支持。':'The subscription file is too large or its encoding is unsupported.',
+  '仓库目录超过 GitHub 递归树限制，未更新订阅缓存。':'The repository exceeds GitHub’s recursive tree limit. The subscription cache was not updated.',
+  '仓库目录过大。':'The repository tree is too large.',
+  '仓库含有超过 32 个 .vela 配置。':'The repository contains more than 32 .vela configurations.',
+  '阅读文件不能超过 5000 个。':'Reading files cannot exceed 5000.',
+  '最多订阅 30 个仓库。':'You can subscribe to at most 30 repositories.',
+  '默认配置':'Default configuration',
+  '资源/封面.png':'assets/cover.png',
+  '保留在工作区中':'Kept in the workspace',
 };

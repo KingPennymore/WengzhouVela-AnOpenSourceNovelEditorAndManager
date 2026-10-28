@@ -1,56 +1,119 @@
+import {t,say} from './i18n.mjs';
 import {fileIcon} from './icons.mjs';
 import {textFingerprint} from './document-service.mjs';
 import {repoPath,documentKind} from './model.mjs';
 import {documentProvider,documentSourceProvider} from './document-components.mjs';
-
-export function documentPath(doc){return doc.path||doc.name;}
+export function documentPath(doc){
+  return doc.path||doc.name;
+}
 export function uniquePath(path,paths){
   if(!paths.has(path))return path;
   const slash=path.lastIndexOf('/'),dot=path.lastIndexOf('.'),stem=dot>slash?path.slice(0,dot):path,ext=dot>slash?path.slice(dot):'';
-  for(let i=2;;i++){const candidate=stem+' ('+i+')'+ext;if(!paths.has(candidate))return candidate;}
+  for(let i=2;;i++){
+    const candidate=stem+' ('+i+')'+ext;
+    if(!paths.has(candidate))return candidate;
+  }
 }
 export function preparePaths(workspace){
   workspace.treeRevision=(workspace.treeRevision||0)+1;
-  const paths=new Set();workspace.folders=workspace.folders||[];
-  for(const doc of workspace.documents){doc.path=uniquePath(repoPath(documentPath(doc)),paths);doc.name=doc.path.split('/').at(-1);paths.add(doc.path);}
+  const paths=new Set();
+  workspace.folders=workspace.folders||[];
+  for(const doc of workspace.documents){
+    doc.path=uniquePath(repoPath(documentPath(doc)),paths);
+    doc.name=doc.path.split('/').at(-1);
+    paths.add(doc.path);
+  }
   return workspace;
 }
 export function adoptFolder(workspace,result,{migrate=false}={}){
-  const old=workspace.documents,active=workspace.activeId,byId=new Map(old.map(doc=>[doc.id,doc])),documents=result.documents.map(doc=>{const previous=byId.get(doc.id);return previous&&previous.text===doc.text?Object.assign(previous,doc):{...doc};});
+  const old=workspace.documents,
+    active=workspace.activeId,
+    byId=new Map(old.map(doc=>[doc.id,doc])),
+    documents=result.documents.map(doc=>{
+      const previous=byId.get(doc.id);
+      return previous&&previous.text===doc.text?Object.assign(previous,doc):{...doc};
+    });
   if(migrate){
     const paths=new Set([...(result.entries||[]).map(entry=>entry.path),...documents.map(documentPath)]);
     for(const original of old){
       const same=documents.find(doc=>documentPath(doc)===documentPath(original)&&doc.text===original.text);
-      if(same){if(original.id===active)workspace.activeId=same.id;continue;}
-      const path=uniquePath(documentPath(original),paths);paths.add(path);documents.push({...original,path,name:path.split('/').at(-1)});
+      if(same){
+        if(original.id===active)workspace.activeId=same.id;
+        continue;
+      }
+      const path=uniquePath(documentPath(original),paths);
+      paths.add(path);
+      documents.push({...original,path,name:path.split('/').at(-1)});
     }
   }
-  workspace.documents=documents;workspace.storage=result.storage;workspace.folders=[...new Set(result.folders||[])];workspace.entries=result.entries||[];
-  workspace.repositories=result.repositories||[];if(result.pluginProject)workspace.pluginProject=result.pluginProject;
+  workspace.documents=documents;
+  workspace.storage=result.storage;
+  workspace.folders=[...new Set(result.folders||[])];
+  workspace.entries=result.entries||[];
+  workspace.repositories=result.repositories||[];
+  if(result.pluginProject)workspace.pluginProject=result.pluginProject;
   workspace.openIds=(workspace.openIds||[]).filter(id=>documents.some(doc=>doc.id===id));
   if(!documents.some(doc=>doc.id===workspace.activeId))workspace.activeId=null;
   return workspace;
 }
-
 const fingerprints=new WeakMap();
-function cachedFingerprint(doc){let cached=fingerprints.get(doc);if(!cached||cached.text!==doc.text){cached={text:doc.text,hash:textFingerprint(doc.text)};fingerprints.set(doc,cached);}return cached.hash;}
+function cachedFingerprint(doc){
+  let cached=fingerprints.get(doc);
+  if(!cached||cached.text!==doc.text){
+    cached={text:doc.text,hash:textFingerprint(doc.text)};
+    fingerprints.set(doc,cached);
+  }
+  return cached.hash;
+}
 export function gitFileState(workspace,doc){
   const path=documentPath(doc),association=workspace.repositories?.filter(a=>!a.folder||path.startsWith(a.folder+'/')).sort((a,b)=>b.folder.length-a.folder.length)[0];
   if(doc.remote?.lastSyncedText!==undefined)return doc.text===doc.remote.lastSyncedText?'':'M';
-  if(!association)return '';const base=association.baseFiles?.[path.slice(association.folder?association.folder.length+1:0)];return !base?'A':base.hash===cachedFingerprint(doc)?'':'M';
+  if(!association)return '';
+  const base=association.baseFiles?.[path.slice(association.folder?association.folder.length+1:0)];
+  return !base?'A':base.hash===cachedFingerprint(doc)?'':'M';
 }
 export function folderTree(workspace,docs,escape,selected='',sort='name'){
   const folders=new Set(workspace.folders||[]);
-  for(const folder of [...folders]){const parts=folder.split('/');for(let i=1;i<parts.length;i++)folders.add(parts.slice(0,i).join('/'));}
-  for(const doc of docs){const parts=documentPath(doc).split('/');for(let i=1;i<parts.length;i++)folders.add(parts.slice(0,i).join('/'));}
+  for(const folder of [...folders]){
+    const parts=folder.split('/');
+    for(let i=1;i<parts.length;i++)folders.add(parts.slice(0,i).join('/'));
+  }
+  for(const doc of docs){
+    const parts=documentPath(doc).split('/');
+    for(let i=1;i<parts.length;i++)folders.add(parts.slice(0,i).join('/'));
+  }
   const loaded=new Set(workspace.documents.map(documentPath)),others=(workspace.entries||[]).filter(entry=>!entry.directory&&!loaded.has(entry.path));
   const parent=path=>path.includes('/')?path.slice(0,path.lastIndexOf('/')):'';
-  const group=items=>{const groups=new Map();for(const item of items){const path=typeof item==='string'?item:documentPath(item),key=parent(path);if(!groups.has(key))groups.set(key,[]);groups.get(key).push(item);}return groups;};
+  const group=items=>{
+    const groups=new Map();
+    for(const item of items){
+      const path=typeof item==='string'?item:documentPath(item),key=parent(path);
+      if(!groups.has(key))groups.set(key,[]);
+      groups.get(key).push(item);
+    }
+    return groups;
+  };
   const folderGroups=group([...folders]),fileGroups=group(docs),otherGroups=group(others);
   const render=prefix=>{
     const branches=(folderGroups.get(prefix)||[]).sort((a,b)=>a.localeCompare(b,'zh-CN',{numeric:true}));
     const files=(fileGroups.get(prefix)||[]).sort((a,b)=>sort==='modified'?b.updatedAt-a.updatedAt:sort==='size'?b.text.length-a.text.length:a.name.localeCompare(b.name,'zh-CN',{numeric:true}));
-    return branches.map(path=>`<details class="workspace-folder" open><summary data-folder="${escape(path)}" class="${path===selected?'selected-folder':''}"><span>▸ ${escape(path.split('/').at(-1))}</span><button type="button" class="doc-menu" data-path-menu="${escape(path)}" data-directory="true" title="文件夹操作" aria-label="${escape(path)} 文件夹操作">···</button></summary>${render(path)}</details>`).join('')+files.map(doc=>`<div class="doc-item ${doc.id===workspace.activeId?'active':''}"><button class="doc-open" data-doc="${escape(doc.id)}">${['OUTLINE','MAP'].includes(documentKind(doc))?`<span class="doc-symbol">${fileIcon(documentKind(doc))}</span>`:''}<span class="doc-info"><strong>${escape(doc.name)}<span class="git-file-state">${gitFileState(workspace,doc)}</span></strong><small>${escape(documentPath(doc))}${doc.remote?' · Git':''}</small></span></button><button class="doc-menu" data-menu="${escape(doc.id)}" title="文件操作" aria-label="${escape(doc.name)} 文件操作">···</button></div>`).join('')+(otherGroups.get(prefix)||[]).map(entry=>`<div class="doc-item workspace-other" title="${escape(entry.reason||'保留在工作区中')}"><button class="doc-open" ${(entry.editable||documentProvider(entry.path)||documentSourceProvider(entry.path))?`data-project-file="${escape(entry.path)}"`:"disabled"}><span class="doc-info"><strong>${escape(entry.name)}</strong><small>${escape(entry.reason||'文件')}</small></span></button><button class="doc-menu" data-path-menu="${escape(entry.path)}" title="文件操作" aria-label="${escape(entry.name)} 文件操作">···</button></div>`).join('');
+    return branches.map(path=>`<details class="workspace-folder" open>
+        <summary data-folder="${escape(path)}" class="${path===selected?'selected-folder':''}">
+          <span>▸ ${escape(path.split('/').at(-1))}</span>
+          <button type="button" class="doc-menu" data-path-menu="${escape(path)}" data-directory="true" title="${t('文件夹操作')}" aria-label="${say(`${escape(path)} 文件夹操作`,`Folder actions for ${escape(path)}`)}">···</button></summary>${render(path)}</details>`).join('')
+    +files.map(doc=>`<div class="doc-item ${doc.id===workspace.activeId?'active':''}">
+        <button class="doc-open" data-doc="${escape(doc.id)}">${['OUTLINE','MAP'].includes(documentKind(doc))?`<span class="doc-symbol">${fileIcon(documentKind(doc))}</span>`:''}<span class="doc-info">
+            <strong>${escape(doc.name)}<span class="git-file-state">${gitFileState(workspace,doc)}</span></strong>
+            <small>${escape(documentPath(doc))}${doc.remote?' · Git':''}</small></span>
+        </button>
+        <button class="doc-menu" data-menu="${escape(doc.id)}" title="${t('文件操作')}" aria-label="${say(`${escape(doc.name)} 文件操作`,`File actions for ${escape(doc.name)}`)}">···</button></div>`).join('')
+    +(otherGroups.get(prefix)||[]).map(entry=>`<div class="doc-item workspace-other" title="${escape(t(entry.reason||'保留在工作区中'))}">
+        <button class="doc-open" ${(entry.editable||documentProvider(entry.path)||documentSourceProvider(entry.path))?`data-project-file="${escape(entry.path)}"`:"disabled"}>
+          <span class="doc-info">
+            <strong>${escape(entry.name)}</strong>
+            <small>${escape(t(entry.reason||'文件'))}</small></span>
+        </button>
+        <button class="doc-menu" data-path-menu="${escape(entry.path)}" title="${t('文件操作')}" aria-label="${say(`${escape(entry.name)} 文件操作`,`File actions for ${escape(entry.name)}`)}">···</button></div>`).join('');
   };
   return render('');
 }
