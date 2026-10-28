@@ -1,4 +1,4 @@
-import {chromium} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import {startSourceAppServer} from './source-app-server.mjs';
 import {createVelaV2,velaText} from '../web/vela.mjs';
@@ -7,7 +7,7 @@ import {openRecentFile} from './start-page-helper.mjs';
 const config=createVelaV2('输入验证');config.editor.glossaries=['人物.gly'];
 const doc=(id,name,text)=>({id,name,path:'Book/'+name,text,updatedAt:1});
 const seed={version:1,documents:[doc('book','正文.txt','林舟站在港口。\n林舟前往青岚港。\nlinzhou linear\n'),doc('config','.vela',velaText(config)),doc('terms','人物.gly',JSON.stringify({version:1,entries:[{id:'lin',term:'林舟',definition:'航海记录者',aliases:[]}]}))],activeId:'book',openIds:['book'],settings:{theme:'dark',highlightTerms:true}};
-const server=await startSourceAppServer(),browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||undefined});
+const server=await startSourceAppServer(),browser=await launchBrowser();
 try{
  const page=await browser.newPage({viewport:{width:1280,height:850}}),errors=[];
  page.on('pageerror',error=>errors.push(error.message));

@@ -1,4 +1,4 @@
-import {chromium} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import http from 'node:http';
@@ -6,7 +6,7 @@ import path from 'node:path';
 const root=path.resolve('dist/web');
 const server=http.createServer(async(req,res)=>{const p=new URL(req.url,'http://localhost').pathname,file=path.resolve(root,'.'+(p==='/'?'/index.html':decodeURIComponent(p)));if(!file.startsWith(root+path.sep)){res.writeHead(403).end();return;}try{const bytes=await readFile(file);res.writeHead(200,{'Content-Type':{'.html':'text/html','.js':'text/javascript','.css':'text/css'}[path.extname(file)]||'text/plain'}).end(bytes);}catch{res.writeHead(404).end();}});
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-const url=`http://127.0.0.1:${server.address().port}`,browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'}),checks=[],errors=[];
+const url=`http://127.0.0.1:${server.address().port}`,browser=await launchBrowser(),checks=[],errors=[];
 await mkdir('test-results',{recursive:true});
 const ctx=await browser.newContext({viewport:{width:1440,height:900}}),p=await ctx.newPage();p.on('pageerror',e=>errors.push(e.message));
 async function check(name,run){await run();checks.push(name);console.log('PASS '+name);}

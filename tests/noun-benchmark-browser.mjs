@@ -1,12 +1,12 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
-import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {writeCorpus} from '../scripts/noun-corpus.mjs';
 
 const out='test-results/noun-benchmark';await mkdir(out,{recursive:true});
 const {text,gold}=await writeCorpus(out,20261011,'han');
-const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+const browser=await launchBrowser();
 const result={browser:browser.version(),length:text.length,hanLength:gold.hanLength,sha256:gold.sha256,profiles:[],errors:[]};
 const seed={version:1,documents:[{id:'long',name:'雨后的来信.txt',text,updatedAt:1},{id:'short',name:'另一篇.txt',text:'全新的正文。\n欧阳',updatedAt:2}],openIds:['long','short'],activeId:'long',settings:{theme:'light'}};
 try{

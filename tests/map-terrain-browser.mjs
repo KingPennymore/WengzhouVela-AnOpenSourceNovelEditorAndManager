@@ -1,4 +1,4 @@
-import {chromium} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import {startSourceAppServer} from './source-app-server.mjs';
 import {createMap,mapText} from '../web/map.mjs';
@@ -7,7 +7,7 @@ import {terrainBounds} from '../web/map-terrain.mjs';
 const map=createMap('地形转换');for(let r=0;r<12;r++)for(let q=0;q<12;q++)map.cells[q+','+r]={type:'draw'};
 map.cells['3,3'].name='城镇';map.cells['4,4'].future={keep:8};map.arrows=[{id:'arrow',path:['0,0','1,0']}];map.markers=[{id:'marker',x:-80,y:-80,name:'入口'}];updateDrawingFill(map);const original=mapText(map);
 const seed={version:1,documents:[{id:'guide',name:'说明.txt',path:'说明.txt',text:'测试',updatedAt:1},{id:'map',name:'地形.vlmp',path:'地形.vlmp',text:original,updatedAt:1}],activeId:'guide',openIds:['guide','map'],settings:{theme:'light',autoNouns:false}};
-const server=await startSourceAppServer(),browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||undefined}),errors=[];
+const server=await startSourceAppServer(),browser=await launchBrowser(),errors=[];
 try{
  for(const width of [1280,390]){
   const context=await browser.newContext({viewport:{width,height:850},hasTouch:true});await context.addInitScript(seed=>{

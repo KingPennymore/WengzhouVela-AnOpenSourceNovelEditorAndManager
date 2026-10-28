@@ -1,14 +1,10 @@
+import { launchBrowser } from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
-import { chromium } from 'playwright';
 import { startSourceAppServer } from './source-app-server.mjs';
 
 const server = await startSourceAppServer();
-const browser = await chromium.launch({
-  executablePath:
-    process.env.WENZHOU_CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe',
-  headless: true,
-});
+const browser = await launchBrowser();
 await mkdir('test-results/chrome-motion', { recursive: true });
 const seed = {
   version: 1,

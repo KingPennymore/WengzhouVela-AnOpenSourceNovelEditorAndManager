@@ -1,11 +1,11 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
-import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
 const base='第一章 出发\n共同开头\n原来的争议段\n共同结尾\n',local=base.replace('原来的争议段','本地争议段'),remote=base.replace('原来的争议段','远端争议段');
 const seed={version:1,documents:[{id:'book',name:'正文.txt',text:local,updatedAt:1,remote:{repo:'writer/book',branch:'main',path:'正文.txt',sha:'a'.repeat(40),lastSyncedText:base}},{id:'gly',name:'词条.gly',text:JSON.stringify({version:1,entries:[{term:'柯戈德尾',category:'地名',definition:'北方港口',aliases:['Kogod']},{term:'柯戈德尾人',category:'人物',definition:'旅人'},{term:'另一座城',category:'地名'}]}),updatedAt:2},{id:'vela',name:'.vela',text:JSON.stringify({version:2,kind:'workspace',id:'book',project:{name:'书稿'},editor:{glossaries:['词条.gly']},reading:{items:[]}}),updatedAt:3}],activeId:'book',openIds:['book'],settings:{theme:'light',language:'zh-CN',glossaryPanel:true}};
-const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+const browser=await launchBrowser();
 await mkdir('test-results/improvements',{recursive:true});
 try{
  for(const width of [320,390,768,1280]){

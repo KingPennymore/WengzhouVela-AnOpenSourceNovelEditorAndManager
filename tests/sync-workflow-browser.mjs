@@ -1,4 +1,4 @@
-import { chromium } from 'playwright';
+import { launchBrowser } from './browser-launch.mjs';
 import { build } from 'esbuild';
 import { createHash } from 'node:crypto';
 import { mkdir } from 'node:fs/promises';
@@ -16,11 +16,7 @@ const fixture = await build({
   write: false,
 });
 const server = await startSourceAppServer();
-const browser = await chromium.launch({
-  headless: true,
-  executablePath:
-    process.env.WENZHOU_CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe',
-});
+const browser = await launchBrowser();
 try {
   await mkdir('test-results/sync-workflow', { recursive: true });
   const context = await browser.newContext({ viewport: { width: 1100, height: 850 } });

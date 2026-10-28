@@ -1,4 +1,4 @@
-import { chromium } from 'playwright';
+import { launchBrowser } from './browser-launch.mjs';
 import { build } from 'esbuild';
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
@@ -26,11 +26,7 @@ export async function apply(){try{await submit(new FormData(document.querySelect
   target: 'chrome105',
 });
 const server = await startSourceAppServer();
-const browser = await chromium.launch({
-  headless: true,
-  executablePath:
-    process.env.WENZHOU_CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe',
-});
+const browser = await launchBrowser();
 try {
   const page = await browser.newPage({ viewport: { width: 1100, height: 850 } });
   await page.route(server.url + '/sync-safety-fixture.js', (route) =>

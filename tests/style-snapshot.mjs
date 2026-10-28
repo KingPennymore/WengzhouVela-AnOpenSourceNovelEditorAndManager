@@ -1,3 +1,4 @@
+import {launchBrowser} from './browser-launch.mjs';
 // Stylesheet refactoring guard: captures the computed style and box of every rendered element (and ::before /
 // ::after) in many app states, then compares two captures. Used to show a CSS reorganization changes nothing.
 //   node tests/style-snapshot.mjs capture <file.json.gz>
@@ -5,8 +6,7 @@
 // States: start page, editor with sidebars, overflow menu, settings, Markdown preview with a formula, .vela form,
 // glossary, selection menu, command palette, search panel, GitHub, subscriptions, reader library and book; for the
 // windows (1440), harmonyos (1280 and 390) and android (390) profiles, light and dark.
-import {chromium} from 'playwright';
-import {existsSync,readFileSync,writeFileSync} from 'node:fs';
+import {readFileSync,writeFileSync} from 'node:fs';
 import {gzipSync,gunzipSync} from 'node:zlib';
 import {startSourceAppServer} from './source-app-server.mjs';
 import {tour,tourPage,tourVariants} from './app-tour.mjs';
@@ -30,7 +30,7 @@ function collect(properties){
 }
 
 async function capture(file){
-  const server=await startSourceAppServer(),browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||(existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe')?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined)});
+  const server=await startSourceAppServer(),browser=await launchBrowser();
   const snapshot={properties,states:{}};
   try{
     for(const [profile,width,height] of tourVariants)for(const theme of ['light','dark']){

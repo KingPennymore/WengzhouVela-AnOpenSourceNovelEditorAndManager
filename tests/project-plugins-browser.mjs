@@ -1,4 +1,5 @@
-import {chromium,_electron,_android} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
+import {_electron,_android} from 'playwright';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import http from 'node:http';
@@ -20,7 +21,7 @@ if(mode==='windows'){
  const adb=(...args)=>execFileSync(path.join(sdk,'platform-tools/adb.exe'),['-s',serial,...args],{encoding:'utf8',timeout:60000}).trim();
  assert.match(adb('emu','avd','name'),/^Wenzhou_QA_API36/);adb('install','-r',path.resolve('android/app/build/outputs/apk/debug/app-debug.apk'));adb('shell','am','force-stop','me.wenzhou.write');adb('shell','am','start','-W','-n','me.wenzhou.write/.MainActivity');
  device=(await _android.devices()).find(d=>d.serial()===serial);assert.ok(device,'QA emulator required');p=await (await device.webView({pkg:'me.wenzhou.write'})).page();
-}else{server=http.createServer((req,res)=>{const root=path.resolve('dist/web'),file=path.resolve(root,'.'+(req.url==='/'?'/index.html':decodeURIComponent(req.url.split('?')[0])));if(!file.startsWith(root+path.sep)){res.writeHead(403).end();return;}try{const bytes=fs.readFileSync(file);res.writeHead(200,{'Content-Type':{'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json'}[path.extname(file)]||'application/octet-stream'}).end(bytes);}catch{res.writeHead(404).end();}});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));browser=await chromium.launch({headless:true,...(process.env.WENZHOU_CHROME?{executablePath:process.env.WENZHOU_CHROME}:{channel:'chrome'})});p=await browser.newPage();await p.goto('http://127.0.0.1:'+server.address().port);}
+}else{server=http.createServer((req,res)=>{const root=path.resolve('dist/web'),file=path.resolve(root,'.'+(req.url==='/'?'/index.html':decodeURIComponent(req.url.split('?')[0])));if(!file.startsWith(root+path.sep)){res.writeHead(403).end();return;}try{const bytes=fs.readFileSync(file);res.writeHead(200,{'Content-Type':{'.html':'text/html','.js':'text/javascript','.css':'text/css','.json':'application/json'}[path.extname(file)]||'application/octet-stream'}).end(bytes);}catch{res.writeHead(404).end();}});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));browser=await launchBrowser();p=await browser.newPage();await p.goto('http://127.0.0.1:'+server.address().port);}
 p.on('pageerror',e=>errors.push(e.message));
 const check=async(name,fn)=>{await fn();checks.push(name);console.log('PASS '+mode+' '+name);};
 try{

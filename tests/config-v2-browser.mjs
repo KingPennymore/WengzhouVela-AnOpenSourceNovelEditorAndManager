@@ -1,7 +1,8 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
 import {chromium} from 'playwright';import assert from 'node:assert/strict';import {writeFile} from 'node:fs/promises';
-const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'}),page=await browser.newPage({viewport:{width:1280,height:800}}),checks=[],errors=[];page.on('pageerror',error=>errors.push(error.message));
+const browser=await launchBrowser(),page=await browser.newPage({viewport:{width:1280,height:800}}),checks=[],errors=[];page.on('pageerror',error=>errors.push(error.message));
 await page.addInitScript(()=>localStorage.setItem('wenzhou.workspace',JSON.stringify({version:1,documents:[{id:'novel',name:'正文.txt',path:'Novel/正文.txt',text:'第一章 航程\n正文。',updatedAt:1},{id:'config',name:'.vela',path:'Novel/.vela',text:JSON.stringify({version:2,kind:'workspace',id:'project-stable',project:{name:'作品'},editor:{},chapters:{templates:[]},reading:{items:[{id:'book-stable',path:'正文.txt'}],layout:{fontSize:18}},extensions:{plugin:{keep:true}}}),updatedAt:1},{id:'legacy',name:'.vela',path:'Legacy/.vela',text:JSON.stringify({version:1,name:'旧作品',fontSize:16,titleTemplates:[],reading:{files:['旧正文.txt']},custom:{keep:42}}),updatedAt:1},{id:'oldbook',name:'旧正文.txt',path:'Legacy/旧正文.txt',text:'第一章 开始\n旧正文。',updatedAt:1},{id:'outside',name:'笔记.txt',text:'独立笔记。',updatedAt:1}],activeId:'novel',openIds:['novel'],settings:{theme:'light',readingMode:'pages'}})));
 const state=()=>page.evaluate(()=>JSON.parse(localStorage.getItem('wenzhou.workspace'))),check=async(name,run)=>{await run();checks.push(name);console.log('PASS '+name);};
 try{

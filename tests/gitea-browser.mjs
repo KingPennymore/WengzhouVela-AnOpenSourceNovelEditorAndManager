@@ -1,15 +1,11 @@
-import { chromium } from 'playwright';
+import { launchBrowser } from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { startSourceAppServer } from './source-app-server.mjs';
 import { selectAppView } from './navigation-helper.mjs';
 
 const server = await startSourceAppServer();
-const browser = await chromium.launch({
-  headless: true,
-  executablePath:
-    process.env.WENZHOU_CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe',
-});
+const browser = await launchBrowser();
 await mkdir('test-results/gitea', { recursive: true });
 try {
   for (const width of [1100, 390]) {

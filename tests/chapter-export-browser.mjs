@@ -1,12 +1,11 @@
-import {chromium} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
-import {existsSync} from 'node:fs';
 import {startSourceAppServer} from './source-app-server.mjs';
 
 // Chapter sidebar → 导出章节: a chapter range downloads as TXT and a chapter copies to the clipboard; the document is unchanged.
 const server=await startSourceAppServer();
-const origin=server.url,browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||(existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe')?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined)});
+const origin=server.url,browser=await launchBrowser();
 const context=await browser.newContext({viewport:{width:1280,height:800},acceptDownloads:true});await context.grantPermissions(['clipboard-read','clipboard-write'],{origin});
 const page=await context.newPage(),errors=[],checks=[];page.on('pageerror',error=>errors.push(error.message));
 const check=async(name,run)=>{await run();checks.push(name);console.log('PASS '+name);};

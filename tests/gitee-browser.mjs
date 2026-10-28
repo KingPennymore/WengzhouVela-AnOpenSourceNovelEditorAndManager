@@ -1,7 +1,7 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
-import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
-const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+const browser=await launchBrowser();
 try{
  const page=await browser.newPage({viewport:{width:1100,height:850}}),calls=[],errors=[];page.on('pageerror',error=>errors.push(error.message));
  await page.route(/^https:\/\/(gitee\.com\/api\/v5|api\.github\.com)/,async route=>{

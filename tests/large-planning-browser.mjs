@@ -1,4 +1,4 @@
-import {chromium} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import {startSourceAppServer} from './source-app-server.mjs';
 import {createOutline,outlineText} from '../web/outline.mjs';
@@ -11,7 +11,7 @@ const r=createOutline('大型关系图');r.view='relations';for(let i=0;i<400;i+
 const m=createMap('后台填充');for(let i=0;i<20000;i++)m.cells[(i%200)+','+Math.floor(i/200)]={type:'draw'};
 const doc=(id,name,text)=>({id,name,path:name,text,updatedAt:1});
 const seed={version:1,activeId:'guide',openIds:['guide','o','r','m'],documents:[doc('guide','操作指南.txt','正文'),doc('o','大型.pcs',outlineText(o)),doc('r','关系.pcs',outlineText(r)),doc('m','地图.vlmp',mapText(m))],settings:{theme:'light',autoNouns:false}};
-const server=await startSourceAppServer(),browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||undefined});
+const server=await startSourceAppServer(),browser=await launchBrowser();
 try{
  for(const width of [1280,390]){
   const context=await browser.newContext({viewport:{width,height:850}}),errors=[];

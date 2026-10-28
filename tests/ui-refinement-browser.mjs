@@ -1,4 +1,4 @@
-import {chromium} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {startSourceAppServer} from './source-app-server.mjs';
@@ -13,7 +13,7 @@ map.markers=[['city','白石城','城市','building.city',-180,-90],['port','东
 const outline=createOutline('第一卷 · 起航'),rootId=addNode(outline,null,{title:'离开故乡'}),child=addNode(outline,rootId,{child:true,title:'白石城的来信'});outline.nodes[rootId].summary='海潮退去，新的旅程就此展开。';outline.nodes[child].detail='林舟整理好行囊，在晨雾中走向码头。';addNode(outline,rootId,{child:true,title:'越过望月山'});
 const prose='第一章 晨光\n\n　　清晨的雾气还没有散去，林舟已经走到港口。船帆在浅绿的天光里缓缓展开。\n\n　　他从口袋里拿出那封信，纸张的边缘被海风吹得轻轻颤动。'+('\n\n　　远处的灯塔亮着，海潮带来一阵温柔而熟悉的声音。'.repeat(12))+'\n\n第二章 白石城\n\n　　沿着河谷向北，是地图上标记的第一座城。';
 const doc=(id,path,text)=>({id,name:path.split('/').at(-1),path,text,updatedAt:1}),seed={version:1,documents:[doc('book','山海之间/正文/第一卷.txt',prose),doc('notes','山海之间/资料/人物.md','# 林舟\n来自南方港口的旅人。'),doc('map','山海之间/北境.vlmp',mapText(map)),doc('outline','山海之间/剧情.pcs',outlineText(outline))],folders:['山海之间','山海之间/正文','山海之间/资料'],activeId:null,openIds:[],settings:{theme:'light'}};
-const server=await startSourceAppServer(),browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'}),metrics=[];
+const server=await startSourceAppServer(),browser=await launchBrowser(),metrics=[];
 try{for(const [width,height,theme] of [[1280,850,'light'],[1280,850,'dark'],[390,844,'light'],[390,844,'dark'],[320,640,'light'],[768,1024,'dark'],[390,440,'light'],[844,390,'light']]){
  const context=await browser.newContext({viewport:{width,height},hasTouch:width<900,isMobile:width<600});await noMotion(context);await context.addInitScript(seed=>{if(!localStorage.getItem('wenzhou.workspace'))localStorage.setItem('wenzhou.workspace',JSON.stringify(seed));},{...seed,settings:{theme}});const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));const prefix=`${width}-${height}-${theme}`;
  const shot=async name=>{await settled(page);assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1),name+' overflows viewport');await page.screenshot({path:`${out}/${prefix}-${name}.png`});};

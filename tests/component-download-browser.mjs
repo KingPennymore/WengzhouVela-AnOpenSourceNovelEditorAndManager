@@ -1,10 +1,10 @@
+import {launchBrowser} from './browser-launch.mjs';
 // In-app component download and app update, with the native `downloadComponent` / `downloadUpdate` bridge mocked.
 // Covers success, ZIP SHA-256 failure, over-size, cancel, Gitee failure falling back to GitHub, the browser-preview
 // fallback, the component catalog (newer TeX, updates, components needing a newer app), the mobile Wi-Fi hint and the update dialog (HarmonyOS getting only the release page is a unit test). Real downloads on the three devices still need manual checks.
 // Signed manifests (docs/RELEASE-SIGNING.md): a valid signature, a hash changed after signing and a missing signature,
 // for the catalog and for a release from after signing (v0.9.9). The page trusts a throwaway key passed to the bundle.
 import {signText,testKey} from './fixtures/release-test-key.mjs';
-import {chromium} from 'playwright';
 import {build} from 'esbuild';
 import assert from 'node:assert/strict';
 import {createHash} from 'node:crypto';
@@ -38,7 +38,7 @@ const workspace={version:1,documents:[{id:'doc',name:'a.txt',path:'a.txt',text:'
 
 process.env.VELA_TEST_RELEASE_KEYS=JSON.stringify([testKey]);
 const server=await startSourceAppServer();
-const browser=await chromium.launch({headless:true,...(process.env.WENZHOU_CHROME?{executablePath:process.env.WENZHOU_CHROME}:{})});
+const browser=await launchBrowser();
 let failed=0;
 const check=async(name,run)=>{if(process.env.VELA_TEST_FILTER&&!name.includes(process.env.VELA_TEST_FILTER))return;try{await run();console.log('PASS',name);}catch(error){failed++;console.error('FAIL',name,'\n',error);}};
 

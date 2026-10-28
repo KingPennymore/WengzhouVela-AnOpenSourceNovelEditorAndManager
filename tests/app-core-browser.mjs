@@ -1,17 +1,9 @@
+import { launchBrowser } from './browser-launch.mjs';
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
-import { chromium } from 'playwright';
 import { startSourceAppServer } from './source-app-server.mjs';
 
 const server = await startSourceAppServer();
-const browser = await chromium.launch({
-  headless: true,
-  executablePath:
-    process.env.WENZHOU_CHROME ||
-    (existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe')
-      ? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
-      : undefined),
-});
+const browser = await launchBrowser();
 const errors = [];
 try {
   const page = await browser.newPage({

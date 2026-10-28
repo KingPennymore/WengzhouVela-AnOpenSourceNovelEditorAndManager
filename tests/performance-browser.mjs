@@ -1,9 +1,9 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
-import {chromium} from 'playwright';
 import {mkdir,writeFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
-const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'}),results=[];
+const browser=await launchBrowser(),results=[];
 try{
   for(const length of [60000,600000,2000000]){
     const page=await browser.newPage({viewport:{width:1280,height:800}});

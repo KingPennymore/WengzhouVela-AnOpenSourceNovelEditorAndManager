@@ -1,13 +1,13 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
-import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {createVelaV2,velaText} from '../web/vela.mjs';
 import {readerReady,settled} from './wait-helpers.mjs';
 
 const out='test-results/ui-overhaul';await mkdir(out,{recursive:true});
-const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'}),errors=[],checks=[];
+const browser=await launchBrowser(),errors=[],checks=[];
 const text='第一章 航程\n　　清晨，船驶出了港口。远处的灯塔在薄雾中渐渐隐去，航海日志翻开了新的一页。\n\n第二章 灯塔\n　　林舟合上地图，沿着石阶走向灯塔。'+ '海风穿过门廊，带来海潮的声音。'.repeat(22);
 const config=createVelaV2('航程');config.chapters.templates=['幕 {序号} — {title}'];config.reading.items=[{path:'航程.txt'}];
 const seed={version:1,documents:[{id:'book',name:'航程.txt',path:'航程/航程.txt',text,updatedAt:1},{id:'note',name:'人物.md',path:'航程/人物.md',text:'# 人物\n林舟：航海日志的记录者。',updatedAt:2},{id:'config',name:'.vela',path:'航程/.vela',text:velaText(config),updatedAt:1}],openIds:['book','note'],activeId:'book',settings:{theme:'system',readingMode:'pages'}};

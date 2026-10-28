@@ -1,7 +1,7 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
-import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
-const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+const browser=await launchBrowser();
 try{
  for(const [profile,width,height] of [['windows',1440,960],['harmonyos',1280,850],['android',390,844]]){
   const context=await browser.newContext({viewport:{width,height}});

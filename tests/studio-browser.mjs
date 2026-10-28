@@ -1,5 +1,5 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
-import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import http from 'node:http';
@@ -10,7 +10,7 @@ import {readerReady} from './wait-helpers.mjs';
 const root=path.resolve('dist/web'),checks=[],errors=[];
 const server=http.createServer(async(req,res)=>{const pathname=new URL(req.url,'http://localhost').pathname,file=path.resolve(root,'.'+(pathname==='/'?'/index.html':pathname));if(!file.startsWith(root+path.sep))return res.writeHead(403).end();try{res.writeHead(200,{'Content-Type':{'.html':'text/html','.js':'text/javascript','.css':'text/css'}[path.extname(file)]||'text/plain'}).end(await readFile(file));}catch{res.writeHead(404).end();}});
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'}),url=`http://127.0.0.1:${server.address().port}`;
+const browser=await launchBrowser(),url=`http://127.0.0.1:${server.address().port}`;
 await mkdir('test-results',{recursive:true});
 const book='第一章 航路\n'+Array.from({length:250},(_,i)=>`第 ${i+1} 行。船驶向岛屿，航海记录仍保留在同一文档。`).join('\n');
 const seed={version:1,documents:[{id:'guide',name:'操作指南.txt',text:guide,updatedAt:1,remote:null},{id:'book',name:'Novel.txt',text:book,updatedAt:2,remote:null},{id:'csv',name:'Table.csv',text:Array.from({length:106},(_,r)=>Array.from({length:55},(_,c)=>r===0&&c===0?'姓名':`R${r}C${c}`).join(',')).join('\n'),updatedAt:1,remote:null},{id:'html',name:'Page.html',text:'<!doctype html><html><body><h1>Local HTML</h1><input value="original"></body></html>',updatedAt:1,remote:null}],activeId:'book',openIds:['book'],settings:{theme:'system'}};

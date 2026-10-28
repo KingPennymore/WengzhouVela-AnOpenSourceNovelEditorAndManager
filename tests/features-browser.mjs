@@ -1,8 +1,7 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
-import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
-import {existsSync} from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 import {zipSync,strToU8} from 'fflate';
@@ -16,7 +15,7 @@ const server=http.createServer(async(req,res)=>{
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
 const url=`http://127.0.0.1:${server.address().port}`;
-const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||(existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe')?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined)});
+const browser=await launchBrowser();
 const checks=[],errors=[];
 async function check(name,run){await run();checks.push(name);console.log('PASS '+name);}
 async function context(seed,options={}){

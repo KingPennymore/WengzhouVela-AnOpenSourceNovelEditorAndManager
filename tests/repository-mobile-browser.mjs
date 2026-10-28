@@ -1,15 +1,11 @@
-import { chromium } from 'playwright';
+import { launchBrowser } from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { startSourceAppServer } from './source-app-server.mjs';
 import { selectAppView } from './navigation-helper.mjs';
 
 const server = await startSourceAppServer();
-const browser = await chromium.launch({
-  headless: true,
-  executablePath:
-    process.env.WENZHOU_CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe',
-});
+const browser = await launchBrowser();
 const repository = 'writer/novel-with-a-long-repository-name-for-a-small-screen';
 const branch = 'draft/long-branch-name-for-chapter-revisions-without-spaces';
 const filename = '第一章-很长的小说文件名称与同步记录-very-long-filename-without-spaces.txt';

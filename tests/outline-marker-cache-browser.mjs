@@ -1,8 +1,8 @@
-import {chromium} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
 import {build} from 'esbuild';
 import assert from 'node:assert/strict';
 
-const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||undefined});
+const browser=await launchBrowser();
 try{
  const page=await browser.newPage();
  const errors=[];page.on('pageerror',error=>errors.push(error.message));

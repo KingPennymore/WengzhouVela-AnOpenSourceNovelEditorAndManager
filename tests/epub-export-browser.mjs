@@ -1,6 +1,5 @@
-import {chromium} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
-import {existsSync} from 'node:fs';
 import {mkdir,writeFile,readFile} from 'node:fs/promises';
 import {unzipSync,strFromU8} from 'fflate';
 import {startSourceAppServer} from './source-app-server.mjs';
@@ -9,7 +8,7 @@ import {buildRecord} from '../web/rich-text.mjs';
 
 // 导出 EPUB: book information from the workspace, chapter range, formats, cover, well-formed XML and a stable identifier.
 const server=await startSourceAppServer();
-const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||(existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe')?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined)});
+const browser=await launchBrowser();
 const checks=[],errors=[];const check=async(name,run)=>{await run();checks.push(name);console.log('PASS '+name);};
 const novel='第一章 风起\n\n　　林舟冷笑一声，转身离去。\n\n　　苏晚心中暗道不好 & <好>。\n\n——完——\n\n第二章 云涌\n\n　　风满楼。';
 const at=quote=>[novel.indexOf(quote),novel.indexOf(quote)+quote.length];

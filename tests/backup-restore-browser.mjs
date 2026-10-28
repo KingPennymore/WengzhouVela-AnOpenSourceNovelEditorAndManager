@@ -1,7 +1,6 @@
-import {chromium} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
-import {existsSync} from 'node:fs';
 import http from 'node:http';
 import path from 'node:path';
 
@@ -9,7 +8,7 @@ import path from 'node:path';
 const root=path.resolve('dist/web');
 const server=http.createServer(async(req,res)=>{const pathname=new URL(req.url,'http://localhost').pathname,file=path.resolve(root,'.'+(pathname==='/'?'/index.html':decodeURIComponent(pathname)));if(!file.startsWith(root+path.sep)){res.writeHead(403).end();return;}let body;try{body=await readFile(file);}catch{res.writeHead(404).end();return;}res.writeHead(200,{'Content-Type':{'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css'}[path.extname(file)]||'application/octet-stream'}).end(body);});
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||(existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe')?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined)});
+const browser=await launchBrowser();
 const page=await browser.newPage({viewport:{width:1280,height:800}}),errors=[],checks=[];page.on('pageerror',error=>errors.push(error.message));
 const check=async(name,run)=>{await run();checks.push(name);console.log('PASS '+name);};
 const backup={version:1,documents:[{id:'old-1',name:'正文.txt',path:'旧书/正文.txt',text:'第一章 恢复的正文',updatedAt:1}],folders:['旧书'],trash:[],openIds:[],activeId:null,writingTools:{glossary:['恢复词'],snippets:[]}};

@@ -1,11 +1,11 @@
+import { launchBrowser } from './browser-launch.mjs';
 import { setCsvZoom } from './csv-grid-helper.mjs';
-import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { startSourceAppServer } from './source-app-server.mjs';
 import { openRecentFile } from './start-page-helper.mjs';
 
 const server = await startSourceAppServer();
-const browser = await chromium.launch({ headless: true, executablePath: process.env.WENZHOU_CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
+const browser = await launchBrowser();
 try {
   const context = await browser.newContext({ viewport: { width: 1100, height: 900 } });
   await context.addInitScript(() => {

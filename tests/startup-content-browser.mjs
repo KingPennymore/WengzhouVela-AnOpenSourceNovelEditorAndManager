@@ -1,10 +1,10 @@
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
-import {chromium} from 'playwright';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {startSourceAppServer} from './source-app-server.mjs';
 
 const out='test-results/startup-content';await mkdir(out,{recursive:true});
-const server=await startSourceAppServer(),browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'}),checks=[],errors=[];
+const server=await startSourceAppServer(),browser=await launchBrowser(),checks=[],errors=[];
 try{
  for(const width of [320,390,1280])for(const home of [false,true]){
   const context=await browser.newContext({viewport:{width,height:844},isMobile:width<600,hasTouch:width<600});

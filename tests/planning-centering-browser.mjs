@@ -1,9 +1,9 @@
-import {chromium} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import {startSourceAppServer} from './source-app-server.mjs';
 import {createOutline,outlineText} from '../web/outline.mjs';
 import {createMap,mapText} from '../web/map.mjs';
-const server=await startSourceAppServer(),browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||undefined});
+const server=await startSourceAppServer(),browser=await launchBrowser();
 const outline=createOutline('偏离原点的大纲');outline.root='a';outline.roots=['a'];outline.nodes={a:{title:'开端',summary:'故事开端',children:['b','c'],layout:{x:4000,y:6000}},b:{title:'冲突',children:[],layout:{x:4500,y:6400}},c:{title:'结局',children:[],layout:{x:4700,y:6900}}};
 const relations=createOutline('偏离原点的关系图');relations.view='relations';relations.relations={nodes:structuredClone(outline.nodes),edges:[{id:'ab',from:'a',to:'b'}]};for(const node of Object.values(relations.relations.nodes))node.children=[];
 const map=createMap('偏离原点的地图');map.cells={'1000,1000':{type:'draw'},'1010,1010':{type:'draw'}};

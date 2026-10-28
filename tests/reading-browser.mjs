@@ -1,9 +1,9 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
-import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {writeFile,mkdir} from 'node:fs/promises';
 import {readerReady,readerIdle,noMotion} from './wait-helpers.mjs';
-const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'}),page=await browser.newPage({viewport:{width:390,height:820}}),errors=[],checks=[];
+const browser=await launchBrowser(),page=await browser.newPage({viewport:{width:390,height:820}}),errors=[],checks=[];
 page.on('pageerror',error=>errors.push(error.message));
 const text=Array.from({length:80},(_,chapter)=>`第${chapter+1}章 航路${chapter+1}\n`+Array.from({length:10},(_,line)=>`航路${chapter+1}第${line+1}段，船向海岛航行，正文保持在同一小说文件中。`).join('\n')).join('\n');
 await noMotion(page.context());await page.addInitScript(text=>{if(!localStorage.getItem('wenzhou.workspace'))localStorage.setItem('wenzhou.workspace',JSON.stringify({version:1,documents:[{id:'book',name:'Novel.txt',text,updatedAt:1},{id:'guide',name:'操作指南.txt',text:'guide',updatedAt:1}],activeId:'book',openIds:['book'],settings:{theme:'light',readingMode:'pages',libraryOpen:true}}));},text);

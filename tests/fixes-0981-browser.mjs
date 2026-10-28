@@ -1,7 +1,6 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
-import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
-import {existsSync} from 'node:fs';
 import {startSourceAppServer} from './source-app-server.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
 import {buildRecord} from '../web/rich-text.mjs';
@@ -12,7 +11,7 @@ import {settled,until,themeShiftDone} from './wait-helpers.mjs';
 // clears the cursor's paragraph and says when there is nothing to clear, and documents reopen where they were left
 // (stored in the work .vela).
 const server=await startSourceAppServer();
-const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||(existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe')?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined)});
+const browser=await launchBrowser();
 const checks=[],errors=[];const check=async(name,run)=>{await run();checks.push(name);console.log('PASS '+name);};
 const lines=['第一章 风起',''];for(let i=1;i<=120;i++)lines.push(`　　第${i}段，林舟望着远处的灯塔。`);
 const novel=lines.join('\n'),bold=novel.indexOf('林舟',novel.indexOf('第3段'));

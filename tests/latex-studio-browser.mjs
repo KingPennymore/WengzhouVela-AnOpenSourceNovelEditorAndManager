@@ -1,7 +1,7 @@
+import {launchBrowser} from './browser-launch.mjs';
 // LaTeX editing and preview against a full build with the real WasmTeX engine:
 // outline, completion, auto \end, live checks, continuous PDF, zoom, compile problems, and source ↔ PDF jumps.
 // Run `npm run build` first and serve dist/web (node scripts/serve.mjs, or VELA_TEST_URL for another port).
-import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
 import {openRecentFile} from './start-page-helper.mjs';
@@ -22,7 +22,7 @@ const broken=String.raw`\documentclass{ctexart}
 \undefinedcommandhere
 \end{document}`;
 const url=process.env.VELA_TEST_URL||'http://127.0.0.1:4173';
-const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+const browser=await launchBrowser();
 let failed=0;const check=async(name,run)=>{try{await run();console.log('PASS',name);}catch(error){failed++;console.error('FAIL',name,'\n',error);}};
 await mkdir('test-results',{recursive:true});
 

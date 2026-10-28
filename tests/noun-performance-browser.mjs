@@ -1,7 +1,7 @@
-import {chromium} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import {writeFile} from 'node:fs/promises';
-const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'}),p=await browser.newPage({viewport:{width:1280,height:800}});
+const browser=await launchBrowser(),p=await browser.newPage({viewport:{width:1280,height:800}});
 await p.addInitScript(()=>{
  const NativeWorker=Worker;window.nounTransfers=[];window.nounLive=0;
  window.Worker=class extends NativeWorker{constructor(url,opts){super(url,opts);this.noun=String(url).includes('noun-worker');if(this.noun)window.nounLive++;}postMessage(data,...args){if(this.noun)window.nounTransfers.push({bytes:(data.blocks||[]).reduce((n,b)=>n+b.text.length,0),blocks:(data.blocks||[]).length});return super.postMessage(data,...args);}terminate(){if(this.noun){window.nounLive--;this.noun=false;}return super.terminate();}};

@@ -1,9 +1,9 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
-import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {writeFile} from 'node:fs/promises';
 import {readerReady,readerIdle,noMotion} from './wait-helpers.mjs';
-const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'}),p=await browser.newPage({viewport:{width:1280,height:800}}),checks=[],errors=[];
+const browser=await launchBrowser(),p=await browser.newPage({viewport:{width:1280,height:800}}),checks=[],errors=[];
 p.on('pageerror',error=>errors.push(error.message));
 await noMotion(p.context());await p.addInitScript(()=>{const text=Array.from({length:400},(_,i)=>`第${i+1}章 航程\n`+`灯塔记录完整的航海故事。\n`.repeat(100)).join('');localStorage.setItem('wenzhou.workspace',JSON.stringify({version:1,documents:[{id:'book',name:'长篇.txt',path:'Book/长篇.txt',text,updatedAt:1},{id:'config',name:'.vela',path:'Book/.vela',text:JSON.stringify({version:2,kind:'workspace',id:'p',project:{name:'航程'},reader:{mode:'pages',titlePage:false},reading:{items:[{id:'b',path:'长篇.txt'}]}}),updatedAt:1}],activeId:'book',openIds:['book'],settings:{theme:'light'}}));});
 const state=()=>p.evaluate(()=>JSON.parse(localStorage.getItem('wenzhou.workspace'))),check=async(name,run)=>{await run();checks.push(name);console.log('PASS '+name);};

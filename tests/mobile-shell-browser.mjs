@@ -1,7 +1,7 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {expandEditorNavigation} from './navigation-helper.mjs';
 import {selectAppView} from './navigation-helper.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
-import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {createVelaV2,velaText} from '../web/vela.mjs';
@@ -9,7 +9,7 @@ import {readerReady,settled} from './wait-helpers.mjs';
 const out='test-results/mobile-shell';await mkdir(out,{recursive:true});
 const config=createVelaV2('航程');config.reading.items=[{path:'航程.txt'}];
 const seed={version:1,documents:[{id:'book',name:'航程.txt',path:'航程/航程.txt',text:'第一章 航程\n'+('海风吹过港湾，远处的灯塔照亮航路。\n'.repeat(80)),updatedAt:1},{id:'config',name:'.vela',path:'航程/.vela',text:velaText(config),updatedAt:1}],activeId:'book',openIds:['book','config'],settings:{theme:'system',readingMode:'pages'}};
-const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'}),checks=[],errors=[];
+const browser=await launchBrowser(),checks=[],errors=[];
 try{
  for(const width of [320,360,390,411]){
   const context=await browser.newContext({viewport:{width,height:844},colorScheme:'light'});await context.addInitScript(seed=>localStorage.setItem('wenzhou.workspace',JSON.stringify(seed)),seed);

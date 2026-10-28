@@ -1,4 +1,4 @@
-import {chromium} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
 import http from 'node:http';
 import path from 'node:path';
 import assert from 'node:assert/strict';
@@ -18,7 +18,7 @@ const out='test-results/start-page';await mkdir(out,{recursive:true});
 let browser;
 const checks=[],errors=[];
 try{
-  browser=await chromium.launch({headless:true,...(process.env.WENZHOU_CHROME?{executablePath:process.env.WENZHOU_CHROME}:{})});
+  browser=await launchBrowser();
   for(const [profile,width,height,theme,language,motion] of [
     ['android',320,700,'light','zh-CN','no-preference'],
     ['android',390,844,'dark','zh-CN','no-preference'],

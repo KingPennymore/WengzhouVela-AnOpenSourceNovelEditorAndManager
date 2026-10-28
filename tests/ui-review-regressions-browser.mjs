@@ -1,10 +1,10 @@
+import { launchBrowser } from './browser-launch.mjs';
 import assert from 'node:assert/strict';
-import { chromium } from 'playwright';
 import { writeFile } from 'node:fs/promises';
 import { startSourceAppServer } from './source-app-server.mjs';
 import { openRecentFile } from './start-page-helper.mjs';
 const server = await startSourceAppServer();
-const browser = await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+const browser = await launchBrowser();
 const results = {};
 const seed = {version:1,activeId:'csv',openIds:['csv','gly','txt'],settings:{},documents:[
  {id:'csv',name:'audit.csv',path:'audit.csv',text:'z,v\na,w\nm,t',updatedAt:1},

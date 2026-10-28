@@ -1,5 +1,5 @@
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
-import {chromium} from 'playwright';
 import {readFile,mkdir} from 'node:fs/promises';
 import {zipSync,strToU8,unzipSync,strFromU8} from 'fflate';
 import {readPluginZip} from '../web/plugin-package.mjs';
@@ -8,7 +8,7 @@ import {startSourceAppServer} from './source-app-server.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
 
 const {bytes}=await packageEbookStudio(),record=readPluginZip(bytes),server=await startSourceAppServer();
-const browser=await chromium.launch({headless:true,channel:'chrome'}),errors=[];
+const browser=await launchBrowser(),errors=[];
 const cover=Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360f8cfc0000003010100c9fe92ef0000000049454e44ae426082','hex');
 const chapter='<html xmlns="http://www.w3.org/1999/xhtml" xmlns:epub="http://www.idpf.org/2007/ops"><head><title>江边的清晨</title><link rel="stylesheet" href="book.css"/></head><body epub:type="bodymatter"><h1 id="chapter-one">第一章 · 江边的清晨</h1><p id="opening" class="novel" style="line-height:1.9" lang="zh-CN">清晨的瓯江还笼着一层薄雾。渡船从对岸驶来，船头划开银灰色的水面。</p><p>林舟推开书店的木门，檐下的风铃响了一声。<a href="#note" epub:type="noteref" id="ref">注一</a></p><p>书页上写着<ruby>归航<rt>guī háng</rt></ruby>二字。</p><div class="notes"><p id="note" epub:type="footnote">注一：故事发生在一间江边书店。</p></div><p><img src="cover.png" alt="书籍插图" width="24"/></p><table class="special"><tbody><tr><td>保留的表格</td></tr></tbody></table><!-- 保留批注 --><svg xmlns="http://www.w3.org/2000/svg" onload="parent.BOOK_ATTACK=true"><text>矢量内容</text></svg><script>window.BOOK_ATTACK=true</script></body></html>';
 const original=zipSync({mimetype:[strToU8('application/epub+zip'),{level:0}],

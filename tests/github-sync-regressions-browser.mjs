@@ -1,5 +1,5 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
-import {chromium} from 'playwright';
 import {build} from 'esbuild';
 import assert from 'node:assert/strict';
 import {startSourceAppServer} from './source-app-server.mjs';
@@ -18,7 +18,7 @@ export function begin(seed,result){
 export function mutate(change){const value=JSON.parse(workspace.documents[0].text);Object.assign(value,change);workspace.documents[0].text=JSON.stringify(value);}
 export async function apply(){try{await submit(new FormData(document.querySelector('#sync-probe')));return {workspace,applied,saves};}catch(error){return {error:error.message,workspace,applied,saves};}}
 `},bundle:true,format:'esm',write:false,target:'chrome105'});
-const server=await startSourceAppServer(),browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||undefined});
+const server=await startSourceAppServer(),browser=await launchBrowser();
 try{
  const page=await browser.newPage({viewport:{width:1280,height:850}}),errors=[];await page.addInitScript(()=>localStorage.setItem('vela.test.motion','off'));page.on('pageerror',error=>errors.push(error.message));
  let userCalls=0,rejected=false;

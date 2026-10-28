@@ -1,6 +1,5 @@
-import {chromium} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
-import {existsSync} from 'node:fs';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {startSourceAppServer} from './source-app-server.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
@@ -9,7 +8,7 @@ import {buildRecord} from '../web/rich-text.mjs';
 // Reader feedback: jumping to a chapter from the preview switched back to the source view. In the TXT and Markdown
 // previews, chapter and position jumps now scroll the preview; the source view still jumps as before.
 const server=await startSourceAppServer();
-const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||(existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe')?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined)});
+const browser=await launchBrowser();
 const checks=[],errors=[];const check=async(name,run)=>{await run();checks.push(name);console.log('PASS '+name);};
 const lines=[];for(let c=1;c<=30;c++){lines.push('第'+c+'章 第'+c+'夜');for(let p=0;p<8;p++)lines.push('　　风雪夜归人（'+c+'-'+p+'），灯火在远处摇晃，林舟缓缓抬起头。');}
 const novel=lines.join('\n\n'),bold=novel.indexOf('林舟');

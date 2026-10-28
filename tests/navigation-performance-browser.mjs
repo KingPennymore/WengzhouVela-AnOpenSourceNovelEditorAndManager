@@ -1,10 +1,9 @@
-import {chromium} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
-import {existsSync} from 'node:fs';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {startSourceAppServer} from './source-app-server.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
-const server=await startSourceAppServer(),browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||(existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe')?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined)});
+const server=await startSourceAppServer(),browser=await launchBrowser();
 const errors=[],checks=[],timings=[];
 const check=async(name,run)=>{await run();checks.push(name);console.log('PASS '+name);};
 const text=Array.from({length:1400},(_,i)=>i%70===0?`第${i/70+1}章 风起`:`　　林舟望着远处的灯塔，风吹过书页。这是第${i}段。`).join('\n');

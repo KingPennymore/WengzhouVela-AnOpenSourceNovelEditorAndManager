@@ -1,13 +1,12 @@
-import {chromium} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
-import {existsSync} from 'node:fs';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {startSourceAppServer} from './source-app-server.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
 
 // Custom palettes: create from settings with a live preview and readability notes, apply, persist, edit and delete.
 const server=await startSourceAppServer();
-const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||(existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe')?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined)});
+const browser=await launchBrowser();
 const checks=[],errors=[];const check=async(name,run)=>{await run();checks.push(name);console.log('PASS '+name);};
 try{
   const context=await browser.newContext({viewport:{width:1280,height:860}});

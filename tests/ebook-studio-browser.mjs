@@ -1,5 +1,5 @@
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
-import {chromium} from 'playwright';
 import {readFile,mkdir} from 'node:fs/promises';
 import {build} from 'esbuild';
 import {zipSync,strToU8,unzipSync,strFromU8} from 'fflate';
@@ -9,7 +9,7 @@ import {startSourceAppServer} from './source-app-server.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
 
 const {bytes:pluginBytes}=await packageEbookStudio(),record=readPluginZip(pluginBytes),server=await startSourceAppServer();
-const browser=await chromium.launch({headless:true,channel:'chrome'}),errors=[];
+const browser=await launchBrowser(),errors=[];
 const chapter=(title,text)=>'<?xml version="1.0"?><html xmlns="http://www.w3.org/1999/xhtml"><head><title>'+title+'</title><link rel="stylesheet" href="../styles/book.css"/></head><body><h1>'+title+'</h1><p>'+text+'</p><img src="../images/cover.png" alt="封面"/><script>parent.BOOK_ATTACK=true</script></body></html>';
 const cover=Buffer.from('89504e470d0a1a0a0000000d49484452000000010000000108060000001f15c4890000000d49444154789c6360f8cfc0000003010100c9fe92ef0000000049454e44ae426082','hex');
 const originalFiles={mimetype:[strToU8('application/epub+zip'),{level:0}],

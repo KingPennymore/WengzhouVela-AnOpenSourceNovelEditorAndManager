@@ -1,7 +1,6 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
-import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
-import {existsSync} from 'node:fs';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {startSourceAppServer} from './source-app-server.mjs';
 import {createOutline,outlineText} from '../web/outline.mjs';
@@ -11,7 +10,7 @@ import {openRecentFile} from './start-page-helper.mjs';
 // loads when its feature is first used; a chunk that fails to load leaves a clear message with a retry in place of
 // the view instead of a blank page.
 const server=await startSourceAppServer();
-const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||(existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe')?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined)});
+const browser=await launchBrowser();
 const checks=[],errors=[];const check=async(name,run)=>{await run();checks.push(name);console.log('PASS '+name);};
 const docs=[{id:'outline',name:'大纲.pcs',path:'书/大纲.pcs',text:outlineText(createOutline()),updatedAt:1},{id:'book',name:'正文.txt',path:'书/正文.txt',text:'第一章 起航\n\n　　船离开港口。\n',updatedAt:1},{id:'math',name:'公式.md',path:'书/公式.md',text:'# 公式\n\n质能方程 $E=mc^2$。\n\n$$\\int_0^1 x\\,dx$$\n',updatedAt:1},{id:'paper',name:'论文.tex',path:'书/论文.tex',text:'\\documentclass{article}\n\\begin{document}\n\\section{引言}\n正文\n\\end{document}\n',updatedAt:1}];
 const seed={version:1,activeId:'book',openIds:['book','math','paper'],folders:['书'],settings:{theme:'light'},documents:docs};

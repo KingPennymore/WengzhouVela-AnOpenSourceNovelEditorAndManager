@@ -1,6 +1,5 @@
-import {chromium} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
-import {existsSync} from 'node:fs';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {startSourceAppServer} from './source-app-server.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
@@ -10,7 +9,7 @@ import {buildRecord} from '../web/rich-text.mjs';
 // TXT (with missing files marked and removable), styles, the format-tools switch, and an automatic reading list.
 // On a phone the pages and the style panel use full-width controls.
 const server=await startSourceAppServer();
-const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||(existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe')?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined)});
+const browser=await launchBrowser();
 const checks=[],errors=[];const check=async(name,run)=>{await run();checks.push(name);console.log('PASS '+name);};
 const novel='第一章 风起\n\n　　林舟冷笑一声。\n\n——完——';
 const strong={group:'marks',type:'strong',from:novel.indexOf('林舟'),to:novel.indexOf('林舟')+2};

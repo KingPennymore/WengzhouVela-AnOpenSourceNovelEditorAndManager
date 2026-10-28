@@ -1,10 +1,10 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
-import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
 const seed={version:1,documents:[{id:'book',name:'正文.txt',text:'章前引言\n第一章 这是用于检验窄屏单行显示的很长很长章节标题\n正文。',updatedAt:1,remote:{repo:'writer/book',branch:'main',path:'正文.txt',sha:'a'.repeat(40),lastSyncedText:'旧正文'}}],activeId:'book',openIds:['book'],settings:{theme:'light'}};
 await mkdir('test-results/mobile-status',{recursive:true});
-const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+const browser=await launchBrowser();
 try{
  for(const platform of ['android','harmonyos'])for(const width of [320,360,390,411,600]){
   const context=await browser.newContext({viewport:{width,height:844}});await context.addInitScript(seed=>localStorage.setItem('wenzhou.workspace',JSON.stringify(seed)),seed);const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));

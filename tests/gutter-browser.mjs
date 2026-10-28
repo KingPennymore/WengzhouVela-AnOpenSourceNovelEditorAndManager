@@ -1,13 +1,12 @@
-import {chromium} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
-import {existsSync} from 'node:fs';
 import {startSourceAppServer} from './source-app-server.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
 
 // The line-number column: in novel mode without line numbers the gutter collapses completely (no empty column, no
 // border); with line numbers, and for code files, it keeps its width. Wide and phone layouts.
 const server=await startSourceAppServer();
-const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||(existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe')?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined)});
+const browser=await launchBrowser();
 const checks=[],errors=[];const check=async(name,run)=>{await run();checks.push(name);console.log('PASS '+name);};
 const seed=lines=>({version:1,activeId:'book',openIds:['book','code'],settings:{theme:'light',novelLineNumbers:lines},documents:[{id:'book',name:'正文.txt',text:'第一章 风起\n\n　　林舟冷笑一声。',updatedAt:1},{id:'code',name:'script.js',text:'const a=1;\n',updatedAt:1}]});
 async function open(ui,viewport,lines){

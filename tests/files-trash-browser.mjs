@@ -1,10 +1,10 @@
-import { chromium } from 'playwright';
+import { launchBrowser } from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { startSourceAppServer } from './source-app-server.mjs';
 import { openRecentFile } from './start-page-helper.mjs';
 
-const server = await startSourceAppServer(), browser = await chromium.launch({ headless: true, executablePath: process.env.WENZHOU_CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe' });
+const server = await startSourceAppServer(), browser = await launchBrowser();
 try {
   await mkdir('test-results/trash', { recursive: true });
   for (const width of [390, 1100]) {

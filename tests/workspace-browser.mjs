@@ -1,6 +1,6 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
-import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
 import http from 'node:http';
@@ -11,7 +11,7 @@ import {editCsvCell,csvCellText,findCsvCell} from './csv-grid-helper.mjs';
 const root=path.resolve('dist/web');
 const server=http.createServer(async(req,res)=>{const p=new URL(req.url,'http://localhost').pathname,file=path.resolve(root,'.'+(p==='/'?'/index.html':decodeURIComponent(p)));if(!file.startsWith(root+path.sep)){res.writeHead(403).end();return;}try{const contents=await readFile(file);res.writeHead(200,{'Content-Type':{'.html':'text/html','.js':'text/javascript','.css':'text/css'}[path.extname(file)]||'text/plain'}).end(contents);}catch{res.writeHead(404).end();}});
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-const url=`http://127.0.0.1:${server.address().port}`,browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'}),checks=[],errors=[];
+const url=`http://127.0.0.1:${server.address().port}`,browser=await launchBrowser(),checks=[],errors=[];
 const doc=(id,name,text)=>({id,name,path:name,text,updatedAt:1,remote:null});
 const seed={version:1,documents:[doc('book','未命名小说.txt','第一章 开始\n正文\n\n第二章 继续\n结尾')],openIds:['book'],activeId:'book',settings:{theme:'system'}};
 async function check(name,run){await run();checks.push(name);console.log('PASS '+name);}

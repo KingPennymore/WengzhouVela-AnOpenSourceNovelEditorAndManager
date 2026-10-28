@@ -1,4 +1,4 @@
-import {chromium} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
 import {expandEditorNavigation} from './navigation-helper.mjs';
 import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
@@ -13,7 +13,7 @@ const map=createMap('北境');map.markers=[{id:'port',x:0,y:0,name:'东海港',c
 const outline=createOutline('旅程');addNode(outline,null,{title:'启航'});
 const doc=(id,name,text)=>({id,name,path:name,text,updatedAt:1});
 const seed={version:1,documents:[doc('book','航程.txt','第一章 港口\n\n清晨，船离开了港口。\n\n第二章 灯塔\n\n远处的灯塔渐渐隐去。'),doc('note','人物.md','# 林舟\n来自南方的旅人。'),doc('map','北境.vlmp',mapText(map)),doc('outline','旅程.pcs',outlineText(outline))],activeId:null,openIds:[],settings:{theme:'light'}};
-const server=await startSourceAppServer(),browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+const server=await startSourceAppServer(),browser=await launchBrowser();
 try{for(const [width,height,theme] of [[1280,850,'light'],[1280,850,'dark'],[390,844,'light'],[390,844,'dark'],[320,640,'light'],[390,440,'light'],[768,1024,'dark'],[844,390,'light']]){
  const context=await browser.newContext({viewport:{width,height},hasTouch:width<900,isMobile:width<=600});await noMotion(context);await context.addInitScript(seed=>{if(!localStorage.getItem('wenzhou.workspace'))localStorage.setItem('wenzhou.workspace',JSON.stringify(seed));},{...seed,settings:{theme}});
  const page=await context.newPage(),errors=[],prefix=`${width}-${height}-${theme}`;page.on('pageerror',e=>errors.push(e.message));

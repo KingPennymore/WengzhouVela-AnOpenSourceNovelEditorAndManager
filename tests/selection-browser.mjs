@@ -1,4 +1,4 @@
-import {chromium} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
 import {openRecentFile} from './start-page-helper.mjs';
@@ -17,7 +17,7 @@ const doc=(id,name,text)=>({id,name,path:'Novel/'+name,text,updatedAt:1});
 const lines=[];for(let i=0;i<4000;i++)lines.push(i%40===0?`第${i/40+1}章 航程`:`林舟站在港口，望着远处的灯塔。海风吹过，潮水一遍遍拍打着石阶，第${i}行。`);
 const seed={version:1,documents:[doc('book','正文.txt',lines.join('\n')),doc('config','.vela',velaText(config)),doc('terms','人物.gly',glossaryText({version:1,entries:[{term:'林舟',definition:'航海记录者，负责航海日志与夜间值守。',category:'人物',aliases:['舟']},{term:'灯塔',definition:'航程的目的地',aliases:[]}]}))],activeId:'book',openIds:['book'],settings:{theme:'light',highlightTerms:true}};
 const server=process.env.VELA_TEST_URL?null:await startSourceAppServer(),url=process.env.VELA_TEST_URL||server.url;
-const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'}),checks=[],errors=[];
+const browser=await launchBrowser(),checks=[],errors=[];
 await mkdir('test-results/selection',{recursive:true});
 const check=async(name,run)=>{await run();checks.push(name);console.log('PASS '+name);};
 const overlap=(a,b)=>a.left<b.right-.5&&b.left<a.right-.5&&a.top<b.bottom-.5&&b.top<a.bottom-.5;

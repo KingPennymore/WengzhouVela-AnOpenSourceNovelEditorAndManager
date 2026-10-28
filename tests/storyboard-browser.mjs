@@ -1,6 +1,6 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
-import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {createVelaV2,velaText} from '../web/vela.mjs';
@@ -10,7 +10,7 @@ const config=createVelaV2('航程');config.editor.glossaries=['人物.gly'];conf
 const text='第一章 航程\n林舟推开驾驶舱的门，望向星澜值守的灯塔。周衡望着青岚港。\n'+'海风吹过旧港。'.repeat(300)+'\n林';
 const make=(id,name,text)=>({id,name,path:'Novel/'+name,text,updatedAt:1});
 const seed={version:1,documents:[make('book','航程.txt',text),make('other','另一篇.txt','新的文稿。\n林'),make('config','.vela',velaText(config)),make('terms','人物.gly',glossaryText({version:1,entries:[{term:'林舟',category:'人物',definition:'领航员',aliases:['船长']}]}))],activeId:'book',openIds:['book','other'],settings:{theme:'light',readingMode:'double'}};
-await mkdir('test-results/storyboard',{recursive:true});const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'}),checks=[],errors=[];
+await mkdir('test-results/storyboard',{recursive:true});const browser=await launchBrowser(),checks=[],errors=[];
 const context=await browser.newContext({viewport:{width:1280,height:850}});await context.addInitScript(seed=>{if(window!==window.top||location.protocol!=='http:')return;if(!localStorage.getItem('wenzhou.workspace'))localStorage.setItem('wenzhou.workspace',JSON.stringify(seed));},seed);const p=await context.newPage();p.on('pageerror',e=>errors.push(e.message));
 const setText=async text=>p.evaluate(text=>{const v=velaEditorView;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:text},selection:{anchor:text.length}});v.focus();},text);
 try{

@@ -1,11 +1,11 @@
+import {launchBrowser} from './browser-launch.mjs';
 // Theme switches must not flash: screencast frames are reduced to a 24×24 luminance grid and every cell has to move
 // monotonically from its start to its end value (within JPEG noise). The former per-element fade overshot by 70–90.
-import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {startSourceAppServer} from './source-app-server.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
 import {settled} from './wait-helpers.mjs';
-const server=await startSourceAppServer(),browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+const server=await startSourceAppServer(),browser=await launchBrowser();
 const errors=[];
 for(const [w,h] of [[1280,850],[390,844]]){
   const context=await browser.newContext({viewport:{width:w,height:h}});

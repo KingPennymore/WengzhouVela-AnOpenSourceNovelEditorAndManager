@@ -1,6 +1,6 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
 import assert from 'node:assert/strict';
-import {chromium} from 'playwright';
 import {readFile} from 'node:fs/promises';
 import {startSourceAppServer} from './source-app-server.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
@@ -24,7 +24,7 @@ const main=`VelaPlugins.register('test.formats',{activate(vela){
 }});`;
 const record={manifest:{id:'test.formats',name:'文档格式测试',version:'1.0.0',main:'main.js',vela:{api:'>=4 <5',requiredCapabilities:['document-formats-v2']}},files:{'main.js':Buffer.from(main).toString('base64')},enabled:true};
 const seed={version:1,documents:[{id:'plain',name:'普通.txt',text:'普通正文',updatedAt:1}],activeId:'plain',openIds:['plain'],settings:{theme:'light'}};
-const server=await startSourceAppServer(),browser=await chromium.launch({headless:true,...(process.env.WENZHOU_CHROME?{executablePath:process.env.WENZHOU_CHROME}:{channel:'chrome'})});
+const server=await startSourceAppServer(),browser=await launchBrowser();
 try{
  const page=await browser.newPage({viewport:{width:1280,height:850}}),errors=[];
  page.on('pageerror',error=>errors.push(error.message));

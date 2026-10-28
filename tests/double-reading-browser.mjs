@@ -1,7 +1,8 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
 import {chromium} from 'playwright';import {build} from 'esbuild';import assert from 'node:assert/strict';import {readFile,writeFile} from 'node:fs/promises';
 import {readerReady,readerIdle,settled} from './wait-helpers.mjs';
-const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'}),p=await browser.newPage({viewport:{width:1280,height:800}}),checks=[],errors=[];p.on('pageerror',e=>errors.push(e.message));
+const browser=await launchBrowser(),p=await browser.newPage({viewport:{width:1280,height:800}}),checks=[],errors=[];p.on('pageerror',e=>errors.push(e.message));
 const text=Array.from({length:10},(_,i)=>`第${i+1}章 航程\n`+('船穿过海峡，沿着灯塔指引的航线驶向远方。\n'.repeat(18))).join('\n');
 await p.addInitScript(text=>{if(!localStorage.getItem('wenzhou.workspace'))localStorage.setItem('wenzhou.workspace',JSON.stringify({version:1,documents:[{id:'book',name:'操作指南.txt',text,updatedAt:1},{id:'odd',name:'三章.txt',text:'第一章 启航\n第二章 航行\n第三章 抵达',updatedAt:1},{id:'one',name:'短文.txt',text:'只有一页的短文。',updatedAt:1},{id:'md',name:'章节.md',text:'# 第一章 起点\n\n# 第二章 旅途\n\n# 第三章 终点',updatedAt:1},{id:'tex',name:'布局.tex',text:'',updatedAt:1}],activeId:'book',openIds:['book'],settings:{theme:'light',readingMode:'double'}}));},text);
 const check=async(name,run)=>{await run();checks.push(name);console.log('PASS '+name);};const position=()=>p.evaluate(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')).readerPositions?.book);

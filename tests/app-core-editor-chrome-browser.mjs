@@ -1,18 +1,10 @@
+import { launchBrowser } from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
-import { chromium } from 'playwright';
 import { startSourceAppServer } from './source-app-server.mjs';
 
 const server = await startSourceAppServer();
-const browser = await chromium.launch({
-  headless: true,
-  executablePath:
-    process.env.WENZHOU_CHROME ||
-    (existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe')
-      ? 'C:/Program Files/Google/Chrome/Application/chrome.exe'
-      : undefined),
-});
+const browser = await launchBrowser();
 await mkdir('test-results/editor-chrome', { recursive: true });
 try {
   for (const width of [320, 390, 1280]) {

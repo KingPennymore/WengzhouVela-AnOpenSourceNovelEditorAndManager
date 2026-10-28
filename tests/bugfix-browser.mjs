@@ -1,6 +1,6 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
-import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {createVelaV2,velaText} from '../web/vela.mjs';
 import {glossaryText} from '../web/glossary.mjs';
@@ -10,7 +10,7 @@ const config=createVelaV2('回归验证');config.editor.glossaries=['词条.gly'
 const text='　　第一章 航程\n'+('海风吹过灯塔，林舟继续远航。\n'.repeat(180))+'\n  第二章 归来\n'+('灯火照亮港湾。\n'.repeat(70));
 const entries=Array.from({length:85},(_,i)=>({term:'术语'+i,definition:'解释'.repeat(10),aliases:['Alias'+i]}));entries[0]={term:'林舟',definition:'航海记录者',category:'人物',aliases:['船长']};
 const seed={version:1,activeId:'book',openIds:['book'],settings:{glossaryPanel:true,theme:'light'},documents:[{id:'book',name:'正文.txt',text,updatedAt:1},{id:'config',name:'.vela',text:velaText(config),updatedAt:2},{id:'terms',name:'词条.gly',text:glossaryText({version:1,entries}),updatedAt:3},{id:'long',name:'很长的文件名称'.repeat(12)+'.txt',path:'很长的文件夹名称'.repeat(15)+'/长篇小说.txt',text:'正文',updatedAt:4}]};
-const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+const browser=await launchBrowser();
 await mkdir('test-results/bugfix',{recursive:true});
 try{
  for(const width of [1280,390]){

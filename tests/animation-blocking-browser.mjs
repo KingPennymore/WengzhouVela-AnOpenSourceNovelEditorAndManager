@@ -1,11 +1,11 @@
-import {chromium} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {startSourceAppServer} from './source-app-server.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
 
 const server=await startSourceAppServer();
-const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||undefined});
+const browser=await launchBrowser();
 const reports=[],errors=[];
 const text=Array.from({length:3000},(_,i)=>i%100===0?`第${i/100+1}章 风起`:`　　林舟望着远处的灯塔，风吹过书页。这是第${i}段。`).join('\n');
 const seed={version:1,activeId:null,openIds:['a','b','c'],settings:{theme:'light',autoNouns:false},folders:['小说'],documents:[...['a','b','c'].map(id=>({id,name:id+'.txt',path:'小说/'+id+'.txt',text,updatedAt:1})),{id:'config',name:'.vela',path:'小说/.vela',text:JSON.stringify({version:3,kind:'workspace',id:'novel',project:{name:'小说'}}),updatedAt:1}]};

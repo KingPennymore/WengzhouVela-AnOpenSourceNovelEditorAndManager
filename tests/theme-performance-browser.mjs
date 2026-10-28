@@ -1,9 +1,9 @@
-import {chromium} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import {startSourceAppServer} from './source-app-server.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
 import {themeShiftDone,settled} from './wait-helpers.mjs';
-const server=await startSourceAppServer(),browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'}),errors=[];
+const server=await startSourceAppServer(),browser=await launchBrowser(),errors=[];
 const workspace=JSON.stringify({version:1,documents:[{id:'b',name:'正文.txt',text:'第一章\n\n林舟望着远处的灯塔。',updatedAt:1}],activeId:null,openIds:[],settings:{theme:'light'}});
 async function open(snapshots){
   const context=await browser.newContext({viewport:{width:1280,height:850}});

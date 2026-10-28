@@ -1,4 +1,4 @@
-import {chromium} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {startSourceAppServer} from './source-app-server.mjs';
@@ -15,7 +15,7 @@ const cases=[
 ].filter(item=>!process.env.VELA_PLANNING_CASE||item.name===process.env.VELA_PLANNING_CASE);
 assert.ok(cases.length,'VELA_PLANNING_CASE does not match a stress scenario');
 const server=await startSourceAppServer();
-const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||undefined});
+const browser=await launchBrowser();
 const results=[];
 await mkdir('test-results/planning',{recursive:true});
 const output=process.env.VELA_PLANNING_OUTPUT||'test-results/planning/multitab-performance.json';

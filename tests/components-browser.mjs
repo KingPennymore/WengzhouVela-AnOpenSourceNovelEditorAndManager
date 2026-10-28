@@ -1,5 +1,5 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
-import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {build} from 'esbuild';
 import {zipSync,strToU8} from 'fflate';
@@ -8,8 +8,7 @@ import http from 'node:http';
 import path from 'node:path';
 import {createVelaV2,velaText} from '../web/vela.mjs';
 const root=path.resolve('dist/web'),server=http.createServer(async(req,res)=>{const file=path.resolve(root,'.'+(req.url.split('?')[0]==='/'?'/index.html':req.url.split('?')[0]));if(!file.startsWith(root+path.sep)){res.writeHead(403).end();return;}try{const contents=await readFile(file);res.writeHead(200,{'Content-Type':{'.html':'text/html','.js':'text/javascript','.json':'application/json','.css':'text/css','.wasm':'application/wasm','.mjs':'text/javascript'}[path.extname(file)]||'application/octet-stream'}).end(contents);}catch{res.writeHead(404).end();}});await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));const baseURL=process.env.VELA_TEST_URL||'http://127.0.0.1:'+server.address().port;
-const launch={headless:true,...(process.env.WENZHOU_CHROME?{executablePath:process.env.WENZHOU_CHROME}:{})};
-const browser=await chromium.launch(launch),page=await browser.newPage(),errors=[];
+const browser=await launchBrowser(),page=await browser.newPage(),errors=[];
 page.on('pageerror',e=>errors.push(e.message));
 await page.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/,route=>route.abort());
 const config=createVelaV2('书籍测试');

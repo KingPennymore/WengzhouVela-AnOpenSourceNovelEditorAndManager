@@ -1,5 +1,5 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
-import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {createVelaV2,velaText} from '../web/vela.mjs';
@@ -7,7 +7,7 @@ import {glossaryText} from '../web/glossary.mjs';
 const config=createVelaV2('航程');config.editor.glossaries=['人物.gly','地点.glossary'];
 const doc=(id,name,text)=>({id,name,path:'Novel/'+name,text,updatedAt:1});
 const seed={version:1,documents:[doc('book','操作指南.txt','第一章 航程\n林舟站在港口。'),doc('config','.vela',velaText(config)),doc('terms','人物.gly',glossaryText({version:1,entries:[{term:'林舟',definition:'航海记录者',category:'人物',aliases:['舟']}]})),doc('places','地点.glossary',glossaryText({version:1,entries:[{term:'林舟',definition:'旧港口名',aliases:[]},{term:'灯塔',definition:'目的地',aliases:[]}]}))],activeId:'book',openIds:['book'],settings:{theme:'light'}};
-await mkdir('test-results/ui-overhaul',{recursive:true});const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'}),context=await browser.newContext({viewport:{width:1280,height:850}}),errors=[],checks=[];
+await mkdir('test-results/ui-overhaul',{recursive:true});const browser=await launchBrowser(),context=await browser.newContext({viewport:{width:1280,height:850}}),errors=[],checks=[];
 await context.addInitScript(seed=>{if(window===window.top&&!localStorage.getItem('wenzhou.workspace'))localStorage.setItem('wenzhou.workspace',JSON.stringify(seed));},seed);
 const p=await context.newPage();p.on('pageerror',e=>errors.push(e.message));const state=()=>p.evaluate(()=>{wenzhouSave();return JSON.parse(localStorage.getItem('wenzhou.workspace'));});
 try{

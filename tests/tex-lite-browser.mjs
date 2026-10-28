@@ -1,9 +1,9 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
-import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 const source=String.raw`\documentclass{ctexart}\begin{document}文舟轻量版离线编译。\end{document}`;
-const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'}),page=await browser.newPage(),errors=[];
+const browser=await launchBrowser(),page=await browser.newPage(),errors=[];
 page.on('pageerror',e=>errors.push(e.message));await page.addInitScript(source=>{if(!localStorage.getItem('wenzhou.workspace'))localStorage.setItem('wenzhou.workspace',JSON.stringify({version:1,documents:[{id:'tex',name:'main.tex',text:source,updatedAt:1}],settings:{theme:'light'},activeId:'tex',openIds:['tex']}));},source);
 await mkdir('test-results/improvements',{recursive:true});
 const open=async()=>{await page.goto(process.env.VELA_TEST_URL||'http://127.0.0.1:4173');await openRecentFile(page,page.locator('[data-recent=tex]'));await page.locator('[data-display=preview]').click();await page.waitForSelector('.tex-component-controls:not([hidden])');};

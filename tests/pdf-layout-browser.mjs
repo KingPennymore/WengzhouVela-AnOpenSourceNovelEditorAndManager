@@ -1,5 +1,5 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
-import {chromium} from 'playwright';
 import {build} from 'esbuild';
 import assert from 'node:assert/strict';
 import http from 'node:http';
@@ -26,7 +26,7 @@ const server=http.createServer(async(req,res)=>{
   try{const bytes=await readFile(file);res.writeHead(200,{'Content-Type':{'.html':'text/html','.js':'text/javascript','.mjs':'text/javascript','.css':'text/css','.wasm':'application/wasm'}[path.extname(file)]||'application/octet-stream'}).end(bytes);}catch{res.writeHead(404).end();}
 });
 await new Promise(resolve=>server.listen(0,'127.0.0.1',resolve));
-const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+const browser=await launchBrowser();
 const page=await browser.newPage({viewport:{width:1280,height:800}}),errors=[],checks=[];page.on('pageerror',error=>errors.push(error.message));
 await page.addInitScript(()=>localStorage.setItem('wenzhou.workspace',JSON.stringify({version:1,documents:[{id:'tex',name:'排版验证.tex',text:'',updatedAt:1},{id:'guide',name:'操作指南.txt',text:'PDF layout test',updatedAt:1}],activeId:'tex',openIds:['tex'],settings:{theme:'light',libraryOpen:false}})));
 const pdf=[...fixturePdf()];

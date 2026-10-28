@@ -1,12 +1,12 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
-import {chromium} from 'playwright';
 import {readdir,readFile,mkdir,writeFile} from 'node:fs/promises';
 import assert from 'node:assert/strict';
 async function documents(folder='测试文件',prefix=''){
   const docs=[];for(const item of await readdir(folder,{withFileTypes:true})){const path=prefix+item.name;if(item.isDirectory())docs.push(...await documents(folder+'/'+item.name,path+'/'));else docs.push({id:path,name:item.name,path,text:await readFile(folder+'/'+item.name,'utf8'),updatedAt:1,remote:null});}return docs;
 }
-const docs=await documents(),browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'}),page=await browser.newPage({viewport:{width:1280,height:900}}),errors=[];
+const docs=await documents(),browser=await launchBrowser(),page=await browser.newPage({viewport:{width:1280,height:900}}),errors=[];
 page.on('pageerror',error=>errors.push(error.message));
 await page.addInitScript(documents=>{if(window.top!==window)return;if(!localStorage.getItem('wenzhou.workspace'))localStorage.setItem('wenzhou.workspace',JSON.stringify({version:1,documents,openIds:[],activeId:null,settings:{libraryOpen:false}}));},docs);
 await mkdir('test-results',{recursive:true});

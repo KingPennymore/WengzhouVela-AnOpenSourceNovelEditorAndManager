@@ -1,7 +1,6 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
-import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
-import {existsSync} from 'node:fs';
 import {mkdir,writeFile,readFile} from 'node:fs/promises';
 import {unzipSync,strFromU8} from 'fflate';
 import {startSourceAppServer} from './source-app-server.mjs';
@@ -11,7 +10,7 @@ import {openRecentFile} from './start-page-helper.mjs';
 // saving into the work's .vela, reader and exports.
 // The browser preview cannot read workspace images, so illustrations show placeholders and are left out of exports.
 const server=await startSourceAppServer();
-const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||(existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe')?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined)});
+const browser=await launchBrowser();
 const checks=[],errors=[];const check=async(name,run)=>{await run();checks.push(name);console.log('PASS '+name);};
 const novel='第一章 风起\n\n　　林舟冷笑一声。\n\n【叮！任务完成】\n\n　　她低声说道：“走。”';
 const stored=page=>page.evaluate(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')));

@@ -1,10 +1,10 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
-import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {writeFile} from 'node:fs/promises';
 import {readerReady} from './wait-helpers.mjs';
-const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'}),p=await browser.newPage({viewport:{width:1280,height:800}}),checks=[],errors=[];
+const browser=await launchBrowser(),p=await browser.newPage({viewport:{width:1280,height:800}}),checks=[],errors=[];
 p.on('pageerror',error=>errors.push(error.message));
 await p.addInitScript(()=>localStorage.setItem('wenzhou.workspace',JSON.stringify({version:1,documents:[{id:'book',name:'正文.txt',path:'Book/正文.txt',text:'第一章 起点\n风吹过海面。\n第二章 归航\n风吹过港湾。',updatedAt:1},{id:'other',name:'笔记.txt',path:'Book/笔记.txt',text:'记录风向。',updatedAt:1},{id:'config',name:'.vela',path:'Book/.vela',text:JSON.stringify({version:2,kind:'workspace',id:'p',project:{name:'航程'},reader:{mode:'pages'},reading:{items:[{id:'b',path:'正文.txt'},{id:'o',path:'笔记.txt'}]}}),updatedAt:1}],activeId:'book',openIds:['book'],settings:{theme:'light'}})));
 const state=()=>p.evaluate(()=>JSON.parse(localStorage.getItem('wenzhou.workspace'))),text=()=>p.evaluate(()=>velaEditorView.state.doc.toString());

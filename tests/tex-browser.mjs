@@ -1,9 +1,9 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
-import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {writeFile,mkdir,readFile} from 'node:fs/promises';
 import {zipSync,strToU8} from 'fflate';
-const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'}),page=await browser.newPage();
+const browser=await launchBrowser(),page=await browser.newPage();
 const errors=[];page.on('pageerror',error=>errors.push(error.message));page.on('console',message=>{if(message.type()==='error')console.log('BROWSER '+message.text());});
 const source=String.raw`\documentclass{ctexart}
 \usepackage{amsmath}

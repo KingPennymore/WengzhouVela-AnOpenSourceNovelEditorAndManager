@@ -1,5 +1,5 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
-import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
 import {startSourceAppServer} from './source-app-server.mjs';
@@ -9,7 +9,7 @@ import {createMap,mapText} from '../web/map.mjs';
 const out='test-results/dialog-mobile';await mkdir(out,{recursive:true});
 const map=createMap('北境');map.markers=[{id:'port',x:0,y:0,name:'港口',category:'城市'}];
 const seed={version:1,documents:[{id:'book',name:'航程.txt',path:'航程.txt',text:'第一章 航程\n\n远处的灯塔亮着。',updatedAt:1},{id:'map',name:'北境.vlmp',path:'北境.vlmp',text:mapText(map),updatedAt:1}],folders:Array.from({length:24},(_,i)=>'资料/'+String(i+1).padStart(2,'0')+' · 航行记录'),activeId:null,openIds:[],settings:{theme:'light'}};
-const server=await startSourceAppServer(),browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+const server=await startSourceAppServer(),browser=await launchBrowser();
 try{for(const [width,height,theme] of [[1280,850,'light'],[1280,850,'dark'],[390,844,'light'],[390,844,'dark'],[320,640,'light'],[844,390,'light']]){
  const context=await browser.newContext({viewport:{width,height},hasTouch:width<900,isMobile:width<=600});await noMotion(context);
  await context.addInitScript(seed=>{if(!localStorage.getItem('wenzhou.workspace'))localStorage.setItem('wenzhou.workspace',JSON.stringify(seed));let visualHeight=null;const visual=new EventTarget();Object.defineProperties(visual,{height:{get:()=>visualHeight??innerHeight},width:{get:()=>innerWidth},scale:{value:1},offsetTop:{value:0},offsetLeft:{value:0}});Object.defineProperty(window,'visualViewport',{value:visual,configurable:true});window.setTestKeyboardHeight=value=>{visualHeight=value;visual.dispatchEvent(new Event('resize'));};},{...seed,settings:{theme}});

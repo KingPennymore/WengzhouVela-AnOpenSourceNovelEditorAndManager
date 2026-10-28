@@ -1,6 +1,5 @@
-import {chromium} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
-import {existsSync} from 'node:fs';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {startSourceAppServer} from './source-app-server.mjs';
 import {tour,tourPage,tourVariants} from './app-tour.mjs';
@@ -14,7 +13,7 @@ import {tour,tourPage,tourVariants} from './app-tour.mjs';
 // button closes it first).
 const exempt=['dialog','.cm-tooltip','.selection-menu','.selection-more','#toolbar-overflow'];
 const server=await startSourceAppServer();
-const browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||(existsSync('C:/Program Files/Google/Chrome/Application/chrome.exe')?'C:/Program Files/Google/Chrome/Application/chrome.exe':undefined)});
+const browser=await launchBrowser();
 const failures=[],scanned=[],errors=[];
 const scan=exempt=>[...document.querySelectorAll('body *')].filter(element=>{
   const style=getComputedStyle(element);if(!/(auto|scroll)/.test(style.overflowX+style.overflowY)||!element.checkVisibility())return false;

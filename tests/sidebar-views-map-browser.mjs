@@ -1,4 +1,4 @@
-import {chromium} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
 import {zipSync,strToU8} from 'fflate';
@@ -11,7 +11,7 @@ import {createMap,mapText} from '../web/map.mjs';
 const map=createMap('北境');map.markers=[{id:'city',x:0,y:0,name:'白石城',note:'北方的门户',category:'城市',symbol:'building.city'},{id:'port',x:6000,y:1200,name:'东海港',note:'资源集散地',category:'资源',symbol:'facility.port'},{id:'legacy',x:-5000,y:0,name:'旧路口'}];
 const seed={version:1,documents:[{id:'map',name:'北境.vlmp',path:'北境.vlmp',text:mapText(map),updatedAt:1},{id:'book',name:'正文.txt',path:'正文.txt',text:'第一章 开篇\n\n正文。',updatedAt:1}],activeId:null,openIds:[],settings:{theme:'light'}};
 const outline=createOutline('剧情');const nodeId=addNode(outline,null,{title:'起点'});seed.documents.push({id:'outline',name:'剧情.pcs',path:'剧情.pcs',text:outlineText(outline),updatedAt:1});
-const server=await startSourceAppServer(),browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'});await mkdir('test-results/sidebar-views',{recursive:true});
+const server=await startSourceAppServer(),browser=await launchBrowser();await mkdir('test-results/sidebar-views',{recursive:true});
 try{for(const width of [1280,390])for(const theme of ['light','dark']){
  const context=await browser.newContext({viewport:{width,height:850},hasTouch:true,isMobile:width<500});await noMotion(context);await context.addInitScript(seed=>{if(!localStorage.getItem('wenzhou.workspace'))localStorage.setItem('wenzhou.workspace',JSON.stringify(seed));},{...seed,settings:{theme}});const page=await context.newPage(),errors=[];page.on('pageerror',e=>errors.push(e.message));
  const stored=()=>page.evaluate(()=>JSON.parse(JSON.parse(localStorage.getItem('wenzhou.workspace')).documents.find(d=>d.id==='map').text));

@@ -1,5 +1,5 @@
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
-import {chromium} from 'playwright';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {startSourceAppServer} from './source-app-server.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
@@ -8,7 +8,7 @@ import {createMap,mapText} from '../web/map.mjs';
 import {createOutline,outlineText} from '../web/outline.mjs';
 const map=createMap('主图');map.markers=[{id:'place',x:0,y:0,name:'港口',category:'城市',link:'子图.vlmp'}];const outline=createOutline('剧情');outline.view='relations';outline.relations={nodes:{a:{title:'角色甲',children:[],layout:{x:0,y:0}}},edges:[]};
 const doc=(id,name,text)=>({id,name,path:name,text,updatedAt:1}),seed={version:1,documents:[doc('map','主图.vlmp',mapText(map)),doc('child','子图.vlmp',mapText(createMap('子图'))),doc('outline','剧情.pcs',outlineText(outline)),doc('terms','人物.gly',JSON.stringify({version:1,entries:[{term:'角色甲',definition:'人物资料'}]}))],settings:{theme:'dark',palette:'wheat'},activeId:null,openIds:[]};
-const out='test-results/map-info-choices';await mkdir(out,{recursive:true});const server=await startSourceAppServer(),browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'}),checks=[],errors=[];
+const out='test-results/map-info-choices';await mkdir(out,{recursive:true});const server=await startSourceAppServer(),browser=await launchBrowser(),checks=[],errors=[];
 try{for(const [width,height] of [[320,844],[390,844],[844,390],[1280,850]]){
  const context=await browser.newContext({viewport:{width,height},isMobile:width<900,hasTouch:width<900});await noMotion(context);await context.addInitScript(seed=>localStorage.setItem('wenzhou.workspace',JSON.stringify(seed)),seed);const p=await context.newPage();p.on('pageerror',e=>errors.push(e.message));
  const stored=id=>p.evaluate(id=>{wenzhouSave();return JSON.parse(JSON.parse(localStorage.getItem('wenzhou.workspace')).documents.find(d=>d.id===id).text);},id),edit=async()=>{await p.evaluate(()=>document.querySelector('#preview').planningApi.navigate({id:'place',edit:true}));await p.locator('.map-point-sheet:not([hidden])').waitFor();assert.equal(await p.locator('.app-choice-menu').count(),0);},choose=async(selector,value)=>{await p.locator(selector).click();await p.locator(`.app-choice-menu [data-value="${value}"]`).click();},save=()=>p.locator('.map-point-form button.primary').click(),style=selector=>p.locator(selector).evaluate(el=>{const s=getComputedStyle(el);return [s.borderRadius,s.fontSize,s.minHeight,s.padding];});

@@ -1,10 +1,10 @@
+import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
-import {chromium} from 'playwright';
 import assert from 'node:assert/strict';
 import {writeFile} from 'node:fs/promises';
 import {readerReady} from './wait-helpers.mjs';
-const browser=await chromium.launch({headless:true,executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe'}),p=await browser.newPage({viewport:{width:390,height:820}}),checks=[],errors=[];
+const browser=await launchBrowser(),p=await browser.newPage({viewport:{width:390,height:820}}),checks=[],errors=[];
 p.on('pageerror',e=>errors.push(e.message));
 const novel='第一章 航路。\n'+('海上的风带来远方的消息。\n').repeat(60)+'第二章 港湾！\n'+('灯塔照亮归来的船。\n').repeat(60);
 const docs=[{id:'regional',name:'小说.txt',path:'项目/小说.txt',text:novel},{id:'outside',name:'散文.txt',path:'其他/散文.txt',text:novel},{id:'regional-config',name:'.vela',path:'项目/.vela',text:JSON.stringify({version:2,kind:'workspace',id:'regional',project:{name:'项目'},reader:{mode:'pages'},reading:{layout:{fontSize:17},items:[{id:'book',path:'小说.txt'}]}})}];

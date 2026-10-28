@@ -1,4 +1,4 @@
-import {chromium} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {startSourceAppServer} from './source-app-server.mjs';
@@ -9,7 +9,7 @@ import {paletteFor} from '../web/palettes.mjs';
 const out='test-results/mobile-startup';await mkdir(out,{recursive:true});
 const map=createMap('北境');map.markers=[{id:'port',name:'港口',x:0,y:0}];
 const seed={version:1,documents:[{id:'book',name:'航程.txt',path:'航程.txt',text:'第一章 起航\n\n海风吹过港湾。',updatedAt:1},{id:'map',name:'北境.vlmp',path:'北境.vlmp',text:mapText(map),updatedAt:1}],activeId:null,openIds:[],settings:{theme:'dark',palette:'wheat',autoNouns:false}};
-const server=await startSourceAppServer(),browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||'C:/Program Files/Google/Chrome/Application/chrome.exe'});
+const server=await startSourceAppServer(),browser=await launchBrowser();
 const checks=[],errors=[];
 try{for(const width of [390,320]){
  const context=await browser.newContext({viewport:{width,height:844},isMobile:true,hasTouch:true,colorScheme:'light'});const colors={light:paletteFor('wheat',false).colors,dark:paletteFor('wheat',true).colors};

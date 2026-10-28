@@ -1,8 +1,8 @@
-import {chromium} from 'playwright';
+import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
 import {startSourceAppServer} from './source-app-server.mjs';
-const server=await startSourceAppServer(),browser=await chromium.launch({headless:true,executablePath:process.env.WENZHOU_CHROME||undefined});
+const server=await startSourceAppServer(),browser=await launchBrowser();
 try{
  const page=await browser.newPage();page.on('console',message=>console.log(message.text()));await page.goto(server.url);await page.waitForFunction(()=>window.velaReady);
  const result=await page.evaluate(async()=>{

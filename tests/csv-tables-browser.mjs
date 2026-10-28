@@ -1,5 +1,5 @@
+import { launchBrowser } from './browser-launch.mjs';
 import { setCsvZoom } from './csv-grid-helper.mjs';
-import { chromium } from 'playwright';
 import assert from 'node:assert/strict';
 import { mkdir, readFile } from 'node:fs/promises';
 import { startSourceAppServer } from './source-app-server.mjs';
@@ -33,11 +33,7 @@ const seed = {
   ],
 };
 const server = await startSourceAppServer(),
-  browser = await chromium.launch({
-    headless: true,
-    executablePath:
-      process.env.WENZHOU_CHROME || 'C:/Program Files/Google/Chrome/Application/chrome.exe',
-  });
+  browser = await launchBrowser();
 try {
   await mkdir('test-results/csv-tables', { recursive: true });
   for (const width of [320, 390, 1100]) {
