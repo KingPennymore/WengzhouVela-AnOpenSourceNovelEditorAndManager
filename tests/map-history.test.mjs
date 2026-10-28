@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {MapHistory,mapSnapshot,snapshotSections,same} from '../web/map-history.mjs';
+import {MapHistory,extendSnapshot,mapSnapshot,snapshotSections,same} from '../web/map-history.mjs';
 
 const map=()=>({grid:{size:20,visible:false},cells:{'0,0':{color:'#123'},'1,0':{color:'#456'}},markers:[{id:'m1',x:1,y:2}],name:'岛'});
 
@@ -31,4 +31,15 @@ test('unchanged partial snapshots record nothing and full snapshots still work',
   const before=structuredClone(value);value.cells['2,0']={color:'#789'};
   assert.equal(history.record(before,value),true);history.apply(value);assert.deepEqual(value,map());
   assert.equal(same({a:1,b:undefined},{a:1}),true);assert.equal(same([1,{x:2}],[1,{x:3}]),false);
+});
+
+test('extending a snapshot adds sections a commit changes itself so undo restores them too',()=>{
+  const value={...map(),generated:[{id:'g-drawing-fill',paths:[]}]},history=new MapHistory();
+  let before=mapSnapshot(value,['cells']);value.cells['2,0']={type:'draw'};
+  const extended=extendSnapshot(before,value,['generated','cells']);
+  assert.deepEqual(snapshotSections(extended),['cells','generated']);assert.deepEqual(snapshotSections(before),['cells'],'the original snapshot is left alone');
+  value.generated=[{id:'g-drawing-fill',paths:[[[0,0],[1,1]]]}];
+  assert.equal(history.record(extended,value),true);history.apply(value);
+  assert.deepEqual(value,{...map(),generated:[{id:'g-drawing-fill',paths:[]}]});
+  before=structuredClone(value);assert.equal(extendSnapshot(before,value,['generated']),before,'full snapshots need no extension');
 });

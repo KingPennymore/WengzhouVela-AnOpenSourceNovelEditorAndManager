@@ -1,5 +1,6 @@
 import {infoFields,infoSymbolSvg} from './map-info.mjs';
 import {informationPoints} from './map-points.mjs';
+import {mapSnapshot} from './map-history.mjs';
 import {planningLinkPicker} from './planning-link-picker.mjs';
 import {t} from './i18n.mjs';
 
@@ -14,14 +15,14 @@ export function editMapPoint({root,marker,value,files,escape:esc,sheet,commit}){
  const chooseMap=event=>planningLinkPicker(root,{title:t('链接地图'),files:[...files.filter(file=>file.kind==='MAP'),...(linkedPath&&!files.some(file=>file.path===linkedPath)?[{path:linkedPath}]:[])],sourceName:'link',sourceLabel:t('地图'),selected:linkedPath,emptyMessage:t('请先新建地图。'),escape:esc,opener:event.currentTarget,parent:active,overlay:true,onSubmit:({path})=>{linkedPath=path;renderLink();}});
  form.querySelector('[data-link-map]').onclick=chooseMap;form.querySelector('[data-edit-map-link]').onclick=chooseMap;form.querySelector('[data-remove-map-link]').onclick=()=>{linkedPath='';renderLink();};renderLink();
  form.onsubmit=event=>{
-  event.preventDefault();const before=structuredClone(value);
+  event.preventDefault();const before=mapSnapshot(value,[marker.legacyKey?'cells':'markers']);
   current.category=category.value==='其他'?custom.value.trim()||'其他':category.value;current.symbol=form.elements.symbol.value;
   if(!current.category)delete current.category;if(!current.symbol)delete current.symbol;
   current.name=form.elements.name.value;current.note=form.elements.note.value;if(linkedPath)current.link=linkedPath;else delete current.link;delete current.invalid;
   if(commit(before))active.close();
  };
  form.querySelector('[data-remove-marker]').onclick=()=>{
-  const before=structuredClone(value);
+  const before=mapSnapshot(value,[marker.legacyKey?'cells':'markers']);
   if(marker.legacyKey){delete current.name;delete current.category;delete current.symbol;delete current.note;delete current.link;if(current.type==='info')delete value.cells[marker.legacyKey];}
   else value.markers=value.markers.filter(point=>point.id!==marker.id);
   commit(before);active.close();
