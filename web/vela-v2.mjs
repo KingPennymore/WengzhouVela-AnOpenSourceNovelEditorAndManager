@@ -168,7 +168,7 @@ export function effectiveVela(global,project,path=''){
   result=mergeConfig(result,file);
   result.reading={...result.reading,layout:mergeConfig(mergeConfig(recommended,file.reader?.layout),file.reading?.layout)};
   if(g.reader?.appearancePolicy==='personal') result.reading.layout=mergeConfig(result.reading.layout,g.reader.layout);
-  return {...result,version:2,kind:project?.kind||global?.kind||'workspace',project:project?.project||{name:'文稿'}};
+  return {...result,version:2,kind:project?.kind||global?.kind||'workspace',project:project?.project||{name:'文稿'}}; // i18n-data: default name stored in .vela
 }
 export function effectiveFileVela(global,base,file){
   const result=mergeConfig(base,file);

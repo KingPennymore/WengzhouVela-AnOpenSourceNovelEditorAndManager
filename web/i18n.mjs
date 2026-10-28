@@ -253,3 +253,5 @@ Object.assign(dictionary, {
  'PDF 页面尺寸无效。':'Invalid PDF page dimensions.',
  '回收站批量项目无效。':'Invalid trash selection.'
 });
+
+Object.assign(dictionary,{'左栏视图':'Left sidebar views','右栏视图':'Right sidebar views','全局':'Global','本作品':'This project','默认':'Default','跟随应用设置':'Follow app setting','常用于整段':'Usually for paragraphs','常用于文字':'Usually for text','默认配置':'Default configuration','转换地形':'Convert terrain'});

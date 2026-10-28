@@ -140,8 +140,9 @@ export function resolveStyles(configured={}){
 const FONTS={
   serif:'"Songti SC","Noto Serif CJK SC","Source Han Serif SC",serif',
   sans:'"PingFang SC","Noto Sans CJK SC","Microsoft YaHei",sans-serif',
+  // i18n-data: font family names
   kai:'"Kaiti SC",KaiTi,STKaiti,"楷体",serif',
-  fangsong:'"FangSong",STFangsong,"仿宋",serif',
+  fangsong:'"FangSong",STFangsong,"仿宋",serif', // i18n-data
   mono:'"Cascadia Mono",Consolas,monospace'
 };
 const THEME_COLORS={muted:'var(--muted)',accent:'var(--accent)',warning:'var(--warning)',danger:'var(--danger)'};

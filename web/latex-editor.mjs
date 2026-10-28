@@ -14,6 +14,7 @@ const C=(label,template,detail,group)=>({label,template,detail,group});
 export const texCommands=[
   C('documentclass','\\documentclass[${UTF8}]{${ctexart}}','文档类','结构'),
   C('usepackage','\\usepackage{${package}}','引入宏包','结构'),
+  // i18n-data-start: inserted text and word lists, not UI
   C('title','\\title{${标题}}','标题','结构'),
   C('author','\\author{${作者}}','作者','结构'),
   C('date','\\date{${\\today}}','日期','结构'),
@@ -116,6 +117,7 @@ export const texEnvironments=[
   E('theorem','\n\t${}\n','定理'),
   E('proof','\n\t${}\n','证明'),
   E('thebibliography','{${99}}\n\t\\bibitem{${key}} ${条目}\n','参考文献列表')
+  // i18n-data-end
 ];
 const PACKAGES=['amsmath','amssymb','amsthm','graphicx','hyperref','geometry','ctex','xeCJK','fontspec','booktabs','longtable','multirow','array','xcolor','tikz','listings','caption','subcaption','float','enumitem','fancyhdr','titlesec','setspace','natbib','biblatex','url','siunitx','mathtools','bm','ulem'];
 const CLASSES=['ctexart','ctexrep','ctexbook','ctexbeamer','article','report','book','beamer','letter'];

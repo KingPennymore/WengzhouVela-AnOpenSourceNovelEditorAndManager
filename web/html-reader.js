@@ -322,6 +322,7 @@ import {indexedText,characterRect,visibleTextOffset} from './reading-position.mj
     const add=document.createElement('button');
     add.innerHTML=icon('annotation');
     add.className='icon-action';
+    // i18n-data: the standalone reader picks its language itself
     add.title=english?'Add bookmark / note':'添加书签 / 批注';
     add.setAttribute('aria-label',add.title);
     add.onclick=()=>{

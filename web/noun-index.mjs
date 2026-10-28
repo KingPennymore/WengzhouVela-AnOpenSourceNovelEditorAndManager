@@ -3,6 +3,7 @@ const dictionaryExcluded=new Set(excludedWords.split(' '));
 // Deliberately conservative suggestions, not a POS tagger. No text leaves the device.
 const common=new Set(
   (
+    // i18n-data-start: inserted text and word lists, not UI
     '自己 我们 你们 他们 她们 它们 什么 怎么 为什么 这个 那个 这些 那些 一个 一种 一些 一切 一样 一起 一直 已经 还是 只是 就是 不是 没有 不能 不会 可以 可能 应该 必须 需要 时候 时间 今天 '+
     '昨天 明天 现在 刚才 然后 但是 因为 所以 如果 虽然 于是 终于 其实 突然 依然 仍然 当然 似乎 仿佛 觉得 知道 看见 看到 听见 听到 发现 想到 想起 认为 明白 开始 继续 结束 走来 走去 走进 走出 '+
     '走到 回来 回去 回头 转身 抬头 低头 点头 摇头 微笑 说道 说话 问道 回答 告诉 声音 目光 眼睛 脸上 手中 心里 身上 面前 身后 旁边 里面 外面 上面 下面 前面 后面 东西 事情 问题 地方 世界 人们 '+
@@ -263,6 +264,7 @@ export function extractNouns(text,coreFrom=0,coreTo=text.length){
         expression===titled
           ?'titled'
           :next==='的'
+          // i18n-data-end
             ?'possessive'
             :expression!==subject
               ?'action'

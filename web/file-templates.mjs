@@ -8,6 +8,7 @@ import {createVelaOdt} from './odf-base.mjs';
 // Starter content follows the file format itself: the skeleton a new file of that type needs, not story placeholders.
 const code={
   json:'{\n  "name": "",\n  "items": []\n}\n',
+  // i18n-data-start: inserted text and word lists, not UI
   json5:"{\n  // 注释\n  name: '',\n  items: [],\n}\n",
   jsonl:'{"id": 1, "text": ""}\n',
   js:"// @ts-check\n'use strict';\n\nfunction main() {\n}\n\nmain();\n",
@@ -117,6 +118,7 @@ const formats={
     text:()=>
       '\\documentclass[UTF8]{ctexart}\n\\usepackage[a4paper,margin=2.5cm]{geometry}\n\n\\title{标题}\n\\author{作者}\n'+
       '\\date{\\today}\n\n\\begin{document}\n\\maketitle\n\n\\section{第一节}\n正文。\n\n\\end{document}\n'
+      // i18n-data-end
   },
   OUTLINE:{
     get label(){

@@ -20,6 +20,7 @@ export function renderVelaV2({root,doc,workspace,escape:esc,onSave,onOpenPath,on
   const field=(name,label,value,inherited,min,max,step=1)=>`<label>${t(label)}<input name="${name}" type="number" min="${min}" max="${max}" step="${step}" value="${value??''}" placeholder="${t('继承')} · ${inherited}"><small>${t('留空恢复继承')}</small></label>`;
   const layout=global?config.reader?.layout||{}:config.reading.layout||{},labels={lineHeight:'行距',marginTop:'上边距',marginBottom:'下边距',marginLeft:'左边距',marginRight:'右边距'};
   root.className='vela-preview';
+  // i18n-data: data-section keys are selectors, not UI text
   root.innerHTML=`<form id="vela-form" class="vela-config">
       <header class="vela-config-header">
         <span class="vela-config-mark">.vela v${config.version}</span>
@@ -34,6 +35,7 @@ export function renderVelaV2({root,doc,workspace,escape:esc,onSave,onOpenPath,on
         <nav class="vela-sections">${['作品信息','编辑','章节','阅读排版','阅读清单','高级'].filter(name=>!global||!['作品信息','章节'].includes(name)).map(name=>`<button type="button" data-vela-section="${name}">${t(name)}</button>`).join('')}</nav>
         <div class="vela-config-grid">${global
     ?''
+    // i18n-data: data-section keys are selectors, not UI text
     :`<section class="vela-card" data-section="作品信息">
         <h3>${t('作品信息')}</h3>
         <label>${t('工作区名称')}<input name="name" maxlength="160" required value="${esc(config.project.name)}"></label>
@@ -59,6 +61,7 @@ export function renderVelaV2({root,doc,workspace,escape:esc,onSave,onOpenPath,on
               <small>${t('路径相对于当前配置文件；留空继承，输入 [] 停用术语库。')}</small></label>
           </section>${global
     ?''
+    // i18n-data: data-section keys are selectors, not UI text
     :`<section class="vela-card" data-section="章节">
         <h3>${t('章节')}</h3>
         <label>${t('标题模板')}<textarea name="titleTemplates" rows="4">${esc((config.chapters?.templates||[]).join('\n'))}</textarea></label>
@@ -175,6 +178,7 @@ export function renderVelaV2({root,doc,workspace,escape:esc,onSave,onOpenPath,on
       count();
     };
   autoBox?.addEventListener('change',syncAuto);
+  // i18n-data: data-section keys are selectors, not UI text
   const advanced=root.querySelector('[data-section="高级"]'),overrides=structuredClone(config.files||{});
   const formatLabel=document.createElement('label');
   formatLabel.textContent=t('大纲与地图配置');

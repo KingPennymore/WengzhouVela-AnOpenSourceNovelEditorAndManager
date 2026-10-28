@@ -32,7 +32,7 @@ export function parseOutline(text){
         throw Error(t('术语库链接必须是数组。'));
       const ids=new Set();
       for(const l of n.glossaryLinks){
-        object(l,'术语库链接');
+        object(l,'术语库链接'); // i18n-data: label inside a validation message
         string(l.id,'id');
         string(l.entryId,'entryId');
         if(!l.id||!l.entryId||ids.has(l.id))
@@ -98,7 +98,7 @@ export function parseOutline(text){
     throw Error(t('关系边最多 10000 条。'));
   const seen=new Set();
   for(const e of v.edges){
-    object(e,'关系边');
+    object(e,'关系边'); // i18n-data: label inside a validation message
     string(e.id,'id');
     if(!e.id||seen.has(e.id)||!Object.hasOwn(nodes,e.from)||!Object.hasOwn(nodes,e.to))
       throw Error(t('关系边 ID 或节点引用无效。'));

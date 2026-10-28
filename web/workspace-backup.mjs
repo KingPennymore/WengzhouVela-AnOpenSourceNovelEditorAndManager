@@ -108,7 +108,7 @@ export function prepareBackupRestore(backup,folder){
     add(doc,folder + '/' + documentPath(doc));
   for(const item of backup.trash||[])
     for(const doc of (item.documents||[]).filter(doc=>!doc.binary&&!doc.pluginView))
-      add(doc,folder + '/回收站文稿/' + encodeURIComponent(item.id) + '/' + documentPath(doc));
+      add(doc,folder + '/回收站文稿/' + encodeURIComponent(item.id) + '/' + documentPath(doc)); // i18n-data: archive folder name
   const annotations={},
     localHistory={};
   for(const [sourceId,doc] of restored){
