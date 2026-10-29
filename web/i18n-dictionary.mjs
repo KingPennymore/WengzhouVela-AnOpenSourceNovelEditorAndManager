@@ -249,3 +249,5 @@ Object.assign(dictionary,{'快捷操作':'Quick actions','应用布局容器缺�
 export {dictionary};
 
 Object.assign(dictionary,{'隐私政策':'Privacy policy','补全与术语':'Completion and terminology','章节与字数':'Chapters and counting','存储与同步':'Storage and sync','备份与关于':'Backup and about','主题':'Theme'});
+
+Object.assign(dictionary,{'沉浸写作':'Immersive writing','连续输入时收起操作栏，滑动或点按屏幕边缘恢复。':'Hide controls while typing; swipe or tap a screen edge to restore them.','＋ 自定义':'+ Custom','格式工具':'Formatting tools','跳转':'Jump','已保存':'Saved','保存失败':'Save failed'});

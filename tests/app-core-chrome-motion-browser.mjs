@@ -62,7 +62,7 @@ try {
           return {
             arriving: frames(document.querySelector('[data-view=github]'))?.[0].transform,
             departing: frames(
-              document.querySelector('.chrome-motion-ghost[data-source=search-editor]'),
+              document.querySelector('.chrome-motion-ghost[data-source=outline-toggle]'),
             )?.at(-1).transform,
           };
         });
@@ -94,7 +94,7 @@ try {
               .find((item) => !('transitionProperty' in item) && !('animationName' in item))
               ?.effect.getKeyframes();
           return {
-            arriving: frames(document.querySelector('#search-editor'))?.[0].transform,
+            arriving: frames(document.querySelector('#outline-toggle'))?.[0].transform,
             departing: frames(
               document.querySelector('.chrome-motion-ghost[data-source=nav-github]'),
             )?.at(-1).transform,
@@ -132,7 +132,9 @@ try {
               effect.pause();
               effect.currentTime = 60;
             }
-            const ghost = document.querySelector('.chrome-motion-ghost[data-source=search-editor]');
+            const ghost = document.querySelector(
+              '.chrome-motion-ghost[data-source=outline-toggle]',
+            );
             const before = {
               x: ghost.getBoundingClientRect().x,
               opacity: Number(getComputedStyle(ghost).opacity),
@@ -142,7 +144,7 @@ try {
               effect.pause();
               effect.currentTime = 0;
             }
-            const button = document.querySelector('#search-editor');
+            const button = document.querySelector('#outline-toggle');
             const after = {
               x: button.getBoundingClientRect().x,
               opacity: Number(getComputedStyle(button).opacity),
@@ -169,7 +171,9 @@ try {
         assert.equal(await page.locator('.chrome-motion-ghost').count(), 0);
       }
       // Real overlapping controls: the editor's search panel stays open beneath the menu.
+      if (width < 900) await page.locator('#more-tools').tap();
       await page.locator('#search-editor').tap();
+      await finish(page);
       await page.locator('.vela-search-panel').waitFor();
       await page.locator('#more-tools').tap();
       await finish(page);

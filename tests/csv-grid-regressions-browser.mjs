@@ -1,3 +1,4 @@
+import {editorAction} from './mobile-editor-helper.mjs';
 import { launchBrowser } from './browser-launch.mjs';
 import { setCsvZoom } from './csv-grid-helper.mjs';
 import assert from 'node:assert/strict';
@@ -47,9 +48,9 @@ try {
   assert.equal(await page.evaluate(() => velaEditorView.state.doc.toString()), original);
   await page.locator('#csv-find-close').click();
 
-  await page.locator('[data-display=source]').click();
+  await editorAction(page,'[data-display=source]');
   await page.evaluate(() => velaEditorView.dispatch({ changes: { from: 0, to: velaEditorView.state.doc.length, insert: 'h1,h2\n' + Array.from({ length: 5000 }, (_, r) => r + ',' + 'x'.repeat(60)).join('\n') } }));
-  await page.locator('[data-display=preview]').click();
+  await editorAction(page,'[data-display=preview]');
   await page.locator('.csv-grid-cell').first().waitFor();
   await setCsvZoom(page);
   await page.locator('[data-cell-row="1"][data-cell-column="0"]').click();

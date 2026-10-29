@@ -1,3 +1,4 @@
+import {editorAction} from './mobile-editor-helper.mjs';
 import {settingsSection,closeSettings} from './settings-helper.mjs';
 import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
@@ -112,8 +113,8 @@ try{
       await button.click();await page.locator('.ai-destination').filter({hasText:'manual-model'}).waitFor();await page.locator('#dialog-cancel').click();
     });
     await check('preview and home hide the button; disabling releases its reserved space',async()=>{
-      await page.locator('[data-display=preview]').click();await page.waitForFunction(()=>document.querySelector('#ai-button').hidden);
-      await page.locator('[data-display=source]').click();await page.waitForFunction(()=>!document.querySelector('#ai-button').hidden);
+      await editorAction(page,'[data-display=preview]');await page.waitForFunction(()=>document.querySelector('#ai-button').hidden);
+      await editorAction(page,'[data-display=source]');await page.waitForFunction(()=>!document.querySelector('#ai-button').hidden);
       await page.keyboard.press('Control+Alt+h');await page.locator('#start-page').waitFor();assert.equal(await page.locator('#ai-button').isHidden(),true);
       await openRecentFile(page,page.locator('[data-recent=book]'));await openSettings();await field('Enabled').uncheck();await closeAiSettings();
       assert.equal(await page.locator('#ai-button').isHidden(),true);assert.equal(await page.locator('#editor').evaluate(el=>getComputedStyle(el).paddingTop),'0px');

@@ -122,7 +122,7 @@ export class UIShell {
       ?this.groups.document
       :['focus-toggle','theme'].includes(id)?this.groups.layout:id==='plugins'?this.groups.extensions:this.groups.app;
     const wide=innerWidth>=900,compact=!wide&&this.editorChrome.compact;
-    const pinnedActions=this.editorChrome.active&&(wide||compact);
+    const pinnedActions=this.editorChrome.active&&(wide||compact)&&document.body.dataset.mobileEditor!=='true';
     document.body.dataset.editorChrome=wide&&this.editorChrome.active?'wide':compact?'compact':'expanded';
     for(const button of this.allTools){
       const pinned=pinnedActions&&['search-editor','add-glossary','export-doc'].includes(button.id);
@@ -163,7 +163,7 @@ export class UIShell {
     }
     const sync=document.querySelector('#sync-state');
     if(sync)
-      this.toolbar.prepend(sync);
+      (document.body.dataset.mobileEditor==='true'?this.groups.document:this.toolbar).prepend(sync);
     this.toggle.hidden=false;
     this.readingInsets();
     if(focused?.isConnected&&!focused.disabled&&!focused.closest('[hidden]'))
@@ -193,7 +193,7 @@ export class UIShell {
     return [...this.menu.querySelectorAll('button')].filter(button=>!button.disabled&&!button.hidden&&!button.closest('[hidden]')&&button.getClientRects().length);
   }
   open(){
-    this.groups.document.hidden=(this.editorChrome.active&&(innerWidth>=900||this.editorChrome.compact))||document.body.classList.contains('start-open')||document.body.dataset.page!=='write';
+    this.groups.document.hidden=(this.editorChrome.active&&(innerWidth>=900||this.editorChrome.compact)&&document.body.dataset.mobileEditor!=='true')||document.body.classList.contains('start-open')||document.body.dataset.page!=='write';
     this.menuMotion.setVisible(true);
     this.toggle.setAttribute('aria-expanded','true');
     this.menuItems()[0]?.focus();

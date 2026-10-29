@@ -1,3 +1,4 @@
+import {editorAction} from './mobile-editor-helper.mjs';
 import {setSetting,closeSettings} from './settings-helper.mjs';
 import {selectAppView} from './navigation-helper.mjs';
 import {checkNativeNouns} from './native-nouns.mjs';
@@ -40,10 +41,10 @@ try{
   await p.reload();await p.waitForSelector('.cm-editor',{state:'attached'});
   await check('Android 正文候选后台 Worker 与补全撤销',()=>checkNativeNouns(p));
   await check('Tab 缩进、撤回重做、章节跳转和实际文件保存',async()=>{
-    await p.locator('#quick-top').click();await p.evaluate(()=>velaEditorView.focus());await p.waitForFunction(()=>velaEditorView.hasFocus);await p.keyboard.press('Tab');const tabState=await saved();assert.ok(tabState.documents.find(d=>d.path===prefix+'/正文.txt').text.startsWith('　　第一章'),JSON.stringify({active:tabState.activeId,expected:tabState.documents.find(d=>d.path===prefix+'/正文.txt'),editor:await p.evaluate(()=>velaEditorView.state.doc.toString().slice(0,60))}));
+    await editorAction(p,'#quick-top');await p.evaluate(()=>velaEditorView.focus());await p.waitForFunction(()=>velaEditorView.hasFocus);await p.keyboard.press('Tab');const tabState=await saved();assert.ok(tabState.documents.find(d=>d.path===prefix+'/正文.txt').text.startsWith('　　第一章'),JSON.stringify({active:tabState.activeId,expected:tabState.documents.find(d=>d.path===prefix+'/正文.txt'),editor:await p.evaluate(()=>velaEditorView.state.doc.toString().slice(0,60))}));
     await p.locator('#quick-undo').click();assert.ok((await saved()).documents.find(d=>d.path===prefix+'/正文.txt').text.startsWith('第一章'));
     await p.locator('#quick-redo').click();assert.ok((await saved()).documents.find(d=>d.path===prefix+'/正文.txt').text.startsWith('　　第一章'));
-    await p.locator('#quick-bottom').click();await p.locator('#quick-chapter-top').click();assert.match(await p.locator('#current-chapter').innerText(),/第二章/);
+    await editorAction(p,'#quick-bottom');await editorAction(p,'#quick-chapter-top');assert.match(await p.locator('#current-chapter').innerText(),/第二章/);
     assert.match(adb('shell','run-as','me.wenzhou.write','cat','files/workspaces/文舟/'+prefix+'/正文.txt'),/原始正文/);
     assert.match(adb('shell','run-as','me.wenzhou.write','head','-c','24','files/workspace.json'),/^\{"store":\{"format":2/,'saves after the first one are incremental (docs/WORKSPACE-STORAGE.md)');
   });
@@ -64,7 +65,7 @@ try{
     await p.locator('#mobile-library').click();const state=await saved(),csv=state.documents.find(d=>d.path===prefix+'/人物.CSV');
     await p.locator(`[data-doc="${csv.id}"]`).click();await editCsvCell(p,1,0,'乙');assert.match((await saved()).documents.find(d=>d.id===csv.id).text,/乙/);
     const md=state.documents.find(d=>d.path===prefix+'/设定.md');await p.locator(`[data-doc="${md.id}"]`).click();assert.equal(await p.locator('#markdown-tools').isVisible(),true);
-    await p.locator('[data-display=preview]').click();await p.locator('#preview img').waitFor();assert.equal(await p.locator('body').evaluate(b=>b.classList.contains('show-library')),true);
+    await editorAction(p,'[data-display=preview]');await p.locator('#preview img').waitFor();assert.equal(await p.locator('body').evaluate(b=>b.classList.contains('show-library')),true);
     await p.locator('#mobile-library').click();
   });
   await check('嵌入与独立 HTML 预览：保留编辑区、本地资源、源码状态及脚本隔离',async()=>{
@@ -135,7 +136,7 @@ try{
   });
   await check('Android WebView 本地 XeLaTeX 中文编译、PDF 渲染与宏包持久化',async()=>{
     await saved();const source=String.raw`\documentclass{ctexart}\begin{document}\section{文舟}中文 PDF。\end{document}`;
-    const folder=await invoke('writeWorkspaceFiles',{files:[{path:prefix+'/main.tex',data:Buffer.from(source).toString('base64')}]});await p.reload();await p.waitForSelector('.cm-editor',{state:'attached'});if(!await p.locator('#library').isVisible())await p.locator('#mobile-library').click();const doc=(await saved()).documents.find(doc=>doc.path===prefix+'/main.tex');await p.locator(`[data-doc="${doc.id}"]`).click();await p.locator('[data-display=preview]').click();await p.locator('.tex-compile').click();await p.waitForFunction(()=>!document.querySelector('.tex-compile').disabled,{},{timeout:180000});await writeFile('test-results/android-tex.log',await p.locator('.tex-log pre').textContent());assert.equal(await p.locator('.tex-status').textContent(),'编译完成');assert.ok(await p.locator('.pdf-canvas canvas').evaluate(canvas=>canvas.width>0));assert.match(await p.evaluate(()=>window.WenzhouNative.readPlugins()),/vela.tex.cjk/);await p.screenshot({path:'test-results/android-tex.png'});
+    const folder=await invoke('writeWorkspaceFiles',{files:[{path:prefix+'/main.tex',data:Buffer.from(source).toString('base64')}]});await p.reload();await p.waitForSelector('.cm-editor',{state:'attached'});if(!await p.locator('#library').isVisible())await p.locator('#mobile-library').click();const doc=(await saved()).documents.find(doc=>doc.path===prefix+'/main.tex');await p.locator(`[data-doc="${doc.id}"]`).click();await editorAction(p,'[data-display=preview]');await p.locator('.tex-compile').click();await p.waitForFunction(()=>!document.querySelector('.tex-compile').disabled,{},{timeout:180000});await writeFile('test-results/android-tex.log',await p.locator('.tex-log pre').textContent());assert.equal(await p.locator('.tex-status').textContent(),'编译完成');assert.ok(await p.locator('.pdf-canvas canvas').evaluate(canvas=>canvas.width>0));assert.match(await p.evaluate(()=>window.WenzhouNative.readPlugins()),/vela.tex.cjk/);await p.screenshot({path:'test-results/android-tex.png'});
   });
   await check('进程退出后文稿、主题和插件重新加载',async()=>{
     const before=await saved();await device.close();deviceClosed=true;adb('shell','am','force-stop','me.wenzhou.write');adb('shell','am','start','-W','-n','me.wenzhou.write/.MainActivity');

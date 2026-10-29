@@ -1,6 +1,6 @@
 import {settled,themeShiftDone} from './wait-helpers.mjs';
 // Settings save immediately; helpers exercise category navigation and native controls.
-const categories={language:'appearance',theme:'appearance',palette:'appearance',fontFamily:'appearance',fontSize:'editing',richText:'editing',novelLineNumbers:'editing',autoNouns:'terms',highlightTerms:'terms',glossaryPanel:'terms',countMode:'chapters',includeHeading:'chapters',readingMode:'reading',globalVelaOverride:'reading',updateChecks:'about'};
+const categories={immersiveWriting:'editing',language:'appearance',theme:'appearance',palette:'appearance',fontFamily:'appearance',fontSize:'editing',richText:'editing',novelLineNumbers:'editing',autoNouns:'terms',highlightTerms:'terms',glossaryPanel:'terms',countMode:'chapters',includeHeading:'chapters',readingMode:'reading',globalVelaOverride:'reading',updateChecks:'about'};
 export async function settingsSection(page,id){
   await page.locator('[data-settings-group]').first().waitFor({state:'attached'});
   if(!await page.locator('.settings-navigation').isVisible())await page.evaluate(()=>window.wenzhouBack());

@@ -1,3 +1,4 @@
+import {editorAction} from './mobile-editor-helper.mjs';
 import { launchBrowser } from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import { writeFile } from 'node:fs/promises';
@@ -32,7 +33,7 @@ try {
  assert.equal(results.sortInsertion.visibleRows.length,4);
  results.multilineMetric = await page.evaluate(async()=>{try{const {csvMetrics}=await import('/csv-grid.mjs');csvMetrics([['x\n'.repeat(150000)]],1);return 'ok';}catch(error){return error.name+': '+error.message;}});
  assert.equal(results.multilineMetric,'ok');
- await page.locator('[data-display=source]').click();
+ await editorAction(page,'[data-display=source]');
  await page.evaluate(()=>velaEditorView.dispatch({changes:{from:0,to:velaEditorView.state.doc.length,insert:Array.from({length:300},(_,i)=>i===299?'OFFSCREEN_NEEDLE,b':i+',b').join('\n')}}));
  await page.locator('[data-view=reader]').click(); await page.locator('[data-read=csv]').click();
  await page.locator('#reader-tools').click(); await page.locator('.reader-tools-panel [data-book-query]').fill('OFFSCREEN_NEEDLE');
@@ -48,7 +49,7 @@ try {
  await q.locator('[data-tab=txt]').click(); await q.waitForTimeout(900); // Observe past the former 700 ms delayed-save window after switching files.
  results.glossarySwitch = await q.evaluate(()=>({activeName:document.querySelector('#current-name').textContent,text:velaEditorView.state.doc.toString()}));
  assert.equal(results.glossarySwitch.text,'KEEP THIS TEXT');await q.locator('[data-tab=gly]').click();assert.equal(await q.locator('[name=definition]').inputValue(),'new draft');
- await q.locator('[data-display=source]').click();await q.evaluate(()=>velaEditorView.dispatch({changes:{from:0,to:velaEditorView.state.doc.length,insert:JSON.stringify({version:1,entries:Array.from({length:2000},(_,i)=>({id:'t'+i,term:'term'+i,definition:'entry',aliases:[]}))})}}));await q.locator('[data-display=preview]').click();await q.locator('#glossary-search').waitFor();assert.ok(await q.locator('.glossary-row').count()<200);await q.evaluate(()=>window.__searchField=document.querySelector('#glossary-search'));await q.locator('#glossary-search').fill('term1999');assert.equal(await q.locator('.glossary-row').count(),1);assert.equal(await q.evaluate(()=>document.querySelector('#glossary-search')===window.__searchField),true);
+ await editorAction(q,'[data-display=source]');await q.evaluate(()=>velaEditorView.dispatch({changes:{from:0,to:velaEditorView.state.doc.length,insert:JSON.stringify({version:1,entries:Array.from({length:2000},(_,i)=>({id:'t'+i,term:'term'+i,definition:'entry',aliases:[]}))})}}));await editorAction(q,'[data-display=preview]');await q.locator('#glossary-search').waitFor();assert.ok(await q.locator('.glossary-row').count()<200);await q.evaluate(()=>window.__searchField=document.querySelector('#glossary-search'));await q.locator('#glossary-search').fill('term1999');assert.equal(await q.locator('.glossary-row').count(),1);assert.equal(await q.evaluate(()=>document.querySelector('#glossary-search')===window.__searchField),true);
  await terms.close();
  const html=await browser.newContext({viewport:{width:320,height:700}});
  await html.addInitScript(()=>{const attach=Element.prototype.attachShadow;Element.prototype.attachShadow=function(options){const root=attach.call(this,options);window.readerShadow=root;return root;};});

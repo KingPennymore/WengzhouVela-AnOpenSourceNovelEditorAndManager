@@ -1,3 +1,4 @@
+import {editorAction} from './mobile-editor-helper.mjs';
 import {settingsSection,setSetting,closeSettings} from './settings-helper.mjs';
 import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
@@ -22,7 +23,7 @@ try{
   await check('wide windows: tabs, formats and view switch share one bar; quick actions sit in the status bar',async()=>{
     assert.equal(await parent('#format-tools','.file-rowbar'),true);assert.equal(await parent('#display-options','.file-rowbar #document-tools'),true);
     assert.equal(await page.locator('#format-tools').isVisible(),true);assert.equal(await page.locator('.quickbar').isVisible(),false);
-    assert.equal(await page.locator('.status-actions [id^="quick-"]').count(),8);assert.equal(await page.locator('#quick-undo').isVisible(),true);
+    assert.equal(await page.locator('.status-actions [id^="quick-"]:not([hidden])').count(),8);assert.equal(await page.locator('#quick-undo').isVisible(),true);
     const ratio=await page.evaluate(()=>document.querySelector('#editor').getBoundingClientRect().height/innerHeight);assert.ok(ratio>=.84,'editor takes '+Math.round(ratio*100)+'% of the height');
     await page.locator('[data-tab="notes"]').click();assert.equal(await page.locator('#markdown-tools').isVisible(),true);assert.equal(await page.locator('#format-tools').isVisible(),false);
     await page.locator('[data-tab="book"]').click();
@@ -47,7 +48,7 @@ try{
   await check('the selection menu leaves formatting to the toolbar',async()=>{
     await page.evaluate(()=>{const view=velaEditorView,at=view.state.doc.toString().indexOf('林舟');view.dispatch({selection:{anchor:at,head:at+2},userEvent:'select.pointer'});view.focus();});
     await page.locator('.selection-menu button',{hasText:/^复制$/}).waitFor();assert.equal(await page.locator('.selection-menu button',{hasText:/^粗体$/}).count(),0);
-    await page.locator('#format-strong').click();
+    await editorAction(page,'#format-strong');
     assert.deepEqual(await page.evaluate(()=>[...document.querySelectorAll('.cm-content .vela-format-strong')].map(node=>node.textContent)),['林舟']);
   });
   await check('the command palette is grouped and shows the group when searching',async()=>{
@@ -65,11 +66,11 @@ try{
     assert.equal(await parent('#document-tools','.paper'),true);assert.equal(await parent('#display-options','.file-rowbar'),true);
     const toolWidths=await page.evaluate(()=>{const tools=document.querySelector('#document-tools').getBoundingClientRect(),scroll=document.querySelector('.document-tools-scroll').getBoundingClientRect();return {tools:tools.width,scroll:scroll.width};});
     assert.ok(toolWidths.scroll>=toolWidths.tools-1,'the toolbar scroll area spans the whole row');
-    assert.equal(await page.locator('.quickbar').isVisible(),true);assert.equal(await page.locator('.quickbar [id^="quick-"]').count(),8);
+    assert.equal(await page.locator('.quickbar').isVisible(),true);assert.equal(await page.locator('.quickbar [id^="quick-"]:not([hidden])').count(),8);
     const order=await page.evaluate(()=>{const tools=document.querySelector('#document-tools').getBoundingClientRect(),editor=document.querySelector('#editor').getBoundingClientRect(),tabs=document.querySelector('.file-rowbar').getBoundingClientRect();return {toolsBelowTabs:tools.top>=tabs.bottom-1,toolsAboveEditor:tools.bottom<=editor.top+1};});
     assert.deepEqual(order,{toolsBelowTabs:true,toolsAboveEditor:true});
     await page.setViewportSize({width:1366,height:820});await page.waitForFunction(()=>document.body.dataset.shell==='wide');
-    assert.equal(await page.locator('.status-actions [id^="quick-"]').count(),8);assert.equal(await page.evaluate(()=>velaEditorView.state.doc.toString()),text);
+    assert.equal(await page.locator('.status-actions [id^="quick-"]:not([hidden])').count(),8);assert.equal(await page.evaluate(()=>velaEditorView.state.doc.toString()),text);
   });
   await check('the reading library heading and books share one left edge',async()=>{
     await selectAppView(page,'reader');await page.locator('.reader-book').first().waitFor();

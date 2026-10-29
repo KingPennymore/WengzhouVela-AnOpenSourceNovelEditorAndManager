@@ -1,3 +1,4 @@
+import {editorAction} from './mobile-editor-helper.mjs';
 import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
 import assert from 'node:assert/strict';
@@ -38,7 +39,7 @@ try{
     await page.locator('[data-tab="book"]').click();assert.equal(await page.locator('#format-tools').isVisible(),true);
   });
   await check('bold from the toolbar, emphasis and centre from shortcuts',async()=>{
-    await selectText(page,'林舟冷笑');await page.locator('#format-strong').click();
+    await selectText(page,'林舟冷笑');await editorAction(page,'#format-strong');
     assert.deepEqual(await rendered(page,'.vela-format-strong'),['林舟冷笑']);assert.equal(await page.locator('#format-strong').getAttribute('aria-pressed'),'true');
     await selectText(page,'不好');await page.keyboard.press('Control+Shift+E');
     assert.deepEqual(await rendered(page,'.vela-format-emphasis'),['不好']);
@@ -121,7 +122,7 @@ try{
     await outside.waitForFunction(()=>window.__formatNotices.some(text=>text.includes('1 处格式待确认')));
   });
   await check('a review entry is applied and saved; the 0.9.7 sidecar moves into .vela and goes to the trash',async()=>{
-    await selectText(outside,'糟糕');await outside.locator('#format-review').click();await outside.locator('[data-apply]').click();
+    await selectText(outside,'糟糕');await editorAction(outside,'#format-review');await outside.locator('[data-apply]').click();
     assert.deepEqual(await rendered(outside,'.vela-format-emphasis'),['糟糕']);assert.equal(await outside.locator('#format-review').isVisible(),false);
     await save(outside);await outside.waitForFunction(()=>!JSON.parse(localStorage.getItem('wenzhou.workspace')).documents.some(doc=>(doc.path||doc.name)==='正文.txt.vela'));
     const workspace=await stored(outside),value=records(workspace)['正文.txt'];

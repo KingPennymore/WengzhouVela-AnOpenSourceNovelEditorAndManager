@@ -1,3 +1,4 @@
+import {editorAction} from './mobile-editor-helper.mjs';
 import fs from 'node:fs';
 import {launchBrowser} from './browser-launch.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
@@ -10,7 +11,7 @@ const source=String.raw`\documentclass{ctexart}\begin{document}文舟轻量版�
 const browser=await launchBrowser(),page=await browser.newPage(),errors=[];
 page.on('pageerror',e=>errors.push(e.message));await page.addInitScript(source=>{if(!localStorage.getItem('wenzhou.workspace'))localStorage.setItem('wenzhou.workspace',JSON.stringify({version:1,documents:[{id:'tex',name:'main.tex',text:source,updatedAt:1}],settings:{theme:'light'},activeId:'tex',openIds:['tex']}));},source);
 await mkdir('test-results/improvements',{recursive:true});
-const open=async()=>{await page.goto(process.env.VELA_TEST_URL||'http://127.0.0.1:4173');await openRecentFile(page,page.locator('[data-recent=tex]'));await page.locator('[data-display=preview]').click();await page.waitForSelector('.tex-component-controls:not([hidden])');};
+const open=async()=>{await page.goto(process.env.VELA_TEST_URL||'http://127.0.0.1:4173');await openRecentFile(page,page.locator('[data-recent=tex]'));await editorAction(page,'[data-display=preview]');await page.waitForSelector('.tex-component-controls:not([hidden])');};
 try{
  await page.route(/^https?:\/\/(?!127\.0\.0\.1|localhost)/,route=>route.abort());await open();
  await page.locator('.tex-compile').click();await page.waitForFunction(()=>document.querySelector('.tex-status').textContent==='编译失败');assert.match(await page.locator("#toast").textContent(),/安装并启用 LaTeX 排版组件/);console.log('PASS lite build clearly requests components without downloading anything');

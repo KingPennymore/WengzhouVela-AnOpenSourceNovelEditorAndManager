@@ -1,3 +1,4 @@
+import {editorAction} from './mobile-editor-helper.mjs';
 import {_android} from 'playwright';
 import {execFileSync} from 'node:child_process';
 import {mkdir,writeFile} from 'node:fs/promises';
@@ -35,7 +36,7 @@ try{
  await page.locator('#more-tools').click();await page.locator('#plugins').click();await page.locator('#install-plugin').click();await choose('engine');
  await page.waitForFunction(()=>document.querySelector('#tex-components-status')?.textContent.includes('引擎 已安装'),{},{timeout:120000});
  checks.push('系统选择器导入 51.35 MiB 引擎，插件页面安装成功且无崩溃');console.log('PASS '+checks.at(-1));
- await page.locator('#dialog-cancel').click();await page.locator('[data-display=preview]').click();await page.waitForSelector('.tex-component-controls:not([hidden])');
+ await page.locator('#dialog-cancel').click();await editorAction(page,'[data-display=preview]');await page.waitForSelector('.tex-component-controls:not([hidden])');
  await page.locator('.tex-component-import').click();await choose('chinese');
  await page.waitForFunction(()=>document.querySelector('.tex-component-note').textContent.includes('已就绪'),{},{timeout:120000});
  checks.push('LaTeX 预览系统选择器导入 25.65 MiB 中文包，不触发普通插件 16 MiB 限制');console.log('PASS '+checks.at(-1));
@@ -43,7 +44,7 @@ try{
  for(const url of [...requests])assert.equal(await page.evaluate(async url=>(await fetch(url)).status,url),404);
  checks.push('安装包经同源二进制读取，读取后临时地址失效');console.log('PASS '+checks.at(-1));
  await device.close();adb('shell','am','force-stop','me.wenzhou.write');adb('shell','am','start','-W','-n','me.wenzhou.write/.MainActivity');device=(await _android.devices()).find(d=>d.serial()===serial);await connect();
- await page.locator('[data-display=preview]').click();await page.waitForFunction(()=>document.querySelector('.tex-component-note')?.textContent.includes('已就绪'));
+ await editorAction(page,'[data-display=preview]');await page.waitForFunction(()=>document.querySelector('.tex-component-note')?.textContent.includes('已就绪'));
  await page.locator('.tex-compile').click();await page.waitForSelector('.pdf-canvas canvas',{timeout:180000});
  assert.ok(await page.locator('.pdf-canvas canvas').evaluate(c=>c.width>100&&c.height>100));assert.equal(await page.locator('.tex-status').textContent(),'编译完成');
  checks.push('进程重启后两个组件保留，实际 Android WebView 编译并渲染中文 PDF');console.log('PASS '+checks.at(-1));

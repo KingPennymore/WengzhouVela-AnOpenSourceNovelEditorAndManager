@@ -1,3 +1,4 @@
+import {editorAction} from './mobile-editor-helper.mjs';
 import {launchBrowser} from './browser-launch.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
 import assert from 'node:assert/strict';
@@ -140,7 +141,7 @@ try{
   const large=await largeContext.newPage();large.on('pageerror',e=>errors.push(e.message));
   await check('60 万字符小说可统计 300 章并跳转末章，编辑器保持虚拟化',async()=>{
     await large.goto(url);await large.waitForSelector('.cm-editor');assert.equal(await large.locator('#chapter-count').textContent(),'300 章');
-    assert.ok(await large.locator('.cm-line').count()<1200);await large.locator('#quick-bottom').click();await large.locator('#quick-chapter-top').click();assert.equal(await large.locator('#cursor-position').textContent(),'行 898，列 1');
+    assert.ok(await large.locator('.cm-line').count()<1200);await editorAction(large,'#quick-bottom');await editorAction(large,'#quick-chapter-top');assert.equal(await large.locator('#cursor-position').textContent(),'行 898，列 1');
   });
   await largeContext.close();assert.deepEqual(errors,[]);await writeFile('test-results/results.json',JSON.stringify({passed:results.length,checks:results,pageErrors:errors},null,2));
   const nativeContext=await browser.newContext({viewport:{width:390,height:844}});
@@ -160,7 +161,7 @@ try{
   });
   await check('原生连接检测和 Promise 登录返回值可正确显示，异常返回不会成为已登录状态',async()=>{
     await n.locator('#dialog-cancel').click().catch(()=>{});
-    if(await n.locator('#mobile-library').getAttribute('aria-expanded')==='true')await n.locator('#mobile-library').click();await n.locator('#quick-git').click();await n.locator('#check-connection').click();await n.waitForFunction(()=>document.querySelector('#dialog-body').textContent.includes('连接正常'));await n.locator('#dialog-cancel').click();
+    if(await n.locator('#mobile-library').getAttribute('aria-expanded')==='true')await n.locator('#mobile-library').click();await editorAction(n,'#quick-git');await n.locator('#check-connection').click();await n.waitForFunction(()=>document.querySelector('#dialog-body').textContent.includes('连接正常'));await n.locator('#dialog-cancel').click();
     await n.locator('#token-login').click();await n.locator('[name="token"]').fill('native-test-token');
     await n.evaluate(()=>window.__nativeMode='no-result');await n.locator('#dialog-submit').click();await n.waitForFunction(()=>document.querySelector('#dialog-error').textContent.includes('未返回结果'));
     await n.evaluate(()=>window.__nativeMode='network-failure');await n.locator('#dialog-submit').click();await n.waitForFunction(()=>document.querySelector('#dialog-error').textContent.includes('1007900028'));

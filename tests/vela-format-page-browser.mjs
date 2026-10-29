@@ -1,3 +1,4 @@
+import {editorAction} from './mobile-editor-helper.mjs';
 import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
@@ -65,7 +66,7 @@ try{
     for(const button of await phone.locator('.vela-pages button').all())assert.ok((await button.boundingBox()).height>=40);
     await phone.locator('[data-vela-page="format"]').click();await phone.locator('[data-record-open="正文.txt"]').click();await phone.waitForFunction(()=>!!window.velaEditorView&&!!document.querySelector('#format-tools:not([hidden])'));
     await phone.evaluate(()=>{const view=velaEditorView,at=view.state.doc.toString().indexOf('冷笑');view.dispatch({selection:{anchor:at,head:at+2}});view.focus();});
-    await phone.locator('#format-style').scrollIntoViewIfNeeded();await phone.locator('#format-style').click();
+    await phone.locator('#format-style').scrollIntoViewIfNeeded();await editorAction(phone,'#format-style');
     const panel=phone.locator('#format-style-panel');await panel.waitFor();assert.match(await panel.getAttribute('class'),/format-style-sheet/);
     const sheet=await panel.boundingBox();assert.ok(Math.abs(sheet.x)<1&&Math.abs(sheet.width-375)<1&&Math.abs(sheet.y+sheet.height-812)<1,'docked to the bottom edge');
     for(const chip of await panel.locator('[data-style-id]').all())assert.ok((await chip.boundingBox()).height>=44);

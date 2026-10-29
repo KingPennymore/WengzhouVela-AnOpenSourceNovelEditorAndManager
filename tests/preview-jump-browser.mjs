@@ -1,3 +1,4 @@
+import {editorAction} from './mobile-editor-helper.mjs';
 import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
@@ -34,10 +35,10 @@ try{
     await chapter('第3章 第3夜');const third=await offsetOf({tag:'h2',text:'第3章 第3夜'});assert.ok(third>=0&&third<80);assert.equal(await inPreview(),true);
   });
   await check('top, bottom and chapter-end jumps also stay in the preview',async()=>{
-    await page.locator('#quick-bottom').click();assert.equal(await inPreview(),true);
+    await editorAction(page,'#quick-bottom');assert.equal(await inPreview(),true);
     assert.ok(await page.evaluate(()=>{const root=document.querySelector('#preview');return root.scrollTop+root.clientHeight>=root.scrollHeight-2;}));
-    await page.locator('#quick-top').click();assert.equal(await page.evaluate(()=>document.querySelector('#preview').scrollTop),0);
-    await chapter('第5章 第5夜');await page.locator('#quick-chapter-bottom').click();assert.equal(await inPreview(),true);
+    await editorAction(page,'#quick-top');assert.equal(await page.evaluate(()=>document.querySelector('#preview').scrollTop),0);
+    await chapter('第5章 第5夜');await editorAction(page,'#quick-chapter-bottom');assert.equal(await inPreview(),true);
     const next=await offsetOf({tag:'h2',text:'第6章 第6夜'});assert.ok(next!==null&&next>0&&next<820,'the end of chapter 5 is in view, next heading at '+next);
   });
   await check('the Markdown preview jumps to the rendered heading',async()=>{
