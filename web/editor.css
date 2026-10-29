@@ -42,7 +42,7 @@
 
 .cm-tooltip.cm-completionInfo {
   font-family:var(--app-font-family,"HarmonyOS Sans SC","Segoe UI","Microsoft YaHei",sans-serif);
-  font-size:12px!important;
+  font-size:var(--text-xs)!important;
   line-height:1.5!important;
   border:1px solid var(--line)!important;
   border-radius:var(--radius);
@@ -84,7 +84,7 @@
   white-space:pre-wrap;
   font-size:11px!important;
   line-height:1.45!important;
-  padding:6px 8px;
+  padding:6px var(--space-2);
   border:0!important;
   border-top:1px solid var(--line)!important;
   border-radius:0;
@@ -119,9 +119,9 @@
 
 .cm-search.vela-search-panel {
   position:relative;
-  padding:12px 16px;
+  padding:var(--space-3) var(--space-4);
   font-family:inherit;
-  font-size:12px;
+  font-size:var(--text-xs);
   line-height:1.6;
   background:var(--panel);
   color:var(--text);
@@ -129,7 +129,7 @@
 
 @media (max-width:600px) {
   .cm-search.vela-search-panel {
-    padding:8px 10px;
+    padding:var(--space-2) 10px;
   }
 }
 
@@ -142,7 +142,7 @@
 .outline-line-marker {
   width:16px;
   color:var(--accent);
-  font-size:16px;
+  font-size:var(--text-md);
   padding:0;
   cursor:pointer;
 }
@@ -173,13 +173,13 @@
 
 @media (max-width:600px) {
   .cm-content {
-    padding:14px 15px 80px 8px!important;
+    padding:14px 15px 80px var(--space-2)!important;
   }
 }
 
 @media (max-height:500px) {
   .cm-content {
-    padding-top:8px!important;
+    padding-top:var(--space-2)!important;
   }
 }
 
@@ -247,7 +247,7 @@
 
 .cm-search {
   padding:10px!important;
-  font-size:12px!important;
+  font-size:var(--text-xs)!important;
 }
 
 .focus .cm-content {
@@ -269,7 +269,7 @@
 
 .cm-tooltip-autocomplete {
   font-family:var(--app-font-family,"HarmonyOS Sans SC","Segoe UI","Microsoft YaHei",sans-serif);
-  font-size:12px!important;
+  font-size:var(--text-xs)!important;
   line-height:1.5!important;
   border:1px solid var(--line)!important;
   border-radius:var(--radius);
