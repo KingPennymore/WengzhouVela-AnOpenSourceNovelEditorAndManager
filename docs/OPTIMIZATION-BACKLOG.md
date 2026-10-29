@@ -1,14 +1,14 @@
 # 代码优化待办
 
-定时任务"文舟代码优化迭代"每次从这里取一项未完成的工作，完成后在本文件更新状态、补充新发现。每项写清现象、位置和完成标准。
+定时任务"文舟代码优化迭代"每次从这里取未完成的工作（Codex 有额度时分发给 Codex），完成后在本文件更新状态、补充新发现。每项写清现象、位置和完成标准。
 
 ## 进行中 / 待做
 
 | 编号 | 事项 | 位置 | 完成标准 | 状态 |
 | --- | --- | --- | --- | --- |
-| O6 | 英文模式改为源头输出：逐模块把界面文字改为 `t()`（固定文字）或 `say(zh,en)`（带变量的句子，均由 `i18n.mjs` 导出），补齐词典；**同一模块顺带完成 O8 格式化**，写法参照 `update-view.mjs`（一条语句一行、长模板拆分）。每次 1–2 个模块。抛出的错误文字由显示处 `t(error.message)` 处理的，可保留中文但须有词典条目。全部迁完后移除 `i18n.mjs` 的 MutationObserver。已迁移：`update-view.mjs`、`component-download-view.mjs`。待迁移：`completion-core.mjs`、`completion.mjs`、`component-downloads.mjs`、`csv-embed.mjs`、`csv-insert.mjs`、`csv-model.mjs`、`document-components.mjs`、`extension-services.mjs`、`file-templates.mjs`、`git-login.mjs`、`gitea.mjs`、`github.mjs`、`glossary.mjs`、`latex-editor.mjs`、`map-arrows.mjs`、`map-symbols.mjs`、`map.mjs`、`noun-index.mjs`、`outline.mjs`、`palettes.mjs`、`planning-config.mjs`、`planning-transactions.mjs`、`platform.mjs`、`plugin-package.mjs`、`plugin-ui.mjs`、`plugins.mjs`、`project-archive.mjs`、`project-backend.mjs`、`project-contract.mjs`、`project-service.mjs`、`repository-pull.mjs`、`rich-text-editor.mjs`、`rich-text-styles.mjs`、`rich-text.mjs`、`selection-menu.mjs`、`shortcuts.mjs`、`start-page.mjs`、`sync-cleanup.mjs`、`sync-commit.mjs`、`sync-download.mjs`、`tex-component.mjs`、`ui-shell.mjs`、`vela-v2.mjs`、`workspace-backup.mjs`、`app.js` | 各模块 | `tests/i18n-coverage.test.mjs` 通过；模块相关浏览器测试通过；英文界面实际检查无中文残留 | 待做 |
-| O8 | 格式化超长单行：随 O6 逐模块进行；没有界面文字的大文件（如 `map-renderer.mjs`、`outline-graph.mjs`）单独格式化，每次 1–2 个文件，只改排版不改逻辑 | 24 个含 >1500 字符单行的文件 | 格式化前后单元与相关浏览器测试通过 | 待做 |
-| O10 | 漏翻译检查扩展到模板字符串与靠 DOM 翻译的裸中文（如 `map-symbols.mjs`、`latex-editor.mjs` 等未用 `t()` 的模块） | `tests/i18n-coverage.test.mjs` | 能发现模板与裸字符串中的缺失词条 | 待做 |
+| O11 | 英文与中文之间实时切换时，已用 `t()`/`say()` 渲染的内容不会随之改变（`setLanguage()` 只按词典重译屏上文字，`say()` 句子和已是英文的节点不会还原为中文），要等对应界面重新渲染。应在切换语言后重绘当前视图（启动页、侧栏、编辑器状态栏、打开的面板），或在保存后重新载入 | `web/app.js` 设置保存处（`setLanguage` + `renderAppLabels`）、`web/i18n.mjs` | 中→英、英→中各切换一次后，可见界面无另一种语言残留；有浏览器测试覆盖 | 待做 |
+| O12 | 修复 master 上就已失败的浏览器测试：`android`、`android-tex`、`config-v2`（设置按钮被隐藏）、`palette`（输入处理已过时）、`pdf-layout`、`rich-text`、`sample`、`windows`、`workspace`（刷新本机文件夹后第 91 行超时）。`components` 与 `tex-lite` 需要精简版构建（`VELA_BUILD_FLAVOR=lite`），先确认在精简版下能否通过。逐个判断是测试过时还是功能缺陷，每次 1–2 个 | `tests/*-browser.mjs` 及相关模块 | 对应测试在完整构建（或其指定构建）下通过 | 待做 |
+| O13 | Codex 格式化时在若干 HTML 模板里加入了换行与缩进（如 `start-page.mjs`、`update-view.mjs` 风格的多行模板），元素之间多出空白文本节点。确认行内排列的按钮、徽标等没有因此多出间距；有影响的地方去掉标签之间的空白 | O6 迁移过的视图模块 | 主要界面（启动页、设置、文件管理、地图面板）截图与 master 对比无间距变化 | 待做 |
 
 ## 已完成
 
@@ -22,3 +22,6 @@
 | O5 | 地图常用编辑改为部分快照（`mapSnapshot`），撤销与回滚只处理改动部分；commit 不再序列化 cells/drawing 比较 | `966ddb6` |
 | O5b | 笔刷绘制/擦除只快照 cells（擦除另含 markers/symbols/arrows/generated），信息点编辑只快照 markers 或 cells，地图整理的边界/精简只快照 generated 或 cells（地形转换整体替换地图，仍整张复制）；`commit` 重算绘制填充前用 `extendSnapshot` 补入 generated，修复 O5 后修改绘制范围再撤销不还原填充的问题；新增 `tests/map-snapshot-browser.mjs` | `31784f4` |
 | O7 | 五张样式表合并为按组件组织的 `style.css` 与 `editor.css`，同一选择器只定义一次；180+32 个场景计算样式零差异（Codex）；构建时压缩 CSS | `5f6d14d`，合并后续见提交记录 |
+| O6 | 英文改为源头输出：`web/` 与 `web/app-core/` 全部模块的界面文字改用 `t()`/`say()`，词典按区域拆到 `web/i18n-*.mjs`（约 1000 条新词条）；词表、LaTeX 片段、存储用的默认名等数据用 `i18n-data` 注释标出；移除 `i18n.mjs` 的 MutationObserver，`setLanguage()` 只对静态外壳和当前屏幕翻译一次（Codex 分 7 批完成，审查合并） | `44f267f` 至 `2063325`（分支 `optimize/i18n`） |
+| O8 | 随 O6 逐模块格式化（一条语句一行、长模板拆分）；`web/` 下已无超过 1500 字符的单行（生成的 `guide.mjs` 与词典除外） | 同 O6 |
+| O10 | `tests/i18n-coverage.test.mjs` 用 TypeScript 解析器检查：`t()` 的字面量与条件分支都有词条、`say()` 英文部分无中文、所有模块不含未经 `t()`/`say()` 且不在词典里的中文、`index.html` 静态文字都有词条 | `46d10da`、`010b421`、`2063325` |
