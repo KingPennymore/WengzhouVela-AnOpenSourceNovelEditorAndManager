@@ -1,6 +1,5 @@
 import { normalizeGiteaServer, giteaCredentialKey } from './GiteaServer';
 import { AiBridge, AiRequest } from './AiBridge';
-import { AiCredentialStore } from './AiCredentialStore';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { common, abilityAccessCtrl } from '@kit.AbilityKit';
 import { rcp } from '@kit.RemoteCommunicationKit';
@@ -89,8 +88,7 @@ export class NativeBridge {
   private workspaceFiles: WorkspaceFiles = new WorkspaceFiles();
   private projects: ProjectFiles = new ProjectFiles();
   downloads: ReleaseDownloads = new ReleaseDownloads();
-  private aiStore: AiCredentialStore = new AiCredentialStore(this.credentialAlias('ai'));
-  private ai: AiBridge = new AiBridge({ read: () => this.aiStore.read(), write: (value: string) => this.credentialWrite(() => this.aiStore.write(value)), clear: () => this.credentialWrite(() => this.aiStore.clear()) });
+  private ai: AiBridge = new AiBridge({ read: () => this.loadToken('ai'), write: (value: string) => this.storeAiCredential(value), clear: () => this.clearAiCredential() });
 
   previewResource(path: string, html: boolean): PreviewResource {
     this.workspaceFiles.context = this.context;
@@ -216,6 +214,31 @@ export class NativeBridge {
     const task = this.credentialQueue.then(action);
     this.credentialQueue = task.catch(() => {});
     return task;
+  }
+
+  private async storeAiCredential(value: string): Promise<void> {
+    const secret = this.encoder.encodeInto(value);
+    if (secret.byteLength > 1024) throw new Error('AI 配置不能超过 1024 字节。');
+    // AI writes share the Asset Store queue, but never depend on Git auth generations.
+    await this.credentialWrite(async () => {
+      const attributes: asset.AssetMap = new Map();
+      attributes.set(asset.Tag.ALIAS, this.credentialAlias('ai'));
+      attributes.set(asset.Tag.SECRET, secret);
+      attributes.set(asset.Tag.ACCESSIBILITY, asset.Accessibility.DEVICE_UNLOCKED);
+      attributes.set(asset.Tag.CONFLICT_RESOLUTION, asset.ConflictResolution.OVERWRITE);
+      try { await asset.add(attributes); } catch (error) { throw operationError(error as Object, 'credentials'); }
+      this.tokens.set('ai', value);
+    });
+  }
+
+  private async clearAiCredential(): Promise<void> {
+    await this.credentialWrite(async () => {
+      const query: asset.AssetMap = new Map(); query.set(asset.Tag.ALIAS, this.credentialAlias('ai'));
+      try { await asset.remove(query); } catch (error) {
+        const failure = operationError(error as Object, 'credentials'); if (failure.code !== 24000002) throw failure;
+      }
+      this.tokens.set('ai', '');
+    });
   }
 
   private async storeToken(token: string, provider: string = 'github', generation: number = this.authGeneration): Promise<void> {

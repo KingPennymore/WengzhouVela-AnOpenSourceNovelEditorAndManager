@@ -38,7 +38,7 @@ final class AiBridge {
     static String endpoint(String value) throws Exception {
         URI url;
         try { url = new URI(value); } catch (Exception invalid) { throw fail("AI 接口地址无效。"); }
-        if (value.isEmpty() || value.length() > 512 || !url.isAbsolute() || value.matches("(?s).*[\\s\\\\?#].*") || url.getHost() == null || url.getRawUserInfo() != null || url.getRawQuery() != null || url.getRawFragment() != null || url.getPort() > 65535 || url.getPort() == 0) throw fail("AI 接口地址无效。");
+        if (value.isEmpty() || value.length() > 400 || !value.matches("[\\x21-\\x7e]+") || !url.isAbsolute() || value.matches("(?s).*[\\\\?#].*") || url.getHost() == null || url.getRawUserInfo() != null || url.getRawQuery() != null || url.getRawFragment() != null || url.getPort() > 65535 || url.getPort() == 0) throw fail("AI 接口地址无效。");
         String scheme = url.getScheme().toLowerCase(java.util.Locale.ROOT), host = url.getHost().toLowerCase(java.util.Locale.ROOT);
         boolean local = host.equals("localhost") || host.equals("127.0.0.1") || host.equals("[::1]") || host.endsWith(".local");
         String[] parts = host.split("\\.");
@@ -55,7 +55,7 @@ final class AiBridge {
         String format = string(data, "format");
         if (!format.matches("openai|anthropic|gemini|azure")) throw fail("不支持此 AI 请求格式。");
         String endpoint = endpoint(string(data, "endpoint")), key = string(data, "key");
-        if (key.length() > 4096 || java.util.regex.Pattern.compile("[\\s\u00a0\u1680\u2000-\u200a\u2028\u2029\u202f\u205f\u3000\ufeff]").matcher(key).find()) throw fail("AI 密钥格式不正确。");
+        if (key.length() > 512 || !key.matches("[\\x21-\\x7e]*")) throw fail("AI 密钥格式不正确。");
         return new JSONObject().put("format", format).put("endpoint", endpoint).put("key", key);
     }
     private JSONObject read() throws Exception {

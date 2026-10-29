@@ -20,8 +20,9 @@ test('AI endpoint policy allows HTTPS and only local HTTP, with no credential am
   for(const host of ['localhost','127.0.0.1','[::1]','10.0.2.2','10.255.255.255','172.16.0.1','172.31.255.255','192.168.1.1','ollama.local'])assert.equal(aiEndpoint(`http://${host}:11434/v1/`),`http://${host}:11434/v1`);
   assert.equal(aiEndpoint('HTTPS://API.Example.com:443/v1/'),'HTTPS://API.Example.com:443/v1');
   for(const value of ['http://127.1','http://2130706433','http://0x7f000001','http://010.0.0.1','https://example.com:0'])assert.throws(()=>aiEndpoint(value),/AI/);
-  assert.equal(aiEndpoint('https://example.com/'+'x'.repeat(492)).length,512);
-  for(const endpoint of ['',null,42,'/relative','file:///tmp/test','ftp://example.com','http://example.com','http://localhost.example.com','http://172.15.0.1','http://172.32.0.1','http://192.169.0.1','http://169.254.1.1','http://[::2]','http://10.999.0.1','https://user:pass@example.com','https://@example.com','https://example.com?','https://example.com/#','https://example.com?q=x','https://example.com/#x','https://example.com\\@evil.com','https://example.com/\n','https://example.com:65536','https://example.com/'+'x'.repeat(493)])assert.throws(()=>aiEndpoint(endpoint),/AI/);
+  assert.equal(aiEndpoint('https://example.com/'+'x'.repeat(380)).length,400);
+  for(const endpoint of ['',null,42,'/relative','file:///tmp/test','ftp://example.com','http://example.com','http://localhost.example.com','http://172.15.0.1','http://172.32.0.1','http://192.169.0.1','http://169.254.1.1','http://[::2]','http://10.999.0.1','https://user:pass@example.com','https://@example.com','https://example.com?','https://example.com/#','https://example.com?q=x','https://example.com/#x','https://example.com\\@evil.com','https://example.com/\n','https://example.com:65536','https://example.com/'+'x'.repeat(381),'https://例子.com','https://example.com/中','https://example.com/\u0000','https://example.com/\u007f'])assert.throws(()=>aiEndpoint(endpoint),/AI/);
+  assert.equal(aiEndpoint('https://xn--fsqu00a.com'),'https://xn--fsqu00a.com');
 });
 
 test('AI path allow-list is exact for every format and blocks traversal and injected queries',()=>{
@@ -43,9 +44,17 @@ test('AI header construction uses only the selected provider authentication',()=
   assert.deepEqual(aiHeaders({...config,format:'anthropic'}),{...base,'x-api-key':config.key,'anthropic-version':'2023-06-01'});
   assert.deepEqual(aiHeaders({...config,format:'gemini'}),{...base,'x-goog-api-key':config.key});
   assert.deepEqual(aiHeaders({...config,format:'azure'}),{...base,'api-key':config.key});
-  for(const key of [null,42,'bad key','bad\nkey','bad\u00a0key','x'.repeat(4097)])assert.throws(()=>aiCredential({...config,key}),/密钥/);
+  for(const key of [null,42,'bad key','bad\nkey','bad\u00a0key','密钥','\u0000','\u007f','x'.repeat(513)])assert.throws(()=>aiCredential({...config,key}),/密钥/);
+  assert.equal(aiCredential({...config,key:'x'.repeat(512)}).key.length,512);
   assert.equal(aiCredential({...config,key:''}).key,'');
   assert.throws(()=>aiCredential({...config,format:'unknown'}),/格式/);
+});
+
+test('AI maximum-size credential fits a 1024-byte packed record',()=>{
+  const value=aiCredential({format:'anthropic',endpoint:'https://example.com/'+'x'.repeat(380),key:'"\\'.repeat(256)});
+  const packed=value.format+'\n'+value.endpoint+'\n'+value.key;
+  assert.equal(value.endpoint.length,400);assert.equal(value.key.length,512);
+  assert.equal(Buffer.byteLength(packed,'utf8'),923);assert.ok(Buffer.byteLength(packed,'utf8')<=1024);
 });
 
 test('AI status/save/clear encrypts the whole credential with safeStorage and preserves Git tokens',async t=>{

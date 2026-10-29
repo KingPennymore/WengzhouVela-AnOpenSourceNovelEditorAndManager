@@ -1,6 +1,6 @@
 const LIMIT=2*1024*1024,RESPONSE_LIMIT=4*1024*1024;
 export function aiEndpoint(value){
-  if(typeof value!=='string'||!value||value.length>512||/[\s\\?#]/.test(value)||!/^https?:\/\//i.test(value))throw Error('AI 接口地址无效。');
+  if(typeof value!=='string'||!value||value.length>400||/[^\x21-\x7e]|[\\?#]/.test(value)||!/^https?:\/\//i.test(value))throw Error('AI 接口地址无效。');
   let url;try{url=new URL(value);}catch{throw Error('AI 接口地址无效。');}
   if(!url.hostname||url.username||url.password||url.port==='0'||!value.split('/')[2]||value.split('/')[2].includes('@'))throw Error('AI 接口地址无效。');
   const authority=value.split('/')[2],host=(authority.startsWith('[')?authority.slice(0,authority.indexOf(']')+1):authority.split(':')[0]).toLowerCase(),parts=host.split('.'),ipv4=parts.length===4&&parts.every(p=>/^\d{1,3}$/.test(p)&&Number(p)<=255&&String(Number(p))===p);
@@ -12,7 +12,7 @@ export function aiCredential(data){
   if(!data||typeof data!=='object'||Array.isArray(data))throw Error('AI 请求数据无效。');
   if(!['openai','anthropic','gemini','azure'].includes(data.format))throw Error('不支持此 AI 请求格式。');
   const endpoint=aiEndpoint(data.endpoint);
-  if(typeof data.key!=='string'||data.key.length>4096||/\s/.test(data.key))throw Error('AI 密钥格式不正确。');
+  if(typeof data.key!=='string'||data.key.length>512||/[^\x21-\x7e]/.test(data.key))throw Error('AI 密钥格式不正确。');
   return {format:data.format,endpoint,key:data.key};
 }
 export function aiPath(format,path){

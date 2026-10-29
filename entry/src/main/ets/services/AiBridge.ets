@@ -17,7 +17,7 @@ class AiTask {
 }
 
 export function aiEndpoint(value: string): string {
-  if (typeof value !== 'string' || !value || value.length > 512 || /[\s\\?#]/.test(value) || !/^https?:\/\//i.test(value)) throw new Error('AI 接口地址无效。');
+  if (typeof value !== 'string' || !value || value.length > 400 || /[^\x21-\x7e]|[\\?#]/.test(value) || !/^https?:\/\//i.test(value)) throw new Error('AI 接口地址无效。');
   let parsed: url.URL;
   try { parsed = url.URL.parseURL(value); } catch (_) { throw new Error('AI 接口地址无效。'); }
   if (!parsed.hostname || parsed.username || parsed.password || !value.split('/')[2] || value.split('/')[2].includes('@') || parsed.port === '0') throw new Error('AI 接口地址无效。');
@@ -31,7 +31,7 @@ function credential(data: AiRequest): AiCredential {
   if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('AI 请求数据无效。');
   if (typeof data.format !== 'string' || !['openai', 'anthropic', 'gemini', 'azure'].includes(data.format)) throw new Error('不支持此 AI 请求格式。');
   const endpoint = aiEndpoint(data.endpoint || '');
-  if (typeof data.key !== 'string' || data.key.length > 4096 || /\s/.test(data.key)) throw new Error('AI 密钥格式不正确。');
+  if (typeof data.key !== 'string' || data.key.length > 512 || /[^\x21-\x7e]/.test(data.key)) throw new Error('AI 密钥格式不正确。');
   return { format: data.format, endpoint: endpoint, key: data.key };
 }
 function status(value: AiCredential | undefined): AiStatus {
@@ -57,16 +57,16 @@ export class AiBridge {
   private async read(): Promise<AiCredential | undefined> {
     const value = await this.credentials.read();
     if (!value) return undefined;
-    let parsed: AiRequest;
-    try { parsed = JSON.parse(value) as AiRequest; } catch (_) { throw new Error('AI 配置读取失败，请重新保存。'); }
-    return credential(parsed);
+    const fields = value.split('\n');
+    if (fields.length !== 3) throw new Error('AI 配置读取失败，请重新保存。');
+    return credential({ format: fields[0], endpoint: fields[1], key: fields[2] });
   }
   async call(data: AiRequest): Promise<Object> {
     if (!data || typeof data !== 'object' || Array.isArray(data)) throw new Error('AI 请求数据无效。');
     if (data.action === 'cancel') { const task = this.requests.get(data.requestId || ''); if (task) { task.cancelled = true; task.stop(); } return true; }
     if (data.action === 'clear') { await this.credentials.clear(); return true; }
     if (data.action === 'status') return status(await this.read());
-    if (data.action === 'save') { const value = credential(data); await this.credentials.write(JSON.stringify(value)); return status(value); }
+    if (data.action === 'save') { const value = credential(data); await this.credentials.write(value.format + '\n' + value.endpoint + '\n' + value.key); return status(value); }
     if (data.action === 'verify') {
       const value = credential(data);
       if (value.format === 'azure') { const empty: Record<string, string> = {}; const result: AiResult = { status: 200, body: empty }; return result; }
