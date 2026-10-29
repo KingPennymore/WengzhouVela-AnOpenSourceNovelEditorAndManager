@@ -31,26 +31,33 @@ const page=await browser.newPage({viewport:{width:1280,height:800}}),errors=[],c
 await page.addInitScript(()=>localStorage.setItem('wenzhou.workspace',JSON.stringify({version:1,documents:[{id:'tex',name:'排版验证.tex',text:'',updatedAt:1},{id:'guide',name:'操作指南.txt',text:'PDF layout test',updatedAt:1}],activeId:'tex',openIds:['tex'],settings:{theme:'light',libraryOpen:false}})));
 const pdf=[...fixturePdf()];
 await mkdir('test-results',{recursive:true});
-async function contained(name){
-  await page.waitForFunction(()=>{const pane=window.pdfLayoutPane,canvas=pane?.root.querySelector('canvas'),box=pane?.root.querySelector('.pdf-canvas');return !!pane?.pdf&&canvas?.width>0&&canvas.getBoundingClientRect().height<=box.clientHeight+1&&canvas.getBoundingClientRect().width<=box.clientWidth+1;});
-  await page.waitForTimeout(220);
-  const sizes=await page.evaluate(()=>{const pane=window.pdfLayoutPane,rect=el=>{const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,width:r.width,height:r.height};};return {canvas:rect(pane.root.querySelector('canvas')),box:rect(pane.root.querySelector('.pdf-canvas')),root:rect(pane.root),limit:rect(pane.root.closest('.reader-viewport')||pane.root.closest('.paper')),footer:rect(document.querySelector(pane.reading?'.reader-pagebar':'.quickbar'))};});
-  assert.ok(sizes.box.height>0,JSON.stringify(sizes));assert.ok(sizes.canvas.bottom<=sizes.box.bottom+1,JSON.stringify(sizes));assert.ok(sizes.canvas.bottom<=sizes.limit.bottom+1,JSON.stringify(sizes));assert.ok(sizes.root.bottom<=sizes.footer.top+1,JSON.stringify(sizes));checks.push(name);console.log('PASS '+name);
+// The editing preview fits pages to the width and scrolls inside .pdf-canvas; reading mode fits each whole page.
+async function contained(name,{whole=false}={}){
+  // A resize can start a new render between the wait and the measurement; measure again once it settles.
+  let sizes;
+  for(let attempt=0;attempt<5&&!(sizes?.canvas&&sizes.box);attempt++){
+    await page.waitForFunction(whole=>{const pane=window.pdfLayoutPane,canvas=pane?.root.querySelector('canvas'),box=pane?.root.querySelector('.pdf-canvas');return !!pane?.pdf&&canvas?.width>0&&(!whole||canvas.getBoundingClientRect().height<=box.clientHeight+1)&&canvas.getBoundingClientRect().width<=box.clientWidth+1;},whole);
+    await page.waitForTimeout(220);
+    sizes=await page.evaluate(()=>{const pane=window.pdfLayoutPane,rect=el=>{if(!el)return null;const r=el.getBoundingClientRect();return {top:r.top,bottom:r.bottom,left:r.left,right:r.right,width:r.width,height:r.height};};return {canvas:rect(pane.root.querySelector('canvas')),box:rect(pane.root.querySelector('.pdf-canvas')),root:rect(pane.root),limit:rect(pane.root.closest('.reader-viewport')||pane.root.closest('.paper')),footer:rect(document.querySelector(pane.reading?'.reader-pagebar':'.quickbar'))};});
+  }
+  assert.ok(sizes.box.height>0,JSON.stringify(sizes));if(whole)assert.ok(sizes.canvas.bottom<=sizes.box.bottom+1,JSON.stringify(sizes));assert.ok(sizes.box.bottom<=sizes.limit.bottom+1,JSON.stringify(sizes));if(whole)assert.ok(sizes.canvas.bottom<=sizes.limit.bottom+1,JSON.stringify(sizes));
+  // The footer is hidden while the preview fills the writing area.
+  if(sizes.footer?.height)assert.ok(sizes.root.bottom<=sizes.footer.top+1,JSON.stringify(sizes));checks.push(name);console.log('PASS '+name);
 }
 try{
   await page.goto(`http://127.0.0.1:${server.address().port}`);await page.waitForSelector('.cm-editor');await page.locator('[data-display=preview]').click();await page.addScriptTag({url:'/pdf-layout.js'});
   await page.evaluate(pdf=>{const compiler={compile:async()=>({ok:true,pdf:new Uint8Array(pdf),diagnostics:[]})};window.pdfLayoutPane=new PdfLayoutPreview({compiler,fail:error=>{throw error;}});window.pdfLayoutPane.mount(document.querySelector('#preview'),{name:'排版验证.tex'});return window.pdfLayoutPane.compile();},pdf);
-  await contained('平板横屏整页 PDF 下边界位于预览区内');await page.screenshot({path:'test-results/pdf-tablet-landscape.png'});
-  await page.locator('#mobile-library').click();await contained('侧栏展开后 PDF 同时适应可用宽度和高度');
-  await page.evaluate(()=>{const log=document.querySelector('.tex-log');log.querySelector('pre').textContent='编译日志\n'.repeat(100);log.open=true;});await contained('展开编译日志后 PDF 自动缩小并保持页尾可见');
+  await contained('平板横屏 PDF 按宽度适配，预览区不越过底栏');await page.screenshot({path:'test-results/pdf-tablet-landscape.png'});
+  await page.locator('#mobile-library').click();await contained('侧栏展开后 PDF 适应剩余宽度');
+  await page.evaluate(()=>{const log=document.querySelector('.tex-log');log.querySelector('pre').textContent='编译日志\n'.repeat(100);log.open=true;});await contained('展开编译日志后预览区让出空间，仍不越过底栏');
   await page.locator('.pdf-next').click();await page.waitForFunction(()=>window.pdfLayoutPane.page===2);await contained('横向 PDF 页面按实际宽高比适应预览区');
   await page.setViewportSize({width:800,height:1280});await contained('平板竖屏重新计算 PDF 尺寸');
-  await page.setViewportSize({width:390,height:844});await contained('手机窄屏 PDF 保持完整显示');
+  await page.setViewportSize({width:390,height:844});await contained('手机窄屏 PDF 不横向溢出');
   await page.setViewportSize({width:1920,height:600});await contained('低高度宽屏 PDF 不延伸到底栏之外');
   await page.evaluate(()=>{document.querySelector('.tex-log').open=false;window.pdfLayoutPane.zoom=2;return window.pdfLayoutPane.render();});
   assert.ok(await page.locator('.pdf-canvas').evaluate(box=>box.scrollHeight>box.clientHeight||box.scrollWidth>box.clientWidth));await page.locator('.pdf-canvas').evaluate(box=>box.scrollTop=box.scrollHeight);checks.push('主动放大后仅在 PDF 容器内部滚动');
   await page.evaluate(()=>window.pdfLayoutPane.dispose());await selectAppView(page,'reader');await page.locator('[data-read=guide]').click();
   await page.evaluate(pdf=>{window.pdfLayoutPane=new PdfLayoutPreview({compiler:{compile:async()=>({ok:true,pdf:new Uint8Array(pdf),diagnostics:[]})},fail:error=>{throw error;}});window.pdfLayoutPane.mount(document.querySelector('.reader-content'),{name:'阅读排版.tex'},{reading:true});},pdf);
-  await contained('阅读模式 PDF 下边界保持在阅读底栏上方');await page.setViewportSize({width:1280,height:800});await contained('平板阅读模式整页 PDF 自动适配');await page.screenshot({path:'test-results/pdf-tablet-reading.png'});
+  await contained('阅读模式 PDF 下边界保持在阅读底栏上方',{whole:true});await page.setViewportSize({width:1280,height:800});await contained('平板阅读模式整页 PDF 自动适配',{whole:true});await page.screenshot({path:'test-results/pdf-tablet-reading.png'});
   assert.deepEqual(errors,[]);await mkdir('test-results',{recursive:true});await writeFile('test-results/pdf-layout-results.json',JSON.stringify({passed:checks.length,checks,errors},null,2));
 }finally{await browser.close();await new Promise(resolve=>server.close(resolve));}

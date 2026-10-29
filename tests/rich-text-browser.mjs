@@ -103,7 +103,7 @@ try{
     if(!await page.locator('[data-menu="book"]').isVisible())await page.locator('#mobile-library').click();await page.locator('[data-menu="book"]').click();await page.locator('#delete-doc').click();await page.locator('#dialog-submit').click();
     await page.waitForFunction(()=>!JSON.parse(localStorage.getItem('wenzhou.workspace')).documents.some(doc=>(doc.path||doc.name)==='航程.txt'));
     assert.ok(records(await stored(page))['航程.txt'],'kept for restore');
-    await page.locator('#open-trash').click();await page.locator('.trash-row',{hasText:/^航程\.txt/}).locator('[data-restore]').first().click();
+    await page.locator('#open-trash').click();await page.locator('.trash-item',{hasText:'航程.txt'}).locator('[data-restore]').first().click();
     await page.waitForFunction(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')).documents.some(doc=>(doc.path||doc.name)==='航程.txt'));
     await page.keyboard.press('Escape');
   });
