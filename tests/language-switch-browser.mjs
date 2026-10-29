@@ -37,7 +37,10 @@ try{
   const kept=new Set();
   await views(async()=>(await page.evaluate(visibleText)).forEach(item=>kept.add(item)));
 
+  const dictionaryLoaded=()=>page.evaluate(()=>performance.getEntriesByType('resource').some(entry=>entry.name.includes('i18n-dictionary')));
+  assert.equal(await dictionaryLoaded(),false,'a Chinese start must not load the English dictionary');
   await switchTo('en');
+  assert.equal(await dictionaryLoaded(),true);
   const english=new Set();
   await views(async view=>{
     const text=await page.evaluate(visibleText);text.forEach(item=>english.add(item));

@@ -1844,11 +1844,11 @@ $('#settings').onclick=()=>{
     <p><button type="button" class="secondary" id="create-vela" ${workspace.documents.some(doc=>documentKind(doc)==='VELA'&&documentPath(doc)!==GLOBAL_VELA_PATH&&configFolder(documentPath(doc))===currentScope())?'disabled':''}>${t('创建 .vela 配置')}</button></p>
     <p><button type="button" class="secondary" id="backup-all">${t('导出全部文稿备份')}</button> <button type="button" class="secondary" id="restore-backup">${t('恢复文稿备份')}</button> <button type="button" class="secondary" id="show-licenses">${t('开源许可')}</button>${native
     ?`<button type="button" class="secondary" id="check-updates">${t('检查更新')}</button><label class="checkbox"><input name="updateChecks" type="checkbox" ${workspace.settings.updateChecks!==false?'checked':''}>${t('自动检查更新')}</label>`
-    :''}</p>`,f=>{
+    :''}</p>`,async f=>{
     const configPriorityChanged=(globalConfig(workspace)?.config?.reader?.appearancePolicy==='personal')!==f.has('globalVelaOverride');
     workspace.settings.writer=chapterSettings({...s,titleTemplates:[],countMode:f.get('countMode'),includeHeading:f.has('includeHeading')});
     workspace.settings.language=f.get('language');
-    setLanguage(workspace.settings.language);
+    await setLanguage(workspace.settings.language);
     renderAppLabels();
     outlineRevision='';
     workspace.settings.fontFamily=normalizeFontName(f.get('fontFamily'));
@@ -2356,7 +2356,8 @@ async function boot(){try{
       if(isPreview&&id===workspace.activeId)renderPreview();
       return true;
     },addFile:(name,text)=>addDocument(newDocument(fileName(name),text)),toast,fail,refreshCommands:refreshPluginCommands,ui:pluginUi,message:(title,message)=>pluginDialog(title,message,'alert'),confirm:(title,message)=>pluginDialog(title,message,'confirm'),prompt:(title,value)=>pluginDialog(title,'','prompt',value)});
-  initI18n(workspace.settings.language);
+  // English waits for its dictionary chunk; if that fails the app stays in Chinese rather than not starting.
+  await initI18n(workspace.settings.language).catch(fail);
   renderAppLabels();
   texCompiler=new TexCompiler({manageComponents:showPlugins,workspace:()=>workspace,plugins:()=>plugins,project:doc=>projectConfig(workspace,doc)});
   createTexPreview=()=>new PdfPreview({compiler:texCompiler,fail,jump:(path,line)=>{

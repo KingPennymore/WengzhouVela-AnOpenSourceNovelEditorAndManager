@@ -6,7 +6,7 @@ import ts from 'typescript';
 // t() runs without a page: setLanguage() only touches document.title/lang and skips DOM translation without a body.
 globalThis.document??={documentElement:{},body:null};
 const {t,setLanguage}=await import('../web/i18n.mjs');
-setLanguage('en');
+await setLanguage('en');
 
 const han=/[㐀-鿿]/;
 // Dictionaries and the generated guide hold Chinese by design.
