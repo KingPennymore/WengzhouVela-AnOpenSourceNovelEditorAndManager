@@ -35,13 +35,20 @@ try{
     await settings();assert.equal(await page.locator('#dialog-body label.palette-choice.custom').count(),1);assert.equal(await page.locator('#dialog-body [name=palette]:checked').inputValue(),saved.palette);
     await page.keyboard.press('Escape');
   });
+  // One press flips the look, but the class changes only once the cross-fade starts: wait for it instead of pressing again.
+  const setDark=async dark=>{
+    if(await page.evaluate(()=>document.body.classList.contains('dark'))===dark)return;
+    await page.keyboard.press('Control+Alt+T');await page.waitForFunction(dark=>document.body.classList.contains('dark')===dark,dark);
+  };
   await check('dark mode uses the palette’s own dark colours, and the palette survives a reload',async()=>{
     const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')).settings.customPalettes[0]);
-    for(let i=0;i<3&&!await page.evaluate(()=>document.body.classList.contains('dark'));i++)await page.keyboard.press('Control+Alt+T');
+    await setDark(true);
     assert.equal(await page.evaluate(()=>document.body.classList.contains('dark')),true);assert.equal(await token('accent'),saved.dark.accent);assert.equal(await token('paper'),saved.dark.paper);
+    // The theme switch is saved asynchronously; reloading before it lands would bring back the light look.
+    await page.waitForFunction(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')).settings.dark===true);
     await page.reload();await page.waitForFunction(()=>window.velaReady===true);
     assert.equal(await token('accent'),saved.dark.accent,'still the custom palette after reload');
-    for(let i=0;i<3&&await page.evaluate(()=>document.body.classList.contains('dark'));i++)await page.keyboard.press('Control+Alt+T');
+    await setDark(false);
     assert.equal(await token('accent'),'#9c2f6b');
   });
   await check('editing and deleting a palette; deleting the active one falls back to 青松',async()=>{
