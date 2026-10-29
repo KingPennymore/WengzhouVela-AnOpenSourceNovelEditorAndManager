@@ -28,6 +28,7 @@ async function open({block=[],language='zh',empty=false,ready=true,items=[]}={})
 const preview=async page=>{await page.keyboard.press('Control+Shift+P');await page.locator('#preview').waitFor();};
 try{
   await check('outline load failure and retry are translated in English',async()=>{const {context,page,unblock}=await open({block:['outline-view'],language:'en'});await openRecentFile(page,page.locator('[data-recent=outline]'));await page.getByRole('heading',{name:'Module failed to load'}).waitFor();unblock('outline-view');await page.getByRole('button',{name:'Retry',exact:true}).click();await page.locator('.outline-plane').waitFor();await context.close();});
+  await check('the home chunk fails visibly and retries without losing documents',async()=>{const {context,page,unblock}=await open({block:['start-page']});await page.locator('#start-page .chunk-failure').waitFor();unblock('start-page');await page.locator('#start-page [data-chunk-retry]').click();await page.locator('.resume-card').waitFor();await openRecentFile(page,page.locator('[data-recent=book]'));await page.locator('.cm-editor').waitFor();await context.close();});
   await check('startup loads none of the lazy feature chunks',async()=>{
     const {context,page,requested}=await open();await openRecentFile(page,page.locator('[data-recent=book]'));await page.waitForSelector('.cm-editor');
     assert.deepEqual(requested.filter(name=>features.includes(name)),[]);await context.close();
@@ -52,7 +53,7 @@ try{
     await page.locator('#editor .chunk-failure').waitFor();
     assert.equal(await page.evaluate(()=>localStorage.getItem('wenzhou.workspace')),null);
     unblock('guide');await page.locator('#editor [data-chunk-retry]').click();
-    await page.waitForFunction(()=>window.velaReady===true);await page.locator('.cm-editor').waitFor();
+    await page.waitForFunction(()=>window.velaReady===true);await page.locator('.ui-empty').waitFor();await page.locator('[data-start=guide]').click();await page.locator('.cm-editor').waitFor();
     assert.match(await page.locator('.cm-content').textContent(),/文舟操作指南/);await context.close();
   });
   await check('subscriptions load on first entry and retry recovers the page',async()=>{

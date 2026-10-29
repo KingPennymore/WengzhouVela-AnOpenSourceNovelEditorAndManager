@@ -16,7 +16,7 @@ const saved=()=>p.evaluate(()=>{window.wenzhouSave();return JSON.parse(localStor
 const submit=async()=>{await p.locator('#dialog-submit').click();await p.waitForFunction(()=>!document.querySelector('#dialog').open);};
 const menu=async path=>{const w=await saved(),doc=w.documents.find(d=>d.path===path);await p.locator(doc?`[data-menu="${doc.id}"]`:`[data-path-menu="${path}"]`).click();};
 try{
-  await p.goto(url);await p.waitForSelector('.cm-editor');
+  await p.goto(url);await p.waitForFunction(()=>window.velaReady);await p.locator('.ui-empty').waitFor();await p.locator('[data-start=guide]').click();await p.waitForSelector('.cm-editor');
   await check('侧栏快速滑入滑出，连续切换不残留；减少动态效果时直接切换',async()=>{
     await p.evaluate(()=>document.querySelector('#mobile-library').click());
     await p.waitForFunction(()=>document.querySelector('#app').dataset.sidebarsAnimating==='false');

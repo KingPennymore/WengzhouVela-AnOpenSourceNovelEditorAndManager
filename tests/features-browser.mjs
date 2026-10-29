@@ -31,8 +31,8 @@ const data={version:1,activeId:'book',settings:{theme:'system'},documents:[doc('
 async function importFile(p,name,text){await p.locator('#file-input').setInputFiles({name,mimeType:'text/plain',buffer:Buffer.from(text)});await p.waitForFunction(name=>document.querySelector('#current-name').textContent===name,name);}
 try{
   const fresh=await context(null,{colorScheme:'dark'}),p=fresh.p;
-  await check('首次安装显示 Markdown 指南，Tab 插入普通空格且保持正文焦点',async()=>{
-    assert.match(await p.locator('.cm-content').innerText(),/^文舟操作指南/);assert.equal(await p.locator('body').evaluate(el=>el.classList.contains('dark')),true);
+  await check('首次安装显示新建空状态，指南仍可打开，Tab 保持正文焦点',async()=>{
+    await p.locator('.ui-empty').waitFor();await p.locator('[data-start=guide]').click();await p.locator('.cm-content').waitFor();assert.match(await p.locator('.cm-content').innerText(),/^文舟操作指南/);assert.equal(await p.locator('body').evaluate(el=>el.classList.contains('dark')),true);
     await editorAction(p,'#quick-top');await p.keyboard.press('Tab');assert.ok((await saved(p)).documents[0].text.startsWith('  文舟'));
     assert.equal(await p.locator('.cm-content').evaluate(el=>el.contains(document.activeElement)||el===document.activeElement),true);
     await p.keyboard.press('Shift+Tab');assert.ok((await saved(p)).documents[0].text.startsWith('文舟'));
@@ -147,7 +147,7 @@ try{
   await check('鸿蒙系统主题与安全区变化更新页面，原生双指缩放只调整字号',async()=>{
     const nativeContext=await browser.newContext({viewport:{width:390,height:844}});
     await nativeContext.addInitScript(data=>{let stored=JSON.stringify(data);window.WenzhouNative={readWorkspace:()=>stored,writeWorkspace:value=>{stored=value;return 'ok';},readPlugins:()=>'',writePlugins:()=> 'ok',readEnvironment:()=>JSON.stringify({dark:true,top:24,bottom:20,left:0,right:0}),call:async operation=>JSON.stringify({ok:true,value:operation==='initializeStorage'?{storage:{id:'',needsSetup:false},documents:[],folders:[],entries:[]}:operation==='api'?{status:401,body:{}}:true})};},data);
-    const n=await nativeContext.newPage();n.on('pageerror',e=>errors.push(e.message));await n.goto(url);await n.waitForSelector('.cm-editor');await n.waitForFunction(()=>window.velaReady);
+    const n=await nativeContext.newPage();n.on('pageerror',e=>errors.push(e.message));await n.goto(url);await n.waitForFunction(()=>window.velaReady);if(await n.locator('.ui-empty').isVisible())await n.locator('[data-start=guide]').click();await n.waitForSelector('.cm-editor');
     assert.equal(await n.locator('body').evaluate(el=>el.classList.contains('dark')),true);assert.equal(await n.locator('.statusbar').evaluate(el=>getComputedStyle(el).height),'48px');
     const rect=await n.locator('#quick-save').boundingBox();await n.evaluate(()=>{window.dispatchEvent(new CustomEvent('wenzhouEnvironment',{detail:{dark:false,top:30,bottom:18,left:0,right:0}}));window.wenzhouNativePinch(1,'start');window.wenzhouNativePinch(1.5,'move');window.wenzhouNativePinch(1,'end');});
     await n.waitForFunction(()=>!document.body.classList.contains('dark'));
@@ -157,7 +157,7 @@ try{
   await check('鸿蒙原生选区跨越中文标点、换行和全角缩进时，范围与复制替换一致',async()=>{
     const ctx=await browser.newContext({viewport:{width:900,height:900}});
     await ctx.addInitScript(()=>{let stored='';window.WenzhouNative={readWorkspace:()=>stored,writeWorkspace:s=>{stored=s;return 'ok';},readPlugins:()=>'',writePlugins:()=> 'ok',readEnvironment:()=>JSON.stringify({dark:false,top:0,bottom:18}),call:async operation=>JSON.stringify({ok:true,value:operation==='initializeStorage'?{storage:{id:'',needsSetup:false},documents:[],folders:[],entries:[]}:operation==='api'?{status:401,body:{}}:true})};});
-    const n=await ctx.newPage();n.on('pageerror',e=>errors.push(e.message));await n.goto(url);await n.waitForSelector('.cm-editor');await n.waitForFunction(()=>window.velaReady);
+    const n=await ctx.newPage();n.on('pageerror',e=>errors.push(e.message));await n.goto(url);await n.waitForFunction(()=>window.velaReady);if(await n.locator('.ui-empty').isVisible())await n.locator('[data-start=guide]').click();await n.waitForSelector('.cm-editor');
     const text='第一章 标题\n　　'+('正文，包含“引号”与标点。'.repeat(15))+'\n\n　　下一段落，选择到这里结束。\n第二章';
     const from=text.indexOf('包含'),to=text.indexOf('这里')+2;
     await n.evaluate(text=>{const v=velaEditorView;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:text}});v.focus();},text);

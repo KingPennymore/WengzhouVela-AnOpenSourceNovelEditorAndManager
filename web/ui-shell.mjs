@@ -121,6 +121,7 @@ export class UIShell {
     const groupFor=id=>['search-editor','add-glossary','export-doc'].includes(id)
       ?this.groups.document
       :['focus-toggle','theme'].includes(id)?this.groups.layout:id==='plugins'?this.groups.extensions:this.groups.app;
+    for(const label of document.querySelectorAll('.nav-label'))label.hidden=innerWidth<1100;
     const wide=innerWidth>=900,compact=!wide&&this.editorChrome.compact;
     const pinnedActions=this.editorChrome.active&&(wide||compact)&&document.body.dataset.mobileEditor!=='true';
     document.body.dataset.editorChrome=wide&&this.editorChrome.active?'wide':compact?'compact':'expanded';

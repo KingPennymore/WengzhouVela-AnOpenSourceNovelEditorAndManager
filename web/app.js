@@ -25,7 +25,7 @@ bindPanelTapGuard();
 import {bindAppChoices} from './app-choices.mjs';
 const closeAppChoices=bindAppChoices();
 import {outlineMarkers,outlineMarksChanged} from './outline-markers.mjs';
-import {startPageMarkup,setStartPanel} from './start-page.mjs';
+
 import {templatesFor,templateText} from './file-templates.mjs';
 import {renderComponentDocument,componentText,isComponentDocument,documentProvider,documentSourceProvider,documentImportExtensions,onDocumentFormatsChange} from './document-components.mjs';
 import {prepareDocumentImport,documentImportLimit,readDocumentBytes,binaryDocumentName,BINARY_DOCUMENT_EXTENSIONS} from './document-import.mjs';
@@ -76,13 +76,13 @@ import {createExportDialogs} from './export-dialogs.mjs';
 import {createFileDialogs} from './file-dialogs.mjs';
 import {renderPlainChapters} from './reader-layout.mjs';
 import {textPoint,invalidateTextIndex} from './reading-position.mjs';
-import {loadOutlineView,loadMapView,loadPdfPreview,loadReader,loadLatexEditor,loadMarkdownPreview,loadHtmlPreview,loadGuide,loadSubscriptions,loadUpdateView,loadGlossaryView,loadAiAssistant,loadSettingsView,chunkFailure} from './lazy.mjs';
+import {loadOutlineView,loadMapView,loadPdfPreview,loadReader,loadLatexEditor,loadMarkdownPreview,loadHtmlPreview,loadGuide,loadSubscriptions,loadUpdateView,loadGlossaryView,loadAiAssistant,loadSettingsView,loadStartPage,chunkFailure} from './lazy.mjs';
 import {fromBase64} from './plugin-package.mjs';
 import {documentPath,uniquePath,preparePaths,adoptFolder,folderTree,gitFileState} from './workspace.mjs';
 import {chapterSettings,chapterMatcher} from './chapters.mjs';
 import {glossaryPaths,glossaryTerms,parseGlossary,glossaryText,createGlossary} from './glossary.mjs';
 import {beginViewSession} from './view-session.mjs';
-import {mountIncrementalList} from './incremental-list.mjs';
+
 import {renderGlossaryPanel} from './glossary-panel.mjs';
 import {applyFileOperation,restoreFile,itemPaths,copyDestination,basename,parentPath,within} from './file-manager.mjs';
 import {fileOperationCopy,fileViewTarget} from './file-manager.mjs';
@@ -133,6 +133,7 @@ function renderAppLabels(){
   ])document.getElementById(id)?.setAttribute('aria-label',t(label));
   // The DOM pass skips the file name element as user content, so its fixed hint is set here.
   $('#current-name').title=t('双击重命名文件');
+  for(const [name,label] of [['write','写作'],['github','仓库'],['subscriptions','订阅'],['reader','阅读']]){const node=document.querySelector(`[data-view=${name}] .nav-label`);if(node)node.textContent=t(label);}
   for(const [id,,keys,label] of shortcuts){
     const button=document.getElementById(id);
     if(button){
@@ -151,7 +152,7 @@ for(const [id,name] of Object.entries({'quick-save':'save','quick-undo':'undo','
   $('#'+id+' span').innerHTML=icon(name);
   $('#'+id).setAttribute('aria-label',$('#'+id).title);
 }
-document.querySelectorAll('[data-view]').forEach(b=>b.innerHTML=icon(b.dataset.view)+(b.dataset.view==='subscriptions'?'<i class="update-dot" hidden></i>':''));
+document.querySelectorAll('[data-view]').forEach(b=>b.innerHTML=icon(b.dataset.view)+(b.dataset.view==='subscriptions'?'<i class="update-dot" hidden></i>':'')+`<span class="nav-label" hidden>${t({write:'写作',github:'仓库',subscriptions:'订阅',reader:'阅读'}[b.dataset.view])}</span>`);
 let gh=new GitHub(transport);
 let workspace,view,index,indexDoc,indexSettings='',statsTimer,toastTimer,outlineRevision='',documents,indexService,editing,outlineLimit=200;
 let isPreview=false,dialogHandler=null,dialogCancel=null,dialogBusy=false,dialogVersion=0;
@@ -790,6 +791,7 @@ function makeState(doc){
       if(!planningPreview()&&(update.view.hasFocus||update.transactions.some(tr=>tr.isUserEvent('input')||tr.isUserEvent('delete')||tr.isUserEvent('undo')||tr.isUserEvent('redo'))))setSidebar('outline',false);
       const d=current();
       if(!d)return;
+      dailyWriting(update);
       const changes=[];
       update.changes.iterChanges((from,to,_a,_b,insert)=>changes.push({from,to,insert:insert.toString()}));
       documents.changeTree(d,update.state.doc,changes);
@@ -885,8 +887,8 @@ function switchDocument(id){
   }
   $('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);
   const alreadyOpen=workspace.openIds.includes(id);if(!alreadyOpen)workspace.openIds.push(id);
-  workspace.activeId=id;const doc=current();if(!doc)return;
-  home=false;csvEditor?.reset();$('#start-page').hidden=true;isPreview=['CSV','VELA','GLY','VODT','PLUGIN','OUTLINE','MAP'].includes(documentKind(doc));
+  workspace.activeId=id;const doc=current();if(!doc)return;if(documentKind(doc)!=='VELA')workspace.settings.lastWritingId=id;workspace.settings.startWithEmptyHome=false;
+  home=false;csvEditor?.reset();$('#start-page').hidden=true;$('#start-page').replaceChildren();isPreview=['CSV','VELA','GLY','VODT','PLUGIN','OUTLINE','MAP'].includes(documentKind(doc));
   // A file operation recreates the view; the kept state (undo history, formats) is reused while the text is unchanged.
   const kept=editorStates.get(id),reused=!!kept&&kept.doc.toString()===doc.text;if(view)view.setState(reused?kept:makeState(doc));else view=new EditorView({state:reused?kept:makeState(doc),parent:$('#editor')});if(!reused)restorePosition(doc);else restoreScroll(id);
   if(isPreview&&['OUTLINE','MAP'].includes(documentKind(doc))&&sourceRendering.get(view.state)?.length)view.dispatch({effects:sourceRendering.reconfigure([])});
@@ -997,22 +999,36 @@ function showHome(){
     view=null;
   }
   ui.close();selectionMenu.hide();$('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);$('#preview').odfDispose?.();document.body.classList.remove('focus');
-  workspace.activeId=null;home=true;isPreview=false;index=null;$('#current-name').textContent=t('启动页');$('#start-page').hidden=false;$('#start-page').dataset.panel='actions';updateEditorVisibility();renderHome();renderDocuments();updateStats();showView('write');setSidebar('outline',false);save();plugins?.emit('switch-file',null);
+  workspace.activeId=null;home=true;isPreview=false;index=null;$('#current-name').textContent=t('启动页');$('#start-page').hidden=false;$('#start-page').dataset.panel='actions';updateEditorVisibility();const rendered=renderHome();renderDocuments();updateStats();showView('write');setSidebar('outline',false);save();plugins?.emit('switch-file',null);return rendered;
 }
-function renderHome(){
+async function renderHome(){
   $('#current-name').textContent=t('启动页');
   const mounted=beginViewSession($('#start-page'));
-  const files=workspace.documents.filter(d=>documentKind(d)!=='VELA'),projects=workspace.documents.filter(d=>documentKind(d)==='VELA'&&documentPath(d)!==GLOBAL_VELA_PATH),recent=[...workspace.documents].sort((a,b)=>b.updatedAt-a.updatedAt);
-  const panel=$('#start-page').dataset.panel||'actions';
-  const recentItem=d=>`<button data-recent="${esc(d.id)}"><span class="file-kind">${fileIcon(documentKind(d))}</span><div><strong data-user-content>${esc(d.name)}</strong><small data-user-content>${esc(parentPath(documentPath(d))||t('内部文件夹'))} · ${new Date(d.updatedAt).toLocaleDateString(workspace.settings.language==='en'?'en':'zh-CN')}</small></div></button>`;
-  $('#start-page').innerHTML=startPageMarkup({files:files.length,projects:projects.length,reading:files.filter(readable).length,recentMarkup:''});
-  mountIncrementalList($('#start-page .recent-files'),{items:recent,renderItem:recentItem,signal:mounted.signal,empty:t('暂无本地文件')});
-  setStartPanel($('#start-page'),panel,{focus:false});
+  const root=$('#start-page'),target=workspace;
+  try{
+    const module=await loadStartPage();if(!mounted.alive()||workspace!==target||!home)return;
+    module.mountStartPage(root,{workspace,kind:documentKind,path:documentPath,fileIcon,readable,globalPath:GLOBAL_VELA_PATH,signal:mounted.signal,daily:()=>dailyWriting(),
+      chapter:doc=>{const at=editorStates.get(doc.id)?.selection.main.head??workspace.editorPositions?.[doc.id]?.head??positionOffset(doc.text,readPosition(workspace,doc));const row=doc.text.slice(0,at).split('\n').length-1;const settings=projectWriter(workspace,doc);return Writer.sectionAt(Writer.buildIndex(doc.text,settings,chapterMatcher(settings)),row)?.title||t('全文');}});
+  }catch(error){if(mounted.alive()&&home)chunkFailure(root,error,renderHome);}
 }
+function setStartPanel(root,name,options){root.setStartPanel?.(name,options);}
+// Local calendar day; positive net non-whitespace Unicode additions per user transaction.
+// Deletion does not subtract earned writing; undo/redo, file loads and background changes earn nothing.
+function dailyWriting(update){
+  const now=new Date(),date=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');
+  let value=workspace.settings.writingDay;
+  if(value?.date!==date||!Number.isFinite(value.count)){value=workspace.settings.writingDay={date,count:0};scheduleWorkspaceSave();}
+  if(update&&['TXT','MD','TEX','CODE','HTML'].includes(documentKind(current()))&&update.transactions.some(tr=>tr.isUserEvent('input')||tr.isUserEvent('delete'))){
+    let added=0;update.changes.iterChanges((from,to,_a,_b,insert)=>{const count=text=>Array.from(text.replace(/\s/gu,'')).length;added+=count(insert.toString())-count(update.startState.doc.sliceString(from,to));});value.count+=Math.max(0,added);
+  }
+  return value.count;
+}
+
 $('#start-page').onclick=async e=>{
   const recent=e.target.closest('[data-recent]');if(recent){switchDocument(recent.dataset.recent);return;}
   const action=e.target.closest('[data-start]');if(!action)return;
   const name=action.dataset.start;
+  if(name==='continue'){switchDocument(action.dataset.doc);return;}
   if(name==='recent'||name==='back'){setStartPanel($('#start-page'),name==='recent'?'recent':'actions');return;}
   if(name==='guide'){
     const target=workspace,find=()=>target.documents.find(d=>/^操作指南\.(txt|md)$/i.test(d.name)); // i18n-data: the guide's file name
@@ -2444,14 +2460,15 @@ async function boot(){try{
   // Phones always start with the file drawer closed; only desktop restores the last sidebar state.
   setSidebar('library',innerWidth>600&&workspace.settings.libraryOpen===true,false);
   // Prepare the final chrome geometry without creating editor, preview or home content beneath the logo.
-  const initialId=workspace.documents.some(d=>/^操作指南\.(txt|md)$/i.test(d.name))&&workspace.openIds.includes(workspace.activeId)?workspace.activeId:null;
+  const initialId=!workspace.settings.startWithEmptyHome&&workspace.documents.some(d=>/^操作指南\.(txt|md)$/i.test(d.name))&&workspace.openIds.includes(workspace.activeId)?workspace.activeId:null;
   const initialDoc=workspace.documents.find(doc=>doc.id===initialId);
   home=!initialDoc;isPreview=!!initialDoc&&['CSV','VELA','GLY','VODT','PLUGIN','OUTLINE','MAP'].includes(documentKind(initialDoc));
-  if(home)workspace.activeId=null;
+  if(home){if(workspace.activeId&&documentKind(current())!=='VELA')workspace.settings.lastWritingId??=workspace.activeId;workspace.activeId=null;}
   document.body.dataset.page='write';$('#current-name').textContent=initialDoc?.name||t('启动页');updateEditorVisibility();renderDocuments();updateStats();sidebars.update(false);
   performance.mark('vela:core-ready');
+  if(home)loadStartPage().catch(()=>{}); // Fetch the home-only chunk during the logo; mount after it exits.
   await window.velaStartup?.ready();
-  if(initialDoc)switchDocument(initialDoc.id);else showHome();
+  if(initialDoc)switchDocument(initialDoc.id);else await showHome();
   window.velaStartup?.reveal();
   // Persist startup migrations before exposing the workspace; geometry reads stay batched.
   if(session.pendingWorkspaceSave)save();
