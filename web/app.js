@@ -1718,10 +1718,13 @@ function applyTheme(mode=workspace.settings.theme){
   // Only a real colour change cross-fades; re-applying the same look (settings saved, system event) stays instant.
   const look=dark+JSON.stringify(paletteFor(workspace.settings.palette,dark).colors),starting=!themeLook,changed=look!==themeLook;
   themeLook=look;
+  // Settings and the cold-start record are written now; only painting waits for the cross-fade, which a view
+  // transition runs a frame later (or never, if the app is closed first).
+  workspace.settings.palette=paletteFor(workspace.settings.palette,dark).id;
+  window.velaStartup?.remember(workspace.settings,{light:paletteFor(workspace.settings.palette,false).colors,dark:paletteFor(workspace.settings.palette,true).colors});
   const paint=()=>{
     document.body.classList.toggle('dark',dark);
-    workspace.settings.palette=applyPalette(document.body,workspace.settings.palette,dark);
-    window.velaStartup?.remember(workspace.settings,{light:paletteFor(workspace.settings.palette,false).colors,dark:paletteFor(workspace.settings.palette,true).colors});
+    applyPalette(document.body,workspace.settings.palette,dark);
     const follows=!dark===(environment?.dark??systemTheme.matches);
     const label=(mode==='system'
       ?say(`跟随系统（${dark?'深色':'浅色'}），`,`System (${dark?'dark':'light'}), `)
