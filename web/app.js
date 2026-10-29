@@ -76,7 +76,7 @@ import {createExportDialogs} from './export-dialogs.mjs';
 import {createFileDialogs} from './file-dialogs.mjs';
 import {renderPlainChapters} from './reader-layout.mjs';
 import {textPoint,invalidateTextIndex} from './reading-position.mjs';
-import {loadOutlineView,loadMapView,loadPdfPreview,loadReader,loadLatexEditor,loadMarkdownPreview,loadHtmlPreview,loadGuide,loadSubscriptions,loadUpdateView,loadGlossaryView,chunkFailure} from './lazy.mjs';
+import {loadOutlineView,loadMapView,loadPdfPreview,loadReader,loadLatexEditor,loadMarkdownPreview,loadHtmlPreview,loadGuide,loadSubscriptions,loadUpdateView,loadGlossaryView,loadAiAssistant,loadAiSettings,chunkFailure} from './lazy.mjs';
 import {fromBase64} from './plugin-package.mjs';
 import {documentPath,uniquePath,preparePaths,adoptFolder,folderTree,gitFileState} from './workspace.mjs';
 import {chapterSettings,chapterMatcher} from './chapters.mjs';
@@ -233,7 +233,7 @@ let fileClipboard=null;
 // goes through to the variable here, so a module never holds a stale workspace or editor view.
 const appState={
   get workspace(){return workspace;},set workspace(value){workspace=value;},
-  get view(){return view;},get home(){return home;},get documents(){return documents;},get environment(){return environment;},
+  get view(){return view;},get home(){return home;},get pageName(){return pageName;},get documents(){return documents;},get environment(){return environment;},
   get isPreview(){return isPreview;},set isPreview(value){isPreview=value;},
   get gh(){return gh;},set gh(client){gh=client;},
   get selectedFolder(){return selectedFolder;},set selectedFolder(value){selectedFolder=value;},
@@ -926,6 +926,17 @@ function updateEditorVisibility(){
   for(const id of ['search-editor','outline-toggle','focus-toggle','export-doc','quick-top','quick-bottom','quick-chapter-top','quick-chapter-bottom','append-chapter','locate-chapter','export-chapters'])$('#'+id).disabled=home;
   for(const id of ['search-editor','quick-top','quick-bottom','quick-chapter-top','quick-chapter-bottom','append-chapter','locate-chapter','export-chapters'])if(planning)$('#'+id).disabled=true;$('#add-glossary').disabled=home||isPreview||pageName!=='write';
   if(home){$('#quick-undo').disabled=true;$('#quick-redo').disabled=true;}
+  updateAiAssistant();
+}
+// AI assistant (docs/AI-ASSIST.md): nothing is loaded until it is enabled in settings.
+let aiAssistant=null;
+function updateAiAssistant(){
+  if(aiAssistant){aiAssistant.update();return;}
+  if(!workspace?.settings.ai?.enabled)return;
+  loadAiAssistant().then(module=>{aiAssistant??=module.createAiAssistant(withState({current,documentKind,openSettings:openAiSettings}));aiAssistant.update();}).catch(fail);
+}
+function openAiSettings(){
+  loadAiSettings().then(module=>module.showAiSettings({workspace,openModal,save,toast,changed:()=>{aiAssistant?.refreshStatus();updateAiAssistant();}})).catch(fail);
 }
 function renderDisplayOptions(){
   const doc=current();$('#display-options').hidden=home||!doc;if(!doc)return;
@@ -1851,6 +1862,7 @@ $('#settings').onclick=()=>{
     <label class="checkbox"><input name="includeHeading" type="checkbox" ${s.includeHeading?'checked':''}>${t('字数包含章节标题')}</label>
     <p>${t('自动识别标准中英章节标题；额外模板保存在工作区 .vela 配置中。')}</p>
     <div class="notice">${say(`文舟 ${environment?.version||(environment?.platform==='android'?__VELA_HARMONY_VERSION__+'-android.1':__VELA_HARMONY_VERSION__)}`,`Vela ${environment?.version||(environment?.platform==='android'?__VELA_HARMONY_VERSION__+'-android.1':__VELA_HARMONY_VERSION__)}`)}<br>${t('开源小说创作 / 阅读工具')}</div>
+    <p><button type="button" class="secondary" id="ai-settings">${t('AI 助手…')}</button></p>
     <p><button type="button" class="secondary" id="create-vela" ${workspace.documents.some(doc=>documentKind(doc)==='VELA'&&documentPath(doc)!==GLOBAL_VELA_PATH&&configFolder(documentPath(doc))===currentScope())?'disabled':''}>${t('创建 .vela 配置')}</button></p>
     <p><button type="button" class="secondary" id="backup-all">${t('导出全部文稿备份')}</button> <button type="button" class="secondary" id="restore-backup">${t('恢复文稿备份')}</button> <button type="button" class="secondary" id="show-licenses">${t('开源许可')}</button>${native
     ?`<button type="button" class="secondary" id="check-updates">${t('检查更新')}</button><label class="checkbox"><input name="updateChecks" type="checkbox" ${workspace.settings.updateChecks!==false?'checked':''}>${t('自动检查更新')}</label>`
@@ -1903,6 +1915,7 @@ $('#settings').onclick=()=>{
     if(!save())throw Error(t('清理后关联信息保存失败，请刷新工作区。'));
   }});
   if($('#check-updates'))$('#check-updates').onclick=()=>checkWindowsUpdates(true);
+  $('#ai-settings').onclick=()=>openAiSettings();
   // A palette radio inside a label: the edit button must not select it; both buttons replace the settings dialog.
   $('#dialog-body').querySelectorAll('[data-edit-palette]').forEach(button=>button.onclick=event=>{event.preventDefault();showPaletteEditor(button.dataset.editPalette);});
   const newPalette=$('#new-palette');if(newPalette)newPalette.onclick=()=>showPaletteEditor('',$('#dialog-body [name=palette]:checked')?.value||workspace.settings.palette);

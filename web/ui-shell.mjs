@@ -214,6 +214,7 @@ export function organizeSettings(root) {
     ['外观与语言',['language','theme','fontFamily','palette']],
     ['编辑',['fontSize','autoNouns','glossaryPanel','highlightTerms','novelLineNumbers','richText','countMode','includeHeading']],
     ['阅读',['readingMode','globalVelaOverride','edit-global-vela']],
+    ['AI 助手',['ai-settings']],
     ['工作区配置',['create-vela','cleanup-redundant']],
     ['备份与应用',['backup-all','show-licenses','check-updates','updateChecks']]
   ];

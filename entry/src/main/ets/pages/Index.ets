@@ -12,7 +12,7 @@ struct Index {
   private bridge: NativeBridge = new NativeBridge();
   private pinchDistance: number = 0;
   /** Bump when the policy text changes materially so consent is requested again. */
-  private static readonly POLICY_VERSION: string = '2026-10-16';
+  private static readonly POLICY_VERSION: string = '2026-10-29';
   private static readonly POLICY_URL: string = 'https://gitee.com/kingpennymore/wenzhou-vela-mirror-repository/blob/master/PRIVACY.md';
   @State consented: boolean = false;
   @State showFullPolicy: boolean = false;
