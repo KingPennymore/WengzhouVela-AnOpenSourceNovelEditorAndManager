@@ -94,6 +94,8 @@ export class ProjectService {
   }
   permission(binding,id){
     this.alive(binding);
+    // Only host code can create this session; it is never exposed through plugin APIs.
+    if(binding.builtinProject?.id===id)return binding.builtinProject;
     if(!binding.grants.has(id))
       throw error('E_PERMISSION',t('请先打开并授权此工作区。'),{workspaceId:id});
     return this.project(id);
@@ -665,6 +667,7 @@ export class ProjectService {
     this.extendAssets(api,binding);
     this.extendPreview(api,binding);
     return {
+      owner,
       api,
       stop:async ()=>{
         binding.stopped=true;
@@ -681,6 +684,18 @@ export class ProjectService {
         }
       }
     };
+  }
+  /** Trusted application features reuse the same queue, locks, revisions and atomic backend as plugins. */
+  bindBuiltin(id,root,name){
+    root=relativePath(root,true);
+    const session=this.bind(id,name),binding=this.bindings.get(session.owner);
+    binding.builtinProject={id:'builtin:'+session.owner,name,root};
+    return {...session,handle:()=>this.handle(binding,binding.builtinProject),stop:async()=>{
+      try{await session.stop();}finally{
+        this.observed.delete(binding.builtinProject.id);
+        this.pendingEvents.delete(binding.builtinProject.id);
+      }
+    }};
   }
 }
 Object.assign(ProjectService.prototype,batchMethods,pluginApiMethods);

@@ -12,7 +12,7 @@ export function aiSettings(workspace){
   value.enabled??=false;value.consented??=false;value.provider??='openai';
   value.format??=preset(value.provider).format;value.endpoint??=preset(value.provider).endpoint;
   value.models||={};value.models.extract??='';value.models.suggest??='';
-  value.apiVersion??=AZURE_API_VERSION;value.confirmChars??=20000;value.dailyChars??=0;
+  value.apiVersion??=AZURE_API_VERSION;value.confirmChars??=20000;value.dailyChars??=0;value.contextTokens??=8192;
   value.usage||={day:'',chars:0};
   return value;
 }
@@ -53,7 +53,10 @@ export const aiReady=(settings,status)=>!!settings.enabled&&!!status?.saved&&sta
  */
 export async function aiComplete(workspace,{purpose,system,messages,maxTokens,temperature,signal}){
   const settings=aiSettings(workspace),chars=[system,...messages.map(message=>message.content)].join('').length;
-  const today=new Date().toISOString().slice(0,10);
+  if(signal?.aborted)throw new DOMException('Aborted','AbortError');
+  if(!settings.consented||!aiReady(settings,await aiStatus()))throw new Error(t('未配置 AI 服务。'));
+  if(signal?.aborted)throw new DOMException('Aborted','AbortError');
+  const now=new Date(),today=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');
   if(settings.usage.day!==today)settings.usage={day:today,chars:0};
   if(settings.dailyChars&&settings.usage.chars+chars>settings.dailyChars)throw new Error(say(`已达到每日发送上限（${settings.dailyChars.toLocaleString()} 字），明天再试，或在 AI 设置中调整。`,`Daily limit reached (${settings.dailyChars.toLocaleString()} characters). Try tomorrow or change it in AI settings.`));
   const request=buildRequest(settings.format,{model:settings.models[purpose]||settings.models.extract,system,messages,maxTokens,temperature,apiVersion:settings.apiVersion});
@@ -78,15 +81,16 @@ export async function aiComplete(workspace,{purpose,system,messages,maxTokens,te
 async function browserFetch(format,endpoint,key,method,path,body,signal){
   // AbortSignal.any needs Chromium 116; the WebView target is 105.
   const controller=new AbortController(),timer=setTimeout(()=>controller.abort(),120000),abort=()=>controller.abort();
-  signal?.addEventListener('abort',abort,{once:true});
-  let response;
+  signal?.addEventListener('abort',abort,{once:true});if(signal?.aborted)abort();
+  let response,text;
   try{
     response=await fetch(endpoint+path,{method,headers:{...authHeaders(format,key),...(body?{'Content-Type':'application/json'}:{})},body:body?JSON.stringify(body):undefined,redirect:'error',signal:controller.signal});
+    text=await response.text();
+    if(text.length>4*1024*1024)throw new Error(t('AI 结果超过大小限制。'));
   }catch(error){
     if(signal?.aborted)throw error;
     throw new Error(controller.signal.aborted?t('AI 服务响应超时。'):t('无法连接 AI 服务。浏览器预览版可能被服务的跨域限制拒绝，请在文舟应用中使用。'));
   }finally{clearTimeout(timer);signal?.removeEventListener('abort',abort);}
-  const text=await response.text();
   let parsed;try{parsed=JSON.parse(text);}catch{parsed={error:{message:text.slice(0,300)}};}
   return {status:response.status,body:parsed};
 }

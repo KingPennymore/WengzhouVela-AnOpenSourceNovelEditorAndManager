@@ -37,9 +37,14 @@ version = package_info.get("harmonyVersion", package_info["version"])
 source = out / f"Vela-{version}-source.zip"
 folders = [".github", "web", "scripts", "tests", "vendor", "hvigor", "AppScope", "entry/src", "previews", "android", "windows", "docs", "examples", "components", "测试文件"]
 files = ["package.json", "package-lock.json", "oh-package.json5", "build-profile.json5", "hvigorfile.ts", ".gitignore", ".gitattributes", ".prettierrc.json", "eslint.config.mjs", "jsconfig.core.json", "README.md", "LICENSE", "THIRD_PARTY_NOTICES.md", "VALIDATION.md", "RELEASE_NOTES.md", "entry/oh-package.json5", "entry/build-profile.json5", "entry/hvigorfile.ts"]
-# build-profile.json5 holds the local HarmonyOS signing configuration once DevEco has signed a build; the source
-# package always carries the committed version instead.
-clean_profile = subprocess.run(["git", "show", "HEAD:build-profile.json5"], cwd=root, capture_output=True, check=True).stdout
+# Use the committed build settings, but strip signing material even when an older
+# commit includes it. Never put local certificate paths or passwords in the source ZIP.
+profile_bytes = subprocess.run(["git", "show", "HEAD:build-profile.json5"], cwd=root, capture_output=True, check=True).stdout
+source_profile = json.loads(profile_bytes)
+source_profile["app"]["signingConfigs"] = []
+for product in source_profile["app"].get("products", []):
+    product.pop("signingConfig", None)
+clean_profile = (json.dumps(source_profile, ensure_ascii=False, indent=2) + "\n").encode("utf-8")
 with ZipFile(source, "w", ZIP_DEFLATED, compresslevel=9) as archive:
     for name in files:
         file = root / name

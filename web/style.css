@@ -14950,6 +14950,15 @@
     font-size:14px;
   }
 
+  .ai-chapters {max-height:220px;overflow:auto;}
+  .ai-extract fieldset {min-width:0;margin:12px 0;}
+  .ai-extract textarea {min-height:72px;}
+  .ai-extract [role=alert] {color:var(--danger);}
+  .ai-ghost {color:var(--text);white-space:pre-wrap;}
+  .ai-ghost-text {display:inline;border:0;background:transparent;box-shadow:none;padding:0;color:inherit;font:inherit;opacity:.35;text-align:left;white-space:pre-wrap;}
+  .ai-ghost-actions {display:inline-flex;vertical-align:middle;}
+  .ai-ghost-actions button {min-height:40px;min-width:40px;padding:4px 8px;}
+
 }
 
 @layer state {

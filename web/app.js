@@ -243,6 +243,8 @@ const appState={
 const withState=services=>Object.assign(Object.create(appState),services);
 const sourceRendering=new Compartment(),gutters=new Compartment(),formatEnv=new Compartment(),pluginExtras=new Compartment(),projectReadonly=new Compartment(),completer=new Compartment(),pluginKeys=new Compartment(),languages=new Compartment(),systemTheme=matchMedia('(prefers-color-scheme: dark)');
 const editorStates=new Map(),editorScrolls=new Map();
+const aiSuggestionSlot=new Compartment();
+let aiSuggestions=[];
 const editorIndexes=new WeakMap();
 const session = new WorkspaceSession({
   locked: () => projectLocked,
@@ -753,6 +755,7 @@ function makeState(doc){
     csvLineBreak?EditorState.lineSeparator.of(csvLineBreak):[],
     projectReadonly.of(EditorState.readOnly.of(projectLocked)),
     history(),
+    aiSuggestionSlot.of(aiSuggestions),
     sourceRendering.of(isPreview&&['OUTLINE','MAP'].includes(documentKind(doc))?[]:sourceRenderExtensions(doc)),
     documentKind(doc)==='TXT'?[richTextExtensions(loadFormats(doc)),formatEnv.of(formatEnvironment(doc))]:[],
     pluginExtras.of(plugins?.extensions()||[]),
@@ -933,7 +936,7 @@ let aiAssistant=null;
 function updateAiAssistant(){
   if(aiAssistant){aiAssistant.update();return;}
   if(!workspace?.settings.ai?.enabled)return;
-  loadAiAssistant().then(module=>{aiAssistant??=module.createAiAssistant(withState({current,documentKind,openModal,openSettings:openAiSettings}));aiAssistant.update();}).catch(fail);
+  loadAiAssistant().then(module=>{aiAssistant??=module.createAiAssistant(withState({current,documentKind,openModal,openSettings:openAiSettings,save,toast,fail,projectService:()=>projects,locked:()=>projectLocked,chapters:doc=>doc===current()?ensureIndex().sections:Writer.buildIndex(doc.text,projectWriter(workspace,doc),chapterMatcher(projectWriter(workspace,doc))).sections,installSuggestion:extension=>{aiSuggestions=extension;view?.dispatch({effects:aiSuggestionSlot.reconfigure(extension)});}}));aiAssistant.update();}).catch(fail);
 }
 /** Opens Settings at the AI assistant section. */
 function openAiSettings(){

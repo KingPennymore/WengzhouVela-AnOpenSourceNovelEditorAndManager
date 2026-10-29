@@ -8,7 +8,8 @@ import {PRESETS,FORMATS,preset,normalizeEndpoint,isLocalEndpoint,MAX_ENDPOINT,MA
 import {aiSettings,aiStatus,aiVerify,aiSave,aiClear,aiReady} from './ai-client.mjs';
 
 const FORMAT_LABELS={openai:'OpenAI 兼容',anthropic:'Anthropic',gemini:'Gemini',azure:'Azure OpenAI'}; // i18n-data: labels go through t()
-const OTHER='\u0000other';
+// HTML parsing replaces NUL in option values with U+FFFD, breaking manual entry.
+const OTHER='\ufffdother';
 
 /**
  * Fills `root` (the AI fieldset of the settings form). Returns apply(form), which the settings submit calls first:
@@ -39,6 +40,8 @@ export async function mountAiSettings(root,{workspace,toast,changed}){
       <label data-ai-other="aiExtractModel">${t('模型名称')}<input name="aiExtractModelOther" maxlength="128" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
       <label>${t('续写建议使用的模型')}<select name="aiSuggestModel"></select></label>
       <label data-ai-other="aiSuggestModel">${t('模型名称')}<input name="aiSuggestModelOther" maxlength="128" spellcheck="false" autocomplete="off" autocapitalize="off"></label>
+      <label>${t('模型上下文上限（token）')}<input type="number" name="aiContextTokens" min="4096" max="1048576" value="${settings.contextTokens}"></label>
+      <small>${t('按所选模型的较小上限填写，默认 8192；整理时为输出和指令预留空间。')}</small>
       <label>${t('单次发送超过多少字时先确认')}<input type="number" name="aiConfirmChars" inputmode="numeric" min="0" max="10000000" step="1000" value="${settings.confirmChars}"></label>
       <label>${t('每日发送上限（字，0 为不限）')}<input type="number" name="aiDailyChars" inputmode="numeric" min="0" max="100000000" step="10000" value="${settings.dailyChars}"></label>
     </div>`;
@@ -110,7 +113,7 @@ export async function mountAiSettings(root,{workspace,toast,changed}){
     if(enabled&&!extract)throw new Error(t('请先选择 AI 模型。'));
     Object.assign(settings,{enabled,consented:settings.consented||form.has('aiConsent'),provider,format,
       endpoint:endpoint instanceof Error?settings.endpoint:endpoint,apiVersion:String(form.get('aiApiVersion')||settings.apiVersion).trim(),
-      confirmChars:Math.max(0,Number(form.get('aiConfirmChars'))||0),dailyChars:Math.max(0,Number(form.get('aiDailyChars'))||0)});
+      contextTokens:Math.max(4096,Math.min(1048576,Number(form.get('aiContextTokens'))||8192)),confirmChars:Math.max(0,Number(form.get('aiConfirmChars'))||0),dailyChars:Math.max(0,Number(form.get('aiDailyChars'))||0)});
     Object.assign(settings.models,{extract,suggest,available:models});
     return {enabled,ready:aiReady(settings,status)||isLocalEndpoint(settings.endpoint)};
   }};

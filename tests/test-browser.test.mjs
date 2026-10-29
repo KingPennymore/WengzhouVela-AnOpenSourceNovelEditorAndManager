@@ -29,6 +29,18 @@ async function run(root,args=[]){
   return {code,output};
 }
 test('browser runner bounds concurrency, isolates serial suites and forwards the server URL',()=>fixture(async root=>{
+  // Synchronize workers instead of assuming all three Node processes start within
+  // the fixture's 200 ms delay (not reliable under the full regression load).
+  const concurrentSuite=`import {appendFileSync,readFileSync} from 'node:fs';
+const event=phase=>appendFileSync('events.jsonl',JSON.stringify({name:process.argv[1].split(/[\\\\/]/).at(-1),phase,url:process.env.VELA_TEST_URL})+'\\n');
+event('start');
+const deadline=Date.now()+10000;
+while(readFileSync('events.jsonl','utf8').trim().split('\\n').map(JSON.parse).filter(e=>e.phase==='start'&&e.name!=='selection-browser.mjs').length<3){
+  if(Date.now()>deadline)throw Error('Three parallel suites did not start');
+  await new Promise(resolve=>setTimeout(resolve,20));
+}
+event('end');`;
+  for(const name of ['alpha','beta','gamma'])await writeFile(path.join(root,'tests',name+'-browser.mjs'),concurrentSuite);
   const result=await run(root);assert.equal(result.code,0,result.output);
   const events=(await readFile(path.join(root,'events.jsonl'),'utf8')).trim().split('\n').map(JSON.parse);
   let active=0,peak=0;
