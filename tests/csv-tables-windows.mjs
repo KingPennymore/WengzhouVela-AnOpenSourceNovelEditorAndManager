@@ -1,3 +1,4 @@
+import {editorAction} from './mobile-editor-helper.mjs';
 import {setSetting,closeSettings} from './settings-helper.mjs';
 import { _electron as electron } from 'playwright';
 import assert from 'node:assert/strict';
@@ -37,7 +38,7 @@ try {
   await closeSettings(page);
   let state = JSON.parse(await page.evaluate(() => WenzhouNative.readWorkspace()));
   const book = state.documents.find((doc) => doc.name === 'CSV正文测试.txt');
-  await page.locator('#format-table').click();
+  await editorAction(page,'#format-table');
   await page.locator('[name=tableMode][value=new]').check();
   await page.locator('[name=tableName]').fill('已有.csv');
   await page.locator('#dialog-submit').click();

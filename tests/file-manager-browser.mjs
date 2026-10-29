@@ -1,3 +1,4 @@
+import {editorAction} from './mobile-editor-helper.mjs';
 import {settingsSection} from './settings-helper.mjs';
 import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
@@ -30,7 +31,7 @@ try{
     await menu('小说/资料');await p.locator('#folder-new-file').click();await p.locator('[name=name]').fill('人物.csv');await p.locator('[name=skeleton]').uncheck();await submit();assert.equal((await saved()).documents.find(d=>d.name==='人物.csv').path,'小说/资料/人物.csv');assert.equal(await p.locator('#library').isVisible(),true);
   });
   await check('文件夹更名保留子文件和编辑内容，属性、复制粘贴、剪切移动与排序可用',async()=>{
-    await p.locator('[data-display=source]').click();await p.evaluate(()=>{const v=velaEditorView;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:'姓名,身份\n甲,主角'}});});
+    await editorAction(p,'[data-display=source]');await p.evaluate(()=>{const v=velaEditorView;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:'姓名,身份\n甲,主角'}});});
     await menu('小说');await p.locator('#rename-doc').click();await p.locator('[name=name]').fill('长篇');await submit();assert.equal((await saved()).documents.find(d=>d.name==='人物.csv').path,'长篇/资料/人物.csv');
     await menu('长篇');await p.locator('#file-properties').click();assert.match(await p.locator('#dialog-body').innerText(),/长篇/);await p.locator('#dialog-cancel').click();
     await menu('长篇');await p.locator('#copy-file').click();await p.locator('#workspace-root').click();await p.locator('#paste-file').click();await p.waitForSelector('[data-folder="长篇 (2)"]');assert.equal((await saved()).documents.filter(d=>d.name==='人物.csv').length,2);
@@ -49,7 +50,7 @@ try{
     await p.reload();await p.waitForFunction(()=>document.querySelector('#chapter-count').textContent==='3 章');assert.equal(JSON.parse((await saved()).documents.find(doc=>doc.path==='.vela').text).chapters.templates.length,2);assert.equal(await p.locator('#chapter-count').textContent(),'3 章');
   });
   await check('访问令牌按钮优先高亮，齿轮图标居中且在窄屏保持等比',async()=>{
-    await p.locator('#quick-git').click();assert.equal(await p.locator('#token-login').evaluate(el=>el.classList.contains('primary')),true);assert.equal(await p.locator('#device-login').count(),0);await p.locator('[data-return-write]').click();
+    await editorAction(p,'#quick-git');assert.equal(await p.locator('#token-login').evaluate(el=>el.classList.contains('primary')),true);assert.equal(await p.locator('#device-login').count(),0);await p.locator('[data-return-write]').click();
     for(const width of [1440,390]){await p.setViewportSize({width,height:900});await p.locator('#more-tools').click();const shape=await p.locator('#settings svg').evaluate(svg=>{const box=svg.getBBox(),r=svg.getBoundingClientRect();return {x:box.x,y:box.y,width:box.width,height:box.height,ratio:r.width/r.height,circles:svg.querySelectorAll('circle').length};});assert.ok(Math.abs(shape.width-shape.height)<.02);assert.ok(Math.abs(shape.x+shape.width/2-12)<.02);assert.ok(Math.abs(shape.ratio-1)<.001);assert.equal(shape.circles,1);await p.screenshot({path:`test-results/file-manager-040-${width}.png`});await p.locator('#more-tools').click();}
   });
   await check('旧指南自动更名保留正文，用户自己的未命名小说不更名',async()=>{

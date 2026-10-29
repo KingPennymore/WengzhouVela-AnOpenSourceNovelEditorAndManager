@@ -1,3 +1,4 @@
+import {editorAction} from './mobile-editor-helper.mjs';
 import {setSetting,closeSettings} from './settings-helper.mjs';
 import {launchBrowser} from './browser-launch.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
@@ -32,7 +33,7 @@ try{
   const fresh=await context(null,{colorScheme:'dark'}),p=fresh.p;
   await check('首次安装显示 Markdown 指南，Tab 插入普通空格且保持正文焦点',async()=>{
     assert.match(await p.locator('.cm-content').innerText(),/^文舟操作指南/);assert.equal(await p.locator('body').evaluate(el=>el.classList.contains('dark')),true);
-    await p.locator('#quick-top').click();await p.keyboard.press('Tab');assert.ok((await saved(p)).documents[0].text.startsWith('  文舟'));
+    await editorAction(p,'#quick-top');await p.keyboard.press('Tab');assert.ok((await saved(p)).documents[0].text.startsWith('  文舟'));
     assert.equal(await p.locator('.cm-content').evaluate(el=>el.contains(document.activeElement)||el===document.activeElement),true);
     await p.keyboard.press('Shift+Tab');assert.ok((await saved(p)).documents[0].text.startsWith('文舟'));
   });
@@ -70,13 +71,13 @@ try{
     const state=await saved(w);assert.equal(parseCsv(state.documents.find(d=>d.name==='角色.csv').text)[1][1],'逗号,引号"与\n换行');
     await w.locator('#quick-undo').click();await w.waitForFunction(()=>document.querySelector('[data-cell-row="1"][data-cell-column="1"]')?.textContent==='引号"内容\n第二行');await w.locator('#quick-redo').click();await w.waitForFunction(()=>document.querySelector('[data-cell-row="1"][data-cell-column="1"]')?.textContent==='逗号,引号"与\n换行');
     await w.locator('#csv-add-row').click();await w.waitForFunction(()=>document.querySelectorAll('.csv-row-heading').length===4);await w.locator('#csv-add-column').click();await w.waitForFunction(()=>document.querySelectorAll('.csv-column-heading').length===3);
-    await w.locator('[data-display=source]').click();assert.equal(await w.locator('#editor').isVisible(),true);assert.ok((await w.locator('.cm-content').innerText()).includes('逗号'));
+    await editorAction(w,'[data-display=source]');assert.equal(await w.locator('#editor').isVisible(),true);assert.ok((await w.locator('.cm-content').innerText()).includes('逗号'));
   });
   await check('HTML 扩展名保持不变，预览与原生桥接隔离，脚本和外部资源不执行',async()=>{
     let remoteRequests=0;await w.route('https://example.invalid/**',r=>{remoteRequests++;r.abort();});
     await importFile(w,'简介.html','<h1>人物设定</h1><table><tr><td>甲</td></tr></table><script>window.parent.__htmlExecuted=true</script><img src="https://example.invalid/x.png"><iframe></iframe>');
-    await w.locator('[data-display=preview]').click();const frame=w.frameLocator('#preview iframe');await frame.locator('h1').waitFor();assert.equal(await frame.locator('h1').innerText(),'人物设定');assert.equal(await frame.locator('script,iframe').count(),0);assert.equal(await w.evaluate(()=>window.__htmlExecuted),undefined);assert.equal(remoteRequests,0);
-    assert.ok((await saved(w)).documents.some(d=>d.name==='简介.html'));await w.locator('[data-display=source]').click();
+    await editorAction(w,'[data-display=preview]');const frame=w.frameLocator('#preview iframe');await frame.locator('h1').waitFor();assert.equal(await frame.locator('h1').innerText(),'人物设定');assert.equal(await frame.locator('script,iframe').count(),0);assert.equal(await w.evaluate(()=>window.__htmlExecuted),undefined);assert.equal(remoteRequests,0);
+    assert.ok((await saved(w)).documents.some(d=>d.name==='简介.html'));await editorAction(w,'[data-display=source]');
   });
   await check('双指缩放与 Ctrl 加减号只改变文字字号，工具栏与页面缩放比例不变',async()=>{
     const before=await w.locator('#quick-save').boundingBox();const font=await w.locator('.cm-editor').evaluate(el=>parseFloat(getComputedStyle(el).fontSize));
@@ -107,7 +108,7 @@ try{
     const code=`let node,link;VelaPlugins.register('${id}',{async activate(vela){link=document.createElement('link');link.rel='stylesheet';link.href=vela.assets.url('style.css');document.head.append(link);const data=JSON.parse(await vela.assets.read('data.json'));node=document.createElement('div');node.className='fixture-plugin';node.textContent=data.text;document.body.append(node);vela.commands.register({id:'insert',title:'测试：插入',run:()=>{const v=vela.editor.view;v.dispatch(v.state.replaceSelection('插件内容'));}});},deactivate(){node?.remove();link?.remove();}});`;
     const bytes=zipSync({'plugin.json':strToU8(api4(id,'资源测试')),'main.js':strToU8(code),'style.css':strToU8('.fixture-plugin{position:fixed;top:100px;right:10px;color:rgb(1,2,3)}'),'data.json':strToU8('{"text":"包内资源已加载"}')});
     await w.locator('#more-tools').click();await w.locator('#plugins').click();await w.locator('#plugin-input').setInputFiles({name:'assets.zip',mimeType:'application/zip',buffer:Buffer.from(bytes)});await w.waitForSelector('.fixture-plugin');assert.equal(await w.locator('.fixture-plugin').innerText(),'包内资源已加载');await w.waitForFunction(()=>getComputedStyle(document.querySelector('.fixture-plugin')).color==='rgb(1, 2, 3)');await w.locator('#dialog-cancel').click();
-    await w.locator('#quick-top').click();await w.locator('#more-tools').click();await w.locator('#commands').click();await w.locator('#command-search').fill('测试：插入');await w.locator('.command-item').click();assert.ok((await saved(w)).documents.find(d=>d.id==='book').text.startsWith('插件内容'));
+    await editorAction(w,'#quick-top');await w.locator('#more-tools').click();await w.locator('#commands').click();await w.locator('#command-search').fill('测试：插入');await w.locator('.command-item').click();assert.ok((await saved(w)).documents.find(d=>d.id==='book').text.startsWith('插件内容'));
     await w.locator('#more-tools').click();await w.locator('#plugins').click();await w.locator('[data-plugin-remove]').click();assert.equal(await w.locator('.fixture-plugin').count(),0);await w.locator('#dialog-cancel').click();
     assert.equal(await w.evaluate(()=>typeof window.acode+typeof window.editorManager),'undefinedundefined','Acode globals are gone');
   });

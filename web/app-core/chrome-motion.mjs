@@ -82,7 +82,10 @@ export class ChromeMotion {
   play(before) {
     if (!before || this.reduced()) return;
     for (const { button, rect: old, ghost, opacity, clip } of before) {
-      const offset = rightActions.has(button.id) ? 40 : -40;
+      // Phone outline/format controls share the document actions' right edge.
+      const phoneAction =
+        document.body.dataset.mobileEditor === 'true' && !!button.closest('.global-tools');
+      const offset = rightActions.has(button.id) || phoneAction ? 40 : -40;
       const next = button.getBoundingClientRect();
       const visible = button.closest('.topbar') && next.width > 0 && next.height > 0;
       if (visible && ghost) {

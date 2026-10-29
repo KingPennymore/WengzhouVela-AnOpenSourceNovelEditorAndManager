@@ -1,3 +1,4 @@
+import {editorAction} from './mobile-editor-helper.mjs';
 import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
 import assert from 'node:assert/strict';
@@ -54,9 +55,9 @@ try{
   await check('清除格式 without a selection clears the inline formats of the cursor paragraph, and says when there is nothing',async()=>{
     await page.evaluate(at=>{const v=velaEditorView;v.dispatch({selection:{anchor:at+5}});v.focus();},bold);await settled(page);
     assert.equal(await page.locator('.cm-content strong, .cm-content .vela-strong, .cm-content [class*=strong]').count()>0,true,'fixture shows bold');
-    await page.locator('#format-clear').click();await page.waitForFunction(()=>!document.querySelector('.cm-content strong, .cm-content .vela-strong, .cm-content [class*=strong]')).catch(()=>{});
+    await editorAction(page,'#format-clear');await page.waitForFunction(()=>!document.querySelector('.cm-content strong, .cm-content .vela-strong, .cm-content [class*=strong]')).catch(()=>{});
     assert.equal(await page.locator('.cm-content strong, .cm-content .vela-strong, .cm-content [class*=strong]').count(),0,'bold in the cursor paragraph not cleared');
-    await page.locator('#format-clear').click();await page.locator('#toast',{hasText:'没有格式可清除'}).waitFor();
+    await editorAction(page,'#format-clear');await page.locator('#toast',{hasText:'没有格式可清除'}).waitFor();
     await page.keyboard.press('Control+z');await settled(page);
   });
   await check('a document reopens where it was left: the position is stored in the work .vela when leaving it',async()=>{

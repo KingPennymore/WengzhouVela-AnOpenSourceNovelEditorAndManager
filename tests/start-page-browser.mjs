@@ -77,7 +77,7 @@ try{
     await page.locator('[data-recent=book]').click();
     await page.locator('.cm-content').waitFor();
     await page.waitForFunction(()=>document.querySelector('#app').dataset.sidebarsAnimating==='false');
-    assert.equal(await page.locator('.file-rowbar').isVisible(),height>500||width>height);
+    if(await page.locator('body').getAttribute('data-mobile-editor')==='true'){assert.equal(await page.locator('.file-rowbar').isVisible(),false);assert.equal(await page.locator('#current-name').isVisible(),true);}else assert.equal(await page.locator('.file-rowbar').isVisible(),height>500||width>height);
     assert.equal(await page.locator('#writing-footer').isVisible(),true);
     assert.equal(await page.locator('#search-editor').isEnabled(),true);
     await page.locator('.cm-content').fill('第一章 航程\n保存后的正文。');

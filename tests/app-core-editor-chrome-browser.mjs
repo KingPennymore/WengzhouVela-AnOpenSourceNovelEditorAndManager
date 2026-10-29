@@ -63,7 +63,9 @@ try {
         assert.deepEqual(
           await page
             .locator('.global-tools>button')
-            .evaluateAll((buttons) => buttons.map((button) => button.id)),
+            .evaluateAll((buttons) =>
+              buttons.filter((button) => !button.hidden).map((button) => button.id),
+            ),
           pinned ? [...actions, 'outline-toggle', 'more-tools'] : ['outline-toggle', 'more-tools'],
         );
       };

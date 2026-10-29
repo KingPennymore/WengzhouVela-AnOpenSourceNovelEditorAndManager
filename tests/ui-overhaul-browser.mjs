@@ -1,3 +1,4 @@
+import {editorAction} from './mobile-editor-helper.mjs';
 import {setSetting,closeSettings} from './settings-helper.mjs';
 import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
@@ -29,7 +30,7 @@ try{
   await page.keyboard.press('Control+Alt+h');await page.screenshot({path:`${out}/${profile}-home-en.png`});
   await selectAppView(page,'reader');await page.locator('.reader-library').waitFor();/* the reader is a lazy chunk */await page.screenshot({path:`${out}/${profile}-library-en.png`});assert.equal(await page.locator('[data-read=book] strong').textContent(),'航程');await page.locator('[data-read=book]').click();assert.equal(await page.locator('#reader-title').textContent(),'航程');assert.equal(await page.locator('#preview-toggle').count(),0);await readerReady(page);await page.screenshot({path:`${out}/${profile}-reader-en.png`});
   await page.locator('#reader-back').click();await selectAppView(page,'write');
-  await page.keyboard.press('Control+Alt+h');await openRecentFile(page,page.locator('[data-recent=config]'));await page.locator('[data-display=preview]').click();await page.screenshot({path:`${out}/${profile}-vela-en.png`});assert.equal(await page.locator('.vela-config-actions').evaluate(el=>getComputedStyle(el).position),'static');
+  await page.keyboard.press('Control+Alt+h');await openRecentFile(page,page.locator('[data-recent=config]'));await editorAction(page,'[data-display=preview]');await page.screenshot({path:`${out}/${profile}-vela-en.png`});assert.equal(await page.locator('.vela-config-actions').evaluate(el=>getComputedStyle(el).position),'static');
   {await page.locator('#more-tools').click();await page.evaluate(()=>window.dispatchEvent(new Event('resize')));assert.equal(await page.locator('#toolbar-overflow').isVisible(),true);for(const id of ['focus-toggle','theme','commands','plugins'])assert.equal(await page.locator('#toolbar-overflow #'+id).isVisible(),true);await page.keyboard.press('Escape');assert.equal(await page.locator('#more-tools').getAttribute('aria-expanded'),'false');await page.locator('#toolbar-overflow').waitFor({state:'hidden'});assert.equal(await page.locator('#toolbar-overflow').isVisible(),false);assert.equal(await page.locator('#more-tools').evaluate(el=>el===document.activeElement),true);}
   await page.emulateMedia({colorScheme:'dark'});await page.screenshot({path:`${out}/${profile}-vela-dark.png`});
   checks.push(profile+' navigation, settings, English, home, library, reader, VELA, dark mode and bounds');await context.close();

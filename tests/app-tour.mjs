@@ -1,3 +1,4 @@
+import {editorAction} from './mobile-editor-helper.mjs';
 import {selectAppView} from './navigation-helper.mjs';
 // A walk through the main pages and popups of the app, shared by tests/style-snapshot.mjs and
 // tests/scroll-backgrounds-browser.mjs. `visit(name)` is awaited in each state once the page has settled.
@@ -32,10 +33,10 @@ export async function tour(page,{url,profile,width},visit){
   await page.locator('#more-tools').click();await page.locator('#settings').click();await page.locator('#dialog[open]').waitFor();await take('settings');await page.locator('#dialog-close').click();await settled(page);
   await page.evaluate(()=>{const v=velaEditorView,i=v.state.doc.toString().indexOf('灯塔');v.dispatch({selection:{anchor:i,head:i+2},scrollIntoView:true});v.focus();});await page.waitForSelector('#selection-menu:not([hidden])');await take('selection');await escape();
   await page.keyboard.press('Control+f');await page.locator('.cm-search, .search-panel, #search-panel').first().waitFor().catch(()=>{});await take('search');await escape();
-  await page.locator('[data-tab=note]').click();await page.waitForSelector('.cm-editor');await page.locator('[data-display=preview]').click();await page.locator('#preview .katex').first().waitFor();await page.waitForFunction(()=>[...document.querySelectorAll('#editor .cm-line')].some(line=>line.textContent.startsWith('const')&&line.querySelector('span')));await take('markdown');
+  await page.locator('[data-tab=note]').click();await page.waitForSelector('.cm-editor');await editorAction(page,'[data-display=preview]');await page.locator('#preview .katex').first().waitFor();await page.waitForFunction(()=>[...document.querySelectorAll('#editor .cm-line')].some(line=>line.textContent.startsWith('const')&&line.querySelector('span')));await take('markdown');
   await page.locator('[data-tab=config]').click();await page.locator('#vela-form, .vela-preview').first().waitFor();await take('vela');
   await page.locator('[data-tab=terms]').click();await page.locator('#preview .glossary-entry, #preview .glossary-row, #preview table').first().waitFor().catch(()=>{});await take('glossary');
-  await page.locator('[data-display=source]').click().catch(()=>{});await page.locator('[data-tab=book]').click();await settled(page);
+  await editorAction(page,'[data-display=source]').catch(()=>{});await page.locator('[data-tab=book]').click();await settled(page);
   await page.locator('#more-tools').click();await page.locator('#commands').click();await page.locator('#command-search').waitFor();await take('commands');await escape();
   await selectAppView(page,'github');await page.locator('#github-view').waitFor();await take('github');
   await selectAppView(page,'subscriptions');await page.locator('#subscriptions-view').waitFor();await take('subscriptions');

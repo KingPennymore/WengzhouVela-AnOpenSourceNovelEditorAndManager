@@ -1,3 +1,4 @@
+import {editorAction} from './mobile-editor-helper.mjs';
 import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
@@ -102,7 +103,7 @@ try{
     await m.evaluate(()=>velaEditorView.dispatch({selection:{anchor:5}}));await m.waitForFunction(()=>document.querySelector('#selection-menu').hidden);
   });
   await check('phone preview: whole-text selections show the bar without flicker, scrolled or not',async()=>{
-    await m.locator('[data-display=preview]').click();await m.waitForFunction(()=>document.querySelector('#preview')?.textContent.length>200);await settled(m);
+    await editorAction(m,'[data-display=preview]');await m.waitForFunction(()=>document.querySelector('#preview')?.textContent.length>200);await settled(m);
     for(const scrolled of [false,true]){
       const g=await m.evaluate(async scrolled=>{const preview=document.querySelector('#preview'),menu=document.querySelector('#selection-menu'),scroller=[preview,...preview.querySelectorAll('*')].find(e=>e.scrollHeight>e.clientHeight+50&&/(auto|scroll)/.test(getComputedStyle(e).overflowY))||document.scrollingElement;if(scrolled)scroller.scrollTop=600;
         await new Promise(r=>setTimeout(r,300));let toggles=0;new MutationObserver(r=>toggles+=r.length).observe(menu,{attributes:true,attributeFilter:['hidden']});const range=document.createRange();range.selectNodeContents(preview);getSelection().removeAllRanges();getSelection().addRange(range);

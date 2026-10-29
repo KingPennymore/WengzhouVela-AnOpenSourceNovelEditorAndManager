@@ -27,6 +27,7 @@ export function mountSettings(root,host,{group}={}){
     item('appearance','palette','palette',t('配色方案')),
     item('appearance','fontFamily','font',t('界面与正文字体')),
     item('appearance','language','segmented',t('语言'),'',{options:[{value:'zh-CN',label:t('简体中文')},{value:'en',label:'English'}]}),
+    item('editing','immersiveWriting','switch',t('沉浸写作'),t('连续输入时收起操作栏，滑动或点按屏幕边缘恢复。'),{default:true}),
     item('editing','fontSize','number',t('文字字号'),'',{min:10,max:40}),
     item('editing','richText','switch',t('TXT 格式工具'),t('粗体、着重号、注音、插图和样式；格式保存在作品配置 .vela 中，TXT 正文不变')),
     item('editing','novelLineNumbers','switch',t('小说模式显示行号')),
@@ -55,7 +56,7 @@ export function mountSettings(root,host,{group}={}){
     if(entry.type==='switch')return switchControl(entry.name,value??entry.default??false,entry.label,{...attrs,hideLabel:true});
     if(entry.type==='number')return stepper(entry.name,value,{...attrs,min:entry.min,max:entry.max});
     if(entry.type==='segmented'||entry.type==='reading')return segmented(entry.name,entry.options,value,attrs);
-    if(entry.type==='palette')return `<fieldset class="palette-options" aria-label="${entry.label}">${host.palettes().map(p=>`<label class="palette-choice${p.custom?' custom':''}"><input type="radio" name="palette" value="${esc(p.id)}" ${p.id===value?'checked':''}><span class="palette-swatches"><i style="background:${p.light.accent}"></i><i style="background:${p.light.soft}"></i><i style="background:${p.dark.paper}"></i></span><span>${esc(p.custom?p.name:t(p.name))}</span>${p.custom?`<button type="button" class="ui-button ui-button--text" data-edit-palette="${esc(p.id)}">${t('编辑')}</button>`:''}</label>`).join('')}${host.customPalettes().length<host.maxPalettes?`<button type="button" class="ui-button ui-button--secondary" id="new-palette">${t('＋ 自定义配色')}</button>`:''}</fieldset>`;
+    if(entry.type==='palette')return `<fieldset class="palette-options" aria-label="${entry.label}">${host.palettes().map(p=>`<label class="palette-choice${p.custom?' custom':''}"><input type="radio" name="palette" value="${esc(p.id)}" ${p.id===value?'checked':''}><span class="palette-swatches"><i style="background:${p.light.accent}"></i><i style="background:${p.light.soft}"></i><i style="background:${p.dark.paper}"></i></span><span>${esc(p.custom?p.name:t(p.name))}</span>${p.custom?`<button type="button" class="ui-button ui-button--text" data-edit-palette="${esc(p.id)}">${t('编辑')}</button>`:''}</label>`).join('')}${host.customPalettes().length<host.maxPalettes?`<button type="button" class="ui-button ui-button--secondary" id="new-palette">${t('＋ 自定义')}</button>`:''}</fieldset>`;
     return '<div data-font-settings></div>';
   };
   const action=(id,label)=>`<button type="button" class="ui-button ui-button--secondary" id="${id}">${esc(label)}</button>`;

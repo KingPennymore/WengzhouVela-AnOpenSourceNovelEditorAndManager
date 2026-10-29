@@ -1,3 +1,4 @@
+import {editorAction} from './mobile-editor-helper.mjs';
 import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
 import {build} from 'esbuild';
@@ -45,7 +46,7 @@ async function contained(name,{whole=false}={}){
   if(sizes.footer?.height)assert.ok(sizes.root.bottom<=sizes.footer.top+1,JSON.stringify(sizes));checks.push(name);console.log('PASS '+name);
 }
 try{
-  await page.goto(`http://127.0.0.1:${server.address().port}`);await page.waitForSelector('.cm-editor');await page.locator('[data-display=preview]').click();await page.addScriptTag({url:'/pdf-layout.js'});
+  await page.goto(`http://127.0.0.1:${server.address().port}`);await page.waitForSelector('.cm-editor');await editorAction(page,'[data-display=preview]');await page.addScriptTag({url:'/pdf-layout.js'});
   await page.evaluate(pdf=>{const compiler={compile:async()=>({ok:true,pdf:new Uint8Array(pdf),diagnostics:[]})};window.pdfLayoutPane=new PdfLayoutPreview({compiler,fail:error=>{throw error;}});window.pdfLayoutPane.mount(document.querySelector('#preview'),{name:'排版验证.tex'});return window.pdfLayoutPane.compile();},pdf);
   await contained('平板横屏 PDF 按宽度适配，预览区不越过底栏');await page.screenshot({path:'test-results/pdf-tablet-landscape.png'});
   await page.locator('#mobile-library').click();await contained('侧栏展开后 PDF 适应剩余宽度');

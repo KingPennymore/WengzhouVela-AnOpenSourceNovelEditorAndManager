@@ -10,6 +10,17 @@ try{
   const context=await browser.newContext({viewport:{width,height:844}});await context.addInitScript(seed=>localStorage.setItem('wenzhou.workspace',JSON.stringify(seed)),seed);const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
   await page.goto((process.env.VELA_TEST_URL||'http://127.0.0.1:4173')+'/?ui='+platform);await openRecentFile(page,page.locator('[data-recent=book]'));
   assert.equal(await page.locator('.statusbar #sync-state').count(),0);assert.equal(await page.locator('#sync-state').isVisible(),false);assert.equal(await page.locator('#save-state').isVisible(),false);
+  const compact=await page.locator('body').getAttribute('data-mobile-editor')==='true';
+  if(compact){
+   assert.match(await page.locator('#word-count').textContent(),/\d+ \/ \d+ 字/);assert.equal(await page.locator('#cursor-position').isVisible(),false);
+   for(const large of [false,true]){
+    if(large)await page.evaluate(()=>{document.querySelector('#current-chapter').textContent='第一千章 这是非常长的章节名称，窄屏应截断而非换行';document.querySelector('#word-count').textContent='123456 / 2000000 字';});
+    const stats=await page.evaluate(()=>{const el=document.querySelector('.mobile-editor-summary'),r=el.getBoundingClientRect(),jump=document.querySelector('#quick-jump').getBoundingClientRect(),save=document.querySelector('#quick-save').getBoundingClientRect();return {overflow:document.documentElement.scrollWidth>innerWidth,left:r.left,right:r.right,jump:jump.right,save:save.left,items:[...el.children].map(child=>{const range=document.createRange();range.selectNodeContents(child);return {lines:new Set([...range.getClientRects()].map(r=>Math.round(r.top))).size,size:Number.parseFloat(getComputedStyle(child).fontSize),nowrap:getComputedStyle(child).whiteSpace};})};});
+    assert.equal(stats.overflow,false);assert.ok(stats.left>=stats.jump&&stats.right<=stats.save);for(const item of stats.items){assert.equal(item.lines,1);assert.ok(item.size>=12);assert.equal(item.nowrap,'nowrap');}
+    if(width===390)await page.screenshot({path:`test-results/mobile-status/${platform}-${large?'long':'normal'}.png`});
+   }
+   assert.deepEqual(errors,[]);await context.close();console.log(`PASS ${platform} ${width}px compact chapter/count, save status and no wrapping`);continue;
+  }
   assert.match(await page.locator('#word-count').textContent(),/本章.*全文/);assert.match(await page.locator('#cursor-position').textContent(),/行.*列/);
   for(const large of [false,true]){
    if(large)await page.evaluate(()=>{document.querySelector('#current-chapter').textContent='第一千章 这是非常长的章节名称，窄屏应截断而非换行';document.querySelector('#word-count').textContent='本章 123456 字 · 全文 2000000 字';document.querySelector('#cursor-position').textContent='行 123456，列 123456';});

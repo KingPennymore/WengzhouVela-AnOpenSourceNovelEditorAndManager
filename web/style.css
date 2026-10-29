@@ -15039,6 +15039,67 @@
 
   /* End phase 1 base components. */
 
+  /* Phase 3: opt-in phone writing chrome. Wide and fine-pointer desktop layouts keep their existing owners. */
+  body[data-mobile-ui=true] .settings-navigation button>span:first-child {flex:0 0 var(--space-5);width:var(--space-5);text-align:center;}
+  body[data-mobile-editor=true] .topbar {display:flex;grid-template-columns:none;height:48px;min-height:48px;padding:0 var(--space-1);gap:var(--space-1);}
+  body[data-mobile-editor=true][data-mobile-immersed=true] .topbar {height:0;min-height:0;padding-block:0;border:0;overflow:hidden;visibility:hidden;}
+  body[data-mobile-editor=true] .topbar>.toolbar {display:none;}
+  body[data-mobile-editor=true] .topbar .breadcrumb {flex:1;min-width:0;gap:0;}
+  body[data-mobile-editor=true][data-mobile-format=true] .topbar .breadcrumb {display:none;}
+  body[data-mobile-editor=true] .breadcrumb :is(.app-name,.slash,.nav-separator) {display:none;}
+  body[data-mobile-editor=true] .breadcrumb #current-name {display:block;flex:1;min-width:0;max-width:none;height:44px;font-size:var(--text-sm);line-height:44px;}
+  body[data-mobile-editor=true][data-mobile-single=false] .breadcrumb #current-name,
+  body[data-mobile-editor=true][data-editor-chrome=expanded] .breadcrumb #current-name {display:none;}
+  body[data-mobile-editor=true] .topbar :is(#mobile-library,.breadcrumb>button,.page-navigation .nav-item,.global-tools>button) {width:44px;min-width:44px;height:44px;min-height:44px;font-size:var(--text-sm);}
+  body[data-mobile-editor=true] .global-tools {flex:0 0 auto;padding:0;border:0;gap:0;}
+  body[data-mobile-editor=true][data-editor-chrome=expanded] .global-tools>:not(#more-tools),
+  body[data-mobile-editor=true][data-mobile-format=true] .global-tools>#outline-toggle {display:none;}
+  body[data-mobile-editor=true] #mobile-format-toggle {font-size:var(--text-md);font-weight:var(--weight-medium);}
+  body[data-mobile-editor=true] #mobile-format-toggle[aria-expanded=true] {background:var(--accent-tint);color:var(--accent);}
+  body[data-mobile-editor=true] .file-rowbar {height:44px;min-height:44px;}
+  body[data-mobile-editor=true][data-mobile-single=true] .file-rowbar,
+  body[data-mobile-editor=true][data-mobile-immersed=true] .file-rowbar {display:none;}
+  body[data-mobile-editor=true] .document-tabs {padding:0;height:44px;min-height:44px;}
+  body[data-mobile-editor=true] .document-tab {height:44px;min-height:44px;}
+  body[data-mobile-editor=true] .tab-open {height:44px;min-height:44px;font-size:var(--text-sm);}
+  body[data-mobile-editor=true] .tab-close {width:44px;min-width:44px;height:44px;min-height:44px;font-size:var(--text-md);}
+  body[data-mobile-editor=true] #document-tools {flex:1 1 0;height:44px;min-height:44px;max-width:none;border:0;background:transparent;overflow:hidden;}
+  body[data-mobile-editor=true]:not([data-mobile-format=true]) #document-tools {display:none;}
+  body[data-mobile-editor=true] #document-tools .document-tools-scroll {min-width:0;max-width:100%;overflow-x:auto;overflow-y:hidden;height:44px;}
+  body[data-mobile-editor=true] #document-tools .markdown-tools {height:44px;padding:0;flex-shrink:0;border:0;}
+  body[data-mobile-editor=true] #document-tools #format-style-label {font-size:var(--text-sm);}
+  body[data-mobile-editor=true] #document-tools button {height:44px;min-height:44px;min-width:44px;font-size:var(--text-sm);}
+  body[data-mobile-editor=true] .writing-view {padding-bottom:calc(48px + var(--safe-bottom,0px));}
+  body[data-mobile-editor=true][data-mobile-immersed=true] .writing-view {padding-bottom:0;}
+  body[data-mobile-editor=true] #writing-footer {padding-bottom:var(--safe-bottom,0px);}
+  body[data-mobile-editor=true][data-mobile-immersed=true] #writing-footer {transform:translateY(100%);visibility:hidden;pointer-events:none;}
+  body[data-mobile-editor=true] .quickbar {display:grid;grid-template-columns:44px 44px 52px minmax(0,1fr) minmax(44px,64px);height:48px;min-height:48px;padding:0 var(--space-1);gap:var(--space-1);overflow:hidden;}
+  body[data-mobile-editor=true] .quickbar>i {display:none;}
+  body[data-mobile-editor=true] .quickbar>button {height:44px;min-height:44px;min-width:44px;padding:0 var(--space-1);font-size:var(--text-xs);}
+  body[data-mobile-editor=true] .quickbar>button small {display:none;}
+  body[data-mobile-editor=true] #quick-undo {order:0;}
+  body[data-mobile-editor=true] #quick-redo {order:1;}
+  body[data-mobile-editor=true] #quick-jump {order:2;display:flex;gap:var(--space-1);align-items:center;justify-content:center;}
+  body[data-mobile-editor=true] #quick-jump>span {font-size:var(--text-sm);}
+  body[data-mobile-editor=true] #quick-jump>svg {display:none;}
+  body[data-mobile-editor=true] #quick-git {display:none;}
+  body[data-mobile-editor=true] #quick-save {order:4;}
+  body[data-mobile-editor=true] #quick-save>:not(.mobile-save-status) {display:none;}
+  body[data-mobile-editor=true] .mobile-save-status {font-size:var(--text-xs);line-height:var(--leading);white-space:nowrap;}
+  body[data-mobile-editor=true] .mobile-save-status[data-state=failed] {color:var(--danger);}
+  body[data-mobile-editor=true] .mobile-editor-summary {order:3;display:grid;align-content:center;min-width:0;gap:0;line-height:var(--leading-tight);font-size:var(--text-xs);overflow:hidden;color:var(--muted);}
+  body[data-mobile-editor=true] .mobile-editor-summary>span {display:block;min-width:0;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--text-xs);}
+  body[data-mobile-editor=true] .statusbar {display:none;}
+  body[data-mobile-editor=true] .mobile-jump-menu {position:fixed;left:var(--space-2);right:var(--space-2);z-index:220;padding:var(--space-1);border:1px solid var(--line);border-radius:var(--radius-md);background:var(--panel);box-shadow:var(--elev-3);overflow:auto;}
+  body[data-mobile-editor=true] .mobile-jump-menu button {display:flex;align-items:center;gap:var(--space-3);width:100%;min-height:44px;text-align:start;padding:var(--space-2) var(--space-3);font-size:var(--text-sm);}
+  body[data-mobile-editor=true] .mobile-jump-menu button small {font-size:var(--text-sm);}
+  body[data-mobile-editor=true] .mobile-jump-menu svg {width:20px;height:20px;}
+  body[data-mobile-editor=true] #toolbar-overflow :is(.toolbar-menu-heading,.menu-shortcut) {font-size:var(--text-xs);}
+  body[data-mobile-editor=true] #toolbar-overflow :is(button,.display-options button) {min-height:44px;min-width:44px;font-size:var(--text-sm);}
+  body[data-mobile-editor=true] #toolbar-overflow .display-options {display:flex;flex-wrap:wrap;width:100%;gap:var(--space-1);padding:var(--space-1);}
+  body[data-mobile-editor=true] #toolbar-overflow #mobile-git .menu-label {white-space:nowrap;}
+  body[data-mobile-editor=true] #toolbar-overflow #sync-state {font-size:var(--text-xs);white-space:normal;}
+
 }
 
 @layer state {
@@ -15206,5 +15267,6 @@
   @media (pointer:coarse) {
     #dialog.settings-dialog :is(button,summary,select,.ui-switch,.ui-segmented-option) { min-width:44px; }
   }
+
 
 }

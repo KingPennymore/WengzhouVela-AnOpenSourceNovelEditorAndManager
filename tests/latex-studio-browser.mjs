@@ -1,3 +1,4 @@
+import {editorAction} from './mobile-editor-helper.mjs';
 import {launchBrowser} from './browser-launch.mjs';
 // LaTeX editing and preview against a full build with the real WasmTeX engine:
 // outline, completion, auto \end, live checks, continuous PDF, zoom, compile problems, and source ↔ PDF jumps.
@@ -36,7 +37,7 @@ async function open(text,{viewport={width:1280,height:900}}={}){
 const editorText=page=>page.evaluate(()=>window.velaEditorView?.state.doc.toString()??document.querySelector('.cm-content').innerText);
 const cursorLine=page=>page.evaluate(()=>{const view=window.velaEditorView;return view.state.doc.lineAt(view.state.selection.main.head).number;});
 const placeCursor=(page,text)=>page.evaluate(text=>{const view=window.velaEditorView,at=view.state.doc.toString().indexOf(text);view.dispatch({selection:{anchor:at+2}});view.focus();},text);
-async function compile(page){await page.locator('[data-display=preview]').click();await page.locator('.tex-compile').click();await page.waitForFunction(()=>!document.querySelector('.tex-compile').disabled,{},{timeout:180000});}
+async function compile(page){await editorAction(page,'[data-display=preview]');await page.locator('.tex-compile').click();await page.waitForFunction(()=>!document.querySelector('.tex-compile').disabled,{},{timeout:180000});}
 
 try{
   await check('the outline lists LaTeX sections by printed title and level',async()=>{
@@ -75,7 +76,7 @@ try{
   });
   await check('locating the cursor line scrolls the PDF to its page and marks it',async()=>{
     const {page,context}=await open(source);await compile(page);
-    await page.locator('[data-display=source]').click();await placeCursor(page,'最后一页的收尾文字');await page.locator('[data-display=preview]').click();
+    await editorAction(page,'[data-display=source]');await placeCursor(page,'最后一页的收尾文字');await editorAction(page,'[data-display=preview]');
     await page.locator('.tex-locate').click();await page.waitForFunction(()=>/已定位到第 2 页/.test(document.querySelector('.tex-status').textContent),{},{timeout:15000}).catch(async error=>{console.log('status:',await page.locator('.tex-status').textContent(),'pages:',await page.locator('.pdf-page').count());throw error;});
     assert.equal(await page.locator('.pdf-page[data-page="2"] .pdf-sync-mark').count(),1);await context.close();
   });
@@ -86,7 +87,7 @@ try{
     assert.equal(await cursorLine(page),4);await context.close();
   });
   await check('compile errors are listed, jump to the line and appear in the editor',async()=>{
-    const {page,context}=await open(broken);await page.locator('[data-display=preview]').click();await page.locator('.tex-compile').click();
+    const {page,context}=await open(broken);await editorAction(page,'[data-display=preview]');await page.locator('.tex-compile').click();
     await page.waitForFunction(()=>!document.querySelector('.tex-compile').disabled,{},{timeout:180000});
     assert.equal(await page.locator('.tex-status').textContent(),'编译失败');
     const problem=page.locator('.tex-problems .tex-error.error').first();await problem.waitFor();assert.match(await page.locator('.tex-problem-summary').textContent(),/个错误/);
@@ -94,12 +95,12 @@ try{
     assert.equal(await cursorLine(page),4);await page.waitForSelector('.cm-lint-marker-error');await context.close();
   });
   await check('auto-compile is remembered across reloads',async()=>{
-    const {page,context}=await open(source);await page.locator('[data-display=preview]').click();
-    await page.locator('.tex-auto input').check();await page.reload();await openRecentFile(page,page.locator('[data-recent=tex]'));await page.locator('[data-display=preview]').click();
+    const {page,context}=await open(source);await editorAction(page,'[data-display=preview]');
+    await page.locator('.tex-auto input').check();await page.reload();await openRecentFile(page,page.locator('[data-recent=tex]'));await editorAction(page,'[data-display=preview]');
     assert.equal(await page.locator('.tex-auto input').isChecked(),true);await page.locator('.tex-auto input').uncheck();await context.close();
   });
   await check('the toolbar fits a phone width without horizontal scrolling',async()=>{
-    const {page,context}=await open(source,{viewport:{width:390,height:844}});await page.locator('[data-display=preview]').click();
+    const {page,context}=await open(source,{viewport:{width:390,height:844}});await editorAction(page,'[data-display=preview]');
     assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);await page.screenshot({path:'test-results/latex-preview-phone.png'});await context.close();
   });
 }finally{await browser.close();}

@@ -1,3 +1,4 @@
+import {editorAction} from './mobile-editor-helper.mjs';
 import { launchBrowser } from './browser-launch.mjs';
 import { setCsvZoom } from './csv-grid-helper.mjs';
 import assert from 'node:assert/strict';
@@ -114,10 +115,10 @@ try {
     await page.locator('#csv-header').click();
     await page.waitForFunction(() => document.querySelector('.csv-row-heading')?.textContent === '1');
     // Source mode is not a table preview: the CSV editing bar must disappear with the grid.
-    await page.locator('[data-display=source]').click();
+    await editorAction(page,'[data-display=source]');
     await page.waitForFunction(() => !document.querySelector('.csv-bottom-actions'));
     assert.equal(await page.locator('#editor').isVisible(), true);
-    await page.locator('[data-display=preview]').click();
+    await editorAction(page,'[data-display=preview]');
     await page.locator('.csv-grid-cell').first().waitFor();
     const cell = page.locator('[data-cell-row="1"][data-cell-column="1"]');
     const cellText = () => page.locator('[data-cell-row="1"][data-cell-column="1"]').textContent();
@@ -166,7 +167,7 @@ try {
     assert.equal(await page.locator('#csv-delimiter').inputValue(), '\t');
     await tab('book');
     await page.evaluate(() => velaEditorView.dispatch({ selection: { anchor: 10 } }));
-    await page.locator('#format-table').click();
+    await editorAction(page,'#format-table');
     await page.locator('[name=tableFile]').selectOption('资料/人物.csv');
     await page.locator('[name=tableCaption]').fill('人物关系');
     await page.locator('#dialog-submit').click();
@@ -192,7 +193,7 @@ try {
       JSON.parse(config.text).richText.documents['正文.txt'].inserts[0].src,
       '../资料/人物.csv',
     );
-    await page.locator('[data-display=preview]').click();
+    await editorAction(page,'[data-display=preview]');
     await page.locator('#preview .reader-format-table table').waitFor();
     assert.equal(
       await page.locator('#preview').evaluate((root) => root.textContent),
@@ -207,7 +208,7 @@ try {
     assert.equal(await page.locator('.reader-content').evaluate((root) => root.textContent), text);
     await page.locator('#reader-back').click();
     await selectAppView(page, 'write');
-    await page.locator('[data-display=source]').click();
+    await editorAction(page,'[data-display=source]');
     await page.locator('.vela-format-table button').click();
     await page.locator('[name=tableMode][value=new]').check();
     await page.locator('[name=tableName]').fill('新表.tsv');
@@ -272,7 +273,7 @@ try {
     assert.equal(state.documents.find((doc) => doc.id === 'book').text, text);
     if (width === 390) {
       await tab('csv');
-      await page.locator('[data-display=source]').click();
+      await editorAction(page,'[data-display=source]');
       await page.evaluate(() =>
         velaEditorView.dispatch({
           changes: {
@@ -284,7 +285,7 @@ try {
           },
         }),
       );
-      await page.locator('[data-display=preview]').click();
+      await editorAction(page,'[data-display=preview]');
       // A large table opens fitted, drawn as an overview; at 100% only the visible part of the grid is in the DOM.
       await setCsvZoom(page);
       await page.locator('.csv-grid-cell').first().waitFor();
@@ -312,7 +313,7 @@ try {
       await page.evaluate(() => (document.body.dataset.keyboard = 'false'));
       // Missing data stays visible as a repairable placeholder without changing the TXT.
       await tab('book');
-      await page.locator('#format-table').click();
+      await editorAction(page,'#format-table');
       await page.locator('[name=tableFile]').selectOption('资料/人物.csv');
       await page.locator('#dialog-submit').click();
       await page.waitForSelector('#dialog[open]', { state: 'hidden' });

@@ -1,3 +1,4 @@
+import {editorAction} from './mobile-editor-helper.mjs';
 import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
 import assert from 'node:assert/strict';
@@ -25,15 +26,15 @@ try{
   const selectText=text=>page.evaluate(text=>{const view=velaEditorView,at=view.state.doc.toString().indexOf(text);view.dispatch({selection:{anchor:at,head:at+text.length}});view.focus();},text);
   const cursorAt=text=>page.evaluate(text=>{const view=velaEditorView,at=view.state.doc.toString().indexOf(text);view.dispatch({selection:{anchor:at}});view.focus();},text);
   const nodes=(selector)=>page.evaluate(selector=>[...document.querySelectorAll(selector)].map(node=>node.textContent),selector);
-  const applyStyle=async(id,scope)=>{await page.locator('#format-style').click();await page.locator('#format-style-panel').waitFor();if(scope)await page.locator(`#format-style-panel [data-scope="${scope}"]`).click();await page.locator(`#format-style-panel [data-style-id="${id}"]`).click();assert.equal(await page.locator('#format-style-panel').isVisible(),false,'the panel closes after applying');};
+  const applyStyle=async(id,scope)=>{await editorAction(page,'#format-style');await page.locator('#format-style-panel').waitFor();if(scope)await page.locator(`#format-style-panel [data-scope="${scope}"]`).click();await page.locator(`#format-style-panel [data-style-id="${id}"]`).click();assert.equal(await page.locator('#format-style-panel').isVisible(),false,'the panel closes after applying');};
   await check('ruby is added from the toolbar and drawn above the text without adding text',async()=>{
-    await selectText('林舟');await page.locator('#format-ruby').click();await page.locator('#dialog-body [name=reading]').fill('lín zhōu');await page.locator('#dialog-submit').click();
+    await selectText('林舟');await editorAction(page,'#format-ruby');await page.locator('#dialog-body [name=reading]').fill('lín zhōu');await page.locator('#dialog-submit').click();
     assert.deepEqual(await nodes('.cm-content .vela-format-ruby'),['林舟']);
     assert.equal(await page.evaluate(()=>getComputedStyle(document.querySelector('.cm-content .vela-format-ruby'),'::before').content),'"lín zhōu"');
     assert.equal(await page.evaluate(()=>velaEditorView.state.doc.toString()),novel);
   });
   await check('the style panel applies a style to the paragraph without a selection and to the selected characters with one',async()=>{
-    await cursorAt('【叮');await page.locator('#format-style').click();
+    await cursorAt('【叮');await editorAction(page,'#format-style');
     assert.equal(await page.locator('#format-style-panel [data-scope="chars"]').isDisabled(),true,'characters need a selection');assert.equal(await page.locator('#format-style-panel [data-scope="paragraph"]').getAttribute('aria-checked'),'true');
     assert.equal(await page.locator('#format-style-panel [data-style-id]').count(),4,'all built-in styles are listed');await page.locator('#format-style-panel [data-style-id="system"]').click();
     assert.deepEqual(await nodes('.cm-line.vela-style-block[data-style="system"]'),['【叮！任务完成】']);
@@ -51,10 +52,10 @@ try{
     assert.match(style,/border/);assert.doesNotMatch(style,/text-align/,'alignment only applies to whole paragraphs');
   });
   await check('right alignment and clear formatting are on the toolbar; the selection menu does not repeat them',async()=>{
-    await cursorAt('她低声');await page.locator('#format-right').click();assert.equal(await page.locator('.cm-line.vela-format-right').count(),1);assert.equal(await page.locator('#format-right').getAttribute('aria-pressed'),'true');
+    await cursorAt('她低声');await editorAction(page,'#format-right');assert.equal(await page.locator('.cm-line.vela-format-right').count(),1);assert.equal(await page.locator('#format-right').getAttribute('aria-pressed'),'true');
     // Without a selection 清除格式 clears the whole paragraph: the alignment and the 旁注 style on 低声说道 (since 0.9.8.1).
-    await page.locator('#format-clear').click();assert.equal(await page.locator('.cm-line.vela-format-right').count(),0);assert.deepEqual(await nodes('.cm-content .vela-style[data-style="aside"]'),[]);
-    await selectText('冷笑');await page.locator('#format-strong').click();await selectText('林舟冷笑一声');await page.locator('#format-clear').click();
+    await editorAction(page,'#format-clear');assert.equal(await page.locator('.cm-line.vela-format-right').count(),0);assert.deepEqual(await nodes('.cm-content .vela-style[data-style="aside"]'),[]);
+    await selectText('冷笑');await editorAction(page,'#format-strong');await selectText('林舟冷笑一声');await editorAction(page,'#format-clear');
     assert.deepEqual(await nodes('.cm-content .vela-format-strong'),[]);assert.deepEqual(await nodes('.cm-content .vela-style[data-style="system"]'),[]);assert.deepEqual(await nodes('.cm-content .vela-format-ruby'),[],'ruby in the selection is cleared too');
     await page.keyboard.press('Control+Z');assert.deepEqual(await nodes('.cm-content .vela-format-ruby'),['林舟'],'undo brings the cleared formats back');
     await page.evaluate(()=>window.wenzhouShowSelectionMenu());await page.locator('#selection-menu:not([hidden])').waitFor();
@@ -63,18 +64,18 @@ try{
   });
   await check('a new style is saved to the work .vela under richText.styles and becomes available',async()=>{
     await page.evaluate(()=>window.wenzhouSave());
-    await page.locator('#format-style').click();await page.locator('#format-style-panel [data-style-manage]').click();await page.waitForFunction(()=>document.querySelector('#dialog-title')?.textContent==='管理样式');
+    await editorAction(page,'#format-style');await page.locator('#format-style-panel [data-style-manage]').click();await page.waitForFunction(()=>document.querySelector('#dialog-title')?.textContent==='管理样式');
     await page.locator('#dialog-body [name=id]').fill('whisper');await page.locator('#dialog-body [name=label]').fill('耳语');await page.locator('#dialog-body [name=block]').selectOption('inline');await page.locator('#dialog-body [name=size]').selectOption('small');await page.locator('#dialog-body [name=color]').selectOption('muted');
     await page.locator('#dialog-submit').click();await page.waitForFunction(()=>!document.querySelector('#dialog').open);
     const config=velaOf(await stored(page));assert.equal(config.version,3);assert.deepEqual(config.richText.styles.whisper,{label:'耳语',block:false,size:'small',color:'muted'});assert.equal(config.styles,undefined);
     await selectText('走');await applyStyle('whisper');assert.deepEqual(await nodes('.cm-content .vela-style[data-style="whisper"]'),['走']);
   });
   await check('an illustration is inserted after the paragraph, shown as a placeholder here, and can be edited',async()=>{
-    await cursorAt('林舟冷笑');await page.locator('#format-image').click();await page.locator('#dialog-body [name=src]').fill('插图/雪夜.png');await page.locator('#dialog-body [name=alt]').fill('雪夜');await page.locator('#dialog-submit').click();
+    await cursorAt('林舟冷笑');await editorAction(page,'#format-image');await page.locator('#dialog-body [name=src]').fill('插图/雪夜.png');await page.locator('#dialog-body [name=alt]').fill('雪夜');await page.locator('#dialog-submit').click();
     await page.locator('.cm-content .vela-format-image').waitFor();assert.match(await page.locator('.vela-format-image').textContent(),/插图\/雪夜\.png.*雪夜/);
     await page.locator('.vela-format-image').click();await page.waitForFunction(()=>document.querySelector('#dialog-title')?.textContent==='编辑插图');
     await page.locator('#dialog-body [name=alt]').fill('雪夜山门');await page.locator('#dialog-submit').click();await page.waitForFunction(()=>document.querySelector('.vela-format-image figcaption')?.textContent==='雪夜山门');
-    await page.locator('#format-image').click();await page.locator('#dialog-body [name=src]').fill('../外面.png');await page.locator('#dialog-submit').click();
+    await editorAction(page,'#format-image');await page.locator('#dialog-body [name=src]').fill('../外面.png');await page.locator('#dialog-submit').click();
     await page.waitForFunction(()=>document.querySelector('#dialog-error').textContent.includes('相对路径'));await page.keyboard.press('Escape');
   });
   await check('everything is saved in the work .vela and comes back after a reload',async()=>{

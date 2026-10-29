@@ -1,3 +1,4 @@
+import {editorAction} from './mobile-editor-helper.mjs';
 import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import {startSourceAppServer} from './source-app-server.mjs';
@@ -32,8 +33,8 @@ try{
   await page.locator('[data-node=n0]').click();await page.locator('.outline-detail input[name=title]').fill('优化后的节点');await page.locator('.outline-detail button[type=submit]').click();
   const title=()=>page.evaluate(()=>JSON.parse(velaEditorView.state.doc.toString()).nodes.n0.title);assert.equal(await title(),'优化后的节点');
   await page.locator('#quick-undo').click();assert.equal(await title(),'节点0');await page.locator('#quick-redo').click();assert.equal(await title(),'优化后的节点');
-  await page.locator('[data-display=source]').click();await page.locator('#editor:not([hidden]) .cm-lineNumbers').waitFor();assert.equal(await title(),'优化后的节点');
-  await page.locator('[data-display=preview]').click();await page.locator('.outline-large-plane').waitFor();assert.equal(await page.locator('#editor .cm-lineNumbers').count(),0);
+  await editorAction(page,'[data-display=source]');await page.locator('#editor:not([hidden]) .cm-lineNumbers').waitFor();assert.equal(await title(),'优化后的节点');
+  await editorAction(page,'[data-display=preview]');await page.locator('.outline-large-plane').waitFor();assert.equal(await page.locator('#editor .cm-lineNumbers').count(),0);
   await open('r');assert.equal(await page.locator('.outline-graph').getAttribute('data-graph-level'),'overview');await page.locator('.outline-plane').focus();await page.keyboard.press('ArrowDown');await page.locator('[data-card]').first().waitFor();assert.ok(await page.locator('[data-card]').count()<=300);
   await open('m');assert.equal(await page.evaluate(()=>largeProbe.mapParses),1);await open('guide');assert.equal(await page.evaluate(()=>largeProbe.live.size),0,'leaving stops fill workers');
   await open('m');assert.equal(await page.evaluate(()=>largeProbe.mapParses),1,'returning reuses validated map data');await page.waitForFunction(()=>largeProbe.live.size===0&&largeProbe.starts>0,null,{timeout:30000});
