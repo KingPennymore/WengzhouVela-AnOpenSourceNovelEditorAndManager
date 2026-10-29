@@ -1,4 +1,5 @@
 import { build, transform } from 'esbuild';
+import {resolve} from 'node:path';
 import { mkdir, copyFile, cp, readFile, writeFile, rm } from 'node:fs/promises';
 import { recordBundle } from './frontend-state.mjs';
 import {copyTexAssets} from './tex-assets.mjs';
@@ -16,13 +17,16 @@ const version=pkg.harmonyVersion||pkg.version;
 await rm(`${out}/chunks`,{recursive:true,force:true});
 const bundle = await build({entryPoints:['web/app.js'],bundle:true,outdir:out,entryNames:'[name]',chunkNames:'chunks/[name]-[hash]',splitting:true,format:'esm',target:'chrome105',minify:true,legalComments:'eof',metafile:true,define:{__VELA_HARMONY_VERSION__:JSON.stringify(version),__VELA_TEST_RELEASE_KEYS__:'[]'}});
 await mkdir('dist',{recursive:true});await writeFile('dist/app-metafile.json',JSON.stringify(bundle.metafile));
-await build({entryPoints:['web/map-fill-worker.js'],bundle:true,outfile:`${out}/map-fill-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
-await build({entryPoints:['web/map-simplify-worker.js'],bundle:true,outfile:`${out}/map-simplify-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
-await build({entryPoints:['web/noun-worker.js'],bundle:true,outfile:`${out}/noun-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
-await build({entryPoints:['web/workspace-save-worker.js'],bundle:true,outfile:`${out}/workspace-save-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
-await build({entryPoints:['web/project-archive-worker.js'],bundle:true,outfile:`${out}/project-archive-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
-await build({entryPoints:['web/tex-component-worker.js'],bundle:true,outfile:`${out}/tex-component-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
-await build({entryPoints:['web/html-reader.js'],bundle:true,outfile:`${out}/html-reader.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof'});
+// Workers and the HTML reader are separate bundles that never switch language; without the dictionaries they are
+// about 190 KB smaller each.
+const sourceText={name:'source-text',setup(build){build.onResolve({filter:/(^|\/)i18n\.mjs$/},({path:file,resolveDir})=>({path:resolve(resolveDir,file.replace(/i18n\.mjs$/,'i18n-worker.mjs'))}));}};
+await build({entryPoints:['web/map-fill-worker.js'],bundle:true,outfile:`${out}/map-fill-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof',plugins:[sourceText]});
+await build({entryPoints:['web/map-simplify-worker.js'],bundle:true,outfile:`${out}/map-simplify-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof',plugins:[sourceText]});
+await build({entryPoints:['web/noun-worker.js'],bundle:true,outfile:`${out}/noun-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof',plugins:[sourceText]});
+await build({entryPoints:['web/workspace-save-worker.js'],bundle:true,outfile:`${out}/workspace-save-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof',plugins:[sourceText]});
+await build({entryPoints:['web/project-archive-worker.js'],bundle:true,outfile:`${out}/project-archive-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof',plugins:[sourceText]});
+await build({entryPoints:['web/tex-component-worker.js'],bundle:true,outfile:`${out}/tex-component-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof',plugins:[sourceText]});
+await build({entryPoints:['web/html-reader.js'],bundle:true,outfile:`${out}/html-reader.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof',plugins:[sourceText]});
 for(const name of ['index.html','startup.js','startup.css']) await copyFile(`web/${name}`,`${out}/${name}`);
 // The stylesheets are kept readable in web/; ship them minified (no syntax lowering, so the cascade is unchanged).
 for(const name of ['style.css','editor.css']) await writeFile(`${out}/${name}`,(await transform(await readFile(`web/${name}`,'utf8'),{loader:'css',minify:true,legalComments:'none'})).code);
