@@ -244,10 +244,11 @@ function inspect({ roots, accessibility }) {
       ]),
     );
     for (const el of elements) {
-      if (!visible(el)) continue;
       let target = el;
       if (el.matches('input[type=checkbox],input[type=radio]'))
         target = [...(el.labels || [])].find(visible) || el;
+      // Native switches/radios may be transparent; their visible label is the hit area.
+      if (!visible(target) || el.closest('[inert]')) continue;
       const r = target.getBoundingClientRect();
       if (matchMedia('(pointer:coarse)').matches && (r.width < 43.9 || r.height < 43.9))
         targets.push({
@@ -273,7 +274,7 @@ function inspect({ roots, accessibility }) {
 // Enter keyboard modality, then exercise every rendered, enabled tab stop, including
 // visually hidden native inputs whose focus indicator belongs to their label/track.
 async function keyboardAudit(page, roots) {
-  const active = await page.evaluateHandle(() => document.activeElement);
+  const active = await page.evaluateHandle(() => ({el:document.activeElement,x:scrollX,y:scrollY,positions:[...document.querySelectorAll('*')].filter(el=>el.scrollHeight>el.clientHeight||el.scrollWidth>el.clientWidth).map(el=>[el,el.scrollLeft,el.scrollTop])}));
   await page.evaluate(() => document.activeElement?.blur());
   await page.keyboard.press('Tab');
   const result = await page.evaluate((roots) => {
@@ -296,7 +297,7 @@ async function keyboardAudit(page, roots) {
     }
     return {checked, failures};
   }, roots);
-  await active.evaluate(el => { if (el === document.body) document.activeElement?.blur(); else el?.focus({preventScroll:true}); });
+  await active.evaluate(({el,x,y,positions}) => { if (el === document.body) document.activeElement?.blur(); else el?.focus({preventScroll:true}); for(const [node,left,top] of positions){node.scrollLeft=left;node.scrollTop=top;} window.scrollTo(x,y); });
   await active.dispose();
   return result;
 }
