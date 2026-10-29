@@ -1,3 +1,6 @@
+/* global __VELA_HARMONY_VERSION__ */
+import {createPluginDialogs} from './plugin-dialogs.mjs';
+import {createSubscriptionSync} from './subscription-sync.mjs';
 import {createRepositoryView} from './repository-view.mjs';
 import {SyncWorkflow} from './sync-workflow.mjs';
 import {showSyncCleanup} from './sync-cleanup.mjs';
@@ -29,8 +32,6 @@ import {renderComponentDocument,componentText,isComponentDocument,documentProvid
 import {prepareDocumentImport,documentImportLimit,readDocumentBytes,binaryDocumentName,BINARY_DOCUMENT_EXTENSIONS} from './document-import.mjs';
 import {bindSelectionMenu} from './selection-menu.mjs';
 import {bindStylePanel} from './format-style-panel.mjs';
-import {readImportedArchive} from './imported-archive.mjs';
-import {isTexComponentArchive} from './tex-component.mjs';
 import {icon,fileIcon} from './icons.mjs';
 import {planningTopSheet} from './planning-sheet.mjs';
 import {EditorState,Compartment,Transaction} from '@codemirror/state';
@@ -74,8 +75,8 @@ import {readWorkspaceBackup,prepareBackupRestore,mergeBackupRestore} from './wor
 import {createExportDialogs} from './export-dialogs.mjs';
 import {renderPlainChapters} from './reader-layout.mjs';
 import {textPoint,invalidateTextIndex} from './reading-position.mjs';
-import {loadOutlineView,loadMapView,loadPdfPreview,loadReader,loadLatexEditor,loadMarkdownPreview,loadHtmlPreview,loadGuide,loadSubscriptions,loadUpdateView,loadComponentDownloads,loadGlossaryView,chunkFailure} from './lazy.mjs';
-import {readPluginZip,fromBase64} from './plugin-package.mjs';
+import {loadOutlineView,loadMapView,loadPdfPreview,loadReader,loadLatexEditor,loadMarkdownPreview,loadHtmlPreview,loadGuide,loadSubscriptions,loadUpdateView,loadGlossaryView,chunkFailure} from './lazy.mjs';
+import {fromBase64} from './plugin-package.mjs';
 import {documentPath,uniquePath,preparePaths,adoptFolder,folderTree,gitFileState} from './workspace.mjs';
 import {chapterSettings,chapterMatcher} from './chapters.mjs';
 import {glossaryPaths,glossaryTerms,parseGlossary,glossaryText,createGlossary} from './glossary.mjs';
@@ -2021,6 +2022,13 @@ document.querySelectorAll('[data-view]').forEach(button=>button.onclick=()=>{
   showView(button.dataset.view);
 });$('#github-shortcut').onclick=()=>showView('github');$('#sidebar-logout').onclick=()=>repositoryView.logout();
 
+const {restorePulledEditor,previewDownload,materializeDownload,pullSubscription,cacheSubscription,loadSubscriptionDocument}=createSubscriptionSync({
+  $,syncWorkflow,save,openModal,editorStates,current,ensureSubscriptions,switchDocument,updateEditorVisibility,
+  renderPreview,showHome,renderDocuments,showView,toast,makeState,updateStats,
+  get workspace(){return workspace;},get view(){return view;},get home(){return home;},
+  get isPreview(){return isPreview;},set isPreview(value){isPreview=value;},
+  get subscriptions(){return subscriptions;},get documents(){return documents;},get gh(){return gh;}
+});
 const repositoryView=createRepositoryView({
   $,native,transport,toast,fail,openModal,closeModal,save,showView,cycleTheme,current,showHome,
   syncBusy,syncActivity,syncWorkflow,editorStates,makeState,updateStats,renderPreview,renderDocuments,
@@ -2175,63 +2183,11 @@ function previewBackupRestore(bytes){
     toast(say(`备份已恢复到“${candidate.restoredImports.at(-1).folder}”。`,`Backup restored to “${candidate.restoredImports.at(-1).folder}”.`)+(plan.skipped?say(`已跳过 ${plan.skipped} 个二进制或插件文稿。`,`Skipped ${plan.skipped} binary or plugin documents.`):''));
   });
 }
-async function showPlugins(){
-  if(!plugins)return;await plugins.ready;
-  openModal(t('插件与组件'),`<p><button type="button" class="primary" id="install-plugin">${t('从 ZIP 安装')}</button></p>
-    <section class="component-downloads" id="component-downloads"></section>
-    <h3>${t('已安装')}</h3>
-    <small>${t('可安装 LaTeX 引擎、中文支持、电子书阅读与 JavaScript / CodeMirror 插件。内置组件可停用，轻量版导入的组件可卸载。依赖 Android、Cordova、Ace 或未实现的 Acode 模块的插件会显示加载原因。')}</small><div class="plugin-list">${plugins.records.map((record,i)=>`<article class="plugin-card"><strong>${esc(record.manifest.id.startsWith('vela.component.tex')?t(record.manifest.name):record.manifest.name)}</strong><small>${esc(record.manifest.id)} · ${esc(record.manifest.version)} · ${record.builtin?t('内置组件'):record.manifest.vela?.type==='tex-component'||['reader-component','document-component'].includes(record.manifest.vela?.type)?t('可选组件'):t('插件')} · ${record.enabled?t('已启用'):t('已停用')}</small>${record.error?`<p class="error">${esc(t(record.error))}</p>`:''}<div class="button-row"><button type="button" class="secondary" data-plugin-enable="${i}">${record.enabled?t('停用'):t('启用')}</button>${record.manifest.vela?.type==='reader-component'?`<button type="button" class="secondary" data-plugin-open="${i}" ${record.enabled?'':'disabled'}>${t('打开阅读器')}</button>`:''}${plugins.settingsPages.has(record.manifest.id)?`<button type="button" class="secondary" data-plugin-settings="${i}">${t('插件设置')}</button>`:''}${record.builtin?'':`<button type="button" class="danger" data-plugin-remove="${i}">${t('卸载')}</button>`}</div>
-    </article>`).join('')||`<p class="blank">${t('尚未安装插件。')}</p>`}</div>`,null,{noSubmit:true});
-  const pluginSession=$('#dialog-body').viewSession;
-  chunkLoading($('#component-downloads'));
-  loadComponentDownloads().then(({mountComponentDownloads})=>{
-    if(!pluginSession.alive())return;
-    const downloadView=mountComponentDownloads($('#component-downloads'),{transport,native,platform:environment?.platform||'',appVersion:environment?.version||__VELA_HARMONY_VERSION__,descriptor:()=>texCompiler.assets.descriptor(),installed:async()=>new Map(plugins.records.map(record=>[record.manifest.id,{version:record.manifest.version,enabled:record.enabled}])),install:async bytes=>{
-      await installPluginBytes(bytes,{reopen:false});
-      if(pluginSession.alive())await showPlugins();
-    }});pluginSession.onDispose(()=>downloadView.dispose());
-  }).catch(error=>{if(pluginSession.alive())chunkFailure($('#component-downloads'),error,showPlugins);});
-  $('#install-plugin').onclick=async e=>{
-    if(native){
-      const button=e.currentTarget;
-      button.disabled=true;
-      try{
-        const result=await transport('importPlugin');
-        if(result)await installPluginBytes(await readImportedArchive(result,token=>transport('releaseImport',{token})));
-      }catch(e){
-        $('#dialog-error').textContent=t(e.message);
-      }finally{
-        button.disabled=false;
-      }
-    }else $('#plugin-input').click();
-  };
-  $('.plugin-list').onclick=async e=>{try{
-    const action=e.target.closest('button');if(action)action.disabled=true;
-    const enable=e.target.closest('[data-plugin-enable]'),remove=e.target.closest('[data-plugin-remove]'),settings=e.target.closest('[data-plugin-settings]');
-    const open=e.target.closest('[data-plugin-open]');if(open){
-        const record=plugins.records[Number(open.dataset.pluginOpen)];
-        closeModal();
-        if(plugins.commands.has(record.manifest.id+'.open'))await plugins.execute(record.manifest.id+'.open');
-      }
-    if(enable){const record=plugins.records[Number(enable.dataset.pluginEnable)];await plugins.enable(record,!record.enabled);showPlugins();}
-    if(remove){await plugins.remove(plugins.records[Number(remove.dataset.pluginRemove)]);showPlugins();}
-    if(settings)showPluginSettings(plugins.records[Number(settings.dataset.pluginSettings)]);
-  }catch(error){$('#dialog-error').textContent=t(error.message);}finally{if(e.target.closest('button'))e.target.closest('button').disabled=false;}};
-}
-function showPluginSettings(record){
-  const config=plugins.settingsPages.get(record.manifest.id);if(!config)return;
-  const items=config.list||[];
-  openModal(say(`${record.manifest.name} · 设置`,`${record.manifest.name} · Settings`),items.map((item,i)=>`<label>${esc(item.text||item.key||t('设置'))}<input name="${i}" ${item.checkbox?'type="checkbox" '+(item.value?'checked':''):`value="${esc(item.value??'')}"`}></label>`).join(''),async f=>{
-    for(let i=0;i<items.length;i++)await config.cb?.(items[i].key,items[i].checkbox?f.has(String(i)):f.get(String(i)));
-    plugins.save();
-  });
-}
-async function installPluginBytes(bytes,{reopen=true}={}){
-  if(isTexComponentArchive(bytes)){await plugins.installComponent(bytes);if(reopen)await showPlugins();toast(t('离线排版组件已安装。'));return;}
-  const record=await plugins.install(readPluginZip(bytes));
-  if(reopen)await showPlugins();
-  if(record.error)$('#dialog-error').textContent=record.error;else toast(say(`插件已安装：${record.manifest.name}`,`Plugin installed: ${record.manifest.name}`));
-}
+const {showPlugins,refreshPluginCommands,pluginDialog}=createPluginDialogs({
+  $,openModal,closeModal,toast,chunkLoading,editorStates,pluginKeys,pluginExtras,
+  get plugins(){return plugins;},get environment(){return environment;},get texCompiler(){return texCompiler;},
+  get view(){return view;},appVersion:__VELA_HARMONY_VERSION__
+});
 $('#plugins').onclick=showPlugins;
 $('#check-update').onclick=()=>checkWindowsUpdates(true);
 // TeX: Ctrl+Enter compiles and Ctrl+Alt+J shows the cursor line in the PDF while the preview is open.
@@ -2240,30 +2196,6 @@ document.addEventListener('keydown',event=>{
   const mod=event.ctrlKey||event.metaKey;
   if(mod&&!event.altKey&&event.key==='Enter'){event.preventDefault();texPreview.compile().catch(fail);}else if(mod&&event.altKey&&event.key.toLowerCase()==='j'){event.preventDefault();texPreview.locate().catch(fail);}
 });
-$('#plugin-input').onchange=async e=>{
-  const button=$('#install-plugin');
-  if(button)button.disabled=true;
-  try{
-    const file=e.target.files[0];
-    if(!file)return;
-    if(file.size>96*MB)throw new Error(t('安装包 ZIP 不能超过 96 MB。'));
-    await installPluginBytes(new Uint8Array(await file.arrayBuffer()));
-  }catch(error){
-    $('#dialog-error').textContent=t(error.message);
-  }finally{
-    e.target.value='';
-    if(button)button.disabled=false;
-  }
-};
-function refreshPluginCommands(){
-  for(const [id,state] of editorStates)editorStates.set(id,state.update({effects:[pluginKeys.reconfigure(keymap.of(plugins?.bindings()||[])),pluginExtras.reconfigure(plugins?.extensions()||[])]}).state);
-  if(view&&pluginKeys.get(view.state)!==undefined)view.dispatch({effects:[pluginKeys.reconfigure(keymap.of(plugins?.bindings()||[])),pluginExtras.reconfigure(plugins?.extensions()||[])]});
-}
-function pluginDialog(title,message,kind,value=''){
-  return new Promise(resolve=>openModal(title,kind==='prompt'?`<label>${esc(title)}<input name="value" value="${esc(value)}"></label>`:`<p>${esc(message)}</p>`,f=>{
-    resolve(kind==='prompt'?f.get('value'):true);
-  },{cancel:()=>resolve(kind==='prompt'?null:false)}));
-}
 function currentScope(){
   const project=projectConfig(workspace,current());
   if(project?.folder&&(!selectedFolder||within(project.folder,selectedFolder)))return project.folder;
@@ -2371,111 +2303,6 @@ function renderVela(){
     toast(t('工作区配置已保存'));
   }});
 }
-function restorePulledEditor(page){
-  const preview=isPreview;
-  if(workspace.activeId&&!home){switchDocument(workspace.activeId);isPreview=preview;updateEditorVisibility();if(isPreview)renderPreview();}else{showHome();}
-  renderDocuments();
-  showView(page);
-}
-function previewDownload(result,folder,onApply,client=gh){
-  return syncWorkflow.preview(result,folder,onApply,client);
-}
-function materializeDownload(result,folder){
-  return syncWorkflow.materialize(result,folder);
-}
-async function pullSubscription(item){
-  let abort;
-  openModal(t('拉取文件'),`<p data-user-content>${esc(item.repo)}</p>
-    ${item.snapshot.vela?`<label class="checkbox"><input name="readingOnly" type="checkbox" checked>${t('仅拉取阅读清单')}</label>`:''}<p>${t('保存到内部文件夹；对应 .vela 配置会同时保留，同路径文件覆盖。')}</p>
-    <p id="subscription-pull-path" data-user-content></p>
-    <progress id="subscription-pull-progress" max="1" value="0" hidden></progress><button type="button" id="subscription-pull-cancel" class="secondary" hidden>${t('取消拉取')}</button>`,async form=>{
-    if(!save())throw new Error(t('请先保存当前文稿。'));
-    abort=new AbortController();
-    const folder='Subscriptions/'+item.repo;
-    $('#subscription-pull-cancel').hidden=false;
-    $('#subscription-pull-progress').hidden=false;
-    try{
-      const client=new GitHub((_operation,payload)=>transport('publicApi',payload)),only=item.snapshot.vela&&form.has('readingOnly'),snapshot=only?await subscriptions.api.snapshot(item.repo,abort.signal):item.snapshot;
-      const result=await syncWorkflow.run(()=>client.pullRepository(item.repo,snapshot.branch,{signal:abort.signal,selection:only?[...snapshot.configs.map(config=>config.path),...snapshot.files.map(file=>file.path)]:null,includeDependencies:true,onProgress:p=>{
-        const progress=$('#subscription-pull-progress');
-        if(progress){
-          progress.max=Math.max(1,p.total);
-          progress.value=p.done;
-          $('#subscription-pull-path').textContent=`${p.done} / ${p.total} · ${folder}/${p.path}`;
-        }
-      }}));
-      abort.signal.throwIfAborted();
-      await previewDownload(result,folder,async selected=>{
-        await materializeDownload(selected,folder);
-        for(const file of selected.files){
-          const doc=workspace.documents.find(doc=>documentPath(doc)===folder+'/'+file.path);
-          if(doc){
-            doc.subscription={repo:item.repo,path:file.path,sha:file.sha,loadedSha:file.sha,contentHash:await textHash(doc.text)};
-            editorStates.delete(doc.id);
-          }
-        }
-        restorePulledEditor('subscriptions');
-        save();
-        toast(t('文件已拉取到内部文件夹。'));
-      },client);
-      return false;
-    }finally{if($('#subscription-pull-cancel'))$('#subscription-pull-cancel').hidden=true;}
-  },{label:t('拉取文件')});
-  $('#subscription-pull-cancel').onclick=()=>abort?.abort();
-}
-async function cacheSubscription(item){
-  const prefix='Subscriptions/'+item.repo+'/';let changed=false;
-  for(const config of item.snapshot.configs){
-    const path=prefix+config.path;
-    const doc=workspace.documents.find(doc=>documentPath(doc)===path&&doc.subscription?.repo===item.repo);
-    if(!doc)continue;
-    if(doc.text!==config.text){
-      const hash=await textHash(doc.text);
-      if(doc.subscription.contentHash&&hash!==doc.subscription.contentHash||!doc.subscription.contentHash&&doc.remote?.lastSyncedText!==doc.text){
-        doc.subscription={...doc.subscription,configurationConflict:true,sha:config.sha};
-        changed=true;
-        continue;
-      }
-      documents.checkpoint(doc);
-      documents.change(doc,config.text);
-      doc.subscription={repo:item.repo,path:config.path,sha:config.sha,loadedSha:config.sha,contentHash:await textHash(config.text)};
-      editorStates.delete(doc.id);
-      if(current()?.id===doc.id&&view){
-        view.setState(makeState(doc));
-        if(isPreview)renderPreview();
-      }
-      changed=true;
-    }
-  }
-  for(const file of item.snapshot.files){
-    const path=prefix+file.path;
-    const doc=workspace.documents.find(doc=>documentPath(doc)===path&&doc.subscription?.repo===item.repo);
-    if(doc)doc.subscription={...doc.subscription,repo:item.repo,path:file.path,sha:file.sha};
-  }
-  if(changed){preparePaths(workspace);renderDocuments();save();}
-}
-async function textHash(text){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text))),b=>b.toString(16).padStart(2,'0')).join('');}
-async function loadSubscriptionDocument(doc,attempt=0){
-  if(doc?.subscription?.configurationConflict)throw Error(t('本地 .vela 配置已修改，请在订阅拉取预览中对照并处理冲突。'));
-  if(doc?.subscription&&doc.subscription.loadedSha!==doc.subscription.sha){
-    await ensureSubscriptions();
-    const target=doc.subscription.sha,initial=doc.text,hash=await textHash(initial),rawText=await subscriptions.api.blob(doc.subscription.repo,target),text=documentKind(doc)==='CSV'?rawText:normalizeText(rawText);
-    if(doc.subscription.sha!==target){if(attempt>0)throw new Error(t('远端文件持续变化，请刷新后重试。'));return loadSubscriptionDocument(doc,attempt+1);}
-    if(doc.text!==initial)throw new Error(t('读取期间本地文稿已修改，已保留本地内容，请重试。'));
-    if(initial&&(!doc.subscription.loadedSha||doc.subscription.contentHash&&hash!==doc.subscription.contentHash)){
-      const copy=newDocument(doc.name,initial);
-      copy.path=uniquePath(documentPath(doc),itemPaths(workspace));
-      copy.name=basename(copy.path);
-      workspace.documents.push(copy);
-    }
-    doc.text=text;doc.subscription.loadedSha=target;doc.subscription.contentHash=await textHash(text);doc.updatedAt=Date.now();editorStates.delete(doc.id);if(current()?.id===doc.id&&view){
-      view.setState(makeState(doc));
-      if(isPreview)renderPreview();
-      updateStats();
-    }if(!save())throw new Error(t('订阅文件保存失败。'));
-  }return doc;
-}
-
 function adoptProjectState(candidate,receipt={}){
   const previous=workspace,active=workspace.activeId,affected=new Set([...(receipt.changed||[]),...(receipt.removed||[])].map(entry=>entry.entryId)),activeChanged=affected.has(active)||candidate.documents.find(d=>d.id===active)?.text!==previous.documents.find(d=>d.id===active)?.text;
   if(activeChanged&&view){
