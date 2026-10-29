@@ -4,10 +4,7 @@ import {documentPath} from './workspace.mjs';
 import {MAX_TEXT_BYTES} from './model.mjs';
 import {decodeFileText} from './file-text.mjs';
 import {fromBase64} from './plugin-package.mjs';
-import {textBytes,MB} from './text-utils.mjs';
-
-const escape=value=>
-  String(value??'').replace(/[&<>"']/g,char=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[char]);
+import {textBytes,MB,escapeHtml as escape} from './text-utils.mjs';
 
 /** Relative references may reach another workspace folder, but never leave the workspace. */
 export function resolveTablePath(document,source){
