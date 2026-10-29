@@ -1,4 +1,6 @@
 import { normalizeGiteaServer, giteaCredentialKey } from './GiteaServer';
+import { AiBridge, AiRequest } from './AiBridge';
+import { AiCredentialStore } from './AiCredentialStore';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { common, abilityAccessCtrl } from '@kit.AbilityKit';
 import { rcp } from '@kit.RemoteCommunicationKit';
@@ -87,6 +89,8 @@ export class NativeBridge {
   private workspaceFiles: WorkspaceFiles = new WorkspaceFiles();
   private projects: ProjectFiles = new ProjectFiles();
   downloads: ReleaseDownloads = new ReleaseDownloads();
+  private aiStore: AiCredentialStore = new AiCredentialStore(this.credentialAlias('ai'));
+  private ai: AiBridge = new AiBridge({ read: () => this.aiStore.read(), write: (value: string) => this.credentialWrite(() => this.aiStore.write(value)), clear: () => this.credentialWrite(() => this.aiStore.clear()) });
 
   previewResource(path: string, html: boolean): PreviewResource {
     this.workspaceFiles.context = this.context;
@@ -289,6 +293,11 @@ export class NativeBridge {
 
   async call(operation: string, json: string): Promise<string> {
     try {
+      if (operation === 'ai') {
+        let data: AiRequest;
+        try { data = JSON.parse(json) as AiRequest; } catch (_) { throw new Error('AI 请求数据无效。'); }
+        return this.success(await this.ai.call(data));
+      }
       if (operation === 'saveWorkspace') {
         if (this.projects.busy) throw new Error('项目事务正在提交，请稍后保存。');
         const epoch = Atomics.add(this.workspaceGate, 1, 1) + 1;
