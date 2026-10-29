@@ -133,8 +133,11 @@ const stages={
       const lite=flavor==='-lite',extra=lite?['--lite']:[];say(`  — ${lite?'轻量版':'完整版'}`);
       await exec('node',['scripts/build-android.mjs','--release',...extra]);
       await exec('node',['scripts/build-windows.mjs',...extra]);
-      await exec(ohpm(ctx),['install'],{env:devecoEnv(ctx)});
-      await exec(hvigor(ctx),['--mode','project','-p','product=default','-p','buildMode=release','assembleApp','--no-daemon'],{env:devecoEnv(ctx)});
+      // hvigor's PrepareEditor rebuilds the front end unless it is current for this flavor; it runs on DevEco's older
+      // Node, so it must find the bundle the Android build just made instead of building the other flavor itself.
+      const env={...devecoEnv(ctx),VELA_BUILD_FLAVOR:lite?'lite':'full'};
+      await exec(ohpm(ctx),['install'],{env});
+      await exec(hvigor(ctx),['--mode','project','-p','product=default','-p','buildMode=release','assembleApp','--no-daemon'],{env});
       if(ctx.dryRun){say(`  · 收集 build/outputs/default/*.app（按 pack.info 核对版本）和 entry-default-signed.hap，改名为 Vela-${ctx.version}${flavor}-release-signed.app / .hap`);continue;}
       const app=newestApp();if(!app)throw Error('DevEco 没有生成已签名的 .app（检查本机 build-profile.json5 的签名配置）。');
       const packed=packVersion(app);if(packed!==ctx.version)throw Error(`${app} 的 pack.info 版本为 ${packed}，不是 ${ctx.version}。`);
