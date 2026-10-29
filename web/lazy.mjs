@@ -4,7 +4,7 @@ import {escapeHtml} from './text-utils.mjs';
 // Features split out of the startup bundle (scripts/build.mjs builds ESM chunks into web/chunks/). Each loader
 // imports its chunk once; a failed import is not kept, so the next use retries, and the error names the feature
 // so callers can show it in place of the missing view (chunkFailure) instead of leaving it blank.
-const labels={outline:'大纲',map:'地图','map-algorithms':'边界算法',pdf:'PDF 与 LaTeX 预览',katex:'公式排版',epub:'EPUB 导出',reader:'阅读',latex:'LaTeX 编辑','latex-language':'LaTeX 编辑'}; // i18n-data: Lookup keys are translated by lazy() when reporting a load failure.
+const labels={markdown:'Markdown 预览',html:'HTML 文件预览',guide:'使用指南',subscriptions:'订阅',updates:'应用更新',downloads:'插件与组件',glossary:'术语库',archive:'项目归档',outline:'大纲',map:'地图','map-algorithms':'边界算法',pdf:'PDF 与 LaTeX 预览',katex:'公式排版',epub:'EPUB 导出',reader:'阅读',latex:'LaTeX 编辑','latex-language':'LaTeX 编辑'}; // i18n-data: Lookup keys are translated by lazy() when reporting a load failure.
 
 const loaded=new Map();
 function lazy(name,load){
@@ -29,6 +29,15 @@ export const loadEpubExport=lazy('epub',()=>import('./epub-export.mjs'));
 export const loadReader=lazy('reader',()=>import('./reader.mjs'));
 export const loadLatexEditor=lazy('latex',()=>import('./latex-editor.mjs'));
 export const loadLatexLanguage=lazy('latex-language',()=>import('./latex-language.mjs'));
+
+export const loadMarkdownPreview=lazy('markdown',()=>import('./markdown-preview.mjs'));
+export const loadHtmlPreview=lazy('html',()=>import('./html-preview.mjs'));
+export const loadGuide=lazy('guide',()=>import('./guide.mjs'));
+export const loadSubscriptions=lazy('subscriptions',()=>import('./subscriptions.mjs'));
+export const loadUpdateView=lazy('updates',()=>import('./update-view.mjs'));
+export const loadComponentDownloads=lazy('downloads',()=>import('./component-download-view.mjs'));
+export const loadGlossaryView=lazy('glossary',()=>import('./glossary-view.mjs'));
+export const loadProjectArchive=lazy('archive',()=>import('./project-archive.mjs'));
 
 /** Shows a load failure inside `root` with a retry button. */
 export function chunkFailure(root,error,retry){

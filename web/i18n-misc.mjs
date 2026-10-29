@@ -1,5 +1,9 @@
 // Miscellaneous modules: validation, export, formatting and navigation.
 export const miscTranslations={
+  'Markdown 预览':'Markdown preview',
+  '项目归档':'Project archive',
+  '应用更新':'App updates',
+  '使用指南':'User guide',
   '作用范围':'Scope',
   '选中文字':'Selected text',
   '整段':'Whole paragraph',
