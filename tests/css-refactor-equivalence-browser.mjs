@@ -13,6 +13,16 @@ import {outlineText} from '../web/outline.mjs';
 import {createMap, mapText} from '../web/map.mjs';
 
 const baseline = process.env.CSS_BASE_REF || '7031dce'; // UI redesign: moved to each phase's merge (docs/UI-REDESIGN.md)
+// 阶段 5 有意改外观，合并后由 Claude 更新基准并移除豁免。
+// B only: typography, corners, spacing and control metrics plus their computed numeric geometry.
+function phase5Property(property,before,after){
+  if(property==='transform'){
+    const values=value=>/^matrix\(/.test(value)?value.slice(7,-1).split(',').map(Number):null;
+    const a=values(before),b=values(after);return !!a&&!!b&&a.slice(0,4).every((n,i)=>n===b[i]);
+  }
+  return /^(?:font-size|border-(?:top|bottom|start|end)-(?:left|right|start|end)-radius|padding-(?:top|right|bottom|left|inline-start|inline-end|block-start|block-end)|margin-(?:top|right|bottom|left|inline-start|inline-end|block-start|block-end)|(?:row-|column-)?gap|min-height|height|(?:min-|max-)?(?:width|inline-size|block-size)|min-block-size|max-block-size|top|right|bottom|left|inset-(?:inline|block)-(?:start|end)|line-height|letter-spacing|text-indent|flex-basis|grid-template-(?:rows|columns)|transform-origin|perspective-origin|background-position(?:-x|-y)?|vertical-align|--radius|--control|--ui-font|--panel-spacing)$/.test(property);
+}
+
 const height = Number(process.env.CSS_HEIGHT || 960);
 const fromGit = file => execFileSync('git', ['show', `${baseline}:${file}`], {encoding: 'utf8'});
 const oldHtml = fromGit('web/index.html');
@@ -90,7 +100,8 @@ try {
           if (process.env.CSS_VIEWS && !process.env.CSS_VIEWS.split(',').includes(view)) return;
           await page.mouse.move(0, 0);
           await settled(page);
-          const result = await page.evaluate(() => {
+          const result = await page.evaluate(propertySource => {
+            const phase5Property=(0,eval)("("+propertySource+")");
             const {old, next} = window.cssEquivalence;
             const switchTo = current => {
               for (const link of old) link.sheet.disabled = current;
@@ -116,7 +127,8 @@ try {
             const before = snapshot();
             switchTo(true);
             const after = snapshot();
-            let differences = 0, unstable = 0, properties = 0;
+            let differences = 0, unstable = 0, properties = 0, intentional = 0;
+            const intended = {};
             const details = [], mismatches = [];
             before.forEach((style, index) => {
               const el = elements[Math.floor(index / 3)];
@@ -124,6 +136,7 @@ try {
                 if (addedTokens.has(property) && style[property] === undefined) continue;
                 properties++;
                 if (style[property] === after[index][property]) continue;
+                if(phase5Property(property,style[property],after[index][property])){intentional++;intended[property]=(intended[property]||0)+1;continue;}
                 differences++;
                 mismatches.push({el, pseudo: ['', '::before', '::after'][index % 3], property, value: style[property]});
                 if (details.length < 80) details.push({element: el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (typeof el.className === 'string' && el.className ? '.' + el.className.trim().replace(/\s+/g, '.') : ''), pseudo: ['', '::before', '::after'][index % 3], property, before: style[property], after: after[index][property]});
@@ -133,8 +146,8 @@ try {
             for (const {el, pseudo, property, value} of mismatches) {
               if (getComputedStyle(el, pseudo || null).getPropertyValue(property) !== value) unstable++;
             }
-            return {elements: elements.length, properties, differences, unstable, details};
-          });
+            return {elements: elements.length, properties, differences, unstable, intentional, intended, details};
+          },phase5Property.toString());
           results.push({profile, width, height, theme, view, ...result});
           console.log(`${result.differences ? 'FAIL' : 'PASS'} ${profile} ${width} ${theme} ${view}: ${result.elements} elements, ${result.differences} differences`);
           if (result.differences && process.env.CSS_FAIL_FAST) {
