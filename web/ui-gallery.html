@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Vela · UI component gallery</title>
+  <link rel="stylesheet" href="./style.css">
+  <style>
+    body.ui-gallery {position:static;height:auto;overflow:auto;font-size:var(--text-sm);line-height:var(--leading);}
+    .gallery-main {max-width:1100px;margin:auto;padding:var(--space-4);display:grid;gap:var(--space-5);}
+    .gallery-main h1 {font-size:var(--text-xl);margin:0;}
+    .gallery-main h2,.ui-dialog h2 {font-size:var(--text-lg);margin:0 0 var(--space-3);}
+    .gallery-main p {margin:0;}
+    .gallery-samples {display:flex;flex-wrap:wrap;align-items:center;gap:var(--space-3);}
+    .gallery-stack {display:grid;gap:var(--space-3);min-width:0;}
+    .gallery-caption {font-size:var(--text-xs);color:var(--muted);}
+    .gallery-tokens {display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:var(--space-2);}
+    .gallery-tokens code {font-size:var(--text-xs);}
+  </style>
+</head>
+<body class="ui-gallery">
+  <main id="gallery" class="gallery-main"></main>
+  <script type="module" src="./ui-gallery.mjs"></script>
+</body>
+</html>
