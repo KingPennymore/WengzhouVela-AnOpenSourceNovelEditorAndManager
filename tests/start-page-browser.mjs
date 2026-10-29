@@ -36,44 +36,17 @@ try{
     assert.equal(await page.locator('.file-rowbar').isVisible(),false);
     assert.equal(await page.locator('#writing-footer').isVisible(),false);
     assert.equal(await page.locator('#outline-toggle').isVisible(),false);
-    assert.equal(await page.locator('#start-recent-panel').getAttribute('aria-hidden'),'true');
-    const layout=await page.evaluate(()=>{
-      const rect=s=>document.querySelector(s).getBoundingClientRect().toJSON();
-      const buttons=[...document.querySelectorAll('.start-action')];
-      return {top:rect('.topbar'),start:rect('#start-page'),overflow:document.documentElement.scrollWidth>innerWidth,
-        buttons:buttons.map(b=>({rect:b.getBoundingClientRect().toJSON(),icon:!!b.querySelector('svg'),label:b.querySelector('strong').textContent,style:[getComputedStyle(b).backgroundColor,getComputedStyle(b).borderColor,getComputedStyle(b).borderRadius,getComputedStyle(b.querySelector('.start-action-icon')).backgroundColor]})),
-        transition:getComputedStyle(document.querySelector('.start-panel')).transitionDuration};
-    });
-    assert.equal(layout.overflow,false);
-    assert.ok(Math.abs(layout.start.top-layout.top.bottom)<1,'no unused row above the start page');
-    assert.ok(Math.abs(layout.start.bottom-height)<1,'start page reaches the bottom');
-    assert.equal(layout.buttons.length,8);
-    for(let i=0;i<layout.buttons.length;i++){
-      const b=layout.buttons[i];assert.ok(b.icon&&b.label);
-      assert.deepEqual(b.style,layout.buttons[0].style,'consistent action colors and shape');
-      assert.ok(b.rect.left>=0&&b.rect.right<=width);
-      assert.ok(Math.abs(b.rect.left-layout.buttons[0].rect.left)<1);
-      if(i)assert.ok(b.rect.top>=layout.buttons[i-1].rect.bottom,'one button per row');
-    }
-    if(motion==='reduce')assert.match(layout.transition,/^0s/);
+    assert.equal(await page.locator('.resume-card').getAttribute('data-doc'),'book');
+    assert.equal(await page.locator('#start-recent-panel').isVisible(),true);
+    const actions=page.locator('.start-action:visible');assert.equal(await actions.count(),profile==='windows'?8:7);
+    for(const button of await actions.all())assert.ok(await button.evaluate(el=>{const r=el.getBoundingClientRect();return r.width>=44&&r.height>=44&&r.left>=0&&r.right<=innerWidth;}));
+    assert.equal(await page.locator('[data-start=commands]').isVisible(),profile==='windows');
     await page.screenshot({path:`${out}/${profile}-${width}-${theme}-home.png`});
-    const menu=page.locator('#start-actions-panel'),recent=page.locator('#start-recent-panel');
-    await page.locator('[data-start=recent]').click();
-    await page.waitForFunction(()=>document.querySelector('#start-page').dataset.panel==='recent'&&getComputedStyle(document.querySelector('#start-recent-panel')).transform==='matrix(1, 0, 0, 1, 0, 0)');
-    assert.equal(await menu.getAttribute('aria-hidden'),'true');
-    assert.equal(await menu.evaluate(e=>e.inert),true);
-    assert.equal(await recent.evaluate(e=>e.inert),false);
-    assert.equal(await page.locator('.recent-files>button').first().getAttribute('data-recent'),'book');
-    assert.equal(await page.locator('.start-back').evaluate(e=>e===document.activeElement),true);
-    await page.locator('.start-back').click();
-    assert.equal(await page.locator('#start-page').getAttribute('data-panel'),'actions');
-    await page.locator('[data-start=recent]').click();await page.keyboard.press('Escape');
-    assert.equal(await page.locator('#start-page').getAttribute('data-panel'),'actions');
-    await page.locator('[data-start=recent]').click();
-    assert.equal(await page.evaluate(()=>window.wenzhouBack()),true);
-    assert.equal(await page.locator('#start-page').getAttribute('data-panel'),'actions');
-    await page.locator('[data-start=recent]').click();
-    await page.screenshot({path:`${out}/${profile}-${width}-${theme}-recent.png`});
+    await page.locator('[data-start=recent]').click();assert.equal(await page.locator('#start-page').getAttribute('data-panel'),'recent');assert.equal(await page.locator('.start-back').evaluate(e=>e===document.activeElement),true);
+    await page.locator('.start-back').click();assert.equal(await page.locator('#start-page').getAttribute('data-panel'),'actions');
+    await page.locator('[data-start=recent]').click();await page.keyboard.press('Escape');assert.equal(await page.locator('#start-page').getAttribute('data-panel'),'actions');
+    await page.locator('[data-start=recent]').click();assert.equal(await page.evaluate(()=>window.wenzhouBack()),true);assert.equal(await page.locator('#start-page').getAttribute('data-panel'),'actions');
+    await page.locator('[data-start=recent]').click();await page.screenshot({path:`${out}/${profile}-${width}-${theme}-recent.png`});
     await page.locator('[data-recent=book]').click();
     await page.locator('.cm-content').waitFor();
     await page.waitForFunction(()=>document.querySelector('#app').dataset.sidebarsAnimating==='false');

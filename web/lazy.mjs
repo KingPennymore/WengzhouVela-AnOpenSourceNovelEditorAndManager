@@ -4,7 +4,7 @@ import {escapeHtml} from './text-utils.mjs';
 // Features split out of the startup bundle (scripts/build.mjs builds ESM chunks into web/chunks/). Each loader
 // imports its chunk once; a failed import is not kept, so the next use retries, and the error names the feature
 // so callers can show it in place of the missing view (chunkFailure) instead of leaving it blank.
-const labels={settings:'设置',ai:'AI 助手','ai-settings':'AI 助手',markdown:'Markdown 预览',html:'HTML 文件预览',guide:'使用指南',subscriptions:'订阅',updates:'应用更新',downloads:'插件与组件',glossary:'术语库',archive:'项目归档',outline:'大纲',map:'地图','map-algorithms':'边界算法',pdf:'PDF 与 LaTeX 预览',katex:'公式排版',epub:'EPUB 导出',reader:'阅读',latex:'LaTeX 编辑','latex-language':'LaTeX 编辑'}; // i18n-data: Lookup keys are translated by lazy() when reporting a load failure.
+const labels={'start-page':'启动页',settings:'设置',ai:'AI 助手','ai-settings':'AI 助手',markdown:'Markdown 预览',html:'HTML 文件预览',guide:'使用指南',subscriptions:'订阅',updates:'应用更新',downloads:'插件与组件',glossary:'术语库',archive:'项目归档',outline:'大纲',map:'地图','map-algorithms':'边界算法',pdf:'PDF 与 LaTeX 预览',katex:'公式排版',epub:'EPUB 导出',reader:'阅读',latex:'LaTeX 编辑','latex-language':'LaTeX 编辑'}; // i18n-data: Lookup keys are translated by lazy() when reporting a load failure.
 
 const loaded=new Map();
 function lazy(name,load){
@@ -49,3 +49,5 @@ export function chunkFailure(root,error,retry){
 }
 
 export const loadSettingsView=lazy('settings',()=>import('./settings-view.mjs'));
+
+export const loadStartPage=lazy('start-page',()=>import('./start-page.mjs'));

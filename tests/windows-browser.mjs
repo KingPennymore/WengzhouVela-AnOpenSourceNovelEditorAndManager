@@ -13,7 +13,7 @@ const application=await electron.launch({executablePath:process.env.VELA_TEST_EX
 application.process().stderr.on('data',chunk=>{const text=String(chunk);if(/Error|Exception/.test(text)&&!text.includes('ssl_client_socket'))console.error(text.trim());});
 let page;const check=async(name,run)=>{await run();checks.push(name);console.log('PASS '+name);};
 try{
-  page=await application.firstWindow();await application.evaluate(({BrowserWindow})=>{for(const window of BrowserWindow.getAllWindows())window.webContents.on('render-process-gone',(_event,details)=>console.error('QA renderer exited:',JSON.stringify(details)));});page.on('crash',()=>console.error('QA renderer crashed'));page.on('pageerror',error=>errors.push(error.message));await page.waitForSelector('.cm-editor',{timeout:30000});await page.waitForFunction(()=>window.velaReady);
+  page=await application.firstWindow();await application.evaluate(({BrowserWindow})=>{for(const window of BrowserWindow.getAllWindows())window.webContents.on('render-process-gone',(_event,details)=>console.error('QA renderer exited:',JSON.stringify(details)));});page.on('crash',()=>console.error('QA renderer crashed'));page.on('pageerror',error=>errors.push(error.message));await page.waitForFunction(()=>window.velaReady);await page.locator('.ui-empty').waitFor();
   await check('Windows 原生启动、沙箱桥与内部文件夹持久保存',async()=>{
     assert.equal(await application.evaluate(({Menu})=>Menu.getApplicationMenu()),null);
     assert.equal(await page.evaluate(()=>window.WenzhouNative.platform),'windows');assert.equal(await page.evaluate(()=>typeof window.require),'undefined');assert.equal(await page.evaluate(()=>typeof window.process),'undefined');assert.equal(await page.locator('#workspace-name').count(),0);

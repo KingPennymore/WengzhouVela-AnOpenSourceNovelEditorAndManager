@@ -21,6 +21,7 @@ import { DocumentService } from '../document-service.mjs';
  * @property {object | null} [remote]
  *
  * @typedef {object} WorkspaceSettings
+ * @property {boolean} [startWithEmptyHome]
  * @property {string} [theme]
  * @property {string} [language]
  * @property {string} [readingMode]
@@ -65,7 +66,7 @@ export async function loadWorkspace() {
       documents: [doc],
       openIds: [doc.id],
       activeId: doc.id,
-      settings: { theme: 'system' },
+      settings: { theme: 'system', startWithEmptyHome: true },
     };
   }
   workspace.settings = {

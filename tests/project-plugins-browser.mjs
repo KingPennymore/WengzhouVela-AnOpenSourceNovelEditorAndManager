@@ -25,7 +25,8 @@ if(mode==='windows'){
 p.on('pageerror',e=>errors.push(e.message));
 const check=async(name,fn)=>{await fn();checks.push(name);console.log('PASS '+mode+' '+name);};
 try{
- await p.waitForSelector('.cm-editor',{state:'attached',timeout:30000});
+ await p.waitForFunction(()=>window.velaReady===true);
+ if(mode==='browser')await p.locator('.ui-empty').waitFor();
  const main=`(()=>{const id='test.vela.projects';VelaPlugins.register(id,{activate(vela){const api={...vela.project,version:vela.version,dispose:fn=>vela.dispose(fn)},page=vela.ui.createPage('QA');window.projectQA={api,page,visible:0,hidden:0};page.onVisible(()=>window.projectQA.visible++);page.onHide(()=>window.projectQA.hidden++);page.onBeforeClose(()=>false);api.dispose(()=>window.projectQA.disposed=true);}});})();`;
  const preview='<!doctype html><h1>Trusted runtime</h1><script>window.testRuntime={bridge:typeof WenzhouNative,node:typeof require};fetch(VELA_PREVIEW.assetBase+"a.json").then(r=>r.text()).then(t=>document.body.dataset.payload=t);fetch("https://api.github.com").then(()=>window.networkAllowed=true).catch(()=>window.networkAllowed=false);</script>';
  const record={manifest:{id:'test.vela.projects',name:'项目接口测试',version:'1.0.0',main:'main.js',vela:{api:'>=4 <5',requiredCapabilities:['file-transactions-v1']}},files:{'main.js':Buffer.from(main).toString('base64'),'preview.html':Buffer.from(preview).toString('base64')},enabled:true};
