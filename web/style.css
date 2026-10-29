@@ -4352,7 +4352,6 @@
   }
 
   #editor {
-    position:relative;
     flex:1;
     min-height:0;
     overflow:hidden;
@@ -14900,7 +14899,12 @@
   @keyframes dialog-working{to{transform:rotate(360deg)}}
 
 
-  /* AI assistant: floating button over the editor and its panel (docs/AI-ASSIST.md) */
+  /* AI assistant: floating button over the editor and its panel (docs/AI-ASSIST.md). The editor becomes the
+     button's positioning box only once AI is enabled, so nothing changes for anyone else. */
+  #editor:has(> .ai-button) {
+    position:relative;
+  }
+
   .ai-button {
     position:absolute;
     top:10px;
@@ -14916,6 +14920,13 @@
     background:var(--panel);
     color:var(--accent);
     box-shadow:var(--elev-1);
+  }
+
+  @media (max-width:600px) {
+    .ai-button {
+      top:8px;
+      right:12px;
+    }
   }
 
   .ai-button svg {
@@ -14944,6 +14955,19 @@
     box-shadow:var(--elev-3);
   }
 
+  @media (max-width:600px) {
+    .ai-panel {
+      top:auto;
+      left:0;
+      right:0;
+      bottom:0;
+      width:auto;
+      max-height:70vh;
+      border-radius:16px 16px 0 0;
+      padding-bottom:calc(16px + env(safe-area-inset-bottom));
+    }
+  }
+
   .ai-panel-header {
     display:flex;
     align-items:center;
@@ -14970,24 +14994,6 @@
   .ai-section h3 {
     margin:0 0 4px;
     font-size:14px;
-  }
-
-  @media (max-width:600px) {
-    .ai-button {
-      top:8px;
-      right:12px;
-    }
-
-    .ai-panel {
-      top:auto;
-      left:0;
-      right:0;
-      bottom:0;
-      width:auto;
-      max-height:70vh;
-      border-radius:16px 16px 0 0;
-      padding-bottom:calc(16px + env(safe-area-inset-bottom));
-    }
   }
 
 }
