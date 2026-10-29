@@ -1,5 +1,6 @@
 // Development fixture only: neither this entry nor its HTML is in the build copy list.
 import {escapeHtml as esc} from './text-utils.mjs';
+import {applyPalette} from './palettes.mjs';
 import {t,setLanguage} from './i18n.mjs';
 import {button,iconButton,switchControl,segmented,stepper,settingRow,bindSteppers} from './ui-components.mjs';
 import {bindAppChoices} from './app-choices.mjs';
@@ -7,6 +8,7 @@ import {bindAppChoices} from './app-choices.mjs';
 const query=new URLSearchParams(location.search);
 await setLanguage(query.get('lang'));
 document.body.classList.toggle('dark',query.get('theme')==='dark');
+applyPalette(document.body,'pine',query.get('theme')==='dark');
 const choices=[{value:'system',label:t('跟随系统')},{value:'light',label:t('浅色模式')},{value:'dark',label:t('深色模式')}];
 const section=(name,content)=>`<section class="gallery-stack" aria-label="${esc(name)}"><h2>${esc(name)}</h2>${content}</section>`;
 const samples=content=>`<div class="gallery-samples">${content}</div>`;

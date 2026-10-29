@@ -86,8 +86,8 @@
     --shadow:0 16px 50px #10203028;
     --success:#26794f;
     --warning:#986315;
-    --error:#b3412c;
-    --danger:#b53f3f;
+    --error:#9a2d22;
+    --danger:#9a2d22;
     --danger-line:#b53f3f55;
     --search-hit:#d6af31;
     --diff-added:#26794f22;
@@ -136,8 +136,8 @@
     --shadow:0 16px 50px #0006;
     --success:#7bb69d;
     --warning:#dcad5b;
-    --error:#d67865;
-    --danger:#d26e6e;
+    --error:#ffc3b6;
+    --danger:#ffc3b6;
     --danger-line:#d26e6e55;
     --search-hit:#dcad5b;
     --diff-added:#7bb69d2e;
@@ -207,7 +207,7 @@
   }
 
   input[type=checkbox]:disabled {
-    opacity:.45;
+    opacity:.85;
     cursor:default;
   }
 
@@ -236,9 +236,11 @@
     color:var(--danger);
   }
 
+  :is(input,textarea)::placeholder {color:var(--muted);opacity:1;}
+
   button:disabled {
     cursor:default;
-    opacity:.45;
+    opacity:.85;
   }
 
   button svg {
@@ -1634,7 +1636,7 @@
 
   .slash {
     color:var(--muted);
-    opacity:.5;
+    opacity:1;
   }
 
   @media (max-width:600px) {
@@ -4554,7 +4556,7 @@
   }
 
   .vela-search-panel button:disabled {
-    opacity:.45;
+    opacity:.85;
     cursor:default;
   }
 
@@ -4820,7 +4822,7 @@
   }
 
   .format-style-scope button:disabled {
-    opacity:.45;
+    opacity:.85;
   }
 
   .format-style-hint {
@@ -5444,13 +5446,13 @@
   }
 
   .reader-pagebar time {
-    opacity:.55;
+    opacity:1;
   }
 
   .reader-progress {
     display:flex;
     gap:var(--space-3);
-    opacity:.55;
+    opacity:1;
   }
 
   @media (max-width:600px) {
@@ -5630,7 +5632,7 @@
 
   #reader-footer-chapter {
     text-align:center;
-    opacity:.55;
+    opacity:1;
     overflow:hidden;
     text-overflow:ellipsis;
     white-space:nowrap;
@@ -14237,7 +14239,7 @@
   }
 
   :is(.ui-button,.ui-icon-button,.ui-stepper>button,.ui-select):disabled {
-    opacity:.45;
+    opacity:.85;
     cursor:default;
   }
 
@@ -14318,7 +14320,7 @@
   }
 
   .ui-switch>input:disabled~span {
-    opacity:.45;
+    opacity:.85;
     cursor:default;
   }
 
@@ -14374,7 +14376,7 @@
   }
 
   .ui-segmented-option>input:disabled+span {
-    opacity:.45;
+    opacity:.85;
   }
 
   .ui-stepper {
@@ -14401,7 +14403,7 @@
   }
 
   .ui-stepper>input:disabled {
-    opacity:.45;
+    opacity:.85;
   }
 
   :is(.ui-switch>input[aria-invalid=true]+span,.ui-segmented[aria-invalid=true],.ui-stepper>input[aria-invalid=true],.ui-select[aria-invalid=true]) {
@@ -14524,6 +14526,7 @@
   .ui-notice--error {
     border-color:var(--error);
     color:var(--error);
+    background:var(--diff-removed);
   }
 
   dialog.ui-dialog {
