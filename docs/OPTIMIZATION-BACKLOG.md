@@ -8,7 +8,6 @@
 | --- | --- | --- | --- | --- |
 | O22 | 全量浏览器回归并行：`npm run test:browser` 串行跑 92 个套件需 40 分钟以上 | `scripts/test-browser.mjs`、`scripts/serve.mjs` | 支持 `--jobs N`（默认 3）并行；各路用独立 dist 端口或共享一个只读服务；依赖固定端口的套件串行；失败时输出断言的 actual/expected 与出错行（目前只显示末尾几行，`features-browser` 在全量回归中偶发失败一次、单独 10 次均通过，原因未知）；结果与串行一致，总时长降到 15 分钟以内 | 待做 |
 | O23 | `web/app.js` 顶层状态收拢：`workspace`、`view`、`home`、`isPreview`、`index`、`selectedFolder` 等顶层 `let` 被到处直接读写，拆分时只能传一堆 getter/setter | `web/app.js` | 引入一个状态对象，逐步替换直接读写；之后拆出预览渲染（`renderPreview`）、设置对话框、文件操作与回收站、启动流程 `boot`；每步行为不变、全量回归通过 | 待做（O21、O22 之后） |
-| O25 | 名词索引 worker 2.1 MB，主要是 `vendor/jieba/filter.mjs` 词表；只在使用时加载，优先级低 | `web/noun-worker.js`、`vendor/jieba` | 词表改为更紧凑的格式或压缩后按需解压，结果不变 | 待做 |
 
 ## 已完成
 
@@ -40,3 +39,4 @@
 | O21 | 英文词典按需加载：词典移到 `web/i18n-dictionary.mjs` 成为延迟分包，`setLanguage()` 改为异步，英文先等词典；启动下载量 1,575 KB → 1,386 KB（词典原在 `app.js` 静态导入的共享分包里） | `df010f6` |
 | O26 | 启动加载总量：Markdown 编辑语言（连带 HTML、JavaScript、CSS）改为打开对应文稿时加载，启动下载量 1,386 KB → 1,198 KB（连同 O21 共 1,575 → 1,198 KB）。剩余可选：仓库视图 30 KB、wasmtex 16 KB、fflate 13 KB、地图目录与符号约 14 KB，收益较小未做 | `028836b` |
 | O24 | `project-service.mjs` 1700 → 688 行：`batch` 移到 `project-batch.mjs`，插件 io/快照/素材/预览接口移到 `project-plugin-api.mjs`，以对象混入原型，方法体不变。未改为延迟加载：插件在启动加载时同步调用 `bind()`，改异步需重写插件 API 创建流程，39 KB 不值得 | `1f551df` |
+| O25 | 名词索引 worker 2,182 KB → 667 KB：构建时把 jieba 排除词表前缀压缩（每词一位数字表示与上一词共用的字数），worker 启动时解码；改用 UTF-8 输出而非 \u 转义。源文件 `vendor/jieba/filter.mjs` 不变，校验脚本与基准仍可用；候选结果与源码版一致 | `8c366c2` |
