@@ -1,7 +1,11 @@
+import fs from 'node:fs';
 import {launchBrowser} from './browser-launch.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
+
+// This suite checks the lite flavour, which ships without built-in components.
+if(JSON.parse(fs.readFileSync('dist/web/version.json','utf8')).flavor!=='lite')throw new Error('需要轻量版构建：请先运行 npm run build:lite（完整版请用 npm run build 恢复）。');
 const source=String.raw`\documentclass{ctexart}\begin{document}文舟轻量版离线编译。\end{document}`;
 const browser=await launchBrowser(),page=await browser.newPage(),errors=[];
 page.on('pageerror',e=>errors.push(e.message));await page.addInitScript(source=>{if(!localStorage.getItem('wenzhou.workspace'))localStorage.setItem('wenzhou.workspace',JSON.stringify({version:1,documents:[{id:'tex',name:'main.tex',text:source,updatedAt:1}],settings:{theme:'light'},activeId:'tex',openIds:['tex']}));},source);
