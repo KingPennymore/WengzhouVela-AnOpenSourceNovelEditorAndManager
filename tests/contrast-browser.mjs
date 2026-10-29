@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { mkdir, writeFile } from 'node:fs/promises';
+import { mkdir, writeFile, readdir } from 'node:fs/promises';
 import { launchBrowser } from './browser-launch.mjs';
 import { startSourceAppServer } from './source-app-server.mjs';
 import { noMotion, settled, readerReady } from './wait-helpers.mjs';
@@ -296,7 +296,7 @@ async function keyboardAudit(page, roots) {
     }
     return {checked, failures};
   }, roots);
-  await active.evaluate(el => el?.focus({preventScroll:true}));
+  await active.evaluate(el => { if (el === document.body) document.activeElement?.blur(); else el?.focus({preventScroll:true}); });
   await active.dispose();
   return result;
 }
@@ -404,6 +404,14 @@ try {
         'about',
       ]) {
         await settingsSection(page, id);
+        if (id === 'ai') {
+          await page.locator('[name=aiEnabled]').evaluate(el=>el.click());
+          await page.locator('.ai-consent-dialog[open]').waitFor();
+          await capture(page,profile,'ai-consent',['.ai-consent-dialog'],true);
+          await page.locator('.ai-consent-dialog button[value=agree]').click();
+          await page.locator('.ai-settings-body').waitFor({state:'visible'});
+          await page.locator('#toast').evaluate(el=>el.hidden=true);
+        }
         await capture(
           page,
           profile,
@@ -472,6 +480,11 @@ try {
     `${out}/${record ? 'before-audit' : 'audit'}.json`,
     JSON.stringify(summary, null, 2),
   );
+  if (!record) {
+    const files=(await readdir(out)).filter(name=>name.endsWith('.png')&&!name.endsWith('-before.png')).sort();
+    const figures=files.map(file=>`<article><h2>${file.replace('.png','')}</h2><div class="pair">${files.includes(file)&&['gallery-light-errors.png','gallery-dark-errors.png'].includes(file)?`<figure><figcaption>Before</figcaption><a href="${file.replace('.png','-before.png')}"><img loading="lazy" src="${file.replace('.png','-before.png')}" alt="Before contrast correction"></a></figure>`:''}<figure><figcaption>After</figcaption><a href="${file}"><img loading="lazy" src="${file}" alt="${file.replace('.png','')}"></a></figure></div></article>`).join('');
+    await writeFile(`${out}/index.html`,`<!doctype html><html lang="en"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>UI redesign phase 5</title><style>body{font:16px system-ui;margin:24px;background:#f4f6f5;color:#203329}h1{font-size:24px}h2{font-size:16px}article{margin:24px 0;padding:16px;border:1px solid #84978c;border-radius:10px}.pair{display:flex;flex-wrap:wrap;gap:24px}figure{margin:0;flex:1;min-width:260px}img{max-width:100%;max-height:850px;object-fit:contain;object-position:top left}a{color:#1f6645}figcaption{margin-bottom:8px}</style><h1>UI redesign phase 5</h1><p>390 × 844 Android and 1280 × 850 desktop, light/dark. Click a screenshot to view its original size. Keyboard focus is also checked in the audit.</p><p><a href="audit.json">Contrast and accessibility audit</a> · <a href="step-b.json">Token alignment and retained geometry</a> · <a href="step-f-copy.json">Interface copy changes</a></p>${figures}</html>`);
+  }
   const counts = Object.fromEntries(
     ['contrast', 'smallText', 'targets', 'names'].map((key) => [
       key,
