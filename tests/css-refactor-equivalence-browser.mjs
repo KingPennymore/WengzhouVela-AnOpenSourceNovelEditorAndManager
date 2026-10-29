@@ -12,13 +12,7 @@ import {outlineFixture} from './planning-fixtures.mjs';
 import {outlineText} from '../web/outline.mjs';
 import {createMap, mapText} from '../web/map.mjs';
 
-const baseline = process.env.CSS_BASE_REF || '54ee95a'; // UI redesign: moved to each phase's merge (docs/UI-REDESIGN.md)
-// 阶段 3 有意改外观，合并后由 Claude 更新基准并移除豁免。
-// Only Android's narrow profile is a phone here: the other profiles have fine desktop pointers.
-const phoneEditorScenes = new Map([['android:375', new Set([
-  'writing-txt','file-library','toolbar-menu'
-])]]);
-const phoneEditorBackgroundScenes = new Map([['android:375', new Set(['settings','trash'])]]);
+const baseline = process.env.CSS_BASE_REF || '43a519e'; // UI redesign: moved to each phase's merge (docs/UI-REDESIGN.md)
 const height = Number(process.env.CSS_HEIGHT || 960);
 const fromGit = file => execFileSync('git', ['show', `${baseline}:${file}`], {encoding: 'utf8'});
 const oldHtml = fromGit('web/index.html');
@@ -93,13 +87,10 @@ try {
         assert.deepEqual(structure, [], 'each selector must have one contiguous owner and one rule per layer/condition');
 
         const compare = async view => {
-          const phone=profile==='android'&&width===375;
-          if(phoneEditorScenes.get(profile+':'+width)?.has(view)){results.push({profile,width,height,theme,view,intentional:true,differences:0,unstable:0});return;}
-          const background=phoneEditorBackgroundScenes.get(profile+':'+width)?.has(view)||false;
           if (process.env.CSS_VIEWS && !process.env.CSS_VIEWS.split(',').includes(view)) return;
           await page.mouse.move(0, 0);
           await settled(page);
-          const result = await page.evaluate(({background,phone,view}) => {
+          const result = await page.evaluate(() => {
             const {old, next} = window.cssEquivalence;
             const switchTo = current => {
               for (const link of old) link.sheet.disabled = current;
@@ -129,11 +120,7 @@ try {
             const details = [], mismatches = [];
             before.forEach((style, index) => {
               const el = elements[Math.floor(index / 3)];
-              // Dialogs remain strict; only their changed editor backdrop is excluded.
-              if(background&&!el.closest('#dialog'))return;
               for (const property of new Set([...Object.keys(style), ...Object.keys(after[index])])) {
-                // Approved phase-2 follow-up: equal-width phone settings icons and dependent text widths.
-                if(phone&&view==='settings'&&el.closest('.settings-navigation button')&&['width','inline-size','flex-basis','flex-shrink','text-align','transform-origin','perspective-origin','grid-template-columns'].includes(property))continue;
                 if (addedTokens.has(property) && style[property] === undefined) continue;
                 properties++;
                 if (style[property] === after[index][property]) continue;
@@ -147,8 +134,8 @@ try {
               if (getComputedStyle(el, pseudo || null).getPropertyValue(property) !== value) unstable++;
             }
             return {elements: elements.length, properties, differences, unstable, details};
-          },{background,phone,view});
-          results.push({profile, width, height, theme, view, backgroundIntentional:background, ...result});
+          });
+          results.push({profile, width, height, theme, view, ...result});
           console.log(`${result.differences ? 'FAIL' : 'PASS'} ${profile} ${width} ${theme} ${view}: ${result.elements} elements, ${result.differences} differences`);
           if (result.differences && process.env.CSS_FAIL_FAST) {
             console.log(JSON.stringify(result.details, null, 2));
