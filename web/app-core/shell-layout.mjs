@@ -1,4 +1,5 @@
 // @ts-check
+import { t } from '../i18n.mjs';
 
 /**
  * Move existing controls instead of replacing them, preserving handlers and plugin roots.
@@ -24,7 +25,7 @@ export function layoutShell(document, width, home) {
     actions = document.createElement('div');
     actions.className = 'status-actions';
     actions.setAttribute('role', 'group');
-    actions.setAttribute('aria-label', '快捷操作');
+    actions.setAttribute('aria-label', t('快捷操作'));
   }
   const scroller = tools.querySelector('.document-tools-scroll');
   const display = document.getElementById('display-options');

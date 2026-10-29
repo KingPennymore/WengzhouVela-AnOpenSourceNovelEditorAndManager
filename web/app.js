@@ -147,6 +147,8 @@ function renderAppLabels(){
     ['plugin-library-sidebar-panels','插件文件面板'],
     ['plugin-outline-sidebar-panels','插件章节面板'],
   ])document.getElementById(id)?.setAttribute('aria-label',t(label));
+  // The DOM pass skips the file name element as user content, so its fixed hint is set here.
+  $('#current-name').title=t('双击重命名文件');
   for(const [id,,keys,label] of shortcuts){
     const button=document.getElementById(id);
     if(button){

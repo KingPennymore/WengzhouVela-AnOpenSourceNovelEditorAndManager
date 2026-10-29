@@ -10,7 +10,8 @@ setLanguage('en');
 
 const han=/[㐀-鿿]/;
 // Dictionaries and the generated guide hold Chinese by design.
-const sources=()=>readdirSync('web').filter(name=>/\.(mjs|js)$/.test(name)&&!/^(i18n|planning-i18n|guide)\b/.test(name)&&!/^i18n-/.test(name));
+const sources=()=>readdirSync('web').filter(name=>/\.(mjs|js)$/.test(name)&&!/^(i18n|planning-i18n|guide)\b/.test(name)&&!/^i18n-/.test(name))
+  .concat(readdirSync('web/app-core').filter(name=>name.endsWith('.mjs')).map(name=>'app-core/'+name));
 // Every module emits English itself. A Chinese literal must go through t()/say() or be a dictionary entry (thrown errors
 // shown via t(error.message)); data that is not UI text carries an `i18n-data` comment on its line, the line above it or
 // above its statement, or sits in an `i18n-data-start` … `i18n-data-end` region.
@@ -68,6 +69,17 @@ export function missingTranslations(){
 test('every literal t() string with Chinese text has an English translation',()=>{
   const missing=missingTranslations();
   assert.deepEqual([...missing].map(([text,where])=>`${where}: ${text}`),[],`${missing.size} strings are missing from the web/i18n*.mjs dictionaries`);
+});
+
+// Static shell text in index.html is translated once by setLanguage(), so every piece needs a dictionary entry.
+export function missingStaticTranslations(){
+  const html=readFileSync('web/index.html','utf8').replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<!--[\s\S]*?-->/g,'');
+  const pieces=[...html.matchAll(/>([^<>]+)</g)].map(match=>match[1].trim()).concat([...html.matchAll(/\s(?:title|aria-label|placeholder)="([^"]+)"/g)].map(match=>match[1]));
+  return [...new Set(pieces.filter(text=>han.test(text)&&t(text)===text))];
+}
+
+test('static index.html text has English translations',()=>{
+  assert.deepEqual(missingStaticTranslations(),[]);
 });
 
 test('the English half of say() contains no Chinese',()=>{

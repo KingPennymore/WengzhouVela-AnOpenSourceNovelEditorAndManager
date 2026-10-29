@@ -11,6 +11,7 @@ export class CommandBus {
 
   /** @param {string} id @param {Command} command */
   register(id, command) {
+    // i18n-data: developer error for plugin authors
     if (this.commands.has(id)) throw new Error(`重复命令：${id}`);
     this.commands.set(id, command);
   }

@@ -56,6 +56,7 @@ export async function loadWorkspace() {
     workspace = validateWorkspace(JSON.parse(raw));
     primeWorkspaceBaseline(workspace);
   } else {
+    // i18n-data: guide file names and the old default document stay as stored
     const doc = newDocument('操作指南.md', guide);
     workspace = {
       version: 1,
@@ -108,10 +109,12 @@ export async function prepareWorkspace(workspace, { initializeStorage, invalidat
   }
   for (const doc of workspace.documents) {
     const demo = await isOriginalDemo(doc);
+    // i18n-data: guide file names and the old default document stay as stored
     if (
       demo ||
       (doc.name === '未命名小说.txt' && !doc.remote && doc.text.startsWith('文舟操作指南\n'))
     ) {
+      // i18n-data: guide file names and the old default document stay as stored
       renameGuide(workspace, doc, demo ? '操作指南.md' : '操作指南.txt');
       if (demo) doc.text = guide;
       invalidate(doc.id);
@@ -125,6 +128,7 @@ export async function prepareWorkspace(workspace, { initializeStorage, invalidat
       byte.toString(16).padStart(2, '0'),
     ).join('');
     if (previousGuideHashes.includes(hash)) {
+      // i18n-data: guide file names and the old default document stay as stored
       renameGuide(workspace, doc, '操作指南.md');
       doc.text = guide;
       doc.updatedAt = Date.now();
