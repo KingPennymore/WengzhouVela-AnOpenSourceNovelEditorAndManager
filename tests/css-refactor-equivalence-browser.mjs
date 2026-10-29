@@ -12,9 +12,7 @@ import {outlineFixture} from './planning-fixtures.mjs';
 import {outlineText} from '../web/outline.mjs';
 import {createMap, mapText} from '../web/map.mjs';
 
-const baseline = process.env.CSS_BASE_REF || 'f818cc5';
-// 阶段 2 有意改外观，合并后由 Claude 更新基准并移除豁免。 Only this named settings scene is exempt.
-const intentionalSettingsScenes = new Set(['settings']);
+const baseline = process.env.CSS_BASE_REF || '54ee95a'; // UI redesign: moved to each phase's merge (docs/UI-REDESIGN.md)
 const height = Number(process.env.CSS_HEIGHT || 960);
 const fromGit = file => execFileSync('git', ['show', `${baseline}:${file}`], {encoding: 'utf8'});
 const oldHtml = fromGit('web/index.html');
@@ -89,7 +87,6 @@ try {
         assert.deepEqual(structure, [], 'each selector must have one contiguous owner and one rule per layer/condition');
 
         const compare = async view => {
-          if (intentionalSettingsScenes.has(view)) { results.push({profile,width,theme,view,intentional:true,unstable:0,differences:0}); return; }
           if (process.env.CSS_VIEWS && !process.env.CSS_VIEWS.split(',').includes(view)) return;
           await page.mouse.move(0, 0);
           await settled(page);
