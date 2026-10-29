@@ -1,4 +1,5 @@
 import { normalizeGiteaServer, giteaCredentialKey } from './GiteaServer';
+import { AiBridge, AiRequest } from './AiBridge';
 import { pasteboard } from '@kit.BasicServicesKit';
 import { common, abilityAccessCtrl } from '@kit.AbilityKit';
 import { rcp } from '@kit.RemoteCommunicationKit';
@@ -87,6 +88,7 @@ export class NativeBridge {
   private workspaceFiles: WorkspaceFiles = new WorkspaceFiles();
   private projects: ProjectFiles = new ProjectFiles();
   downloads: ReleaseDownloads = new ReleaseDownloads();
+  private ai: AiBridge = new AiBridge({ read: () => this.loadToken('ai'), write: (value: string) => this.storeAiCredential(value), clear: () => this.clearAiCredential() });
 
   previewResource(path: string, html: boolean): PreviewResource {
     this.workspaceFiles.context = this.context;
@@ -214,6 +216,31 @@ export class NativeBridge {
     return task;
   }
 
+  private async storeAiCredential(value: string): Promise<void> {
+    const secret = this.encoder.encodeInto(value);
+    if (secret.byteLength > 1024) throw new Error('AI 配置不能超过 1024 字节。');
+    // AI writes share the Asset Store queue, but never depend on Git auth generations.
+    await this.credentialWrite(async () => {
+      const attributes: asset.AssetMap = new Map();
+      attributes.set(asset.Tag.ALIAS, this.credentialAlias('ai'));
+      attributes.set(asset.Tag.SECRET, secret);
+      attributes.set(asset.Tag.ACCESSIBILITY, asset.Accessibility.DEVICE_UNLOCKED);
+      attributes.set(asset.Tag.CONFLICT_RESOLUTION, asset.ConflictResolution.OVERWRITE);
+      try { await asset.add(attributes); } catch (error) { throw operationError(error as Object, 'credentials'); }
+      this.tokens.set('ai', value);
+    });
+  }
+
+  private async clearAiCredential(): Promise<void> {
+    await this.credentialWrite(async () => {
+      const query: asset.AssetMap = new Map(); query.set(asset.Tag.ALIAS, this.credentialAlias('ai'));
+      try { await asset.remove(query); } catch (error) {
+        const failure = operationError(error as Object, 'credentials'); if (failure.code !== 24000002) throw failure;
+      }
+      this.tokens.set('ai', '');
+    });
+  }
+
   private async storeToken(token: string, provider: string = 'github', generation: number = this.authGeneration): Promise<void> {
     await this.credentialWrite(async () => {
       if (generation !== this.authGeneration) throw new Error('登录已取消。');
@@ -289,6 +316,11 @@ export class NativeBridge {
 
   async call(operation: string, json: string): Promise<string> {
     try {
+      if (operation === 'ai') {
+        let data: AiRequest;
+        try { data = JSON.parse(json) as AiRequest; } catch (_) { throw new Error('AI 请求数据无效。'); }
+        return this.success(await this.ai.call(data));
+      }
       if (operation === 'saveWorkspace') {
         if (this.projects.busy) throw new Error('项目事务正在提交，请稍后保存。');
         const epoch = Atomics.add(this.workspaceGate, 1, 1) + 1;
