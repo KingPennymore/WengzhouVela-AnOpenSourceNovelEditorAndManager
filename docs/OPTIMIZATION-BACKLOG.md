@@ -7,6 +7,8 @@
 | 编号 | 事项 | 位置 | 完成标准 | 状态 |
 | --- | --- | --- | --- | --- |
 | O17 | `palette-browser.mjs` 在全量回归中偶发失败（`strictEqual` 断言，`test-browser` 只显示末尾 4 行，看不到哪条），单独运行通过；另外 worktree 里跑 Windows/Electron 套件需要 `windows/node_modules` 目录联接到主仓库 | `tests/palette-browser.mjs`、`scripts/test-browser.mjs` | 找出不稳定的断言并改为等待条件；失败时 `test-browser` 输出断言的 actual/expected；连续 3 次全量回归该套件通过 | 待做 |
+| O19 | 首屏主包延迟加载：`dist/web/app.js` 836 KB，其中 markdown-it 一族约 140 KB、`guide.mjs` 45 KB、DOMPurify 30 KB，以及订阅、仓库、更新、组件下载、插件、词汇表、项目归档等非首屏视图都在启动时加载 | `web/app.js`、`web/lazy.mjs` | 这些模块经 `lazy.mjs` 在首次使用时加载，`app.js` 至少减小 250 KB，功能与全量回归不变 | Codex 处理中（`codex/lazy-load`） |
+| O20 | 拆分 `web/app.js`（3200 行、240 KB）：设置对话框、更多菜单、启动页等按视图移入 `web/app-core/` | `web/app.js` | 每次拆出一个视图，行为不变，`npm run lint:core` 与全量回归通过 | 待 O19 合入后做 |
 
 ## 已完成
 
@@ -30,3 +32,4 @@
 | O14 | 新增 `npm run test:browser`（`scripts/test-browser.mjs`）：自动起停 4173 的 dist 服务，依次运行全部浏览器套件并汇总；跳过安卓专用模拟器与性能压测套件，精简版套件只在精简版构建下运行；可传关键词只跑部分套件 | 见提交记录 |
 | O15 | O8 遗漏的超长单行：`map-algorithm-view.mjs`（第 10–12 行，最长 3039 字符）按语句与处理函数拆行、对话框模板拆成拼接片段；`map-view.mjs` 工具栏模板按区段拆分；`map-images.mjs` 的 `validateMapImages` 一条语句一行。三个文件 esbuild 压缩产物前后逐字节相同。`web/` 下超过 1500 字符的行只剩词典 `planning-i18n.mjs` | `23b5570` |
 | O16 | `csv-embed.mjs` 删除与 `escapeHtml` 逐字相同的本地 `escape`，改为从 `text-utils.mjs` 导入 | `5729772` |
+| O18 | worker 与独立 HTML 阅读器的打包不再带界面词典：它们从不切换语言，构建时把 `i18n.mjs` 换成 `web/i18n-worker.mjs`；四个文件合计 833 KB → 74 KB | `2be1f67` |
