@@ -30,6 +30,8 @@ try{
   });
   await check('saving applies the palette and lists it in settings',async()=>{
     await page.locator('#dialog-body [name=name]').fill('海棠');await page.locator('#dialog-submit').click();await page.waitForFunction(()=>!document.querySelector('#dialog').open);
+    // A colour change is painted once the cross-fade starts, a moment after the dialog closes.
+    await page.waitForFunction(()=>document.body.style.getPropertyValue('--accent')==='#9c2f6b');
     assert.equal(await token('accent'),'#9c2f6b');assert.equal(await token('text'),'#2a2a2a');
     const saved=await page.evaluate(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')).settings);assert.equal(saved.customPalettes.length,1);assert.equal(saved.palette,saved.customPalettes[0].id);assert.equal(saved.customPalettes[0].name,'海棠');
     await settings();assert.equal(await page.locator('#dialog-body label.palette-choice.custom').count(),1);assert.equal(await page.locator('#dialog-body [name=palette]:checked').inputValue(),saved.palette);
