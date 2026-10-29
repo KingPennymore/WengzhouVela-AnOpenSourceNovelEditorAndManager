@@ -6,7 +6,8 @@
 
 | 编号 | 事项 | 位置 | 完成标准 | 状态 |
 | --- | --- | --- | --- | --- |
-| — | 暂无待做项。定时任务按说明自行审查 `web/`，把发现的问题先写成新条目再做 | | | |
+| O15 | O8 遗漏的超长单行：`map-algorithm-view.mjs` 第 10–12 行（2048–3039 字符）、`map-view.mjs` 第 30 行（1995）、`map-images.mjs` 第 5 行（1504） | `web/map-*.mjs` | 按 O8 写法拆成一条语句一行；`web/` 下除 `guide.mjs` 与词典外无超过 1500 字符的行；地图相关浏览器测试通过 | Codex 处理中（`codex/auto-O15`） |
+| O16 | `csv-embed.mjs` 自带 `escape`，与 `text-utils.mjs` 的 `escapeHtml` 逐字相同 | `web/csv-embed.mjs` | 改用 `escapeHtml`，删除本地实现；CSV 嵌入相关测试通过 | 待做 |
 
 ## 已完成
 
