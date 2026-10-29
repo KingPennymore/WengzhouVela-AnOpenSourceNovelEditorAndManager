@@ -98,6 +98,13 @@ try {
             };
             const elements = [...document.querySelectorAll('*')];
             const ignored = /^(?:transition|animation)(?:-|$)|^--(?:shell-top|footer-height|sidebar-bottom|footer-progress)$/;
+            // Phase 1 adds unused design tokens. Allow only their introduction; keep comparing every
+            // rendered property and every existing variable against the immutable baseline. Their
+            // exact values (including coarse pointers) are checked by ui-components-browser.mjs.
+            const addedTokens = new Set(['--text-xs', '--text-sm', '--text-md', '--text-lg', '--text-xl',
+              '--leading-tight', '--leading', '--leading-loose', '--weight-regular', '--weight-medium', '--weight-bold',
+              '--space-1', '--space-2', '--space-3', '--space-4', '--space-5', '--space-6',
+              '--radius-sm', '--radius-md', '--radius-lg', '--radius-full', '--control-h']);
             const snapshot = () => elements.flatMap(el => ['', '::before', '::after'].map(pseudo => {
               const style = getComputedStyle(el, pseudo || null);
               return Object.fromEntries([...style].filter(property => !ignored.test(property)).map(property => [property, style.getPropertyValue(property)]));
@@ -114,6 +121,7 @@ try {
             before.forEach((style, index) => {
               const el = elements[Math.floor(index / 3)];
               for (const property of new Set([...Object.keys(style), ...Object.keys(after[index])])) {
+                if (addedTokens.has(property) && style[property] === undefined) continue;
                 properties++;
                 if (style[property] === after[index][property]) continue;
                 differences++;
