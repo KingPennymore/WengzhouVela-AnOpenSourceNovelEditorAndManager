@@ -14,7 +14,7 @@ await mkdir('test-results',{recursive:true});
 const open=async path=>{if(!await page.locator('#start-page').isVisible()){await page.locator('#more-tools').click();await page.locator('#home-button').click();}await openRecentFile(page,page.locator(`[data-recent="${path}"]`));};
 async function compile(path,engine){await open(path);await page.locator('[data-display=preview]').click();await page.locator('.tex-engine').selectOption(engine);await page.locator('.tex-compile').click();await page.waitForFunction(()=>!document.querySelector('.tex-compile').disabled,{},{timeout:180000});const log=await page.locator('.tex-log pre').textContent();await writeFile('test-results/sample-'+engine+'.log',log);assert.equal(await page.locator('.tex-status').textContent(),'编译完成',log.slice(-3000));assert.ok(await page.locator('.pdf-canvas canvas').first().evaluate(el=>el.width>0));const wait=page.waitForEvent('download');await page.locator('.tex-export').click();await(await wait).saveAs('test-results/sample-'+engine+'.pdf');return log;}
 try{
-  await page.goto('http://127.0.0.1:4173');await page.waitForFunction(()=>!!window.velaReady);
+  await page.goto((process.env.VELA_TEST_URL||'http://127.0.0.1:4173'));await page.waitForFunction(()=>!!window.velaReady);
   await selectAppView(page,'reader');await page.waitForFunction(()=>document.querySelectorAll('[data-read]').length===54);console.log('PASS all 54 samples appear in reading library');
   await selectAppView(page,'write');
   const chinese=await compile('LaTeX/main.tex','xetex');assert.match(chinese,/Database file #1: references.bib/);assert.match(chinese,/makeindex|MakeIndex/i);console.log('PASS public Chinese multi-file TEX, macro, bibliography, index and PDF export');
