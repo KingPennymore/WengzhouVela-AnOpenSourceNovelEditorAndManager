@@ -1,3 +1,4 @@
+import {setSetting,closeSettings} from './settings-helper.mjs';
 import { _electron as electron } from 'playwright';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -32,8 +33,8 @@ try {
   );
   await page.locator('#more-tools').click();
   await page.locator('#settings').click();
-  await page.locator('[name=richText]').check();
-  await page.locator('#dialog-submit').click();
+  await setSetting(page,'richText',true);
+  await closeSettings(page);
   let state = JSON.parse(await page.evaluate(() => WenzhouNative.readWorkspace()));
   const book = state.documents.find((doc) => doc.name === 'CSV正文测试.txt');
   await page.locator('#format-table').click();

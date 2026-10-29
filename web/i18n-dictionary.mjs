@@ -247,3 +247,5 @@ Object.assign(dictionary,{'文舟 · 小说编辑器':'Vela · Novel editor','�
 Object.assign(dictionary,{'快捷操作':'Quick actions','应用布局容器缺失':'The app layout containers are missing','保存失败 · 请手动保存':'Save failed · Save manually','保存失败 · 请导出备份':'Save failed · Export a backup','后台保存失败：':'Background save failed:','保存失败：':'Save failed:','此浏览器不支持读取系统字体。':'This browser cannot read system fonts.'});
 
 export {dictionary};
+
+Object.assign(dictionary,{'隐私政策':'Privacy policy','补全与术语':'Completion and terminology','章节与字数':'Chapters and counting','存储与同步':'Storage and sync','备份与关于':'Backup and about','主题':'Theme'});

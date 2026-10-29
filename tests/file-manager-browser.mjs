@@ -1,3 +1,4 @@
+import {settingsSection} from './settings-helper.mjs';
 import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import {readFile,writeFile,mkdir} from 'node:fs/promises';
@@ -44,7 +45,7 @@ try{
   });
   await check('章节始终自动识别，可同时添加多种模板并在重启后保留',async()=>{
     await p.locator('#workspace-root').click();await p.locator('#new-doc').click();await p.locator('[name=name]').fill('正文.txt');await p.locator('[name=skeleton]').uncheck();await submit();await p.evaluate(()=>{const v=velaEditorView;v.dispatch({changes:{from:0,insert:'第一章 开始\n正文\n【二】海岸\n正文\n幕 Three — 航路\n正文'}});});
-    const novel=(await saved()).activeId;await p.locator('#more-tools').click();await p.locator('#settings').click();assert.equal(await p.locator('[name=format]').count(),0);assert.equal(await p.locator('#dialog [name=titleTemplates]').count(),0);await p.locator('#create-vela').click();await p.locator('#vela-form [name=titleTemplates]').fill('【{序号}】{标题}\n幕 {number} — {title}');await p.locator('#vela-form .primary').click();await p.locator(`[data-doc="${novel}"]`).click();await p.waitForFunction(()=>document.querySelector('#chapter-count').textContent.includes('3 章'));
+    const novel=(await saved()).activeId;await p.locator('#more-tools').click();await p.locator('#settings').click();assert.equal(await p.locator('[name=format]').count(),0);assert.equal(await p.locator('#dialog [name=titleTemplates]').count(),0);await settingsSection(p,'storage');await p.locator('#create-vela').click();await p.locator('#vela-form [name=titleTemplates]').fill('【{序号}】{标题}\n幕 {number} — {title}');await p.locator('#vela-form .primary').click();await p.locator(`[data-doc="${novel}"]`).click();await p.waitForFunction(()=>document.querySelector('#chapter-count').textContent.includes('3 章'));
     await p.reload();await p.waitForFunction(()=>document.querySelector('#chapter-count').textContent==='3 章');assert.equal(JSON.parse((await saved()).documents.find(doc=>doc.path==='.vela').text).chapters.templates.length,2);assert.equal(await p.locator('#chapter-count').textContent(),'3 章');
   });
   await check('访问令牌按钮优先高亮，齿轮图标居中且在窄屏保持等比',async()=>{

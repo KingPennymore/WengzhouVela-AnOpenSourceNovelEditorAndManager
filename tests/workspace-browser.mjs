@@ -1,3 +1,4 @@
+import {setSetting,closeSettings} from './settings-helper.mjs';
 import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
@@ -36,7 +37,7 @@ try{
     await p.locator('#mobile-library').click();await p.locator('#library').waitFor({state:'hidden'});await p.keyboard.press('Control+Alt+h');assert.equal(await p.locator('#library').isVisible(),false);
   });
   await check('五套配色可切换、持久化，并分别跟随系统深浅模式',async()=>{
-    for(const palette of palettes){await p.locator('#more-tools').click();await p.locator('#settings').click();await p.locator(`[name=palette][value=${palette.id}]`).check();await p.locator('[name=theme]').selectOption('system');await p.locator('#dialog-submit').click();await p.waitForFunction(color=>getComputedStyle(document.body).getPropertyValue('--accent').trim()===color,palette.light.accent);assert.equal(await p.locator('body').evaluate(el=>getComputedStyle(el).getPropertyValue('--accent').trim()),palette.light.accent);await p.emulateMedia({colorScheme:'dark'});await p.waitForFunction(color=>getComputedStyle(document.body).getPropertyValue('--accent').trim()===color,palette.dark.accent);await p.emulateMedia({colorScheme:'light'});}
+    for(const palette of palettes){await p.locator('#more-tools').click();await p.locator('#settings').click();await setSetting(p,'palette',palette.id);await setSetting(p,'theme','system');await closeSettings(p);await p.waitForFunction(color=>getComputedStyle(document.body).getPropertyValue('--accent').trim()===color,palette.light.accent);assert.equal(await p.locator('body').evaluate(el=>getComputedStyle(el).getPropertyValue('--accent').trim()),palette.light.accent);await p.emulateMedia({colorScheme:'dark'});await p.waitForFunction(color=>getComputedStyle(document.body).getPropertyValue('--accent').trim()===color,palette.dark.accent);await p.emulateMedia({colorScheme:'light'});}
     await p.reload();await p.waitForFunction(()=>window.velaReady);assert.equal((await save(p)).settings.palette,'graphite');
   });
   await check('CSV 扩展名大小写与 UTF-16 文件可识别，分号和制表符表格可编辑',async()=>{

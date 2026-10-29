@@ -1,3 +1,4 @@
+import {settingsSection} from './settings-helper.mjs';
 import {launchBrowser} from './browser-launch.mjs';
 // In-app component download and app update, with the native `downloadComponent` / `downloadUpdate` bridge mocked.
 // Covers success, ZIP SHA-256 failure, over-size, cancel, Gitee failure falling back to GitHub, the browser-preview
@@ -100,7 +101,7 @@ try{
     await page.waitForFunction(()=>typeof window.__mock.releaseApi==='function');
     await page.locator('#dialog-cancel').click();await page.locator('#more-tools').click();await page.locator('#settings').click();
     await page.evaluate(()=>{window.__mock.holdApi=false;window.__mock.releaseApi();});await page.evaluate(()=>window.__updateResult);
-    assert.equal(await page.locator('#dialog-title').textContent(),'编辑器设置');assert.equal(await page.locator('[name=fontSize]').count(),1);
+    assert.equal(await page.locator('#dialog-title').textContent(),'设置');await settingsSection(page,'editing');assert.equal(await page.locator('[name=fontSize]').count(),1);
     await context.close();
   });
   await check('review: download views release listeners when closed or completed',async()=>{

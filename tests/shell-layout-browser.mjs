@@ -1,3 +1,4 @@
+import {settingsSection,setSetting,closeSettings} from './settings-helper.mjs';
 import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
 import assert from 'node:assert/strict';
@@ -33,13 +34,13 @@ try{
   });
   await check('novel TXT hides line numbers by default and the setting brings them back',async()=>{
     assert.equal(await page.locator('.cm-lineNumbers').count(),0);
-    await page.locator('#more-tools').click();await page.locator('#settings').click();await page.locator('#dialog-body [name=novelLineNumbers]').check();await page.locator('#dialog-submit').click();
+    await page.locator('#more-tools').click();await page.locator('#settings').click();await setSetting(page,'novelLineNumbers',true);await closeSettings(page);
     await page.locator('.cm-lineNumbers').waitFor();
-    await page.locator('#more-tools').click();await page.locator('#settings').click();await page.locator('#dialog-body [name=novelLineNumbers]').uncheck();await page.locator('#dialog-submit').click();
+    await page.locator('#more-tools').click();await page.locator('#settings').click();await setSetting(page,'novelLineNumbers',false);await closeSettings(page);
     await page.waitForFunction(()=>!document.querySelector('.cm-lineNumbers'));
   });
   await check('the TXT format tools can be switched off and on in settings',async()=>{
-    const toggle=async on=>{await page.locator('#more-tools').click();await page.locator('#settings').click();const box=page.locator('#dialog-body [name=richText]');assert.equal(await box.isChecked(),!on);await box.setChecked(on);await page.locator('#dialog-submit').click();await page.waitForFunction(()=>!document.querySelector('#dialog').open);};
+    const toggle=async on=>{await page.locator('#more-tools').click();await page.locator('#settings').click();await settingsSection(page,'editing');const box=page.locator('#dialog-body [name=richText]');assert.equal(await box.isChecked(),!on);await box.setChecked(on);await closeSettings(page);await page.waitForFunction(()=>!document.querySelector('#dialog').open);};
     await toggle(false);assert.equal(await page.locator('#format-tools').isVisible(),false);assert.equal(await page.evaluate(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')).settings.richText),false);
     await toggle(true);assert.equal(await page.locator('#format-tools').isVisible(),true);
   });

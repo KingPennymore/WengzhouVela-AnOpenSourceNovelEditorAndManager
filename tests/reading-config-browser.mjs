@@ -1,3 +1,4 @@
+import {settingsSection,setSetting,closeSettings} from './settings-helper.mjs';
 import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
@@ -16,7 +17,7 @@ const tap=async(fraction=.5)=>{await readerReady(p);const box=await p.locator('.
 try{
  await p.goto((process.env.VELA_TEST_URL||'http://127.0.0.1:4173'));await openRecentFile(p,p.locator('[data-recent]').filter({hasText:'小说.txt'}));await p.waitForSelector('.cm-editor');
  await check('设置创建全局配置并列出全部内部文件，搜索与选择保留相对路径',async()=>{
-  await p.locator('#more-tools').click();await p.locator('#settings').click();await p.locator('#edit-global-vela').click();await p.waitForSelector('#vela-form');
+  await p.locator('#more-tools').click();await p.locator('#settings').click();await settingsSection(p,'reading');await p.locator('.settings-section details').evaluate(el=>el.open=true);await p.locator('#edit-global-vela').click();await p.waitForSelector('#vela-form');
   assert.equal(await p.locator('[name=readingFiles]').count(),2);await p.locator('[data-vela-select=none]').click();await p.locator('#vela-file-search').fill('其他');await p.locator('[data-vela-select=all]').click();await p.locator('#vela-file-search').fill('');
   for(const [name,value] of Object.entries({fontSize:25,lineHeight:2.2,marginTop:32,marginBottom:36,marginLeft:42,marginRight:48}))await p.locator(`#vela-form [name=${name}]`).fill(String(value));
   await p.locator('[name=readerMode]').selectOption('pages');await p.locator('#vela-form .primary').click();const config=JSON.parse((await state()).documents.find(d=>d.path==='.global.vela').text);assert.deepEqual(config.library.items.map(item=>item.path),['其他/散文.txt']);assert.equal(config.reader.layout.lineHeight,2.2);assert.equal(config.kind,'global');
@@ -35,10 +36,10 @@ try{
   await swipe(0,-100);await readerReady(p);assert.match(await p.locator('#reader-position').textContent(),/^3 \/ /);await swipe(100,0);await readerReady(p);await swipe(0,100);await readerReady(p);assert.match(await p.locator('#reader-position').textContent(),/^1 \/ /);assert.equal(await p.locator('.reader-content').evaluate(e=>getComputedStyle(e).fontSize),before);
  });
  await check('个人排版覆盖保留自选书库范围，GUI 配置保持保存',async()=>{
-  await tap();await p.locator('#reader-back').click();await p.locator('#more-tools').click();await p.locator('#settings').click();await p.locator('[name=globalVelaOverride]').check();await p.locator('#dialog-submit').click();await selectAppView(p,'write');await selectAppView(p,'reader');await p.locator('.reader-library').waitFor();/* the reader is a lazy chunk */assert.equal(await p.locator('[data-read]').count(),1);assert.equal(await p.locator('[data-read=outside]').count(),1);
+  await tap();await p.locator('#reader-back').click();await p.locator('#more-tools').click();await p.locator('#settings').click();await setSetting(p,'globalVelaOverride',true);await closeSettings(p);await selectAppView(p,'write');await selectAppView(p,'reader');await p.locator('.reader-library').waitFor();/* the reader is a lazy chunk */assert.equal(await p.locator('[data-read]').count(),1);assert.equal(await p.locator('[data-read=outside]').count(),1);
  });
  await check('上下模式保留页数与行距，标题前留空并保持正文',async()=>{
-  await p.locator('#more-tools').click();await p.locator('#settings').click();await p.locator('[name=readingMode]').selectOption('scroll');await p.locator('#dialog-submit').click();await p.locator('[data-read=outside]').click();await readerReady(p);assert.match(await p.locator('#reader-position').textContent(),/^1 \/ (?:[2-9]|[1-9]\d+)$/);assert.equal(await p.locator('.reader-content').textContent(),novel);assert.ok(await p.locator('.reader-section-title').first().evaluate(e=>parseFloat(getComputedStyle(e).marginTop))>0);
+  await p.locator('#more-tools').click();await p.locator('#settings').click();await setSetting(p,'readingMode','scroll');await closeSettings(p);await p.locator('[data-read=outside]').click();await readerReady(p);assert.match(await p.locator('#reader-position').textContent(),/^1 \/ (?:[2-9]|[1-9]\d+)$/);assert.equal(await p.locator('.reader-content').textContent(),novel);assert.ok(await p.locator('.reader-section-title').first().evaluate(e=>parseFloat(getComputedStyle(e).marginTop))>0);
  });
  assert.deepEqual(errors,[]);await writeFile('test-results/reading-config-results.json',JSON.stringify({passed:checks.length,checks,errors},null,2));
 }catch(error){console.log(errors,await p.locator('body').innerText());await p.screenshot({path:'test-results/reading-config-failure.png'});throw error;}finally{await browser.close();}

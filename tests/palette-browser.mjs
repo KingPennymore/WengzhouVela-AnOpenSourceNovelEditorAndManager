@@ -1,3 +1,4 @@
+import {closeSettings} from './settings-helper.mjs';
 import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import {mkdir,writeFile} from 'node:fs/promises';
@@ -15,7 +16,7 @@ try{
   const enter=async()=>{await page.waitForFunction(()=>window.velaReady===true);await openRecentFile(page,page.locator('[data-recent="book"]'));await page.waitForFunction(()=>!!window.velaEditorView);};
   await page.goto(server.url);await enter();
   const token=name=>page.evaluate(name=>document.body.style.getPropertyValue('--'+name),name);
-  const settings=async()=>{await page.locator('#more-tools').click();await page.locator('#settings').click();await page.waitForFunction(()=>document.querySelector('#dialog-title')?.textContent==='编辑器设置');};
+  const settings=async()=>{await page.locator('#more-tools').click();await page.locator('#settings').click();await page.waitForFunction(()=>document.querySelector('#dialog-title')?.textContent==='设置');};
   await check('a new palette starts from the current one and previews derived colours',async()=>{
     await settings();await page.locator('#new-palette').click();await page.waitForFunction(()=>document.querySelector('#dialog-title')?.textContent==='自定义配色');
     assert.equal(await page.locator('#dialog-body [name=light-accent]').inputValue(),'#23744e');
@@ -29,7 +30,7 @@ try{
     await page.locator('#dialog-body [name=light-text]').fill('#2a2a2a');assert.equal(await page.locator('[data-warnings="light"]').textContent(),'');
   });
   await check('saving applies the palette and lists it in settings',async()=>{
-    await page.locator('#dialog-body [name=name]').fill('海棠');await page.locator('#dialog-submit').click();await page.waitForFunction(()=>!document.querySelector('#dialog').open);
+    await page.locator('#dialog-body [name=name]').fill('海棠');await page.locator('#dialog-submit').click();await page.locator('.settings-section').waitFor();await closeSettings(page);
     // A colour change is painted once the cross-fade starts, a moment after the dialog closes.
     await page.waitForFunction(()=>document.body.style.getPropertyValue('--accent')==='#9c2f6b');
     assert.equal(await token('accent'),'#9c2f6b');assert.equal(await token('text'),'#2a2a2a');

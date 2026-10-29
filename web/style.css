@@ -12908,90 +12908,15 @@
     }
   }
 
-  dialog.settings-dialog {
-    width:min(920px,calc(100vw - 40px));
-    top:33.3333dvh;
-    bottom:0;
-    height:66.6667dvh;
-    max-height:66.6667dvh;
-    margin:0 auto;
-    border-radius:20px 20px 0 0;
-    overflow:hidden;
-  }
 
-  @media (max-width:600px) {
-    dialog.settings-dialog {
-      width:calc(100vw - 20px);
-    }
-  }
 
-  @media (min-width:900px) and (min-height:521px) {
-    dialog.settings-dialog {
-      top:0;
-      bottom:0;
-      margin:auto;
-      height:min(720px,calc(100dvh - 64px));
-      max-height:calc(100dvh - 64px);
-      border-radius:calc(var(--radius) + 4px);
-    }
-  }
 
-  @media (orientation:landscape) and (max-height:520px) {
-    dialog.settings-dialog {
-      top:8px;
-      bottom:8px;
-      margin:auto;
-      width:min(920px,calc(100vw - 24px));
-      height:calc(var(--app-height,100dvh) - 16px);
-      max-height:calc(var(--app-height,100dvh) - 16px);
-      border-radius:var(--radius);
-    }
-  }
 
-  .settings-navigation {
-    position:sticky;
-    top:0;
-    align-self:start;
-    display:flex;
-    flex-direction:column;
-    padding-top:20px;
-    gap:6px;
-  }
 
-  @media (max-width:600px) {
-    .settings-navigation {
-      flex-direction:row;
-      overflow-x:auto;
-      padding:8px 0;
-      background:var(--paper);
-      z-index:1;
-      top:0;
-      border-bottom:1px solid var(--line);
-      gap:4px;
-    }
-  }
 
-  .settings-content {
-    min-width:0;
-  }
 
-  .settings-section:last-child {
-    border:0;
-  }
 
-  .settings-section label {
-    margin:12px 0;
-  }
 
-  .settings-section>.secondary {
-    margin:4px 6px 4px 0;
-  }
-
-  .settings-section p {
-    font-size:12px;
-    color:var(--muted);
-    line-height:1.6;
-  }
 
   .button-row {
     display:flex;
@@ -13019,131 +12944,6 @@
   @media (max-width:600px) {
     #focus-toggle {
       display:inline-flex;
-    }
-  }
-
-  .settings-dialog[open] {
-    animation:settings-rise .32s cubic-bezier(.2,.8,.2,1);
-  }
-
-  @media (prefers-reduced-motion:reduce) {
-    .settings-dialog[open] {
-      animation:none;
-    }
-  }
-
-  .settings-dialog::backdrop {
-    animation:settings-backdrop .32s ease-out;
-  }
-
-  @media (prefers-reduced-motion:reduce) {
-    .settings-dialog::backdrop {
-      animation:none;
-    }
-  }
-
-  .settings-dialog #dialog-form {
-    height:100%;
-    max-height:100%;
-    min-height:0;
-  }
-
-  .settings-dialog #dialog-body {
-    display:grid;
-    grid-template-columns:160px minmax(0,1fr);
-    gap:24px;
-    padding:0 24px 24px;
-    flex:1;
-    min-height:0;
-    overflow:hidden;
-  }
-
-  @media (max-width:600px) {
-    .settings-dialog #dialog-body {
-      display:flex;
-      flex-direction:column;
-      padding:0 16px;
-    }
-  }
-
-  @media (orientation:landscape) and (max-height:520px) {
-    .settings-dialog #dialog-body {
-      display:grid;
-      grid-template-columns:136px minmax(0,1fr);
-      gap:16px;
-      padding:0 16px 8px;
-    }
-  }
-
-  .settings-dialog .settings-content {
-    min-height:0;
-    overflow:auto;
-    overscroll-behavior:contain;
-    padding-right:4px;
-  }
-
-  @media (max-width:600px) {
-    .settings-dialog .settings-content {
-      flex:1;
-    }
-  }
-
-  @media (orientation:landscape) and (max-height:520px) {
-    .settings-dialog .settings-content {
-      height:100%;
-      padding-inline-end:4px;
-    }
-  }
-
-  .settings-dialog .settings-navigation {
-    position:static;
-    max-height:100%;
-    overflow:auto;
-    min-height:0;
-  }
-
-  @media (max-width:600px) {
-    .settings-dialog .settings-navigation {
-      flex-shrink:0;
-      flex-wrap:nowrap;
-      padding:8px 0;
-      max-height:56px;
-    }
-  }
-
-  @media (orientation:landscape) and (max-height:520px) {
-    .settings-dialog .settings-navigation {
-      display:flex;
-      flex-direction:column;
-      padding:8px 0;
-      max-height:100%;
-      height:100%;
-      align-self:stretch;
-      border-bottom:0;
-      border-inline-end:1px solid var(--hairline);
-      background:transparent;
-    }
-  }
-
-  .settings-dialog .dialog-heading {
-    flex-shrink:0;
-  }
-
-  @media (orientation:landscape) and (max-height:520px) {
-    .settings-dialog .dialog-heading {
-      padding:4px 16px;
-      min-height:52px;
-    }
-  }
-
-  .settings-dialog .dialog-actions {
-    flex-shrink:0;
-  }
-
-  @media (orientation:landscape) and (max-height:520px) {
-    .settings-dialog .dialog-actions {
-      padding:4px 16px;
-      min-height:52px;
     }
   }
 
@@ -13230,18 +13030,6 @@
   dialog::backdrop {
     background:#0b140f73;
     backdrop-filter:blur(4px);
-  }
-
-  .settings-navigation button:hover {
-    color:var(--accent);
-    background:var(--accent-tint);
-  }
-
-  @media (hover:hover) {
-    .settings-navigation button:hover {
-      background:var(--soft);
-      color:var(--text);
-    }
   }
 
   #toast {
@@ -13699,43 +13487,6 @@
     flex:none;
   }
 
-  @media (max-width:600px) {
-    body[data-ui=android] dialog.settings-dialog {
-      width:100%;
-      height:66.6667dvh;
-      max-height:66.6667dvh;
-    }
-  }
-
-  @media (orientation:landscape) and (max-height:520px) {
-    body[data-ui=android] dialog.settings-dialog {
-      top:8px;
-      bottom:8px;
-      margin:auto;
-      width:min(920px,calc(100vw - 24px));
-      height:calc(var(--app-height,100dvh) - 16px);
-      max-height:calc(var(--app-height,100dvh) - 16px);
-      border-radius:var(--radius);
-    }
-  }
-
-  @media (orientation:landscape) and (max-height:520px) {
-    .settings-dialog .dialog-heading button {
-      min-width:44px;
-      min-height:44px;
-    }
-  }
-
-  @media (orientation:landscape) and (max-height:520px) {
-    .settings-dialog .settings-navigation button {
-      flex:none;
-      min-height:44px;
-      padding:8px;
-      font-size:12px;
-      white-space:normal;
-    }
-  }
-
   #dialog-body .table-insert-modes {
     display:grid;
     grid-template-columns:1fr 1fr;
@@ -13899,93 +13650,12 @@
     }
   }
 
-  .settings-navigation button {
-    justify-content:flex-start;
-    text-align:left;
-    padding:12px;
-    color:var(--muted);
-    border-radius:var(--radius);
-    font-size:13px;
-    line-height:1.5;
-    min-height:42px;
-  }
 
-  @media (max-width:600px) {
-    .settings-navigation button {
-      flex-shrink:0;
-      font-size:12px;
-      min-height:40px;
-      padding:8px 12px;
-    }
-  }
-
-  .settings-navigation button[aria-current] {
-    color:var(--accent);
-    background:var(--accent-tint);
-    font-weight:500;
-    box-shadow:inset 3px 0 var(--accent);
-  }
-
-  @media (max-width:600px) {
-    .settings-navigation button[aria-current] {
-      box-shadow:inset 0 -2px var(--accent);
-    }
-  }
-
-  .settings-section {
-    border-bottom:1px solid var(--line);
-    padding:16px 0 24px;
-    scroll-margin-top:0;
-  }
-
-  .settings-section h3 {
-    font-size:14px;
-    font-weight:500;
-    margin:0 0 20px;
-    color:var(--text);
-  }
-
-  .settings-section>label {
-    font-size:12px;
-    line-height:1.7;
-    gap:8px;
-  }
-
-  .settings-section small {
-    font-size:11px;
-    line-height:1.7;
-  }
-
-  .settings-dialog .dialog-actions button {
-    min-height:42px;
-    min-width:80px;
-    border-radius:var(--radius);
-  }
-
-  @media (max-width:600px) {
-    .settings-dialog .dialog-actions button {
-      min-height:44px;
-    }
-  }
-
-  .settings-dialog #dialog-close {
-    width:40px;
-    height:40px;
-    min-height:40px;
-    color:var(--muted);
-  }
 
   @media (hover:hover) {
     .sidebar-view-bar button:hover {
       background:var(--soft);
       color:var(--text);
-    }
-  }
-
-  @media (hover:hover) {
-    .settings-navigation button[aria-current]:hover {
-      background:var(--accent-tint);
-      color:var(--accent);
     }
   }
 
@@ -14295,12 +13965,7 @@
     max-height:calc(var(--app-height,100dvh) - 16px);
   }
 
-  body[data-keyboard=true] #dialog.settings-dialog {
-    height:calc(var(--app-height) - 16px);
-    max-height:calc(var(--app-height) - 16px);
-    height:calc(var(--app-height,100dvh) - 16px);
-    max-height:calc(var(--app-height,100dvh) - 16px);
-  }
+
 
   @media (max-width:600px) {
     #dialog:not(.settings-dialog) {
@@ -14347,15 +14012,7 @@
     overflow-wrap:anywhere;
   }
 
-  #dialog .font-settings-preview {
-    margin:0;
-    padding:12px;
-    border-radius:var(--radius);
-    background:var(--soft);
-    font-size:18px;
-    line-height:1.8;
-    overflow-wrap:anywhere;
-  }
+
 
   #dialog.trash-dialog {
     width:min(860px,calc(100vw - 24px));
@@ -14909,8 +14566,6 @@
 
   /* Shared motion definitions; names and keyframe values are unchanged. */
   @keyframes pdf-sync{0%,60%{opacity:1}100%{opacity:0}}
-  @keyframes settings-rise{from{transform:translateY(100%)}to{transform:translateY(0)}}
-  @keyframes settings-backdrop{from{opacity:0}to{opacity:1}}
   @keyframes planning-sheet-in{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:translateY(0)}}
   @keyframes planning-panel-in{from{opacity:0;transform:translateX(12px)}to{opacity:1;transform:translateX(0)}}
   @keyframes vela-view-in{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
@@ -15460,5 +15115,96 @@
     display:none;
   }
 
+  /* Settings: stage 2. Category view, immediate controls and mobile return stack. */
+  .settings-back { display:none; }
+  #dialog.settings-dialog { inset:0; margin:auto; width:min(1000px,calc(100vw - var(--space-6)));
+    height:min(740px,calc(var(--app-height,100dvh) - var(--space-6)));
+    max-height:calc(var(--app-height,100dvh) - var(--space-6));border-radius:var(--radius-lg);overflow:hidden; }
+  @media (pointer:coarse) {
+    #dialog.settings-dialog { --control-h:44px; }
+  }
+  body[data-keyboard=true] #dialog.settings-dialog { top:var(--space-4);bottom:auto;margin:0 auto;height:calc(var(--app-height,100dvh) - var(--space-6));max-height:calc(var(--app-height,100dvh) - var(--space-6)); }
+  @media (max-width:899px) {
+    body[data-keyboard=true] #dialog.settings-dialog { top:0;margin:0;height:var(--app-height,100dvh);max-height:var(--app-height,100dvh); }
+  }
+  #dialog.settings-dialog #dialog-form { height:100%;max-height:100%;min-height:0; }
+  @media (max-width:899px) {
+    #dialog.settings-dialog #dialog-form { padding-top:var(--safe-top,0px);padding-bottom:var(--safe-bottom,0px); }
+  }
+  #dialog.settings-dialog .dialog-actions { display:none; }
+  #dialog.settings-dialog .dialog-heading { flex-shrink:0;padding:var(--space-4) var(--space-5); }
+  #dialog.settings-dialog #dialog-close { width:var(--control-h);height:var(--control-h);min-height:var(--control-h); }
+  #dialog.settings-dialog #dialog-body { display:grid;grid-template-columns:240px minmax(0,1fr);gap:var(--space-5);padding:0 var(--space-5) var(--space-5);flex:1;min-height:0;overflow:hidden; }
+  @media (max-width:899px) {
+    #dialog.settings-dialog #dialog-body { display:flex;flex-direction:column;padding:0 var(--space-4) var(--space-4);gap:0; }
+  }
+  .settings-navigation { display:flex;flex-direction:column;overflow:auto;gap:var(--space-1);min-height:0; }
+  .settings-navigation button { display:flex;align-items:center;justify-content:flex-start;text-align:start;gap:var(--space-3);padding:var(--space-3);min-height:var(--control-h);border-radius:var(--radius-md);font-size:var(--text-sm);color:var(--text); }
+  .settings-navigation button>span:nth-child(2) { display:grid;flex:1;gap:var(--space-1);min-width:0; }
+  .settings-navigation strong { font-weight:var(--weight-medium); }
+  .settings-navigation small { font-size:var(--text-xs);color:var(--muted);white-space:normal; }
+  .settings-navigation button[aria-current] { background:var(--accent-tint);color:var(--accent); }
+  .settings-content { min-width:0;min-height:0;overflow:auto;overscroll-behavior:contain;padding:0 var(--space-2) var(--space-5); }
+  .settings-section { display:grid;gap:var(--space-4);min-width:0; }
+  .settings-section h3 { font-size:var(--text-lg);line-height:var(--leading-tight);font-weight:var(--weight-bold);margin:var(--space-2) 0; }
+  .settings-section h4 { font-size:var(--text-md);margin:var(--space-4) 0 var(--space-2); }
+  #dialog.settings-dialog label { font-size:var(--text-sm);margin:0; }
+  #dialog.settings-dialog small { font-size:var(--text-xs); }
+  #dialog.settings-dialog :is(input,select,button,summary) { font-size:var(--text-sm); }
+  #dialog.settings-dialog :is(input:not([type=radio],[type=checkbox]),select,button,summary) { min-height:var(--control-h); }
+  #dialog.settings-dialog .ui-setting-control { min-width:0; }
+  #dialog.settings-dialog .ui-setting-row { align-items:center; }
+  @media (max-width:899px) {
+    #dialog.settings-dialog .ui-setting-row { grid-template-columns:1fr; }
+  }
+  #dialog.settings-dialog :is(.ui-switch,.ui-segmented-option,.palette-choice) { min-height:var(--control-h); }
+  #dialog.settings-dialog .ui-switch { position:relative;display:inline-flex;flex-direction:row;gap:var(--space-2); }
+  .settings-error { color:var(--danger);font-size:var(--text-sm);margin:var(--space-1) 0; }
+  .settings-error:empty { display:none; }
+  .settings-backups { display:flex;flex-wrap:wrap;gap:var(--space-2); }
+  #dialog.settings-dialog .font-settings { border:0;padding:0;margin:0;display:grid;gap:var(--space-2); }
+  #dialog.settings-dialog .font-settings legend { display:none; }
+  #dialog.settings-dialog .font-settings-preview { font-size:var(--text-md); }
+  #dialog.settings-dialog .palette-options { display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:var(--space-2);border:0;margin:0;padding:0; }
+  #dialog.settings-dialog .palette-choice { display:flex;flex-wrap:wrap;align-items:center;padding:var(--space-2);gap:var(--space-2);border-radius:var(--radius-md); }
+  #dialog.settings-dialog .palette-choice input { position:absolute;opacity:0;width:1px;height:1px; }
+  #dialog.settings-dialog .palette-choice:has(input:checked) { outline:2px solid var(--accent); }
+  #dialog.settings-dialog .palette-choice:has(input:focus-visible) { outline:2px solid var(--accent);outline-offset:3px; }
+  #dialog.settings-dialog [data-setting=palette] .ui-setting-row { display:block; }
+  #dialog.settings-dialog [data-setting=palette] .ui-setting-copy { margin-bottom:var(--space-3); }
+  #dialog.settings-dialog [data-setting=readingMode] .ui-setting-row { display:block; }
+  #dialog.settings-dialog [data-setting=readingMode] .ui-segmented { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin-top:var(--space-3); }
+  #dialog.settings-dialog [data-setting=readingMode] .ui-segmented-option>span { display:grid;gap:var(--space-3);padding:var(--space-4) var(--space-2); }
+  #dialog.settings-dialog [data-setting=readingMode] .ui-segmented-option>span::before { content:'≡';font-size:var(--text-xl);line-height:var(--leading-tight); }
+  #dialog.settings-dialog [data-setting=readingMode] .ui-segmented-option:nth-child(2)>span::before { content:'▤'; }
+  #dialog.settings-dialog [data-setting=readingMode] .ui-segmented-option:nth-child(3)>span::before { content:'▤ ▤'; }
+  .ai-settings-body { display:grid;gap:var(--space-3); }
+  .ai-status-card { display:flex;flex-wrap:wrap;gap:var(--space-3);justify-content:space-between;align-items:center; }
+  .ai-consent-dialog { font-size:var(--text-sm); }
+  .ai-consent-dialog form { padding:var(--space-5);display:grid;gap:var(--space-4); }
+  .ai-consent-dialog p { line-height:var(--leading-loose); }
+  #dialog.settings-dialog summary { cursor:pointer;padding:var(--space-3) 0; }
+  @media (max-width:899px) {
+    #dialog.settings-dialog,body[data-ui=android] #dialog.settings-dialog { inset:0;margin:0;width:100%;max-width:100%;height:var(--app-height,100dvh);max-height:var(--app-height,100dvh);border-radius:0; }
+  }
+  @media (max-width:899px) {
+    #dialog.settings-dialog .settings-navigation { flex:1;max-height:none;padding:0; }
+  }
+  @media (max-width:899px) {
+    #dialog.settings-dialog .settings-navigation button { flex-shrink:0;min-height:64px; }
+  }
+  @media (max-width:899px) {
+    #dialog.settings-dialog .settings-back { display:inline-flex; }
+  }
+  @media (max-width:899px) {
+    #dialog.settings-dialog [data-settings-detail=false] .settings-content,
+    #dialog.settings-dialog [data-settings-detail=true] .settings-navigation { display:none; }
+  }
+  @media (max-width:899px) {
+    #dialog.settings-dialog .settings-content { flex:1;padding-inline:var(--space-1); }
+  }
+  @media (pointer:coarse) {
+    #dialog.settings-dialog :is(button,summary,select,.ui-switch,.ui-segmented-option) { min-width:44px; }
+  }
 
 }
