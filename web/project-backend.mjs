@@ -1,7 +1,7 @@
 import {t} from './i18n.mjs';
 import {loadProjectArchive} from './lazy.mjs';
 import {native,transport} from './platform.mjs';
-import {error,relativePath,within,mime,sha256,revision,bytes} from './project-contract.mjs';
+import {error,relativePath,within,mime,sha256,revision,bytes,addArchiveCapabilities} from './project-contract.mjs';
 import {fromBase64,toBase64} from './plugin-package.mjs';
 import {MB} from './text-utils.mjs';
 
@@ -553,13 +553,7 @@ export function projectBackend(workspace,platform=window.WenzhouNative?.platform
   return {call:async(action,owner,args)=>{
     if(action==='capabilities'){
       const c=await backend.call(action,owner,args);
-      enabled=c.features.filesystem&&!c.features.archives;
-      if(enabled){
-        c.features.archives=true;
-        c.limits.archiveExpandedBytes=8*MB;
-        c.limits.archiveEntries=1000;
-        c.limits.archiveFileBytes=8*MB;
-      }
+      enabled=addArchiveCapabilities(c);
       return c;
     }
     if(enabled&&(action.startsWith('archive')||loading)){

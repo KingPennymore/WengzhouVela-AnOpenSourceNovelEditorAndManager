@@ -1,4 +1,5 @@
 import {t,say} from './i18n.mjs';
+import {MB} from './text-utils.mjs';
 /** API v3 wire values. All paths are project-relative, never platform URIs. */
 export class VelaError extends Error {
   constructor(code,message,details={},retryable=false){
@@ -9,6 +10,17 @@ export class VelaError extends Error {
 }
 export const error=(code,message,details,retryable)=>
   new VelaError(code,message,details,retryable);
+
+export const ARCHIVE_LIMIT=8 * MB;
+/** Adds ZIP support to a native backend that has a filesystem but no archives; returns whether it did. */
+export function addArchiveCapabilities(c){
+  if(!c.features.filesystem||c.features.archives) return false;
+  c.features.archives=true;
+  c.limits.archiveExpandedBytes=ARCHIVE_LIMIT;
+  c.limits.archiveEntries=1000;
+  c.limits.archiveFileBytes=ARCHIVE_LIMIT;
+  return true;
+}
 export function relativePath(value,empty=false){
   if(value===''&&empty) return value;
   if(

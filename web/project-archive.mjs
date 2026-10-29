@@ -1,9 +1,8 @@
 import {t} from './i18n.mjs';
-import {error,relativePath,within,mime,sha256} from './project-contract.mjs';
+import {error,relativePath,within,mime,sha256,ARCHIVE_LIMIT,addArchiveCapabilities} from './project-contract.mjs';
 import {fromBase64,toBase64} from './plugin-package.mjs';
-import {MB} from './text-utils.mjs';
 
-export const ARCHIVE_LIMIT=8 * MB;
+export {ARCHIVE_LIMIT};
 /** Validate the central directory before allocating any expanded file buffers. */
 export function inspectZip(data){
   if(data.byteLength>ARCHIVE_LIMIT||data.byteLength<22)
@@ -213,13 +212,7 @@ export class NativeArchiveBackend {
   async call(action,owner,a){
     if(action==='capabilities'){
       const c=await this.native.call(action,owner,a);
-      if(c.features.filesystem&&!c.features.archives){
-        this.enabled=true;
-        c.features.archives=true;
-        c.limits.archiveExpandedBytes=ARCHIVE_LIMIT;
-        c.limits.archiveEntries=1000;
-        c.limits.archiveFileBytes=ARCHIVE_LIMIT;
-      }
+      if(addArchiveCapabilities(c)) this.enabled=true;
       return c;
     }
     if(!this.enabled) return this.native.call(action,owner,a);
