@@ -39,6 +39,8 @@ try{
     await p.emulateMedia({colorScheme:'light'});await p.waitForFunction(()=>!document.body.classList.contains('dark'));
     await p.emulateMedia({colorScheme:'dark'});await p.waitForFunction(()=>document.body.classList.contains('dark'));
     await p.locator('#more-tools').click();await p.locator('#settings').click();await p.locator('[name="theme"]').selectOption('light');await p.locator('#dialog-submit').click();
+    // The new look is painted when the cross-fade starts; until then the old dark class is still on.
+    await p.waitForFunction(()=>!document.body.classList.contains('dark'));
     await p.emulateMedia({colorScheme:'dark'});assert.equal(await p.locator('body').evaluate(el=>el.classList.contains('dark')),false);
     await p.reload();await p.waitForSelector('.cm-editor');assert.equal(await p.locator('body').evaluate(el=>el.classList.contains('dark')),false);
   });
@@ -146,6 +148,7 @@ try{
     const n=await nativeContext.newPage();n.on('pageerror',e=>errors.push(e.message));await n.goto(url);await n.waitForSelector('.cm-editor');await n.waitForFunction(()=>window.velaReady);
     assert.equal(await n.locator('body').evaluate(el=>el.classList.contains('dark')),true);assert.equal(await n.locator('.statusbar').evaluate(el=>getComputedStyle(el).height),'48px');
     const rect=await n.locator('#quick-save').boundingBox();await n.evaluate(()=>{window.dispatchEvent(new CustomEvent('wenzhouEnvironment',{detail:{dark:false,top:30,bottom:18,left:0,right:0}}));window.wenzhouNativePinch(1,'start');window.wenzhouNativePinch(1.5,'move');window.wenzhouNativePinch(1,'end');});
+    await n.waitForFunction(()=>!document.body.classList.contains('dark'));
     assert.equal(await n.locator('body').evaluate(el=>el.classList.contains('dark')),false);assert.equal(await n.locator('.cm-editor').evaluate(el=>getComputedStyle(el).fontSize),'24px');assert.equal((await n.locator('#quick-save').boundingBox()).width,rect.width);assert.equal(await n.evaluate(()=>document.documentElement.scrollWidth<=innerWidth),true);
     await n.screenshot({path:'test-results/features-mobile.png'});await nativeContext.close();
   });
