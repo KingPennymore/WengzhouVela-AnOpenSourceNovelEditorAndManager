@@ -31,10 +31,14 @@ export const PRESETS=[
 export const preset=id=>PRESETS.find(item=>item.id===id)||PRESETS.at(-1);
 
 const PRIVATE_HOST=/^(localhost|127\.0\.0\.1|\[::1\]|10\.\d+\.\d+\.\d+|192\.168\.\d+\.\d+|172\.(1[6-9]|2\d|3[01])\.\d+\.\d+|[a-z0-9-]+\.local)$/i;
+// The whole stored record (format, endpoint, key) must fit the 1024-byte HarmonyOS Asset Store secret.
+export const MAX_ENDPOINT=400,MAX_KEY=512;
+const PRINTABLE=/^[\x21-\x7e]*$/;
 /** The base URL without a trailing slash, or an Error explaining why it is refused. Native code applies the same rules. */
 export function normalizeEndpoint(value){
   const text=String(value||'').trim().replace(/\/+$/,'');
-  if(!text||text.length>512)return new Error(t('请填写接口地址。'));
+  if(!text)return new Error(t('请填写接口地址。'));
+  if(text.length>MAX_ENDPOINT||!PRINTABLE.test(text))return new Error(t('接口地址过长或包含非 ASCII 字符（国际化域名请使用 punycode 形式）。'));
   let url;
   try{url=new URL(text);}catch{return new Error(t('接口地址格式不正确。'));}
   if(url.username||url.password||url.search||url.hash)return new Error(t('接口地址不能包含用户名、查询参数或片段。'));
@@ -42,6 +46,8 @@ export function normalizeEndpoint(value){
   if(url.protocol!=='https:'&&url.protocol!=='http:')return new Error(t('接口地址格式不正确。'));
   return text;
 }
+/** Keys are printable ASCII, at most MAX_KEY characters; local models may use none. */
+export const validKey=key=>typeof key==='string'&&key.length<=MAX_KEY&&PRINTABLE.test(key);
 export const isLocalEndpoint=endpoint=>{try{return PRIVATE_HOST.test(new URL(endpoint).hostname);}catch{return false;}};
 
 const MODEL=/^(?!.*\.\.)[A-Za-z0-9._:/-]{1,128}$/,DEPLOYMENT=/^[A-Za-z0-9._-]{1,128}$/,VERSION=/^[0-9a-z.-]{1,32}$/;

@@ -3,7 +3,7 @@
 import {t,say} from './i18n.mjs';
 import {escapeHtml as esc} from './text-utils.mjs';
 import {native} from './platform.mjs';
-import {PRESETS,FORMATS,preset,normalizeEndpoint,isLocalEndpoint} from './ai-providers.mjs';
+import {PRESETS,FORMATS,preset,normalizeEndpoint,isLocalEndpoint,MAX_ENDPOINT,MAX_KEY} from './ai-providers.mjs';
 import {aiSettings,aiStatus,aiVerify,aiSave,aiClear,aiReady} from './ai-client.mjs';
 
 const $=selector=>document.querySelector('#dialog-body '+selector);
@@ -22,11 +22,11 @@ export async function showAiSettings({workspace,openModal,save,toast,changed}){
     <label class="checkbox"><input type="checkbox" name="enabled"${settings.enabled?' checked':''}>${t('启用 AI 助手')}</label>
     <label>${t('服务')}<select name="provider">${PRESETS.map(item=>option(item.id,t(item.name),item.id===settings.provider)).join('')}</select></label>
     <label data-ai-format>${t('请求格式')}<select name="format">${FORMATS.map(format=>option(format,t(FORMAT_LABELS[format]),format===settings.format)).join('')}</select></label>
-    <label>${t('接口地址')}<input name="endpoint" required maxlength="512" spellcheck="false" autocomplete="off" value="${esc(settings.endpoint)}"></label>
+    <label>${t('接口地址')}<input name="endpoint" required maxlength="${MAX_ENDPOINT}" spellcheck="false" autocomplete="off" value="${esc(settings.endpoint)}"></label>
     <label data-ai-version>${t('API 版本')}<input name="apiVersion" maxlength="32" spellcheck="false" value="${esc(settings.apiVersion)}"></label>
     <fieldset class="ai-key"><legend>API Key</legend>
       <p class="ai-key-status" role="status"></p>
-      <input name="key" type="password" autocomplete="off" spellcheck="false" maxlength="4096" aria-label="API Key" placeholder="${t('粘贴 API Key')}">
+      <input name="key" type="password" autocomplete="off" spellcheck="false" maxlength="${MAX_KEY}" aria-label="API Key" placeholder="${t('粘贴 API Key')}">
       <p class="button-row"><button type="button" class="secondary" id="ai-verify">${t('验证并保存')}</button><button type="button" class="danger" id="ai-clear">${t('删除密钥')}</button></p>
       <small>${native?t('密钥保存在系统安全存储中，保存后无法再查看，只能删除或替换。'):t('浏览器预览版仅供测试：密钥只保存在当前页面，刷新后清除。')}</small>
     </fieldset>

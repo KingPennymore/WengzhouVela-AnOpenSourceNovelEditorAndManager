@@ -2,7 +2,7 @@
 // native `ai` operation sends requests; the browser preview is for testing only and keeps the key in memory.
 import {t,say} from './i18n.mjs';
 import {native,transport} from './platform.mjs';
-import {buildRequest,parseResponse,parseModels,verifyPath,authHeaders,normalizeEndpoint,preset,AZURE_API_VERSION} from './ai-providers.mjs';
+import {buildRequest,parseResponse,parseModels,verifyPath,authHeaders,normalizeEndpoint,validKey,preset,AZURE_API_VERSION} from './ai-providers.mjs';
 
 let browserKey=null,requestCounter=0;
 
@@ -34,7 +34,7 @@ export async function aiVerify({format,endpoint,key}){
 
 export async function aiSave({format,endpoint,key}){
   const base=normalizeEndpoint(endpoint);if(base instanceof Error)throw base;
-  if(/\s/.test(key)||key.length>4096)throw new Error(t('API Key 格式不正确。'));
+  if(!validKey(key))throw new Error(t('API Key 格式不正确。'));
   if(native)return transport('ai',{action:'save',format,endpoint:base,key});
   browserKey={format,endpoint:base,key};return aiStatus();
 }

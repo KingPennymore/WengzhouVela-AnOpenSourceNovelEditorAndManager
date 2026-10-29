@@ -49,6 +49,7 @@ export const aiTranslations={
   'LM Studio（本机）':'LM Studio (this computer)',
   '请填写接口地址。':'Enter the endpoint.',
   '接口地址格式不正确。':'The endpoint is not a valid address.',
+  '接口地址过长或包含非 ASCII 字符（国际化域名请使用 punycode 形式）。':'The endpoint is too long or contains non-ASCII characters (write internationalized domains in punycode).',
   '接口地址不能包含用户名、查询参数或片段。':'The endpoint cannot contain a user name, query or fragment.',
   '只有本机或局域网地址可以使用 HTTP，其他地址请使用 HTTPS。':'Only local or LAN addresses may use HTTP; use HTTPS for others.',
   '请先选择模型。':'Choose a model first.',

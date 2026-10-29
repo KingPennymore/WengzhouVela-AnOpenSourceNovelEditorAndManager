@@ -1,13 +1,17 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {PRESETS,normalizeEndpoint,isLocalEndpoint,buildRequest,parseResponse,parseModels,verifyPath,authHeaders} from '../web/ai-providers.mjs';
+import {PRESETS,normalizeEndpoint,isLocalEndpoint,validKey,MAX_ENDPOINT,MAX_KEY,buildRequest,parseResponse,parseModels,verifyPath,authHeaders} from '../web/ai-providers.mjs';
 
 test('endpoints: HTTPS anywhere, HTTP only for local and LAN hosts, no credentials or queries',()=>{
   assert.equal(normalizeEndpoint('https://api.deepseek.com/v1/'),'https://api.deepseek.com/v1');
   for(const local of ['http://localhost:11434/v1','http://127.0.0.1:1234/v1','http://192.168.1.20:8080/v1','http://10.0.0.5/v1','http://172.20.1.1/v1','http://box.local/v1'])
     assert.equal(normalizeEndpoint(local),local,local);
-  for(const bad of ['','not a url','http://api.openai.com/v1','http://172.32.0.1/v1','https://user:pass@x.com/v1','https://x.com/v1?key=1','https://x.com/v1#a','ftp://x.com','https://'+'a'.repeat(520)+'.com'])
+  for(const bad of ['','not a url','http://api.openai.com/v1','http://172.32.0.1/v1','https://user:pass@x.com/v1','https://x.com/v1?key=1','https://x.com/v1#a','ftp://x.com','https://'+'a'.repeat(400)+'.com','https://例子.测试/v1'])
     assert.ok(normalizeEndpoint(bad) instanceof Error,bad);
+  const longest='https://'+'a'.repeat(MAX_ENDPOINT-12)+'.com';assert.equal(longest.length,MAX_ENDPOINT);assert.equal(normalizeEndpoint(longest),longest);
+  assert.equal(validKey('sk-'+'a'.repeat(MAX_KEY-3)),true);assert.equal(validKey('a'.repeat(MAX_KEY+1)),false);assert.equal(validKey(''),true);assert.equal(validKey('sk 1'),false);assert.equal(validKey('密钥'),false);
+  // format + endpoint + key + two separators must fit the 1024-byte HarmonyOS Asset Store secret
+  assert.ok('anthropic'.length+MAX_ENDPOINT+MAX_KEY+2<=1024);
   assert.equal(isLocalEndpoint('http://localhost:11434/v1'),true);assert.equal(isLocalEndpoint('https://api.openai.com/v1'),false);
   for(const item of PRESETS.filter(item=>item.endpoint&&!item.endpoint.includes('<')))assert.equal(typeof normalizeEndpoint(item.endpoint),'string',item.id);
 });
