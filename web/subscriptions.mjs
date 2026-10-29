@@ -114,7 +114,7 @@ export class Subscriptions {
   enter(){
     this.visited=true;
     for(const item of this.items())item.pageSeen=true;
-    this.save();
+    this.saveLater();
     this.dot();
     this.render();
     this.refresh();
@@ -152,18 +152,20 @@ export class Subscriptions {
         const changed=subscriptionChanged(item.snapshot,snapshot);
         await this.cache({...item,snapshot});
         if(!this.items().includes(item))continue;
+        const recovered=!!item.error;
         item.snapshot=snapshot;
         item.error='';
         if(changed){
           item.unread=!(this.visited&&this.detail===item);
           item.pageSeen=this.visited;
         }
-        this.save();
+        // An unchanged repository (only checkedAt moves) is not worth a workspace save of its own.
+        if(changed||recovered)this.saveLater();
         this.dot();
       }catch(error){
-        if(!signal?.aborted&&this.items().includes(item)){
+        if(!signal?.aborted&&this.items().includes(item)&&item.error!==error.message){
           item.error=error.message;
-          this.save();
+          this.saveLater();
         }
       }
     }
@@ -174,14 +176,14 @@ export class Subscriptions {
       item.pageSeen=true;
       item.ignoredAt=Date.now();
     }
-    this.save();
+    this.saveLater();
     this.dot();
     this.render();
   }
   async open(item){
     this.ignore([item]);
     item.readAt=Date.now();
-    this.save();
+    this.saveLater();
     this.detail=item;
     this.render();
     if(item.snapshot.changelog)try{

@@ -1947,8 +1947,9 @@ function showView(name){
   if(name==='subscriptions'){
     for(const item of workspace.subscriptions||[])item.pageSeen=true;
     $('[data-view=subscriptions] .update-dot').hidden=true;
-    save();
-    chunkLoading($('#subscriptions-view'));
+    // Read flags only: a deferred save, so entering never waits for the whole workspace to be written.
+    scheduleWorkspaceSave();
+    if(!subscriptions||!md)chunkLoading($('#subscriptions-view'));
     Promise.all([ensureSubscriptions(),ensureMarkdown()]).then(([value])=>{if(pageName==='subscriptions')value.enter();}).catch(error=>{if(pageName==='subscriptions')chunkFailure($('#subscriptions-view'),error,()=>showView('subscriptions'));});
   }else subscriptions?.leave();
   if(name==='reader'){
@@ -2409,7 +2410,7 @@ async function boot(){try{
         }catch(error){if(pageName==='reader'&&reader.doc===doc&&content.isConnected)chunkFailure(content,error,()=>reader.open(doc.id).catch(fail));}
       }
     }});
-  createSubscriptions=Subscriptions=>{const value=new Subscriptions({root:$('#subscriptions-view'),nav:$('[data-view=subscriptions]'),workspace:()=>workspace,transport,save,escape:esc,modal:openModal,fail,cache:cacheSubscription,pull:pullSubscription,renderMarkdown:text=>sanitize(md.render(text),{FORBID_TAGS:['iframe','form','input','button','style'],FORBID_ATTR:['style']})});value.dot();return value;};
+  createSubscriptions=Subscriptions=>{const value=new Subscriptions({root:$('#subscriptions-view'),nav:$('[data-view=subscriptions]'),workspace:()=>workspace,transport,save,saveLater:scheduleWorkspaceSave,escape:esc,modal:openModal,fail,cache:cacheSubscription,pull:pullSubscription,renderMarkdown:text=>sanitize(md.render(text),{FORBID_TAGS:['iframe','form','input','button','style'],FORBID_ATTR:['style']})});value.dot();return value;};
   $('[data-view=subscriptions] .update-dot').hidden=!(workspace.subscriptions||[]).some(item=>item.unread&&!item.pageSeen);
   setCustomPalettes(workspace.settings.customPalettes);chapterMatcher(workspace.settings.writer);applyTheme();setFontSize(workspace.settings.fontSize,false);
   // Phones always start with the file drawer closed; only desktop restores the last sidebar state.
