@@ -1,12 +1,14 @@
 import {app,BrowserWindow,ipcMain,protocol,session,nativeTheme,safeStorage,dialog,net,shell,Menu,screen,clipboard} from 'electron';
 import fs from 'node:fs';
 import path from 'node:path';
-import {randomUUID,createHash} from 'node:crypto';
+import {randomUUID} from 'node:crypto';
 import {gitApiBase} from './git-host.mjs';
 import {listSystemFonts} from './system-fonts.mjs';
 import {fileURLToPath} from 'node:url';
 import {WorkspaceStorage,decodeText,atomic,mime} from './storage.mjs';
 import {GitHubBridge} from './github.mjs';
+import {AiBridge} from './ai.mjs';
+import {createCredentials} from './credentials.mjs';
 import {windowBounds} from './window-state.mjs';
 import {ProjectStore} from './project-store.mjs';
 import {attachProjectUI} from './project-ui.mjs';
@@ -31,7 +33,7 @@ function rememberAppearance(data){
   if(!['light','dark','system'].includes(data.theme)||!hex.test(data.light||'')||!hex.test(data.night||''))return;
   try{atomic(path.join(files.base,'appearance.json'),Buffer.from(JSON.stringify({theme:data.theme,light:data.light,night:data.night})));}catch{/* Launch colours are cosmetic. */}
 }
-let main,files,backgroundSave,github,projectFiles,downloads,closePluginPreviews,closing=false,readerSession;const readerOptions=new Map();const previews=new Set();
+let main,files,backgroundSave,github,ai,projectFiles,downloads,closePluginPreviews,closing=false,readerSession;const readerOptions=new Map();const previews=new Set();
 const assets=app.isPackaged?path.join(process.resourcesPath,'web'):path.resolve(directory,'../dist/web');
 const icon=app.isPackaged?path.join(process.resourcesPath,'icon.png'):path.resolve(directory,'../AppScope/resources/base/media/app_icon_1024.png');
 const failure=error=>JSON.stringify({ok:false,error:error.message||'操作失败。',...(typeof error.code==='string'&&/^E_[A-Z_]+$/.test(error.code)?{code:error.code,details:error.details||{},retryable:!!error.retryable}:{})}),success=value=>JSON.stringify({ok:true,value:value??null});
@@ -48,13 +50,6 @@ async function request(url,method,body,token,host={}){
   const response=await net.fetch(url,{method,headers,body:body?JSON.stringify(body):undefined,redirect:'error',signal:AbortSignal.timeout(30000),bypassCustomProtocolHandlers:true});
   const chunks=[];let bytes=0;for await(const chunk of response.body||[]){bytes+=chunk.byteLength;if(bytes>16*1024*1024)throw new Error('GitHub 响应过大。');chunks.push(Buffer.from(chunk));}
   const text=Buffer.concat(chunks).toString('utf8');let value=null;try{if(text)value=JSON.parse(text);}catch{if(response.ok)throw new Error('GitHub 响应格式异常。');value={};}return {status:response.status,body:value};
-}
-function credentials(){
-  const fileFor=provider=>path.join(files.base,provider.startsWith('gitea:')?'gitea-'+createHash('sha256').update(provider).digest('hex')+'-token.dat':provider==='gitee'?'gitee-token.dat':'github-token.dat');return {
-    read:(provider='github')=>{const file=fileFor(provider);if(!fs.existsSync(file))return '';if(!safeStorage.isEncryptionAvailable())throw new Error('Windows 安全凭据存储不可用。');return safeStorage.decryptString(fs.readFileSync(file));},
-    write:(token,provider='github')=>{const file=fileFor(provider);if(!safeStorage.isEncryptionAvailable())throw new Error('Windows 安全凭据存储不可用。');atomic(file,safeStorage.encryptString(token));},
-    clear:(provider='github')=>{const file=fileFor(provider);if(fs.existsSync(file))fs.unlinkSync(file);}
-  };
 }
 function assetResponse(url){
   try{if(url.hostname!=='editor'||!url.pathname.startsWith('/web/'))return new Response('',{status:403});const relative=decodeURIComponent(url.pathname.slice(5));if(relative.includes('\\')||relative.split('/').some(part=>part==='..'||part==='.'||!part))throw new Error('invalid');const file=path.resolve(assets,relative);if(!file.startsWith(assets+path.sep)||!fs.statSync(file).isFile())throw new Error('missing');return new Response(fs.readFileSync(file),{headers:{'Content-Type':mime(file),'X-Content-Type-Options':'nosniff'}});}catch{return new Response('',{status:404});}
@@ -94,6 +89,7 @@ async function dispatch(operation,data){
   if(operation==='saveWorkspace'){if(projectFiles.busy)throw Object.assign(Error('项目正在提交，请稍后保存。'),{code:'E_CONFLICT'});return backgroundSave.save(data.data,data.delta===true);}
   if(projectFiles.busy&&['manageFiles','restoreTrash','writeWorkspaceFiles'].includes(operation))throw Object.assign(new Error('项目正在提交，请稍后重试。'),{code:'E_CONFLICT'});
   switch(operation){
+    case 'ai':return ai.call(data);
     case 'project':if(typeof data.request!=='string'||data.request.length>64*1024*1024)throw Object.assign(new Error('项目请求过大。'),{code:'E_LIMIT'});return projectFiles.call(data.action,data.owner,JSON.parse(data.request)).catch(error=>{if(/^E_/.test(error.code))throw error;const code=['ENOSPC','EDQUOT'].includes(error.code)?'E_QUOTA':error.code==='ENOENT'?'E_NOT_FOUND':['EACCES','EPERM'].includes(error.code)?'E_PERMISSION':'E_INVALID_DATA';throw Object.assign(new Error(code==='E_QUOTA'?'存储空间不足，原始数据已保留。':'项目文件操作失败，原始数据已保留。'),{code,details:{},retryable:false});});
     case 'initializeStorage':case 'refreshFolder':return files.scan();
     case 'manageFiles':return files.manage(data.action,data.path,data.destination);
@@ -121,7 +117,7 @@ async function dispatch(operation,data){
 }
 if(!qa&&!app.requestSingleInstanceLock())app.quit();else{
   app.on('second-instance',()=>{if(main){if(main.isMinimized())main.restore();main.focus();}});
-  app.whenReady().then(async()=>{files=new WorkspaceStorage(app.getPath('userData'));backgroundSave=new BackgroundWorkspaceSave(files.base);projectFiles=new ProjectStore(files);github=new GitHubBridge({request,credentials:credentials()});
+  app.whenReady().then(async()=>{files=new WorkspaceStorage(app.getPath('userData'));backgroundSave=new BackgroundWorkspaceSave(files.base);projectFiles=new ProjectStore(files);const credentials=createCredentials(files.base,safeStorage);github=new GitHubBridge({request,credentials});ai=new AiBridge({credentials,fetch:net.fetch.bind(net)});
   readerSession=session.fromPartition('persist:vela-reader');readerSession.protocol.handle('https',request=>{const url=new URL(request.url);return previewResponse(url,readerOptions.get(decodeURIComponent(url.pathname.slice(1)))||{reading:true});});
   const editorSession=session.fromPartition('persist:vela-editor');downloads=new Downloads({fetch:net.fetch.bind(net),directory:path.join(app.getPath('temp'),'vela-downloads-'+process.pid),version:VERSION,notify:detail=>{if(main&&!main.isDestroyed())main.webContents.executeJavaScript('window.dispatchEvent(new CustomEvent("wenzhouDownload",{detail:'+JSON.stringify(detail)+'}))').catch(()=>{});}});
   editorSession.protocol.handle('vela',request=>{const url=new URL(request.url);return url.hostname==='asset'?projectFiles.resource(request):url.hostname==='editor'&&url.pathname.startsWith('/imports/')&&request.method==='GET'?downloads.response(url):assetResponse(url);});editorSession.protocol.handle('https',request=>previewResponse(new URL(request.url),{},true));

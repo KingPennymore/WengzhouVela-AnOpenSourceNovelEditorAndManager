@@ -14898,6 +14898,67 @@
   @keyframes map-selection-action-in{from{opacity:0;transform:translateX(64px)}to{opacity:1;transform:translateX(0)}}
   @keyframes dialog-working{to{transform:rotate(360deg)}}
 
+
+  /* AI assistant: floating button over the editor and its panel (docs/AI-ASSIST.md). The editor becomes the
+     button's positioning box only once AI is enabled, so nothing changes for anyone else. */
+  #editor:has(> .ai-button) {
+    position:relative;
+  }
+
+  .ai-button {
+    position:absolute;
+    top:10px;
+    right:18px;
+    z-index:5;
+    width:36px;
+    height:36px;
+    padding:0;
+    display:grid;
+    place-items:center;
+    border-radius:50%;
+    border:1px solid var(--line);
+    background:var(--panel);
+    color:var(--accent);
+    box-shadow:var(--elev-1);
+  }
+
+  @media (max-width:600px) {
+    .ai-button {
+      top:8px;
+      right:12px;
+    }
+  }
+
+  .ai-button svg {
+    width:20px;
+    height:20px;
+  }
+
+  .ai-destination,.ai-key-status {
+    color:var(--muted);
+    font-size:13px;
+  }
+
+  .ai-section {
+    margin-top:12px;
+    padding-top:12px;
+    border-top:1px solid var(--line);
+  }
+
+  .ai-section h3 {
+    margin:0 0 4px;
+    font-size:14px;
+  }
+
+  .ai-chapters {max-height:220px;overflow:auto;}
+  .ai-extract fieldset {min-width:0;margin:12px 0;}
+  .ai-extract textarea {min-height:72px;}
+  .ai-extract [role=alert] {color:var(--danger);}
+  .ai-ghost {color:var(--text);white-space:pre-wrap;}
+  .ai-ghost-text {display:inline;border:0;background:transparent;box-shadow:none;padding:0;color:inherit;font:inherit;opacity:.35;text-align:left;white-space:pre-wrap;}
+  .ai-ghost-actions {display:inline-flex;vertical-align:middle;}
+  .ai-ghost-actions button {min-height:40px;min-width:40px;padding:4px 8px;}
+
 }
 
 @layer state {

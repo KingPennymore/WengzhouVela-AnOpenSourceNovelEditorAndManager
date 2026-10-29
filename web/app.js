@@ -76,7 +76,7 @@ import {createExportDialogs} from './export-dialogs.mjs';
 import {createFileDialogs} from './file-dialogs.mjs';
 import {renderPlainChapters} from './reader-layout.mjs';
 import {textPoint,invalidateTextIndex} from './reading-position.mjs';
-import {loadOutlineView,loadMapView,loadPdfPreview,loadReader,loadLatexEditor,loadMarkdownPreview,loadHtmlPreview,loadGuide,loadSubscriptions,loadUpdateView,loadGlossaryView,chunkFailure} from './lazy.mjs';
+import {loadOutlineView,loadMapView,loadPdfPreview,loadReader,loadLatexEditor,loadMarkdownPreview,loadHtmlPreview,loadGuide,loadSubscriptions,loadUpdateView,loadGlossaryView,loadAiAssistant,loadAiSettings,chunkFailure} from './lazy.mjs';
 import {fromBase64} from './plugin-package.mjs';
 import {documentPath,uniquePath,preparePaths,adoptFolder,folderTree,gitFileState} from './workspace.mjs';
 import {chapterSettings,chapterMatcher} from './chapters.mjs';
@@ -233,7 +233,7 @@ let fileClipboard=null;
 // goes through to the variable here, so a module never holds a stale workspace or editor view.
 const appState={
   get workspace(){return workspace;},set workspace(value){workspace=value;},
-  get view(){return view;},get home(){return home;},get documents(){return documents;},get environment(){return environment;},
+  get view(){return view;},get home(){return home;},get pageName(){return pageName;},get documents(){return documents;},get environment(){return environment;},
   get isPreview(){return isPreview;},set isPreview(value){isPreview=value;},
   get gh(){return gh;},set gh(client){gh=client;},
   get selectedFolder(){return selectedFolder;},set selectedFolder(value){selectedFolder=value;},
@@ -243,6 +243,8 @@ const appState={
 const withState=services=>Object.assign(Object.create(appState),services);
 const sourceRendering=new Compartment(),gutters=new Compartment(),formatEnv=new Compartment(),pluginExtras=new Compartment(),projectReadonly=new Compartment(),completer=new Compartment(),pluginKeys=new Compartment(),languages=new Compartment(),systemTheme=matchMedia('(prefers-color-scheme: dark)');
 const editorStates=new Map(),editorScrolls=new Map();
+const aiSuggestionSlot=new Compartment();
+let aiSuggestions=[];
 const editorIndexes=new WeakMap();
 const session = new WorkspaceSession({
   locked: () => projectLocked,
@@ -753,6 +755,7 @@ function makeState(doc){
     csvLineBreak?EditorState.lineSeparator.of(csvLineBreak):[],
     projectReadonly.of(EditorState.readOnly.of(projectLocked)),
     history(),
+    aiSuggestionSlot.of(aiSuggestions),
     sourceRendering.of(isPreview&&['OUTLINE','MAP'].includes(documentKind(doc))?[]:sourceRenderExtensions(doc)),
     documentKind(doc)==='TXT'?[richTextExtensions(loadFormats(doc)),formatEnv.of(formatEnvironment(doc))]:[],
     pluginExtras.of(plugins?.extensions()||[]),
@@ -926,6 +929,20 @@ function updateEditorVisibility(){
   for(const id of ['search-editor','outline-toggle','focus-toggle','export-doc','quick-top','quick-bottom','quick-chapter-top','quick-chapter-bottom','append-chapter','locate-chapter','export-chapters'])$('#'+id).disabled=home;
   for(const id of ['search-editor','quick-top','quick-bottom','quick-chapter-top','quick-chapter-bottom','append-chapter','locate-chapter','export-chapters'])if(planning)$('#'+id).disabled=true;$('#add-glossary').disabled=home||isPreview||pageName!=='write';
   if(home){$('#quick-undo').disabled=true;$('#quick-redo').disabled=true;}
+  updateAiAssistant();
+}
+// AI assistant (docs/AI-ASSIST.md): nothing is loaded until it is enabled in settings.
+let aiAssistant=null;
+function updateAiAssistant(){
+  if(aiAssistant){aiAssistant.update();return;}
+  if(!workspace?.settings.ai?.enabled)return;
+  loadAiAssistant().then(module=>{aiAssistant??=module.createAiAssistant(withState({current,documentKind,openModal,openSettings:openAiSettings,save,toast,fail,projectService:()=>projects,locked:()=>projectLocked,chapters:doc=>doc===current()?ensureIndex().sections:Writer.buildIndex(doc.text,projectWriter(workspace,doc),chapterMatcher(projectWriter(workspace,doc))).sections,installSuggestion:extension=>{aiSuggestions=extension;view?.dispatch({effects:aiSuggestionSlot.reconfigure(extension)});}}));aiAssistant.update();}).catch(fail);
+}
+/** Opens Settings at the AI assistant section. */
+function openAiSettings(){
+  $('#settings').click();
+  const section=$('#ai-settings')?.closest('.settings-section');
+  if(section)document.querySelector(`.settings-navigation [aria-controls="${section.id}"]`)?.click();
 }
 function renderDisplayOptions(){
   const doc=current();$('#display-options').hidden=home||!doc;if(!doc)return;
@@ -1834,7 +1851,7 @@ $('#quick-chapter-bottom').onclick=()=>jump(chapterPosition(view.state.doc.toStr
 document.querySelectorAll('.quickbar button').forEach(b=>b.addEventListener('mousedown',e=>e.preventDefault()));
 $('#quick-git').onclick=()=>repositoryView.gitDocument();
 $('#settings').onclick=()=>{
-  const s=workspace.settings.writer;
+  const s=workspace.settings.writer;let aiForm=null;
   openModal(t('编辑器设置'),`<label>${t('语言')}<select name="language"><option value="zh-CN" ${workspace.settings.language!=='en'?'selected':''}>${t('简体中文')}</option><option value="en" ${workspace.settings.language==='en'?'selected':''}>English</option></select></label>
     <label>${t('外观')}<select name="theme">${[['system',t('跟随系统')],['light',t('浅色模式')],['dark',t('深色模式')]].map(([value,label])=>`<option value="${value}" ${workspace.settings.theme===value?'selected':''}>${label}</option>`).join('')}</select></label>
     <fieldset class="palette-options"><legend>${t('配色方案')}</legend>${allPalettes().map(p=>`<label class="palette-choice${p.custom?' custom':''}"><input type="radio" name="palette" value="${p.id}" ${p.id===workspace.settings.palette?'checked':''}><span class="palette-swatches"><i style="background:${p.light.accent}"></i><i style="background:${p.light.soft}"></i><i style="background:${p.dark.paper}"></i></span><span>${esc(p.custom?p.name:t(p.name))}</span>${p.custom?`<button type="button" class="text-button palette-edit" data-edit-palette="${p.id}" aria-label="${say(`编辑配色 ${esc(p.custom?p.name:t(p.name))}`,`Edit palette ${esc(p.custom?p.name:t(p.name))}`)}">${t('编辑')}</button>`:''}</label>`).join('')}${customPalettes().length<MAX_CUSTOM_PALETTES?`<button type="button" class="palette-add" id="new-palette">${t('＋ 自定义配色')}</button>`:''}</fieldset>
@@ -1851,10 +1868,13 @@ $('#settings').onclick=()=>{
     <label class="checkbox"><input name="includeHeading" type="checkbox" ${s.includeHeading?'checked':''}>${t('字数包含章节标题')}</label>
     <p>${t('自动识别标准中英章节标题；额外模板保存在工作区 .vela 配置中。')}</p>
     <div class="notice">${say(`文舟 ${environment?.version||(environment?.platform==='android'?__VELA_HARMONY_VERSION__+'-android.1':__VELA_HARMONY_VERSION__)}`,`Vela ${environment?.version||(environment?.platform==='android'?__VELA_HARMONY_VERSION__+'-android.1':__VELA_HARMONY_VERSION__)}`)}<br>${t('开源小说创作 / 阅读工具')}</div>
+    <fieldset class="ai-settings" id="ai-settings"><p>${t('正在读取…')}</p></fieldset>
     <p><button type="button" class="secondary" id="create-vela" ${workspace.documents.some(doc=>documentKind(doc)==='VELA'&&documentPath(doc)!==GLOBAL_VELA_PATH&&configFolder(documentPath(doc))===currentScope())?'disabled':''}>${t('创建 .vela 配置')}</button></p>
     <p><button type="button" class="secondary" id="backup-all">${t('导出全部文稿备份')}</button> <button type="button" class="secondary" id="restore-backup">${t('恢复文稿备份')}</button> <button type="button" class="secondary" id="show-licenses">${t('开源许可')}</button>${native
     ?`<button type="button" class="secondary" id="check-updates">${t('检查更新')}</button><label class="checkbox"><input name="updateChecks" type="checkbox" ${workspace.settings.updateChecks!==false?'checked':''}>${t('自动检查更新')}</label>`
     :''}</p>`,async f=>{
+    // First, so an invalid AI section stops the whole save before anything else changes.
+    const ai=aiForm?.apply(f);
     const configPriorityChanged=(globalConfig(workspace)?.config?.reader?.appearancePolicy==='personal')!==f.has('globalVelaOverride');
     workspace.settings.writer=chapterSettings({...s,titleTemplates:[],countMode:f.get('countMode'),includeHeading:f.has('includeHeading')});
     workspace.settings.language=f.get('language');
@@ -1894,6 +1914,7 @@ $('#settings').onclick=()=>{
     reader?.layout();
     if(pageName==='reader'&&configPriorityChanged)reader.home();
     if(pageName==='subscriptions')subscriptions?.render();
+    if(ai){aiAssistant?.refreshStatus();updateAiAssistant();if(ai.enabled&&!ai.ready)toast(t('AI 助手已启用，但还没有为这个接口地址保存 API Key。'));}
   });
   mountFontSettings($('#dialog-body'),workspace.settings.fontFamily,{native,transport,window});
   const cleanup=document.createElement('p');cleanup.innerHTML=`<button type="button" class="secondary" id="cleanup-redundant">${t('清除冗余文件')}</button>`;$('#dialog-body').append(cleanup);
@@ -1903,6 +1924,8 @@ $('#settings').onclick=()=>{
     if(!save())throw Error(t('清理后关联信息保存失败，请刷新工作区。'));
   }});
   if($('#check-updates'))$('#check-updates').onclick=()=>checkWindowsUpdates(true);
+  const settingsSession=$('#dialog-body').viewSession;
+  loadAiSettings().then(module=>settingsSession.alive()?module.mountAiSettings($('#ai-settings'),{workspace,toast,changed:()=>{aiAssistant?.refreshStatus();updateAiAssistant();}}):null).then(form=>{aiForm=form;}).catch(error=>{if(settingsSession.alive())chunkFailure($('#ai-settings'),error,openAiSettings);});
   // A palette radio inside a label: the edit button must not select it; both buttons replace the settings dialog.
   $('#dialog-body').querySelectorAll('[data-edit-palette]').forEach(button=>button.onclick=event=>{event.preventDefault();showPaletteEditor(button.dataset.editPalette);});
   const newPalette=$('#new-palette');if(newPalette)newPalette.onclick=()=>showPaletteEditor('',$('#dialog-body [name=palette]:checked')?.value||workspace.settings.palette);

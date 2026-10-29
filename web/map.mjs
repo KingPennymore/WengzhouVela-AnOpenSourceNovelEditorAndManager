@@ -83,6 +83,8 @@ export function parseMap(text){
       for(const k of ['name','note','category','symbol'])
         optional(m,k,string);
       optional(m,'link',reference);
+      if(m.relatedIds!==undefined&&(!Array.isArray(m.relatedIds)||m.relatedIds.length>32||m.relatedIds.some(id=>typeof id!=='string'||id.length>160)))
+        throw Error(t('关联信息点无效。'));
       if(m.invalid!==undefined&&typeof m.invalid!=='boolean')
         throw Error(t('信息点标记无效。'));
     }
