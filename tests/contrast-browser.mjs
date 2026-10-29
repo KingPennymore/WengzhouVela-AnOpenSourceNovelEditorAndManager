@@ -9,7 +9,7 @@ import { openRecentFile } from './start-page-helper.mjs';
 const out = 'test-results/ui-redesign/phase-5';
 await mkdir(out, { recursive: true });
 const record = process.env.VELA_UI_AUDIT_ONLY === '1',
-  accessibility = process.env.VELA_CHECK_ACCESSIBILITY === '1';
+  accessibility = process.env.VELA_CHECK_ACCESSIBILITY !== '0';
 const server = await startSourceAppServer(),
   browser = await launchBrowser(),
   results = [],
@@ -270,6 +270,36 @@ function inspect({ roots, accessibility }) {
   }
   return { checked, min: Number(min.toFixed(3)), contrast: findings, smallText, targets, names };
 }
+// Enter keyboard modality, then exercise every rendered, enabled tab stop, including
+// visually hidden native inputs whose focus indicator belongs to their label/track.
+async function keyboardAudit(page, roots) {
+  const active = await page.evaluateHandle(() => document.activeElement);
+  await page.evaluate(() => document.activeElement?.blur());
+  await page.keyboard.press('Tab');
+  const result = await page.evaluate((roots) => {
+    const failures = [], elements = new Set();
+    for (const selector of roots) for (const root of document.querySelectorAll(selector))
+      for (const el of root.querySelectorAll('button,a[href],input,select,textarea,summary,[tabindex],[contenteditable=true]')) elements.add(el);
+    let checked = 0;
+    for (const el of elements) {
+      if (el.disabled || el.tabIndex < 0 || el.closest('[inert]') || !el.checkVisibility({checkVisibilityCSS:true})) continue;
+      const box = el.getBoundingClientRect();
+      if (!box.width || !box.height || getComputedStyle(el).visibility !== 'visible') continue;
+      el.focus({preventScroll:true});
+      let indicator = el;
+      if (el.matches('.ui-switch>input,.ui-segmented-option>input')) indicator = el.nextElementSibling;
+      else if (el.matches('.palette-choice input')) indicator = el.closest('.palette-choice');
+      const style = getComputedStyle(indicator);
+      checked++;
+      if (document.activeElement !== el || !el.matches(':focus-visible') || style.outlineStyle !== 'solid' || style.outlineWidth !== '2px' || style.outlineOffset !== '2px')
+        failures.push({selector:el.id || el.className || el.tagName, outline:style.outline,offset:style.outlineOffset,active:document.activeElement===el});
+    }
+    return {checked, failures};
+  }, roots);
+  await active.evaluate(el => el?.focus({preventScroll:true}));
+  await active.dispose();
+  return result;
+}
 async function capture(page, profile, name, roots, shot = false) {
   await settled(page);
   const containers = await page
@@ -298,7 +328,9 @@ async function capture(page, profile, name, roots, shot = false) {
   const unique = (key) => [
     ...new Map(samples.flatMap((s) => s[key]).map((x) => [JSON.stringify(x), x])).values(),
   ];
+  const keyboard = accessibility ? await keyboardAudit(page, roots) : {checked:0,failures:[]};
   results.push({
+    keyboard,
     profile,
     scene: name,
     checked: samples.reduce((a, s) => a + s.checked, 0),
@@ -422,6 +454,19 @@ try {
     await capture(page, 'gallery-' + theme, 'errors', ['.ui-notice--error', '.ui-failure'], true);
     await context.close();
   }
+  if (accessibility && !record) {
+    const context = await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true,reducedMotion:'reduce'});
+    await context.addInitScript(data => localStorage.setItem('wenzhou.workspace',JSON.stringify(data)),seed);
+    const page = await context.newPage();
+    await page.goto(server.url+'/?ui=android');
+    await page.waitForFunction(() => window.velaReady);
+    for (const action of [async()=>{},async()=>{await page.locator('#more-tools').click();},async()=>{await page.locator('#settings').click();}]) {
+      await action(); await settled(page);
+      const moving = await page.evaluate(() => document.getAnimations().filter(a => a.playState==='running' && !String(a.animationName || '').includes('blink')).map(a=>({name:a.animationName,duration:a.effect.getComputedTiming().duration})));
+      assert.deepEqual(moving, [], 'Reduced motion must work without test animation overrides');
+    }
+    await context.close();
+  }
   const summary = { mode: record ? 'before' : 'after', accessibility, results, errors };
   await writeFile(
     `${out}/${record ? 'before-audit' : 'audit'}.json`,
@@ -437,12 +482,14 @@ try {
   if (!record) {
     assert.deepEqual(errors, []);
     assert.equal(counts.contrast, 0, 'Visible text must meet AA; see audit.json');
-    if (accessibility)
+    if (accessibility) {
+      assert.deepEqual(results.flatMap(r => r.keyboard.failures), [], 'Keyboard focus must be reachable and consistent');
       assert.deepEqual(
         [counts.smallText, counts.targets, counts.names],
         [0, 0, 0],
         'See audit.json for accessibility failures',
       );
+    }
   }
 } finally {
   await browser.close();

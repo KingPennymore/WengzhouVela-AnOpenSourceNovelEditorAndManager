@@ -290,3 +290,6 @@
 }
 
 @keyframes outline-flash{to{opacity:.25}}
+
+/* CodeMirror themes are unlayered. Keep its editable focus frame consistent with the shell. */
+#editor .cm-editor .cm-content:focus-visible {outline:2px solid var(--accent);outline-offset:2px;box-shadow:none;}

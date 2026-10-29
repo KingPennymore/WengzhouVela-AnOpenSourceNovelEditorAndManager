@@ -203,7 +203,7 @@
 
   input[type=checkbox]:focus-visible {
     outline:2px solid var(--accent);
-    outline-offset:3px;
+    outline-offset:2px;
   }
 
   input[type=checkbox]:disabled {
@@ -382,13 +382,13 @@
   button:focus-visible {
     outline:2px solid var(--accent);
     outline-offset:2px;
-    box-shadow:0 0 0 4px var(--accent-tint);
+    box-shadow:none;
   }
 
   a:focus-visible {
     outline:2px solid var(--accent);
     outline-offset:2px;
-    box-shadow:0 0 0 4px var(--accent-tint);
+    box-shadow:none;
   }
 
   input {
@@ -2297,7 +2297,7 @@
 
   #toolbar-overflow button:focus-visible {
     outline:2px solid var(--accent);
-    outline-offset:-2px;
+    outline-offset:2px;
     background:var(--accent-tint);
   }
 
@@ -2609,7 +2609,7 @@
 
   .doc-menu:focus-visible {
     opacity:1;
-  }
+  outline:2px solid var(--accent);outline-offset:2px;}
 
   .github-connect {
     width:100%;
@@ -5482,8 +5482,8 @@
   }
 
   .reader-viewport:focus-visible {
-    outline:none;
-  }
+    outline:2px solid var(--accent);
+  outline-offset:2px;}
 
   .reader-content:not(.tex-pdf) {
     padding:var(--reader-marginTop,var(--space-5)) var(--reader-marginRight,35px) var(--reader-marginBottom,var(--space-5)) var(--reader-marginLeft,35px);
@@ -7363,7 +7363,7 @@
 
   .map-directory-row>button:focus-visible {
     background:var(--accent-tint);
-  }
+  outline:2px solid var(--accent);outline-offset:2px;}
 
   .map-directory-row>button>span:last-child {
     min-width:0;
@@ -8495,12 +8495,12 @@
 
   .planning-primary>button:focus-visible {
     outline:2px solid var(--accent);
-    outline-offset:-2px;
+    outline-offset:2px;
   }
 
   .planning-overflow:focus-visible {
     outline:2px solid var(--accent);
-    outline-offset:-2px;
+    outline-offset:2px;
   }
 
   @media (min-width:900px) {
@@ -8661,7 +8661,7 @@
 
   .map-selection>[data-transform]:focus-visible {
     outline:2px solid var(--accent);
-    outline-offset:0;
+    outline-offset:2px;
   }
 
   .map-selection-settings {
@@ -9107,7 +9107,7 @@
 
   .planning-menu button:focus-visible {
     outline:2px solid var(--accent);
-    outline-offset:-2px;
+    outline-offset:2px;
     background:var(--accent-tint);
   }
 
@@ -9894,8 +9894,8 @@
   }
 
   .csv-plane:focus-visible {
-    box-shadow:inset 0 0 0 1px var(--accent);
-  }
+    box-shadow:none;
+  outline:2px solid var(--accent);outline-offset:2px;}
 
   .csv-grid-stage {
     position:absolute;
@@ -10042,7 +10042,7 @@
 
   .csv-column-resize:focus-visible {
     outline:2px solid var(--accent);
-    outline-offset:-3px;
+    outline-offset:2px;
   }
 
   .csv-selection-layer {
@@ -12523,7 +12523,7 @@
   .sidebar-resize:focus-visible {
     background:var(--soft);
     outline:2px solid var(--accent);
-    outline-offset:-2px;
+    outline-offset:2px;
   }
 
   #dialog:has(.sync-merged) {
@@ -12931,7 +12931,7 @@
 
   .app-choice-list>button:focus-visible {
     background:var(--soft);
-  }
+  outline:2px solid var(--accent);outline-offset:2px;}
 
   .app-choice-list>[aria-selected=true] {
     background:var(--accent-tint);
@@ -13978,7 +13978,7 @@
 
   .trash-manager :is(button,input):focus-visible {
     outline:2px solid var(--accent);
-    outline-offset:-2px;
+    outline-offset:2px;
   }
 
   @media (max-width:600px) {
@@ -14246,7 +14246,7 @@
   :is(.ui-button,.ui-icon-button,.ui-stepper>button,.ui-stepper>input,.ui-select):focus-visible {
     outline:2px solid var(--accent);
     outline-offset:2px;
-    box-shadow:0 0 0 4px var(--accent-tint);
+    box-shadow:none;
   }
 
   .ui-icon-button {
@@ -14767,7 +14767,7 @@
   #dialog.settings-dialog .palette-choice { display:flex;flex-wrap:wrap;align-items:center;padding:var(--space-2);gap:var(--space-2);border-radius:var(--radius-md); }
   #dialog.settings-dialog .palette-choice input { position:absolute;opacity:0;width:1px;height:1px; }
   #dialog.settings-dialog .palette-choice:has(input:checked) { outline:2px solid var(--accent); }
-  #dialog.settings-dialog .palette-choice:has(input:focus-visible) { outline:2px solid var(--accent);outline-offset:3px; }
+  #dialog.settings-dialog .palette-choice:has(input:focus-visible) { outline:2px solid var(--accent);outline-offset:2px; }
   #dialog.settings-dialog [data-setting=palette] .ui-setting-row { display:block; }
   #dialog.settings-dialog [data-setting=palette] .ui-setting-copy { margin-bottom:var(--space-3); }
   #dialog.settings-dialog [data-setting=readingMode] .ui-setting-row { display:block; }
@@ -14805,5 +14805,15 @@
     #dialog.settings-dialog :is(button,summary,select,.ui-switch,.ui-segmented-option) { min-width:44px; }
   }
 
+
+  /* A single keyboard focus frame. Native input proxies retain the same frame on their visible sibling. */
+  :where(button,a[href],input,select,textarea,summary,[tabindex],[contenteditable=true]):focus-visible {outline:2px solid var(--accent);outline-offset:2px;box-shadow:none;}
+  @media (pointer:coarse) {
+    :where(button,a[href],select,summary,[role=button],input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=file]),textarea) {min-inline-size:var(--control-h);min-block-size:var(--control-h);}
+    label:has(>input:is([type=checkbox],[type=radio])) {min-inline-size:var(--control-h);min-block-size:var(--control-h);display:inline-flex;align-items:center;}
+  }
+  @media (prefers-reduced-motion:reduce) {
+    *,*::before,*::after {scroll-behavior:auto;animation-duration:0s;animation-iteration-count:1;transition-duration:0s;transition-delay:0s;}
+  }
 
 }

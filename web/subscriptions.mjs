@@ -232,7 +232,7 @@ export class Subscriptions {
           <button id="subscription-delete" class="danger" ${active.length?'':'disabled'}>${t('删除订阅')}</button>
           <span>${active.length} / ${this.items().length}</span></div>
         <div class="subscription-list">${visible.map(item=>`<div class="subscription-card" data-subscription="${esc(item.repo)}">
-          <input type="checkbox" data-select-subscription="${esc(item.repo)}" aria-label="${t('选择')} ${esc(item.repo)}" ${this.selected.has(item.repo)?'checked':''}>
+          <label class="subscription-selection"><input type="checkbox" data-select-subscription="${esc(item.repo)}" aria-label="${t('选择')} ${esc(item.repo)}" ${this.selected.has(item.repo)?'checked':''}></label>
           <button class="subscription-open" data-subscription-open="${esc(item.repo)}">
             <strong data-user-content>${esc(item.snapshot.name)}${item.unread?'<i class="update-dot"></i>':''}</strong>
             <small>${item.snapshot.vela?'.vela':'GitHub'} · ${esc(new Date(item.snapshot.checkedAt).toLocaleString())}</small>
