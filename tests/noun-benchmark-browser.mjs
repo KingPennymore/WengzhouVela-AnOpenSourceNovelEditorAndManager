@@ -20,7 +20,7 @@ try{
       terminate(){if(this.noun){window.nounStats.live--;this.noun=false;}return super.terminate();}
     };
   },seed);
-  const t0=performance.now();await page.goto('http://127.0.0.1:4173/?ui=android');
+  const t0=performance.now();await page.goto((process.env.VELA_TEST_URL||'http://127.0.0.1:4173')+'/?ui=android');
   if(await page.locator('#start-page').isVisible())await openRecentFile(page,page.locator('[data-recent=long]'));
   await page.waitForSelector('.cm-editor');result.editorReadyMs=performance.now()-t0;
   const type=()=>page.evaluate(async()=>{const v=velaEditorView,times=[];for(let i=0;i<30;i++){const t=performance.now();v.dispatch({changes:{from:0,insert:'字'}});await new Promise(requestAnimationFrame);times.push(performance.now()-t);}times.sort((a,b)=>a-b);return {p95Ms:times[28],maxMs:times[29]};});
@@ -53,7 +53,7 @@ try{
   // The removed icons must stay absent with the sidebar both expanded and collapsed.
   for(const [profile,width] of [['android',390],['harmonyos',390],['windows',1280],['android',320]]){
     const context=await browser.newContext({viewport:{width,height:850}}),p=await context.newPage();p.on('pageerror',e=>result.errors.push(e.message));
-    await p.goto('http://127.0.0.1:4173/?ui='+profile);await p.keyboard.press('Control+Alt+h');await p.waitForSelector('.start-stats');
+    await p.goto((process.env.VELA_TEST_URL||'http://127.0.0.1:4173')+'/?ui='+profile);await p.keyboard.press('Control+Alt+h');await p.waitForSelector('.start-stats');
     for(let toggle=0;toggle<2;toggle++){
       await p.waitForTimeout(500);
       assert.equal(await p.locator('.start-stat').count(),3);assert.equal(await p.locator('.start-stat svg,.start-stat .stat-icon').count(),0);

@@ -9,7 +9,7 @@ await p.addInitScript(()=>{
  localStorage.setItem('wenzhou.workspace',JSON.stringify({version:1,documents:[{id:'long',name:'操作指南.txt',text,updatedAt:1},{id:'other',name:'另一篇.txt',text:'星',updatedAt:1}],openIds:['long','other'],activeId:'long',settings:{theme:'light'}}));
 });
 try{
- const start=performance.now();await p.goto('http://127.0.0.1:4173');await p.waitForSelector('.cm-editor');
+ const start=performance.now();await p.goto((process.env.VELA_TEST_URL||'http://127.0.0.1:4173'));await p.waitForSelector('.cm-editor');
  await p.evaluate(()=>{const v=velaEditorView;v.dispatch({selection:{anchor:0}});v.focus();});await p.keyboard.insertText('星');
  // Index the distant last block before querying it. Keep user-visible typing independent.
  await p.waitForFunction(()=>window.nounTransfers.reduce((n,v)=>n+v.bytes,0)>2000000,{},{timeout:30000});await p.waitForTimeout(250);
