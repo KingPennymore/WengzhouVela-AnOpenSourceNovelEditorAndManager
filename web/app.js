@@ -18,10 +18,7 @@ import {
   prepareWorkspace,
 } from './app-core/workspace-startup.mjs';
 import {renderVelaEditor} from './vela-view.mjs';
-import {mountComponentDownloads} from './component-download-view.mjs';
-import {checkAppUpdates} from './update-view.mjs';
 import {registerMapDirectory} from './map-directory.mjs';
-import {guideIconImage} from './guide-icons.mjs';
 import {SidebarViews} from './sidebar-views.mjs';
 import {ViewContext,BackgroundTasks} from './extension-services.mjs';
 import {bindPanelTapGuard,movedBeyond,SWIPE_SLOP} from './tap-guard.mjs';
@@ -45,22 +42,17 @@ import {history, historyKeymap, defaultKeymap, undo, redo, undoDepth, redoDepth}
 import {searchKeymap, openSearchPanel, highlightSelectionMatches} from '@codemirror/search';
 import {languageSupport,loadLanguage} from './languages.mjs';
 import {TexCompiler} from './tex-compiler.mjs';
-import {markdownMath} from './latex.mjs';
 import {syntaxHighlighting, defaultHighlightStyle} from '@codemirror/language';
-import MarkdownIt from 'markdown-it';
-import DOMPurify from 'dompurify';
 import Writer from '../vendor/acode-writer/src/core.js';
 import {indentedLineWrapping} from '../vendor/acode/src/cm/indentedLineWrapping.ts';
 import {scrollPastEndCustom} from '../vendor/acode/src/cm/scrollPastEnd.ts';
 import {newDocument,chapterPosition,normalizeText,fileName,fileKind,documentKind,repoPath,MAX_TEXT_BYTES} from './model.mjs';
 import {GitHub} from './github.mjs';
 import {native,transport,readWorkspace,saveWorkspace,saveWorkspaceAsync,exportText,exportBinary,readEnvironment} from './platform.mjs';
-import {guide} from './guide.mjs';
 import {shortcuts,matchesKey} from './shortcuts.mjs';
 import {SidebarLayout} from './sidebars.mjs';
 import {reconcilePanel,textInfoCache} from './document-panels.mjs';
 import {UIShell,organizeSettings} from './ui-shell.mjs';
-import {Subscriptions} from './subscriptions.mjs';
 import {createVelaV2,velaText,projectConfig,projectWriter,includeNewReadingFile,rewriteVelaFiles,configFolder,readable,GLOBAL_VELA_PATH,globalConfig,formatHome,legacySidecar,addFormatRecord,configStyles,readPosition,positionEntry,positionOffset,positionUpdate} from './vela.mjs';
 import {completionExtensions} from './completion.mjs';
 import {syncTextEqual,preserveVelaPositions,mergeVelaTexts} from './vela-sync.mjs';
@@ -70,14 +62,13 @@ import {ProjectService} from './project-service.mjs';
 import {projectBackend} from './project-backend.mjs';
 import {paragraphSelection} from './selection.mjs';
 import {decodeFileText} from './file-text.mjs';
-import {htmlPreview} from './html-preview.mjs';
 import {loadCsvTable,collectCsvTables} from './csv-embed.mjs';
 import {showCsvInsert} from './csv-insert.mjs';
 import {palettes,applyPalette,paletteFor,allPalettes,customPalettes,setCustomPalettes,derivePalette,paletteWarnings,validateCustomPalette,paletteBase,newPaletteId,MAX_CUSTOM_PALETTES} from './palettes.mjs';
 import {newFileHtml,bindNewFile,assertNewFile} from './new-file.mjs';
 import {folderPickerHtml,bindFolderPicker} from './folder-picker.mjs';
 import {initMotion,crossfadeTheme} from './motion.mjs';
-import {inlineMarkup,lineMarkup,relativeResource,taskLists} from './markdown-tools.mjs';
+import {inlineMarkup,lineMarkup} from './markdown-tools.mjs';
 import {bindTextZoom} from './gestures.mjs';
 import {PluginRuntime} from './plugins.mjs';
 import {PluginUiHost} from './plugin-ui.mjs';
@@ -87,13 +78,12 @@ import {chapterMarkdown,chapterHtml} from './rich-text-export.mjs';
 import {renderPlainChapters} from './reader-layout.mjs';
 import {textPoint,invalidateTextIndex} from './reading-position.mjs';
 import {epubFileName,MAX_COVER_BYTES,COVER_TYPES} from './epub-names.mjs';
-import {loadOutlineView,loadMapView,loadPdfPreview,loadReader,loadEpubExport,loadLatexEditor,chunkFailure} from './lazy.mjs';
+import {loadOutlineView,loadMapView,loadPdfPreview,loadReader,loadEpubExport,loadLatexEditor,loadMarkdownPreview,loadHtmlPreview,loadGuide,loadSubscriptions,loadUpdateView,loadComponentDownloads,loadGlossaryView,chunkFailure} from './lazy.mjs';
 import {readPluginZip,fromBase64} from './plugin-package.mjs';
 import {documentPath,uniquePath,preparePaths,adoptFolder,folderTree,gitFileState} from './workspace.mjs';
 import {applyRemoteFile,repositoryFolder,resolveRepositoryConflict} from './git-workspace.mjs';
 import {chapterSettings,chapterMatcher} from './chapters.mjs';
 import {glossaryPaths,glossaryTerms,parseGlossary,glossaryText,createGlossary} from './glossary.mjs';
-import {renderGlossary,selectGlossaryEntry} from './glossary-view.mjs';
 import {beginViewSession} from './view-session.mjs';
 import {mountIncrementalList} from './incremental-list.mjs';
 import {renderGlossaryPanel} from './glossary-panel.mjs';
@@ -171,25 +161,18 @@ document.querySelectorAll('[data-view]').forEach(b=>b.innerHTML=icon(b.dataset.v
 let gh=new GitHub(transport);
 const gitName=()=>gh.provider==='gitea'?'Gitea':gh.provider==='gitee'?'Gitee':'GitHub';
 const setGitServer=()=>{if(gh.provider==='gitea'){gh=createGitClient(transport,'gitea',$('#gitea-instance')?.value||gh.server);workspace.settings.giteaServer=gh.server;save();}};
-const md=new MarkdownIt({html:false,linkify:false,breaks:true});
-// Local previews do not fetch remote images or open links inside the privileged WebView.
-md.use(taskLists);md.use(markdownMath);
-md.renderer.rules.image=(tokens,i,_options,env)=>{
-  const token=tokens[i],src=token.attrGet('src')||'',alt=token.content||t('图片'),guideImage=guideIconImage(src,alt,esc);
-  if(guideImage)return guideImage;
-  if(/^data:image\/(png|jpeg|gif|webp|avif);base64,[A-Za-z0-9+/=]+$/.test(src))return `<img src="${src}" alt="${esc(alt)}">`;
-  const path=relativeResource(env.path||'',src);
-  return path?`<span class="workspace-image" data-workspace-image="${esc(path)}">${say(`[图片：${esc(alt)}]`,`[Image: ${esc(alt)}]`)}</span>`:`<span>${say(`[外部图片：${esc(alt)}]`,`[External image: ${esc(alt)}]`)}</span>`;
-};
 let workspace,view,index,indexDoc,indexSettings='',statsTimer,toastTimer,outlineRevision='',documents,indexService,editing,outlineLimit=200;
 let account=null,repositories=[],selectedRepo=null,selectedBranch='',selectedPath='',loadEpoch=0;
 let isPreview=false,dialogHandler=null,dialogCancel=null,dialogBusy=false,dialogVersion=0;
 let dialogReturnFocus=null,dialogSubmitLabel='确定',dialogDisabledFields=[];
-// pdf.js (PdfPreview) and the reader are lazy chunks (web/lazy.mjs); their instances are created on first use.
-let texCompiler,texPreview,PdfPreview,createTexPreview,Reader,createReader;
+// Split feature instances are created on first use (web/lazy.mjs).
+let texCompiler,texPreview,PdfPreview,createTexPreview,Reader,createReader,md,sanitize,htmlPreview,glossaryView,createSubscriptions;
+const ensureMarkdown=()=>loadMarkdownPreview().then(module=>{md=module.md;sanitize=module.sanitize;return module;});
+const ensureSubscriptions=()=>subscriptions?Promise.resolve(subscriptions):loadSubscriptions().then(module=>subscriptions??=createSubscriptions(module.Subscriptions));
+function chunkLoading(root){root.innerHTML=`<p class="blank" role="status">${t('正在读取…')}</p>`;}
 const ensurePdfPreview=()=>PdfPreview?Promise.resolve(PdfPreview):loadPdfPreview().then(module=>PdfPreview=module.PdfPreview);
 const ensureTexPreview=()=>texPreview?Promise.resolve(texPreview):ensurePdfPreview().then(()=>texPreview??=createTexPreview());
-const ensureReader=()=>reader?Promise.resolve(reader):loadReader().then(module=>{Reader=module.Reader;return reader??=createReader();});
+const ensureReader=()=>reader?Promise.resolve(reader):Promise.all([loadReader(),ensureMarkdown()]).then(([module])=>{Reader=module.Reader;return reader??=createReader();});
 let plugins,projects,projectLocked=false,home=false,csvEditor=null,environment=readEnvironment();
 let textFontSize=16,mapTrail=[],mapNavigating=false;
 function mapBack(){const id=mapTrail.pop();if(!id)return false;mapNavigating=true;try{switchDocument(id);if(current()?.id!==id){mapTrail.push(id);return false;}return true;}finally{mapNavigating=false;}}
@@ -1003,12 +986,21 @@ function renderHome(){
   mountIncrementalList($('#start-page .recent-files'),{items:recent,renderItem:recentItem,signal:mounted.signal,empty:t('暂无本地文件')});
   setStartPanel($('#start-page'),panel,{focus:false});
 }
-$('#start-page').onclick=e=>{
+$('#start-page').onclick=async e=>{
   const recent=e.target.closest('[data-recent]');if(recent){switchDocument(recent.dataset.recent);return;}
   const action=e.target.closest('[data-start]');if(!action)return;
   const name=action.dataset.start;
   if(name==='recent'||name==='back'){setStartPanel($('#start-page'),name==='recent'?'recent':'actions');return;}
-  if(name==='guide'){const existing=workspace.documents.find(d=>/^操作指南\.(txt|md)$/i.test(d.name));if(existing)switchDocument(existing.id);else addDocument(newDocument('操作指南.md',guide));} // i18n-data: the guide's file name
+  if(name==='guide'){
+    const target=workspace,find=()=>target.documents.find(d=>/^操作指南\.(txt|md)$/i.test(d.name)); // i18n-data: the guide's file name
+    const existing=find();if(existing){switchDocument(existing.id);return;}
+    action.disabled=true;
+    try{
+      const {guide}=await loadGuide();if(workspace!==target)return;
+      const existing=find();
+      if(existing)switchDocument(existing.id);else addDocument(newDocument('操作指南.md',guide)); // i18n-data: the guide's file name
+    }catch(error){fail(error);}finally{action.disabled=false;}
+  }
   else runAction(name);
 };
 $('#home-button').onclick=showHome;
@@ -1097,7 +1089,7 @@ function linkOutlineSelection(){
  const select=$('#dialog-body [name=outline]'),nodes=$('#dialog-body [name=node]'),refresh=()=>nodes.innerHTML=Object.entries(sources[Number(select.value)].value.nodes).map(([id,n])=>`<option value="${esc(id)}">${esc(n.title)}</option>`).join('');select.onchange=refresh;refresh();
 }
 let previewRevision=0;
-function renderPreview(){const revision=++previewRevision;$('#preview').viewSession?.dispose();csvEditor?.dispose();
+async function renderPreview(){const revision=++previewRevision;$('#preview').viewSession?.dispose();csvEditor?.dispose();
   $('#preview').odfDispose?.();
   $('#preview').planningDispose?.();$('#preview').planningDispose=null;pluginUi.mountPlanning(null,null);
   $('#preview').classList.toggle('velaodt-preview',documentKind(current())==='VODT');
@@ -1121,8 +1113,19 @@ function renderPreview(){const revision=++previewRevision;$('#preview').viewSess
   if(documentKind(current())!=='TEX')texPreview?.dispose();
   $('#preview').className='markdown';
   if(documentKind(current())==='VELA'){renderVela();return;}
+  const previewDoc=current();
+  if((['MD','OUTLINE','MAP'].includes(documentKind(previewDoc))&&!md)||(documentKind(previewDoc)==='GLY'&&!glossaryView)||(documentKind(previewDoc)==='HTML'&&!native&&!htmlPreview)){
+    chunkLoading($('#preview'));
+    try{
+      if(['MD','OUTLINE','MAP'].includes(documentKind(previewDoc)))await ensureMarkdown();
+      else if(documentKind(previewDoc)==='GLY')glossaryView=await loadGlossaryView();
+      else ({htmlPreview}=await loadHtmlPreview());
+    }catch(error){if(revision===previewRevision&&current()===previewDoc&&isPreview)chunkFailure($('#preview'),error,renderPreview);return;}
+    if(revision!==previewRevision||current()!==previewDoc||!isPreview)return;
+  }
   if(['OUTLINE','MAP'].includes(documentKind(current()))){
     const doc=current(),loader=documentKind(doc)==='OUTLINE'?loadOutlineView:loadMapView;
+    chunkLoading($('#preview'));
     loader().then(module=>{
       if(current()!==doc||!isPreview||revision!==previewRevision)return;
       $('#preview').planningDispose?.();
@@ -1140,6 +1143,7 @@ function renderPreview(){const revision=++previewRevision;$('#preview').viewSess
         await hydratePlanningDocuments({paths:[path]});
         const target=workspace.documents.find(d=>documentPath(d)===path);
         if(!target)throw Error(t('文件不存在'));
+        const {selectGlossaryEntry}=await loadGlossaryView();
         selectGlossaryEntry(target.id,entry);
         switchDocument(target.id);
       },getLinkInfo:async path=>{
@@ -1183,7 +1187,7 @@ function renderPreview(){const revision=++previewRevision;$('#preview').viewSess
             mapNavigating=false;
           }
         }else toast(t('文件不存在'));
-      },markdown:text=>DOMPurify.sanitize(md.render(text)),notify:toast});
+      },markdown:text=>sanitize(md.render(text)),notify:toast});
     }).catch(error=>{
       if(revision===previewRevision&&current()===doc&&isPreview)chunkFailure($('#preview'),error,renderPreview);
     });
@@ -1191,6 +1195,7 @@ function renderPreview(){const revision=++previewRevision;$('#preview').viewSess
   }
   if(documentKind(current())==='GLY'){
     const doc=current();
+    const {renderGlossary}=glossaryView;
     let expected=doc.text;
     renderGlossary({root:$('#preview'),doc,escape:esc,onCopy:copyText,notify:toast,onSave:text=>{
       if(text===expected)return;
@@ -1263,7 +1268,7 @@ function renderPreview(){const revision=++previewRevision;$('#preview').viewSess
     }
     return;
   }
-  $('#preview').innerHTML=DOMPurify.sanitize(md.render(text,{path:documentPath(current())}),{FORBID_TAGS:['iframe','form','input','button','video','audio','style'],FORBID_ATTR:['style']});
+  $('#preview').innerHTML=sanitize(md.render(text,{path:documentPath(current())}),{FORBID_TAGS:['iframe','form','input','button','video','audio','style'],FORBID_ATTR:['style']});
   highlightMarkdown($('#preview'));
   if(native&&workspace.storage?.id)for(const placeholder of [...$('#preview').querySelectorAll('[data-workspace-image]')].slice(0,20)){
     transport('readWorkspaceAsset',{path:placeholder.dataset.workspaceImage}).then(src=>{
@@ -1746,11 +1751,22 @@ $('#file-input').onchange=async e=>{
 let updateCheckPromise=null;
 async function checkWindowsUpdates(visible=false){
   if(updateCheckPromise&&!visible)return updateCheckPromise;
-  const descriptor=await texCompiler?.assets.descriptor().catch(()=>null);
-  updateCheckPromise=checkAppUpdates({openModal,dialogOpen:()=>$('#dialog')?.open===true,transport,native,platform:environment?.platform||'',current:environment?.version||__VELA_HARMONY_VERSION__,lite:descriptor?!descriptor.builtin:true,installed:new Map((plugins?.records||[]).filter(record=>!record.builtin).map(record=>[record.manifest.id,record.manifest.version])),openPlugins:showPlugins,toast,remember:result=>{
-    workspace.updateInfo={available:result.available,version:result.version,checkedAt:result.checkedAt};
-    scheduleWorkspaceSave();
-  }},{visible});
+  const mounted=visible?openModal(t('检查更新'),`<p>${t('正在读取…')}</p>`,null,{noSubmit:true}):null;
+  updateCheckPromise=(async()=>{
+    try{
+      const {checkAppUpdates}=await loadUpdateView();
+      const descriptor=await texCompiler?.assets.descriptor().catch(()=>null);
+      if(mounted&&!mounted.alive())return null;
+      return await checkAppUpdates({openModal,dialogOpen:()=>$('#dialog')?.open===true,transport,native,platform:environment?.platform||'',current:environment?.version||__VELA_HARMONY_VERSION__,lite:descriptor?!descriptor.builtin:true,installed:new Map((plugins?.records||[]).filter(record=>!record.builtin).map(record=>[record.manifest.id,record.manifest.version])),openPlugins:showPlugins,toast,remember:result=>{
+        workspace.updateInfo={available:result.available,version:result.version,checkedAt:result.checkedAt};
+        scheduleWorkspaceSave();
+      }},{visible});
+    }catch(error){
+      if(!visible)throw error;
+      if(mounted?.alive())chunkFailure(mounted.root,error,()=>checkWindowsUpdates(true));
+      return null;
+    }
+  })();
   try{return await updateCheckPromise;}finally{if(!visible)updateCheckPromise=null;}
 }
 window.addEventListener('resize',()=>{
@@ -1994,7 +2010,7 @@ $('#settings').onclick=()=>{
     updateStats();
     reader?.layout();
     if(pageName==='reader'&&configPriorityChanged)reader.home();
-    if(pageName==='subscriptions')subscriptions.render();
+    if(pageName==='subscriptions')subscriptions?.render();
   });
   mountFontSettings($('#dialog-body'),workspace.settings.fontFamily,{native,transport,window});
   const cleanup=document.createElement('p');cleanup.innerHTML=`<button type="button" class="secondary" id="cleanup-redundant">${t('清除冗余文件')}</button>`;$('#dialog-body').append(cleanup);
@@ -2045,12 +2061,19 @@ function showView(name){
   for(const page of ['write','github','subscriptions','reader'])$('#'+page+'-view').hidden=page!==name;
   $('#sidebar-logout').disabled=!account;$('#add-glossary').disabled=name!=='write'||home||isPreview;
   if(name==='github'){document.body.classList.remove('focus');renderGitHub();}
-  if(name==='subscriptions')subscriptions?.enter();else subscriptions?.leave();
+  if(name==='subscriptions'){
+    for(const item of workspace.subscriptions||[])item.pageSeen=true;
+    $('[data-view=subscriptions] .update-dot').hidden=true;
+    save();
+    chunkLoading($('#subscriptions-view'));
+    Promise.all([ensureSubscriptions(),ensureMarkdown()]).then(([value])=>{if(pageName==='subscriptions')value.enter();}).catch(error=>{if(pageName==='subscriptions')chunkFailure($('#subscriptions-view'),error,()=>showView('subscriptions'));});
+  }else subscriptions?.leave();
   if(name==='reader'){
     indexService=null;
     index=null;
     indexDoc=null;
     setSidebar('library',false);
+    if(!reader)chunkLoading($('#reader-view'));
     ensureReader().then(reader=>{if(pageName==='reader')reader.home();}).catch(error=>chunkFailure($('#reader-view'),error,()=>showView('reader')));
   }else{
     reader?.leave();
@@ -2647,10 +2670,15 @@ async function showPlugins(){
     <h3>${t('已安装')}</h3>
     <small>${t('可安装 LaTeX 引擎、中文支持、电子书阅读与 JavaScript / CodeMirror 插件。内置组件可停用，轻量版导入的组件可卸载。依赖 Android、Cordova、Ace 或未实现的 Acode 模块的插件会显示加载原因。')}</small><div class="plugin-list">${plugins.records.map((record,i)=>`<article class="plugin-card"><strong>${esc(record.manifest.id.startsWith('vela.component.tex')?t(record.manifest.name):record.manifest.name)}</strong><small>${esc(record.manifest.id)} · ${esc(record.manifest.version)} · ${record.builtin?t('内置组件'):record.manifest.vela?.type==='tex-component'||['reader-component','document-component'].includes(record.manifest.vela?.type)?t('可选组件'):t('插件')} · ${record.enabled?t('已启用'):t('已停用')}</small>${record.error?`<p class="error">${esc(t(record.error))}</p>`:''}<div class="button-row"><button type="button" class="secondary" data-plugin-enable="${i}">${record.enabled?t('停用'):t('启用')}</button>${record.manifest.vela?.type==='reader-component'?`<button type="button" class="secondary" data-plugin-open="${i}" ${record.enabled?'':'disabled'}>${t('打开阅读器')}</button>`:''}${plugins.settingsPages.has(record.manifest.id)?`<button type="button" class="secondary" data-plugin-settings="${i}">${t('插件设置')}</button>`:''}${record.builtin?'':`<button type="button" class="danger" data-plugin-remove="${i}">${t('卸载')}</button>`}</div>
     </article>`).join('')||`<p class="blank">${t('尚未安装插件。')}</p>`}</div>`,null,{noSubmit:true});
-  const pluginSession=$('#dialog-body').viewSession,downloadView=mountComponentDownloads($('#component-downloads'),{transport,native,platform:environment?.platform||'',appVersion:environment?.version||__VELA_HARMONY_VERSION__,descriptor:()=>texCompiler.assets.descriptor(),installed:async()=>new Map(plugins.records.map(record=>[record.manifest.id,{version:record.manifest.version,enabled:record.enabled}])),install:async bytes=>{
-    await installPluginBytes(bytes,{reopen:false});
-    if(pluginSession.alive())await showPlugins();
-  }});$('#dialog-body').viewSession.onDispose(()=>downloadView.dispose());
+  const pluginSession=$('#dialog-body').viewSession;
+  chunkLoading($('#component-downloads'));
+  loadComponentDownloads().then(({mountComponentDownloads})=>{
+    if(!pluginSession.alive())return;
+    const downloadView=mountComponentDownloads($('#component-downloads'),{transport,native,platform:environment?.platform||'',appVersion:environment?.version||__VELA_HARMONY_VERSION__,descriptor:()=>texCompiler.assets.descriptor(),installed:async()=>new Map(plugins.records.map(record=>[record.manifest.id,{version:record.manifest.version,enabled:record.enabled}])),install:async bytes=>{
+      await installPluginBytes(bytes,{reopen:false});
+      if(pluginSession.alive())await showPlugins();
+    }});pluginSession.onDispose(()=>downloadView.dispose());
+  }).catch(error=>{if(pluginSession.alive())chunkFailure($('#component-downloads'),error,showPlugins);});
   $('#install-plugin').onclick=async e=>{
     if(native){
       const button=e.currentTarget;
@@ -2940,6 +2968,7 @@ async function textHash(text){return Array.from(new Uint8Array(await crypto.subt
 async function loadSubscriptionDocument(doc,attempt=0){
   if(doc?.subscription?.configurationConflict)throw Error(t('本地 .vela 配置已修改，请在订阅拉取预览中对照并处理冲突。'));
   if(doc?.subscription&&doc.subscription.loadedSha!==doc.subscription.sha){
+    await ensureSubscriptions();
     const target=doc.subscription.sha,initial=doc.text,hash=await textHash(initial),rawText=await subscriptions.api.blob(doc.subscription.repo,target),text=documentKind(doc)==='CSV'?rawText:normalizeText(rawText);
     if(doc.subscription.sha!==target){if(attempt>0)throw new Error(t('远端文件持续变化，请刷新后重试。'));return loadSubscriptionDocument(doc,attempt+1);}
     if(doc.text!==initial)throw new Error(t('读取期间本地文稿已修改，已保留本地内容，请重试。'));
@@ -3105,7 +3134,7 @@ async function boot(){try{
       document.body.classList.toggle('reader-chrome-visible',visible);
       $('#outline-toggle').disabled=!open;
       sidebars.update();
-    },markdown:md,sanitize:DOMPurify.sanitize,escape:esc,save,fail,load:async doc=>{
+    },markdown:md,sanitize,escape:esc,save,fail,load:async doc=>{
       if(['TEX','PDF'].includes(documentKind(doc)))await ensurePdfPreview();
       return loadSubscriptionDocument(doc);
     },html:async(doc,size,layout)=>{
@@ -3113,15 +3142,20 @@ async function boot(){try{
         if(save())await transport('previewHtml',{path:documentPath(doc),dark:workspace.settings.dark,reading:true,readerTheme:JSON.stringify(paletteFor(workspace.settings.palette,workspace.settings.dark).colors),fontSize:size,layout,titlePage:reader.config?.reader?.titlePage!==false,readingMode:reader.config?.reader?.mode?(reader.config.reader?.mode==='auto'?($('#reader-view').clientWidth>=1000?'double':'scroll'):reader.config.reader?.mode):workspace.settings.readingMode,language:workspace.settings.language});
       }else{
         const content=$('#reader-view .reader-content');
-        content.innerHTML='';
-        const frame=document.createElement('iframe');
-        frame.title='HTML';
-        frame.sandbox='';
-        frame.srcdoc=htmlPreview(doc.text,{dark:workspace.settings.dark,fontSize:size});
-        content.append(frame);
+        chunkLoading(content);
+        try{
+          const {htmlPreview}=await loadHtmlPreview();
+          if(pageName!=='reader'||reader.doc!==doc||!content.isConnected)return;
+          const frame=document.createElement('iframe');
+          frame.title='HTML';
+          frame.sandbox='';
+          frame.srcdoc=htmlPreview(doc.text,{dark:workspace.settings.dark,fontSize:size});
+          content.replaceChildren(frame);
+        }catch(error){if(pageName==='reader'&&reader.doc===doc&&content.isConnected)chunkFailure(content,error,()=>reader.open(doc.id).catch(fail));}
       }
     }});
-  subscriptions=new Subscriptions({root:$('#subscriptions-view'),nav:$('[data-view=subscriptions]'),workspace:()=>workspace,transport,save,escape:esc,modal:openModal,fail,cache:cacheSubscription,pull:pullSubscription,renderMarkdown:text=>DOMPurify.sanitize(md.render(text),{FORBID_TAGS:['iframe','form','input','button','style'],FORBID_ATTR:['style']})});subscriptions.dot();subscriptions.refresh();
+  createSubscriptions=Subscriptions=>{const value=new Subscriptions({root:$('#subscriptions-view'),nav:$('[data-view=subscriptions]'),workspace:()=>workspace,transport,save,escape:esc,modal:openModal,fail,cache:cacheSubscription,pull:pullSubscription,renderMarkdown:text=>sanitize(md.render(text),{FORBID_TAGS:['iframe','form','input','button','style'],FORBID_ATTR:['style']})});value.dot();return value;};
+  $('[data-view=subscriptions] .update-dot').hidden=!(workspace.subscriptions||[]).some(item=>item.unread&&!item.pageSeen);
   setCustomPalettes(workspace.settings.customPalettes);chapterMatcher(workspace.settings.writer);applyTheme();setFontSize(workspace.settings.fontSize,false);
   // Phones always start with the file drawer closed; only desktop restores the last sidebar state.
   setSidebar('library',innerWidth>600&&workspace.settings.libraryOpen===true,false);
@@ -3141,6 +3175,7 @@ async function boot(){try{
   const pluginBoot=plugins.boot().catch(error=>toast(say(`插件读取失败：${t(error.message)}`,`Could not load plugins: ${t(error.message)}`)));
   window.velaReady=true;performance.mark('vela:interactive');
   await pluginBoot;
+  if(workspace.subscriptions?.length)ensureSubscriptions().then(value=>value.refresh()).catch(fail);
   if(native){
       try{
         const user=await gh.user();
@@ -3161,6 +3196,12 @@ async function boot(){try{
 }catch(e){
     session.bootFailed=true;
     window.velaStartup?.dismiss();
+    if(e.code==='E_CHUNK'){
+      const buttons=[...document.querySelectorAll('button')].map(button=>[button,button.disabled]);
+      for(const [button] of buttons)button.disabled=true;
+      chunkFailure($('#editor'),e,()=>{for(const [button,disabled] of buttons)button.disabled=disabled;session.bootFailed=false;boot();});
+      return;
+    }
     $('#editor').innerHTML=`<div class="blank"><h2>${t('无法读取本地文稿')}</h2><p>${esc(t(e.message))}</p><p>${t('原始数据已保留，请勿清除应用数据。可先导出原始文件进行恢复。')}</p><button id="recover-data" class="primary">${t('导出原始数据')}</button></div>`;
     // i18n-data: file names, matching text and editable defaults stay as written
     $('#recover-data').onclick=()=>exportText('文舟-恢复数据.json',readWorkspace()||'').catch(fail);

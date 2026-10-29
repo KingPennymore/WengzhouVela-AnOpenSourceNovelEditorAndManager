@@ -3,7 +3,8 @@
 import { newDocument, validateWorkspace } from '../model.mjs';
 import { readWorkspaceAsync, primeWorkspaceBaseline, saveWorkspace } from '../platform.mjs';
 import { recoverBrowserProjects } from '../project-backend.mjs';
-import { guide, isOriginalDemo, previousGuideHashes } from '../guide.mjs';
+import { isOriginalDemo, previousGuideHashes } from '../guide-history.mjs';
+import { loadGuide } from '../lazy.mjs';
 import { chapterSettings } from '../chapters.mjs';
 import { documentPath, uniquePath, preparePaths, adoptFolder } from '../workspace.mjs';
 import { itemPaths, parentPath, basename } from '../file-manager.mjs';
@@ -56,6 +57,7 @@ export async function loadWorkspace() {
     workspace = validateWorkspace(JSON.parse(raw));
     primeWorkspaceBaseline(workspace);
   } else {
+    const { guide } = await loadGuide();
     // i18n-data: guide file names and the old default document stay as stored
     const doc = newDocument('操作指南.md', guide);
     workspace = {
@@ -116,7 +118,7 @@ export async function prepareWorkspace(workspace, { initializeStorage, invalidat
     ) {
       // i18n-data: guide file names and the old default document stay as stored
       renameGuide(workspace, doc, demo ? '操作指南.md' : '操作指南.txt');
-      if (demo) doc.text = guide;
+      if (demo) doc.text = (await loadGuide()).guide;
       invalidate(doc.id);
     }
   }
@@ -130,7 +132,7 @@ export async function prepareWorkspace(workspace, { initializeStorage, invalidat
     if (previousGuideHashes.includes(hash)) {
       // i18n-data: guide file names and the old default document stay as stored
       renameGuide(workspace, doc, '操作指南.md');
-      doc.text = guide;
+      doc.text = (await loadGuide()).guide;
       doc.updatedAt = Date.now();
       invalidate(doc.id);
     }
