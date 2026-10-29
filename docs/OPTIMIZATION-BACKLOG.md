@@ -6,8 +6,8 @@
 
 | 编号 | 事项 | 位置 | 完成标准 | 状态 |
 | --- | --- | --- | --- | --- |
-| O21 | 英文词典按需加载：`web/i18n-*.mjs` 与 `planning-i18n.mjs` 约 145 KB 在启动时全部进入 `dist/web/app.js`，中文用户用不到 | `web/i18n.mjs`、`web/app.js` 启动流程 | 词典成为延迟分包；启动时语言为英文则先加载词典再渲染，切到英文时加载后再 `setLanguage`；`t()`/`say()` 仍为同步；中文启动不请求词典分包；`app.js` 减小 ≥120 KB；`language-switch`、`i18n-coverage` 与全量回归通过 | 待做 |
 | O22 | 全量浏览器回归并行：`npm run test:browser` 串行跑 92 个套件需 40 分钟以上 | `scripts/test-browser.mjs`、`scripts/serve.mjs` | 支持 `--jobs N`（默认 3）并行；各路用独立 dist 端口或共享一个只读服务；依赖固定端口的套件串行；失败时输出断言的 actual/expected 与出错行（目前只显示末尾几行，`features-browser` 在全量回归中偶发失败一次、单独 10 次均通过，原因未知）；结果与串行一致，总时长降到 15 分钟以内 | 待做 |
+| O26 | 启动加载总量：`app.js` 静态导入 45 个共享分包，启动共下载约 1,386 KB，`app.js` 本身只占 530 KB；需找出哪些共享分包只被延迟功能用到却被静态导入（例如被启动代码顺带引用的大模块），改为随功能加载 | `scripts/build.mjs`、`web/app.js` 的静态导入 | 用 `dist/app-metafile.json` 统计启动闭包（静态 import 链）并列出最大的共享分包及其来源；启动下载量减少 ≥200 KB，全量回归通过 | 待做 |
 | O23 | `web/app.js` 顶层状态收拢：`workspace`、`view`、`home`、`isPreview`、`index`、`selectedFolder` 等顶层 `let` 被到处直接读写，拆分时只能传一堆 getter/setter | `web/app.js` | 引入一个状态对象，逐步替换直接读写；之后拆出预览渲染（`renderPreview`）、设置对话框、文件操作与回收站、启动流程 `boot`；每步行为不变、全量回归通过 | 待做（O21、O22 之后） |
 | O24 | `web/project-service.mjs`（1700 行，主包内 39 KB）：找出启动时用不到的部分改为延迟加载，再按职责拆分 | `web/project-service.mjs` | 主包减小、行为不变、全量回归通过 | 待做 |
 | O25 | 名词索引 worker 2.1 MB，主要是 `vendor/jieba/filter.mjs` 词表；只在使用时加载，优先级低 | `web/noun-worker.js`、`vendor/jieba` | 词表改为更紧凑的格式或压缩后按需解压，结果不变 | 待做 |
@@ -39,3 +39,4 @@
 | O19 | 首屏主包延迟加载：Markdown 渲染、DOMPurify、使用指南、订阅、更新、组件下载、词汇表、项目归档改为首次使用时加载，`app.js` 836 KB → 525 KB（Codex）；归档能力补丁移到 `project-contract.mjs` 共用 | `5ba8f15`、`78c4108` |
 | O20 | 拆分 `web/app.js` 第一批：配色编辑器、导出对话框、文件对话框（自己），GitHub 仓库视图、插件对话框、订阅同步（Codex），3203 → 2485 行；文件操作、回收站、预览渲染、设置与启动流程受顶层状态耦合限制，转入 O23 | `c51f62f`、`eaa7710`、`efa8c91`、`f39a2c7` |
 | O18b | 主题切换有淡入淡出，`palette`、`workspace` 测试在保存配色或切换后立即读颜色会偶发读到旧值，改为等待颜色生效 | `33a9cc9` 及其后一个提交 |
+| O21 | 英文词典按需加载：词典移到 `web/i18n-dictionary.mjs` 成为延迟分包，`setLanguage()` 改为异步，英文先等词典；启动下载量 1,575 KB → 1,386 KB（词典原在 `app.js` 静态导入的共享分包里） | `df010f6` |
