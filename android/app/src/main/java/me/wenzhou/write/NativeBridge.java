@@ -26,6 +26,8 @@ final class NativeBridge {
     final ReleaseDownloads downloads;
     private final CredentialStore credentials;
     private final CredentialStore giteeCredentials;
+    private final AiBridge ai;
+    private final ExecutorService controls = Executors.newSingleThreadExecutor();
     private final ExecutorService workers = Executors.newFixedThreadPool(4);
     private final AtomicLong authGeneration = new AtomicLong();
     private final Object authLock = new Object();
@@ -34,6 +36,7 @@ final class NativeBridge {
 
     NativeBridge(MainActivity activity, String capability) throws Exception {
         this.activity = activity; this.capability = capability.getBytes(StandardCharsets.UTF_8);
+        ai = new AiBridge(activity);
         files = new WorkspaceFiles(activity); projects = new ProjectFiles(activity, files); imports = new ImportedArchives(activity); downloads = new ReleaseDownloads(activity, imports); credentials = new CredentialStore(activity); giteeCredentials = new CredentialStore(activity, "gitee");
     }
     private void authorize(String value) {
@@ -68,10 +71,15 @@ final class NativeBridge {
         if (requestId == null || !requestId.matches("[A-Za-z0-9_-]{1,80}")) throw new SecurityException("请求标识无效。");
         long generation = operation.equals("login") || operation.equals("logout") ? authGeneration.incrementAndGet() : authGeneration.get();
         long saveGeneration = operation.equals("saveWorkspace") ? workspaceGeneration.incrementAndGet() : 0;
-        workers.execute(() -> {
+        JSONObject aiData; AiBridge.Task aiTask;
+        try { aiData = operation.equals("ai") && json != null && json.length() <= 100 * 1024 * 1024 ? new JSONObject(json) : null; }
+        catch (Exception error) { activity.deliver(requestId, failure(new IOException("AI 请求数据无效。"))); return; }
+        try { aiTask = aiData == null ? null : ai.prepare(aiData); }
+        catch (Exception error) { activity.deliver(requestId, failure(error)); return; }
+        (aiData != null && aiData.optString("action").equals("cancel") ? controls : workers).execute(() -> {
             try {
                 if (json == null || json.length() > 100 * 1024 * 1024) throw new IOException("请求数据过大。");
-                JSONObject data = new JSONObject(json);
+                JSONObject data = aiData == null ? new JSONObject(json) : aiData;
                 if (operation.equals("saveWorkspace")) {
                     synchronized (workspaceSaveLock) {
                         if (saveGeneration != workspaceGeneration.get()) { activity.deliver(requestId, success(new JSONObject().put("superseded", true))); return; }
@@ -90,7 +98,7 @@ final class NativeBridge {
                     activity.deliver(requestId, success(projects.call(action, owner, args))); return;
                 }
                 if (Arrays.asList("import", "export", "exportPdf", "exportOdt", "exportPng", "exportBinary", "importPlugin", "importImage").contains(operation)) { activity.pick(requestId, operation, data); return; }
-                Object value = dispatch(operation, data, generation);
+                Object value = operation.equals("ai") ? ai.call(data, aiTask) : dispatch(operation, data, generation);
                 activity.deliver(requestId, success(value));
             } catch (Exception error) { activity.deliver(requestId, failure(operation.equals("project") ? projectError(error) : error)); }
         });
@@ -239,5 +247,5 @@ final class NativeBridge {
     static String success(Object value) { try { return new JSONObject().put("ok", true).put("value", value == null ? JSONObject.NULL : value).toString(); } catch (Exception impossible) { return "{\"ok\":false,\"error\":\"返回格式异常\"}"; } }
     static String failure(Exception error) { try { JSONObject value = new JSONObject().put("ok", false).put("error", message(error)); if (error instanceof ProjectFiles.Failure) value.put("code", ((ProjectFiles.Failure) error).code).put("retryable", ((ProjectFiles.Failure) error).code.equals("E_CONFLICT")).put("details", new JSONObject()); return value.toString(); } catch (Exception impossible) { return "{\"ok\":false,\"error\":\"设备操作失败\"}"; } }
     void work(Runnable job) { workers.execute(job); }
-    void close() { workers.shutdown(); imports.close(); }
+    void close() { ai.close(); controls.shutdown(); workers.shutdown(); imports.close(); }
 }
