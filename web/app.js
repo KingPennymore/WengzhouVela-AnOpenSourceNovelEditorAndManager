@@ -229,6 +229,18 @@ new MutationObserver(()=>extensionContext.changed()).observe(document.body,{attr
 document.addEventListener('visibilitychange',()=>{sidebarViews.refresh();extensionContext.changed();});
 bindViewport(()=>{layoutShell();sidebars.update(false);view?.requestMeasure();});
 let fileClipboard=null;
+// Top-level state the extracted modules (repository view, dialogs, subscription sync) read and write. Every access
+// goes through to the variable here, so a module never holds a stale workspace or editor view.
+const appState={
+  get workspace(){return workspace;},set workspace(value){workspace=value;},
+  get view(){return view;},get home(){return home;},get documents(){return documents;},get environment(){return environment;},
+  get isPreview(){return isPreview;},set isPreview(value){isPreview=value;},
+  get gh(){return gh;},set gh(client){gh=client;},
+  get selectedFolder(){return selectedFolder;},set selectedFolder(value){selectedFolder=value;},
+  get fileClipboard(){return fileClipboard;},set fileClipboard(value){fileClipboard=value;},
+  get subscriptions(){return subscriptions;},get plugins(){return plugins;},get texCompiler(){return texCompiler;},
+};
+const withState=services=>Object.assign(Object.create(appState),services);
 const sourceRendering=new Compartment(),gutters=new Compartment(),formatEnv=new Compartment(),pluginExtras=new Compartment(),projectReadonly=new Compartment(),completer=new Compartment(),pluginKeys=new Compartment(),languages=new Compartment(),systemTheme=matchMedia('(prefers-color-scheme: dark)');
 const editorStates=new Map(),editorScrolls=new Map();
 const editorIndexes=new WeakMap();
@@ -1472,12 +1484,7 @@ $('#paste-file').onclick=async()=>{
     fail(error);
   }
 };
-const {newFolder,documentMenu,fileMenu,renameItem,showProperties}=createFileDialogs({
-  openModal,closeModal,toast,fail,save,renderDocuments,manageFile,
-  get workspace(){return workspace;},set workspace(value){workspace=value;},
-  get selectedFolder(){return selectedFolder;},set selectedFolder(value){selectedFolder=value;},
-  get fileClipboard(){return fileClipboard;},set fileClipboard(value){fileClipboard=value;},
-});
+const {newFolder,documentMenu,fileMenu,renameItem,showProperties}=createFileDialogs(withState({openModal,closeModal,toast,fail,save,renderDocuments,manageFile}));
 function fileViewContext(){
   return {id:workspace.activeId,openIds:[...workspace.openIds],wasHome:home,preview:isPreview,name:current()?.name,kind:documentKind(current()),doc:current(),state:view?.state,scroll:view?{top:view.scrollDOM.scrollTop,left:view.scrollDOM.scrollLeft}:null};
 }
@@ -1960,21 +1967,16 @@ document.querySelectorAll('[data-view]').forEach(button=>button.onclick=()=>{
   showView(button.dataset.view);
 });$('#github-shortcut').onclick=()=>showView('github');$('#sidebar-logout').onclick=()=>repositoryView.logout();
 
-const {restorePulledEditor,previewDownload,materializeDownload,pullSubscription,cacheSubscription,loadSubscriptionDocument}=createSubscriptionSync({
+const {restorePulledEditor,previewDownload,materializeDownload,pullSubscription,cacheSubscription,loadSubscriptionDocument}=createSubscriptionSync(withState({
   $,syncWorkflow,save,openModal,editorStates,current,ensureSubscriptions,switchDocument,updateEditorVisibility,
   renderPreview,showHome,renderDocuments,showView,toast,makeState,updateStats,
-  get workspace(){return workspace;},get view(){return view;},get home(){return home;},
-  get isPreview(){return isPreview;},set isPreview(value){isPreview=value;},
-  get subscriptions(){return subscriptions;},get documents(){return documents;},get gh(){return gh;}
-});
-const repositoryView=createRepositoryView({
+}));
+const repositoryView=createRepositoryView(withState({
   $,native,transport,toast,fail,openModal,closeModal,save,showView,cycleTheme,current,showHome,
   syncBusy,syncActivity,syncWorkflow,editorStates,makeState,updateStats,renderPreview,renderDocuments,
   renderSyncStatus,previewDownload,materializeDownload,restorePulledEditor,currentScope,loadSubscriptionDocument,
-  get workspace(){return workspace;},get client(){return gh;},set client(client){gh=client;},
-  get environment(){return environment;},get documents(){return documents;},get view(){return view;},
-  get isPreview(){return isPreview;},invalidateIndex:()=>{index=null;}
-});
+  invalidateIndex:()=>{index=null;},
+}));
 
 const commands = createAppCommands(
   shortcuts.map(([id]) => id),
@@ -2092,9 +2094,7 @@ function showLocalHistory(){
 }
 async function copyText(text){if(native)await transport('clipboardWrite',{text});else await navigator.clipboard.writeText(text);}
 /** Current chapter index for the cursor, so dialogs and commands default to the chapter being written. */
-const {showChapterExport,showEpubExport,exportBookHtml,copyCurrentChapter}=createExportDialogs({
-  get view(){return view;},get workspace(){return workspace;},current,ensureIndex,openModal,closeModal,toast,save,copyText,stylesFor,exportImages,exportTables,
-});
+const {showChapterExport,showEpubExport,exportBookHtml,copyCurrentChapter}=createExportDialogs(withState({current,ensureIndex,openModal,closeModal,toast,save,copyText,stylesFor,exportImages,exportTables}));
 async function pickBackupFile(){
   if(native){const files=await transport('import',{}),file=files?.[0];if(!file)return null;return typeof file.text==='string'?new TextEncoder().encode(file.text):fromBase64(file.data);}
   return new Promise(resolve=>{
@@ -2121,11 +2121,7 @@ function previewBackupRestore(bytes){
     toast(say(`备份已恢复到“${candidate.restoredImports.at(-1).folder}”。`,`Backup restored to “${candidate.restoredImports.at(-1).folder}”.`)+(plan.skipped?say(`已跳过 ${plan.skipped} 个二进制或插件文稿。`,`Skipped ${plan.skipped} binary or plugin documents.`):''));
   });
 }
-const {showPlugins,refreshPluginCommands,pluginDialog}=createPluginDialogs({
-  $,openModal,closeModal,toast,chunkLoading,editorStates,pluginKeys,pluginExtras,
-  get plugins(){return plugins;},get environment(){return environment;},get texCompiler(){return texCompiler;},
-  get view(){return view;},appVersion:__VELA_HARMONY_VERSION__
-});
+const {showPlugins,refreshPluginCommands,pluginDialog}=createPluginDialogs(withState({$,openModal,closeModal,toast,chunkLoading,editorStates,pluginKeys,pluginExtras,appVersion:__VELA_HARMONY_VERSION__}));
 $('#plugins').onclick=showPlugins;
 $('#check-update').onclick=()=>checkWindowsUpdates(true);
 // TeX: Ctrl+Enter compiles and Ctrl+Alt+J shows the cursor line in the PDF while the preview is open.

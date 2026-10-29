@@ -22,8 +22,8 @@ export function createRepositoryView(context){
     renderSyncStatus,previewDownload,materializeDownload,restorePulledEditor,currentScope,loadSubscriptionDocument}=context;
   let account=null,repositories=[],selectedRepo=null,selectedBranch='',selectedPath='',loadEpoch=0;
   let remoteSelection=new Map(),remoteSelectionRepo='',remoteSelecting=false;
-  const gitName=()=>context.client.provider==='gitea'?'Gitea':context.client.provider==='gitee'?'Gitee':'GitHub';
-  const setGitServer=()=>{if(context.client.provider==='gitea'){context.client=createGitClient(transport,'gitea',$('#gitea-instance')?.value||context.client.server);context.workspace.settings.giteaServer=context.client.server;save();}};
+  const gitName=()=>context.gh.provider==='gitea'?'Gitea':context.gh.provider==='gitee'?'Gitee':'GitHub';
+  const setGitServer=()=>{if(context.gh.provider==='gitea'){context.gh=createGitClient(transport,'gitea',$('#gitea-instance')?.value||context.gh.server);context.workspace.settings.giteaServer=context.gh.server;save();}};
   $('#github-view').addEventListener('click',e=>{if(e.target.closest('[data-return-write]'))showView('write');if(e.target.closest('[data-toggle-theme]'))cycleTheme();});
   let githubOffline=false;
   const githubTopbar=()=>`<div class="github-topbar"><button class="secondary" data-return-write="true">${t('← 返回编辑器')}</button><div class="button-row"><span>${say(`${gitName()} 仓库管理`,`${gitName()} repositories`)}</span><button data-toggle-theme="true" title="${context.workspace.settings.dark?t('切换到浅色模式'):t('切换到深色模式')}" aria-label="${context.workspace.settings.dark?t('切换到浅色模式'):t('切换到深色模式')}">${icon(context.workspace.settings.dark?'sun':'theme')}</button></div>
@@ -33,19 +33,19 @@ export function createRepositoryView(context){
     if(!account){
       root.innerHTML=`${githubTopbar()}<div class="empty-state"><div class="large-icon">${icon('github')}</div>
         <h2>${say(`连接 ${gitName()}`,`Connect ${gitName()}`)}</h2>
-        <div class="git-login-fields"><label>${t('代码托管平台')}<select id="git-provider" aria-label="${t('代码托管平台')}">${providerOptions(context.client.provider)}</select></label>
-        ${serverField(context.client.provider,context.workspace.settings.giteaServer,esc,'instance')}</div>
+        <div class="git-login-fields"><label>${t('代码托管平台')}<select id="git-provider" aria-label="${t('代码托管平台')}">${providerOptions(context.gh.provider)}</select></label>
+        ${serverField(context.gh.provider,context.workspace.settings.giteaServer,esc,'instance')}</div>
         <p>${t('浏览与创建仓库、管理分支、读取文件并提交修改。')}</p>
         <div class="button-row"><button class="primary" id="token-login">${t('使用访问令牌')}</button><button class="secondary" id="check-connection">${t('检测连接')}</button></div>
         <p class="description">${native?(context.environment?.platform==='android'?t('令牌使用 Android Keystore 加密保存在应用内部。'):context.environment?.platform==='windows'?t('令牌使用 Windows 安全存储加密保存在应用内部。'):t('令牌保存在鸿蒙安全资产存储中。')):t('浏览器预览的令牌仅保留在内存中，刷新后需重新登录。')}</p>
         </div>`;
-      $('#git-provider').onchange=e=>{context.client=createGitClient(transport,e.target.value,context.workspace.settings.giteaServer);renderGitHub();};
+      $('#git-provider').onchange=e=>{context.gh=createGitClient(transport,e.target.value,context.workspace.settings.giteaServer);renderGitHub();};
       $('#token-login').onclick=()=>{try{setGitServer();loginToken();}catch(error){fail(error);}};
       $('#check-connection').onclick=()=>{try{setGitServer();checkGitHubConnection();}catch(error){fail(error);}};
       return;
     }
     if(selectedRepo){renderRepository();return;}
-    root.innerHTML=`${githubTopbar()}<header class="page-header"><div><span class="page-kicker">${gitName().toUpperCase()} / ${esc(account.login)}${context.client.server?' / '+esc(context.client.server):''}</span><h1>${t('仓库')} <span class="count-badge">${repositories.length}</span></h1>
+    root.innerHTML=`${githubTopbar()}<header class="page-header"><div><span class="page-kicker">${gitName().toUpperCase()} / ${esc(account.login)}${context.gh.server?' / '+esc(context.gh.server):''}</span><h1>${t('仓库')} <span class="count-badge">${repositories.length}</span></h1>
       </div>
       <div class="account-actions"><button class="secondary" id="refresh-repos">${t('刷新')}</button><button class="primary" id="create-repo">${t('＋ 新建仓库')}</button><button class="secondary" id="commit-workspace">${t('提交整个工作区')}</button><button class="secondary" id="logout">${t('退出登录')}</button></div>
       </header><label class="search-box" style="max-width:400px;margin-bottom:24px">${icon('search')}<input id="repo-search" aria-label="${t('搜索仓库')}" placeholder="${t('搜索仓库名称…')}"></label>
@@ -71,24 +71,24 @@ export function createRepositoryView(context){
     const epoch=++loadEpoch;
     $('#github-view').innerHTML=githubTopbar()+`<p class="loading">${say(`正在读取 ${gitName()} 仓库…`,`Loading ${gitName()} repositories…`)}</p>`;
     try{
-      const list=await context.client.repositories();
+      const list=await context.gh.repositories();
       if(epoch!==loadEpoch)return;
       repositories=list;
       githubOffline=false;
-      context.workspace.githubCache={...gitIdentity(context.client),login:account.login,checkedAt:Date.now(),repositories:list.slice(0,500).map(({full_name,name,description,default_branch,private:isPrivate,archived,permissions})=>({full_name,name,description,default_branch,private:isPrivate,archived,permissions}))};
+      context.workspace.githubCache={...gitIdentity(context.gh),login:account.login,checkedAt:Date.now(),repositories:list.slice(0,500).map(({full_name,name,description,default_branch,private:isPrivate,archived,permissions})=>({full_name,name,description,default_branch,private:isPrivate,archived,permissions}))};
       save();
       renderGitHub();
     }catch(e){
       if(epoch!==loadEpoch)return;
       githubOffline=true;
-      if(context.workspace.githubCache?.login===account?.login&&sameGitHost(context.workspace.githubCache,context.client))repositories=context.workspace.githubCache.repositories;
+      if(context.workspace.githubCache?.login===account?.login&&sameGitHost(context.workspace.githubCache,context.gh))repositories=context.workspace.githubCache.repositories;
       renderGitHub();
       fail(e);
     }
   }
   async function signedIn(user){
-    context.workspace.settings.gitProvider=context.client.provider;
-    if(context.client.provider==='gitea')context.workspace.settings.giteaServer=context.client.server;
+    context.workspace.settings.gitProvider=context.gh.provider;
+    if(context.gh.provider==='gitea')context.workspace.settings.giteaServer=context.gh.server;
     save();
     githubOffline=false;
     account=user;
@@ -101,17 +101,17 @@ export function createRepositoryView(context){
   async function checkGitHubConnection(){
     openModal(say(`检测 ${gitName()} 连接`,`Check ${gitName()} connection`),`<p>${t('正在检测连接…')}</p>`,null,{noSubmit:true});
     try{
-      const result=await transport('connection',gitIdentity(context.client));
+      const result=await transport('connection',gitIdentity(context.gh));
       if(result.status!==200)throw new Error(say(`${gitName()} 返回 HTTP ${result.status}，请检查网络后重试。`,`${gitName()} returned HTTP ${result.status}. Check your connection and try again.`));
       $('#dialog-body').textContent=say(`${gitName()} 连接正常，可以继续登录。`,`${gitName()} is reachable. You can sign in.`);
     }
     catch(e){$('#dialog-body').textContent=t('连接检测未通过。');$('#dialog-error').textContent=t(e.message);}
   }
-  function loginToken(){showTokenLogin({client:context.client,server:context.workspace.settings.giteaServer,transport,openModal,escape:esc,signedIn:async(user,client)=>{context.client=client;await signedIn(user);}});}
+  function loginToken(){showTokenLogin({client:context.gh,server:context.workspace.settings.giteaServer,transport,openModal,escape:esc,signedIn:async(user,client)=>{context.gh=client;await signedIn(user);}});}
   async function logout(){
     try{
       if(syncBusy())throw Error(t('正在同步，请稍后退出。'));
-      await transport('logout',gitIdentity(context.client));
+      await transport('logout',gitIdentity(context.gh));
       await syncBlobCache.clear();
       loadEpoch++;
       account=null;
@@ -130,7 +130,7 @@ export function createRepositoryView(context){
   }
   function createRepository(){
     openModal(say(`新建 ${gitName()} 仓库`,`New ${gitName()} repository`),`<label>${t('仓库名称')}<input name="name" pattern="[A-Za-z0-9_.-]+" required placeholder="my-writing"></label><label>${t('简介')}<textarea name="description" rows="2" maxlength="350"></textarea></label><label class="checkbox"><input name="private" type="checkbox" checked>${t('设为私有仓库')}</label><small>${t('将在当前账号下新建仓库并初始化 README。')}</small>`,async f=>{
-      await context.client.createRepository(f.get('name').trim(),f.get('description'),f.has('private'));
+      await context.gh.createRepository(f.get('name').trim(),f.get('description'),f.has('private'));
       await loadRepositories();
     },{label:t('创建仓库')});
   }
@@ -142,7 +142,7 @@ export function createRepositoryView(context){
       <div class="button-row"><button class="secondary" id="repo-pull">${t('拉取整个仓库')}</button><button class="secondary" id="repo-settings">${t('仓库设置')}</button><button class="secondary" id="repo-commit-workspace">${t('提交整个工作区')}</button><button class="primary" id="repo-commit">${t('提交当前文件')}</button></div>
       </header><div class="repo-toolbar"><label>${t('分支')} <select id="branch-select" aria-label="${t('选择分支')}"><option>${esc(selectedBranch)}</option></select></label>
       <button class="secondary" id="create-branch">${t('＋ 新建分支')}</button><button class="secondary" id="refresh-files">${t('刷新')}</button><button class="secondary" id="repo-history">${t('提交记录')}</button></div>
-      ${syncTargetMarkup({...gitIdentity(context.client),repo:repo.full_name,branch:selectedBranch},repositoryFolder(context.workspace,repo.full_name,context.client.provider,context.client.server,selectedBranch),esc)}<div class="remote-selection-tools"><button id="remote-multi" class="secondary">${t('多选')}</button><button id="remote-select-all" class="secondary" hidden>${t('全选本页')}</button><button id="remote-pull-selected" class="primary" hidden>${t('拉取选中项')}</button><span id="remote-selected-count"></span><button id="remote-cancel-selection" class="secondary" hidden>${t('取消多选')}</button></div>
+      ${syncTargetMarkup({...gitIdentity(context.gh),repo:repo.full_name,branch:selectedBranch},repositoryFolder(context.workspace,repo.full_name,context.gh.provider,context.gh.server,selectedBranch),esc)}<div class="remote-selection-tools"><button id="remote-multi" class="secondary">${t('多选')}</button><button id="remote-select-all" class="secondary" hidden>${t('全选本页')}</button><button id="remote-pull-selected" class="primary" hidden>${t('拉取选中项')}</button><span id="remote-selected-count"></span><button id="remote-cancel-selection" class="secondary" hidden>${t('取消多选')}</button></div>
       <p class="path-label">${esc(selectedPath||'/')}</p>
       <div class="file-list" id="file-list"><p class="loading">${t('正在读取文件…')}</p>
       </div>`;
@@ -150,9 +150,9 @@ export function createRepositoryView(context){
     $('#repo-history').onclick=()=>showGitHistory(repo.full_name,selectedBranch);$('#repo-commit-workspace').onclick=()=>commitWholeWorkspace(repo.full_name,selectedBranch).catch(fail);$('#repo-commit').onclick=()=>commitDocument(repo.full_name,selectedBranch);$('#repo-pull').onclick=()=>pullWholeRepository();
     $('#repo-settings').onclick=()=>openModal(t('仓库设置'),`<label>${t('仓库名称')}<input name="name" required pattern="[A-Za-z0-9_.-]+" value="${esc(repo.name)}"></label><label>${t('简介')}<textarea name="description" rows="3">${esc(repo.description||'')}</textarea></label><small>${say(`修改会直接更新 ${gitName()} 仓库的名称与简介。`,`This updates the repository name and description on ${gitName()}.`)}</small>`,async f=>{
       const old=repo.full_name;
-      const updated=await context.client.updateRepository(old,{name:f.get('name').trim(),description:f.get('description')});
-      for(const d of context.workspace.documents)if(sameGitHost(d.remote,context.client)&&d.remote?.repo===old)d.remote.repo=updated.full_name;
-      for(const item of context.workspace.repositories||[])if(sameGitHost(item,context.client)&&item.repo===old)item.repo=updated.full_name;
+      const updated=await context.gh.updateRepository(old,{name:f.get('name').trim(),description:f.get('description')});
+      for(const d of context.workspace.documents)if(sameGitHost(d.remote,context.gh)&&d.remote?.repo===old)d.remote.repo=updated.full_name;
+      for(const item of context.workspace.repositories||[])if(sameGitHost(item,context.gh)&&item.repo===old)item.repo=updated.full_name;
       save();
       repositories=repositories.map(r=>r.full_name===old?updated:r);
       selectedRepo=updated;
@@ -166,29 +166,29 @@ export function createRepositoryView(context){
     }
     $('#create-branch').onclick=()=>openModal(t('新建分支'),`<p>${say(`从 ${esc(selectedBranch)} 创建分支。`,`Create a branch from ${esc(selectedBranch)}.`)}</p><label>${t('分支名称')}<input name="name" placeholder="draft/chapter-one" required></label>`,async f=>{
       if(syncBusy())throw Error(t('正在同步，请稍后创建分支。'));
-      await context.client.createBranch(repo.full_name,selectedBranch,f.get('name'));
+      await context.gh.createBranch(repo.full_name,selectedBranch,f.get('name'));
       renderRepository();
       toast(t('分支已创建，可在分支列表中选择。'));
     },{label:t('创建分支')});
     $('#branch-select').onchange=async e=>{
-      const next=e.target.value,select=e.target,client=context.client,source=context.workspace,branch=selectedBranch;
+      const next=e.target.value,select=e.target,client=context.gh,source=context.workspace,branch=selectedBranch;
       const target={...gitIdentity(client),repo:repo.full_name,branch};
       select.value=branch;select.disabled=true;
       try{
         if(syncBusy())throw Error(t('正在同步，请等待完成后再切换分支。'));
         if(!save())throw Error(t('本地保存失败，未切换分支。'));
         const attachmentChanges=await inspectBranchAttachments(source,target,native?path=>transport('readWorkspaceFile',{path}):null);
-        if(source!==context.workspace||client!==context.client||selectedRepo!==repo||selectedBranch!==branch)return;
+        if(source!==context.workspace||client!==context.gh||selectedRepo!==repo||selectedBranch!==branch)return;
         switchRepositoryBranch({workspace:context.workspace,target,next,attachmentChanges,busy:syncBusy,save,openModal,escape:esc,
           apply:nextBranch=>{selectedBranch=nextBranch;selectedPath='';remoteSelection.clear();remoteSelecting=false;renderRepository();}});
       }catch(error){fail(error);}finally{if(select.isConnected)select.disabled=false;}
     };
     try{
-      const [branches,contents]=await Promise.all([context.client.branches(repo.full_name),context.client.contents(repo.full_name,selectedBranch,selectedPath)]);
+      const [branches,contents]=await Promise.all([context.gh.branches(repo.full_name),context.gh.contents(repo.full_name,selectedBranch,selectedPath)]);
       if(epoch!==loadEpoch)return;
       $('#branch-select').innerHTML=branches.map(b=>`<option value="${esc(b.name)}" ${b.name===selectedBranch?'selected':''}>${esc(b.name)}</option>`).join('');
       if(!Array.isArray(contents))throw new Error(t('当前路径不是文件夹。'));
-      if(remoteSelectionRepo!==gitHostKey(context.client)+'/'+repo.full_name+'/'+selectedBranch){remoteSelection.clear();remoteSelecting=false;remoteSelectionRepo=gitHostKey(context.client)+'/'+repo.full_name+'/'+selectedBranch;}
+      if(remoteSelectionRepo!==gitHostKey(context.gh)+'/'+repo.full_name+'/'+selectedBranch){remoteSelection.clear();remoteSelecting=false;remoteSelectionRepo=gitHostKey(context.gh)+'/'+repo.full_name+'/'+selectedBranch;}
       contents.sort((a,b)=>(a.type===b.type?a.name.localeCompare(b.name):a.type==='dir'?-1:1));
       $('#file-list').innerHTML=(selectedPath?`<div class="file-row"><button data-parent="true"><span class="doc-symbol">${icon('back')}</span>${t('上级目录')}</button></div>`:'')+contents.map((f,i)=>`<div class="file-row" data-remote-row="${i}"><input type="checkbox" data-remote-select="${i}" aria-label="${esc(t('选择')+' '+f.name)}" hidden><button data-file="${i}"><span class="doc-symbol">${f.type==='dir'?icon('files'):fileIcon(fileKind(f.name))}</span><span data-user-content>${esc(f.name)}</span></button><small>${f.type==='dir'?t('文件夹'):formatBytes(f.size)}</small>${f.type==='dir'?`<button data-browse="${i}" aria-label="${esc(t('打开')+' '+f.name)}">${icon('arrowRight')}</button>`:''}${f.type==='file'?`<button data-delete="${i}" title="${t('删除远端文件')}" aria-label="${esc(t('删除')+' '+f.name)}">${icon('trash')}</button>`:''}</div>`).join('');
       setupRemoteSelection(contents);if(githubOffline||repo.permissions?.push===false||repo.archived)root.querySelectorAll('[data-delete]').forEach(button=>button.disabled=true);
@@ -207,7 +207,7 @@ export function createRepositoryView(context){
             const f=contents[Number(del.dataset.delete)],branch=selectedBranch;
             // i18n-data: file names, matching text and editable defaults stay as written
             openModal(t('删除远端文件'),`<p>${say(`将从 ${esc(repo.full_name)} 的 ${esc(branch)} 分支删除 ${esc(f.path)}。本地文稿不会删除。`,`Delete ${esc(f.path)} from ${esc(repo.full_name)} on branch ${esc(branch)}. Local documents are kept.`)}</p><label>${t('提交说明')}<input name="message" required value="${esc(/* User-editable commit message. */ '删除 '+f.name)}"></label>`,async data=>{
-              await context.client.deleteFile({repo:repo.full_name,branch,path:f.path,sha:f.sha,message:data.get('message')});
+              await context.gh.deleteFile({repo:repo.full_name,branch,path:f.path,sha:f.sha,message:data.get('message')});
               renderRepository();
             },{label:t('确认删除并提交')});
           }
@@ -262,7 +262,7 @@ export function createRepositoryView(context){
     };$('#remote-pull-selected').onclick=()=>pullWholeRepository([...remoteSelection.keys()]);renderRemoteSelection();
   }
   async function openRemote(repo,branch,path){
-    const client=context.client,host=gitIdentity(client),before=context.workspace.documents.find(d=>sameRepository(d.remote,{...host,repo,branch})&&d.remote.path===path);
+    const client=context.gh,host=gitIdentity(client),before=context.workspace.documents.find(d=>sameRepository(d.remote,{...host,repo,branch})&&d.remote.path===path);
     const file=await syncActivity.run(before?.id||gitHostKey(client)+'/'+repo+'/'+path,()=>client.readFile(repo,branch,path));if(!save())throw Error(t('请先保存当前文稿。'));
     const remoteText=/\.(csv|tsv)$/i.test(path)?file.text:normalizeText(file.text),merged=before?mergeVelaTexts(path,before.remote?.lastSyncedText,before.text,remoteText):null;
     if(before&&merged===null&&!syncTextEqual(path,before.text,remoteText)&&!syncTextEqual(path,before.remote?.lastSyncedText,before.text)){
@@ -288,9 +288,9 @@ export function createRepositoryView(context){
     }renderDocuments();if(!save())throw Error(t('拉取后本地保存失败，请导出备份。'));renderSyncStatus();toast(before?t('已更新远端文件'):t('已拉取远端文件'));return true;
   }
   function pullWholeRepository(selection=null){
-    const repo=selectedRepo,branch=selectedBranch,client=context.client;if(!repo)return;
+    const repo=selectedRepo,branch=selectedBranch,client=context.gh;if(!repo)return;
     if(!native||!context.workspace.storage?.id){toast(t('请在应用中拉取仓库文件。'));return;}
-    const folder=repositoryFolder(context.workspace,repo.full_name,context.client.provider,context.client.server,branch),abort=new AbortController();
+    const folder=repositoryFolder(context.workspace,repo.full_name,context.gh.provider,context.gh.server,branch),abort=new AbortController();
     openModal(selection?t('拉取选中项'):t('拉取整个仓库'),`${selection?`<p>${say(`${selection.length} 个选中项（文件夹包含全部子项）`,`${selection.length} selected items (including all folder contents)`)}</p>`:''}<p>${esc(repo.full_name)} / ${esc(branch)}</p>
       <p>${say(`保存到当前工作区的“${esc(folder)}”文件夹。随后预览新增、修改和远端删除项；本地独有文件保留。`,`Save to “${esc(folder)}” in the current workspace, then preview additions, changes and remote deletions. Local-only files are kept.`)}</p>
       <p id="pull-progress"></p>
@@ -314,7 +314,7 @@ export function createRepositoryView(context){
     $('#cancel-pull').onclick=()=>abort.abort();
   }
   async function showGitHistory(repo,branch,page=1){
-    try{const commits=await context.client.commits(repo,branch,page);if(!Array.isArray(commits))throw Error(t('提交记录格式无效'));
+    try{const commits=await context.gh.commits(repo,branch,page);if(!Array.isArray(commits))throw Error(t('提交记录格式无效'));
       openModal(t('提交记录'),`<p data-user-content>${esc(repo)} / ${esc(branch)}</p>
         ${commits.map(item=>`<article class="git-history-item"><strong data-user-content>${esc(item.commit?.message?.split('\n')[0]||'')}</strong><small data-user-content>${esc(item.sha?.slice(0,8))} · ${esc(item.commit?.author?.name)} · ${esc(item.commit?.author?.date)}</small></article>`).join('')||`<p>${t('暂无提交记录')}</p>`}<div class="button-row"><button type="button" id="history-prev" ${page>1?'':'disabled'}>←</button><span>${page}</span><button type="button" id="history-next" ${commits.length===30?'':'disabled'}>→</button></div>`,null,{noSubmit:true});
       $('#history-prev').onclick=()=>showGitHistory(repo,branch,page-1);$('#history-next').onclick=()=>showGitHistory(repo,branch,page+1);
@@ -324,7 +324,7 @@ export function createRepositoryView(context){
   function commitDocument(suggestRepo,suggestBranch){
     if(!account){showView('github');return;}
     if(!repositories.length){showView('github');toast(t('请先新建或获得一个可写仓库。'));return;}
-    const doc=current();if(!doc){showView('write');showHome();toast(t('请先打开需要提交的文件。'));return;}const remote=sameGitHost(doc.remote,context.client)?doc.remote:null;
+    const doc=current();if(!doc){showView('write');showHome();toast(t('请先打开需要提交的文件。'));return;}const remote=sameGitHost(doc.remote,context.gh)?doc.remote:null;
     const initialRepo=suggestRepo||remote?.repo||repositories[0].full_name;
     const initialBranch=suggestBranch||remote?.branch||repositories.find(r=>r.full_name===initialRepo)?.default_branch||'main';
     // i18n-data: file names, matching text and editable defaults stay as written
@@ -337,12 +337,12 @@ export function createRepositoryView(context){
       if(!save())throw new Error(t('本地保存失败，请先导出备份。'));
       const repo=f.get('repo'),branch=f.get('branch').trim(),path=repoPath(f.get('path'));
       const sha=remote&&!remote.deleted&&remote.repo===repo&&remote.branch===branch&&remote.path===path?remote.sha:undefined;
-      const text=doc.text,message=f.get('message'),before=sha?(remote.lastSyncedText??await context.client.blobText(repo,sha)):'';
-      openModal(t('确认提交变更'),`${syncTargetMarkup({...gitIdentity(context.client),repo,branch,path},undefined,esc)}${diffMarkup(before,text,esc)}<p data-user-content>${esc(message)}</p>`,async()=>{
+      const text=doc.text,message=f.get('message'),before=sha?(remote.lastSyncedText??await context.gh.blobText(repo,sha)):'';
+      openModal(t('确认提交变更'),`${syncTargetMarkup({...gitIdentity(context.gh),repo,branch,path},undefined,esc)}${diffMarkup(before,text,esc)}<p data-user-content>${esc(message)}</p>`,async()=>{
         if(!syncTextEqual(path,doc.text,text))throw Error(t('预览后文件已变化，请重新生成提交预览。'));
         const submittedText=doc.text;
-        const result=await syncActivity.run(doc.id,()=>context.client.commit({repo,branch,path,sha,text:submittedText,message}));
-        doc.remote={...gitIdentity(context.client),repo,branch,path,sha:result.content.sha,lastSyncedText:submittedText,syncedAt:Date.now()};
+        const result=await syncActivity.run(doc.id,()=>context.gh.commit({repo,branch,path,sha,text:submittedText,message}));
+        doc.remote={...gitIdentity(context.gh),repo,branch,path,sha:result.content.sha,lastSyncedText:submittedText,syncedAt:Date.now()};
         save();
         renderDocuments();
         toast(say(`文稿已提交到 ${repo}`,`Document committed to ${repo}`)+' / '+branch+' · '+result.commit?.sha?.slice(0,8));
@@ -374,18 +374,18 @@ export function createRepositoryView(context){
   }
 
   function showCommitPreview(options){
-    return previewCommit(options,{workspace:context.workspace,client:context.client,activity:syncActivity,openModal,escape:esc,save,toast});
+    return previewCommit(options,{workspace:context.workspace,client:context.gh,activity:syncActivity,openModal,escape:esc,save,toast});
   }
 
   async function restoreAccount(){
     try{
-      const user=await context.client.user();
+      const user=await context.gh.user();
       account=user;
       $('#sidebar-logout').disabled=false;
       $('#account-label').textContent=gitName()+' · '+user.login;
-      repositories=await context.client.repositories();
+      repositories=await context.gh.repositories();
     }catch{
-      if(context.workspace.githubCache?.login&&sameGitHost(context.workspace.githubCache,context.client)){
+      if(context.workspace.githubCache?.login&&sameGitHost(context.workspace.githubCache,context.gh)){
         account={login:context.workspace.githubCache.login};
         repositories=context.workspace.githubCache.repositories||[];
         githubOffline=true;
