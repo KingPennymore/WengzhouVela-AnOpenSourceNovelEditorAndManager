@@ -119,7 +119,7 @@ return value.replace(/^(.+) 必须是对象。$/,'$1 must be an object.').replac
 export const getLanguage=()=>language;
 // Sentences with values in them are written out in both languages; fixed strings go through t().
 export const say=(zh,en)=>language==='en'?en:zh;
-const skip=element=>element?.closest('.cm-editor,#preview:not(.vela-preview),[data-user-content],#license-text,.plugin-page-body,.doc-info strong,.tab-open strong,.reader-book strong,.reader-book small,#current-name,.chapter,.repo-card strong,.repo-card p,.reader-content,.csv-grid-stage,.outline-node-title,.outline-node-summary,.outline-node-detail,.outline-lines');
+const skip=element=>element?.closest('.cm-editor,#preview:not(.vela-preview),[data-user-content],#license-text,.plugin-page-body,.doc-info strong,.tab-open strong,.reader-book strong,.reader-book small,#current-name,#current-chapter,.chapter,.repo-card strong,.repo-card p,.reader-content,.csv-grid-stage,.outline-node-title,.outline-node-summary,.outline-node-detail,.outline-lines');
 // Modules render English at the source through t()/say(). This one pass covers the static shell in index.html and
 // re-translates what is already on screen when the language changes; nothing watches later DOM updates.
 function translateText(node){const parent=node.parentElement;if(!parent||skip(parent)||parent.matches('script,style,textarea'))return;const previous=originals.get(node),source=previous&&node.nodeValue===previous.translated?previous.source:node.nodeValue;const trimmed=source.trim(),translated=source.replace(trimmed,t(trimmed));originals.set(node,{source,translated});if(node.nodeValue!==translated)node.nodeValue=translated;}
