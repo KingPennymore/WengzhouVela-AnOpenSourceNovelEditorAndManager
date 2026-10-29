@@ -83,7 +83,7 @@ export async function mountAiSettings(root,{workspace,toast,changed,session,draf
       if(!alive())return;
       if(!accepted){input.checked=false;refresh();return;}settings.consented=true;
     }
-    settings.enabled=input.checked;changed?.();if(settings.enabled&&!aiReady(settings,status))toast(t('AI 助手已启用，但还没有为这个接口地址保存 API Key。'));
+    settings.enabled=input.checked;changed?.();if(settings.enabled&&!aiReady(settings,status))toast(t('AI 助手已启用，请填写此接口的 API Key，再点按“验证并保存”。'));
     refresh();
   });
   listen($('[name=aiProvider]'),'change',()=>{const item=preset($('[name=aiProvider]').value);if(item.id!=='custom'){$('[name=aiEndpoint]').value=item.endpoint;root.querySelectorAll('[name=aiFormat]').forEach(radio=>radio.checked=radio.value===item.format);}refresh();});
@@ -93,7 +93,7 @@ export async function mountAiSettings(root,{workspace,toast,changed,session,draf
   $('[data-ai-verify]').onclick=async()=>{
     const button=$('[data-ai-verify]'),candidate={...current(),apiVersion:$('[name=aiApiVersion]').value.trim()}, {format,endpoint}=candidate,key=$('[name=aiKey]').value.trim();
     if(format==='azure'){try{buildRequest(format,{model:'validation',messages:[],apiVersion:candidate.apiVersion});}catch(cause){error(t(cause.message));return;}}
-    if(!key&&!isLocalEndpoint(endpoint)){error(t('请粘贴 API Key。'));$('[name=aiKey]').focus();return;}
+    if(!key&&!isLocalEndpoint(endpoint)){error(t('尚未填写 API Key，请粘贴密钥后重新验证。'));$('[name=aiKey]').focus();return;}
     const fields=[...root.querySelectorAll('[name=aiProvider],[name=aiFormat],[name=aiEndpoint],[name=aiApiVersion],[name=aiKey]')];
     fields.forEach(field=>field.disabled=true);
     button.disabled=true;error('');$('.ai-key-status').textContent=t('正在验证…');

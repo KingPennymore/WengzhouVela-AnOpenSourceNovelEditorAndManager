@@ -253,3 +253,21 @@ Object.assign(dictionary,{'隐私政策':'Privacy policy','补全与术语':'Com
 Object.assign(dictionary,{'沉浸写作':'Immersive writing','连续输入时收起操作栏，滑动或点按屏幕边缘恢复。':'Hide controls while typing; swipe or tap a screen edge to restore them.','＋ 自定义':'+ Custom','格式工具':'Formatting tools','跳转':'Jump','已保存':'Saved','保存失败':'Save failed'});
 
 Object.assign(dictionary,{'继续写作':'Continue writing','今日字数':'Written today','开始你的第一篇文稿':'Start your first manuscript','新建文稿，或从设备导入已有文件。':'Create a manuscript or import files from your device.','文件统计':'File statistics','最近文稿':'Recent manuscripts'});
+
+// Action labels, complete help sentences and actionable errors (UI redesign phase 5).
+Object.assign(dictionary,{
+  "打开设置": "Open settings",
+  "编辑标题模板": "Edit heading templates",
+  "查看开源许可": "View open-source licenses",
+  "查看使用指南": "View the user guide",
+  "查看隐私政策": "View the privacy policy",
+  "查看最近文件": "View recent files",
+  "管理 Git 仓库": "Manage Git repositories",
+  "查看操作指南": "View the user guide",
+  "查看命令与快捷键": "View commands and shortcuts",
+  "管理插件与组件": "Manage plugins and components",
+  "粗体、着重号、注音、插图和样式；格式保存在作品配置 .vela 中，TXT 正文不变。": "Bold, emphasis marks, pronunciation, illustrations and styles are saved in the work’s .vela configuration. TXT text remains unchanged.",
+  "尚未填写 API Key，请粘贴密钥后重新验证。": "No API key was entered. Paste your key and verify again.",
+  "AI 助手已启用，请填写此接口的 API Key，再点按“验证并保存”。": "AI assistant is enabled. Enter the API key for this endpoint, then select “Verify and save”.",
+  "连接检测未通过，请检查网络与 GitHub 地址后重试。": "The connection test failed. Check your network and GitHub address, then try again."
+});

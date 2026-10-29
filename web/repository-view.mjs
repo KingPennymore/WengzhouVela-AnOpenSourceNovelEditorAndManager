@@ -105,7 +105,7 @@ export function createRepositoryView(context){
       if(result.status!==200)throw new Error(say(`${gitName()} 返回 HTTP ${result.status}，请检查网络后重试。`,`${gitName()} returned HTTP ${result.status}. Check your connection and try again.`));
       $('#dialog-body').textContent=say(`${gitName()} 连接正常，可以继续登录。`,`${gitName()} is reachable. You can sign in.`);
     }
-    catch(e){$('#dialog-body').textContent=t('连接检测未通过。');$('#dialog-error').textContent=t(e.message);}
+    catch(e){$('#dialog-body').textContent=t('连接检测未通过，请检查网络与 GitHub 地址后重试。');$('#dialog-error').textContent=t(e.message);}
   }
   function loginToken(){showTokenLogin({client:context.gh,server:context.workspace.settings.giteaServer,transport,openModal,escape:esc,signedIn:async(user,client)=>{context.gh=client;await signedIn(user);}});}
   async function logout(){
