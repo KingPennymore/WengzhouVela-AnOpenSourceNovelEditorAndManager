@@ -6,8 +6,7 @@
 
 | 编号 | 事项 | 位置 | 完成标准 | 状态 |
 | --- | --- | --- | --- | --- |
-| O15 | O8 遗漏的超长单行：`map-algorithm-view.mjs` 第 10–12 行（2048–3039 字符）、`map-view.mjs` 第 30 行（1995）、`map-images.mjs` 第 5 行（1504） | `web/map-*.mjs` | 按 O8 写法拆成一条语句一行；`web/` 下除 `guide.mjs` 与词典外无超过 1500 字符的行；地图相关浏览器测试通过 | Codex 处理中（`codex/auto-O15`） |
-| O16 | `csv-embed.mjs` 自带 `escape`，与 `text-utils.mjs` 的 `escapeHtml` 逐字相同 | `web/csv-embed.mjs` | 改用 `escapeHtml`，删除本地实现；CSV 嵌入相关测试通过 | 待做 |
+| O17 | `palette-browser.mjs` 在全量回归中偶发失败（`strictEqual` 断言，`test-browser` 只显示末尾 4 行，看不到哪条），单独运行通过；另外 worktree 里跑 Windows/Electron 套件需要 `windows/node_modules` 目录联接到主仓库 | `tests/palette-browser.mjs`、`scripts/test-browser.mjs` | 找出不稳定的断言并改为等待条件；失败时 `test-browser` 输出断言的 actual/expected；连续 3 次全量回归该套件通过 | 待做 |
 
 ## 已完成
 
@@ -29,3 +28,5 @@
 | O12 | 修复过时的浏览器测试：`pdf-layout`（编辑区 TeX 预览改为按宽度适配、容器内滚动，整页适配只查阅读模式）、`rich-text`（回收站行改为 `.trash-item`）、`workspace` 与 `windows`（刷新后保留当前文稿，不再跳回启动页）；`components`、`tex-lite` 在精简版构建下通过，完整版上直接提示先 `npm run build:lite`；`android`、`android-tex` 需要专用模拟器 `Wenzhou_QA_API36`。完整构建下全量 96 个套件除这 4 个外全部通过 | `96b672b`、`08507d4`、`29bbe15`、`a8e37cb`，及 `9d80f1f`（定时任务） |
 | O13 | 检查 Codex 格式化加入的模板空白：启动页、最近文件、编辑器、更多菜单、设置、地图在 1280 与 390 宽度下，与迁移前（`317e77f`）逐元素比较位置尺寸零差异，无需改动 | 无代码改动 |
 | O14 | 新增 `npm run test:browser`（`scripts/test-browser.mjs`）：自动起停 4173 的 dist 服务，依次运行全部浏览器套件并汇总；跳过安卓专用模拟器与性能压测套件，精简版套件只在精简版构建下运行；可传关键词只跑部分套件 | 见提交记录 |
+| O15 | O8 遗漏的超长单行：`map-algorithm-view.mjs`（第 10–12 行，最长 3039 字符）按语句与处理函数拆行、对话框模板拆成拼接片段；`map-view.mjs` 工具栏模板按区段拆分；`map-images.mjs` 的 `validateMapImages` 一条语句一行。三个文件 esbuild 压缩产物前后逐字节相同。`web/` 下超过 1500 字符的行只剩词典 `planning-i18n.mjs` | `23b5570` |
+| O16 | `csv-embed.mjs` 删除与 `escapeHtml` 逐字相同的本地 `escape`，改为从 `text-utils.mjs` 导入 | `5729772` |
