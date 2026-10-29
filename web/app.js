@@ -64,7 +64,8 @@ import {paragraphSelection} from './selection.mjs';
 import {decodeFileText} from './file-text.mjs';
 import {loadCsvTable,collectCsvTables} from './csv-embed.mjs';
 import {showCsvInsert} from './csv-insert.mjs';
-import {palettes,applyPalette,paletteFor,allPalettes,customPalettes,setCustomPalettes,derivePalette,paletteWarnings,validateCustomPalette,paletteBase,newPaletteId,MAX_CUSTOM_PALETTES} from './palettes.mjs';
+import {palettes,applyPalette,paletteFor,allPalettes,customPalettes,setCustomPalettes,MAX_CUSTOM_PALETTES} from './palettes.mjs';
+import {showPaletteEditor as openPaletteEditor} from './palette-editor.mjs';
 import {newFileHtml,bindNewFile,assertNewFile} from './new-file.mjs';
 import {folderPickerHtml,bindFolderPicker} from './folder-picker.mjs';
 import {initMotion,crossfadeTheme} from './motion.mjs';
@@ -73,12 +74,10 @@ import {bindTextZoom} from './gestures.mjs';
 import {PluginRuntime} from './plugins.mjs';
 import {PluginUiHost} from './plugin-ui.mjs';
 import {readWorkspaceBackup,prepareBackupRestore,mergeBackupRestore} from './workspace-backup.mjs';
-import {chapterExport,chapterFileName} from './chapter-export.mjs';
-import {chapterMarkdown,chapterHtml} from './rich-text-export.mjs';
+import {createExportDialogs} from './export-dialogs.mjs';
 import {renderPlainChapters} from './reader-layout.mjs';
 import {textPoint,invalidateTextIndex} from './reading-position.mjs';
-import {epubFileName,MAX_COVER_BYTES,COVER_TYPES} from './epub-names.mjs';
-import {loadOutlineView,loadMapView,loadPdfPreview,loadReader,loadEpubExport,loadLatexEditor,loadMarkdownPreview,loadHtmlPreview,loadGuide,loadSubscriptions,loadUpdateView,loadComponentDownloads,loadGlossaryView,chunkFailure} from './lazy.mjs';
+import {loadOutlineView,loadMapView,loadPdfPreview,loadReader,loadLatexEditor,loadMarkdownPreview,loadHtmlPreview,loadGuide,loadSubscriptions,loadUpdateView,loadComponentDownloads,loadGlossaryView,chunkFailure} from './lazy.mjs';
 import {readPluginZip,fromBase64} from './plugin-package.mjs';
 import {documentPath,uniquePath,preparePaths,adoptFolder,folderTree,gitFileState} from './workspace.mjs';
 import {applyRemoteFile,repositoryFolder,resolveRepositoryConflict} from './git-workspace.mjs';
@@ -599,8 +598,6 @@ async function exportImages(doc,entries,bytes=false){
   }
   return map;
 }
-const missingNote=missing=>{const paths=[...new Set(missing||[])],tables=paths.filter(path=>/\.(csv|tsv)$/i.test(path)).length,images=paths.length-tables;
-  return [images?say(`；${images} 张插图无法读取，已省略`,`; ${images} unreadable illustrations omitted`):'',tables?say(`；${tables} 个表格无法读取，导出中保留缺失说明`,`; ${tables} unreadable tables marked as missing in the export`):''].join('');};
 function renderFormatTools(){
   const tools=$('#format-tools');if(!tools)return;const doc=current(),value=view&&formatsOf(view.state),show=!home&&!isPreview&&!!doc&&!!value&&richTextEnabled(doc);tools.hidden=!show;if(!show){
     stylePanel.close();
@@ -1816,59 +1813,7 @@ function applyTheme(mode=workspace.settings.theme){
   };
   if(changed&&!starting)crossfadeTheme(paint).then(bars);else{paint();bars();}
 }
-/** Create or edit a custom palette: three colours per mode with a live preview and readability notes. */
-function showPaletteEditor(id='',from=workspace.settings.palette){
-  // i18n-data: file names, matching text and editable defaults stay as written
-  const existing=customPalettes().find(item=>item.id===id),base=existing?structuredClone(existing.base):paletteBase(from),name=existing?.name||'我的配色';
-  const field=(mode,key,label)=>`<label class="palette-color">${label}<input type="color" name="${mode}-${key}" value="${base[mode][key]}"></label>`;
-  const column=(mode,title)=>`<fieldset class="palette-mode"><legend>${title}</legend>${field(mode,'paper',t('纸张'))}${field(mode,'text',t('文字'))}${field(mode,'accent',t('强调色'))}<div class="palette-preview" data-preview="${mode}"><strong>${t('第一章 风起')}</strong><p>${t('林舟冷笑一声，转身离去。')}</p>
-    <small>${t('本章 2,318 字')}</small><span class="palette-preview-button">${t('保存')}</span></div>
-    <p class="palette-warnings" data-warnings="${mode}" role="status"></p>
-    </fieldset>`;
-  openModal(existing?t('编辑配色'):t('自定义配色'),`<label>${t('名称')}<input name="name" required maxlength="16" value="${esc(name)}"></label>
-    ${existing?'':`<label>${t('起点')}<select name="from">${allPalettes().map(p=>`<option value="${p.id}"${p.id===from?' selected':''}>${esc(p.custom?p.name:t(p.name))}</option>`).join('')}</select></label>`}<div class="palette-modes">${column('light',t('浅色'))}${column('dark',t('深色'))}</div>
-    <small>${t('只需选纸张、文字和强调色，背景、面板、分隔线和选区会自动推导，保持与内置配色相同的层次。配色只保存在本机设置中。')}</small>${existing?`<p><button type="button" class="danger" id="delete-palette">${t('删除此配色')}</button></p>`:''}`,form=>{
-    const value=validateCustomPalette({id:existing?.id||newPaletteId(),name:form.get('name'),light:read(form,'light'),dark:read(form,'dark')});
-    const list=(workspace.settings.customPalettes||[]).filter(item=>item.id!==value.id);
-    workspace.settings.customPalettes=[...list,value].slice(-MAX_CUSTOM_PALETTES);
-    setCustomPalettes(workspace.settings.customPalettes);
-    workspace.settings.palette=value.id;
-    applyTheme();
-    save();
-    toast(say(`已使用配色“${value.name}”`,`Using palette “${value.name}”`));
-  },{label:t('保存并使用')});
-  function read(form,mode){return {paper:form.get(mode+'-paper'),text:form.get(mode+'-text'),accent:form.get(mode+'-accent')};}
-  const preview=()=>{
-    const form=new FormData($('#dialog-form'));
-    for(const mode of ['light','dark']){
-      const colors=derivePalette(read(form,mode),mode==='dark'),box=$(`#dialog-body [data-preview="${mode}"]`);
-      for(const [key,color] of Object.entries(colors))box.style.setProperty('--p-'+key,color);
-      const notes=paletteWarnings(read(form,mode));
-      $(`#dialog-body [data-warnings="${mode}"]`).textContent=notes.map(note=>{
-        const ratio=/[0-9]+\.[0-9]+/.exec(note)?.[0];
-        // i18n-data: file names, matching text and editable defaults stay as written
-        return note.startsWith('正文与纸张对比度 ')
-          ?say(note,`Text-to-paper contrast ${ratio}:1 is below 4.5:1; long reading sessions may be tiring`)
-          :say(note,`Accent-to-paper contrast ${ratio}:1 is below 3:1; buttons and markers may be hard to see`);
-      }).join(say('；','; '));
-    }
-  };
-  $('#dialog-body').addEventListener('input',preview);preview();
-  const start=$('#dialog-body [name=from]');if(start)start.onchange=()=>{
-    const next=paletteBase(start.value);
-    for(const mode of ['light','dark'])for(const key of ['paper','text','accent'])$(`#dialog-body [name="${mode}-${key}"]`).value=next[mode][key];
-    preview();
-  };
-  const remove=$('#delete-palette');if(remove)remove.onclick=()=>{
-    workspace.settings.customPalettes=(workspace.settings.customPalettes||[]).filter(item=>item.id!==id);
-    setCustomPalettes(workspace.settings.customPalettes);
-    if(workspace.settings.palette===id)workspace.settings.palette='pine';
-    applyTheme();
-    save();
-    closeModal();
-    toast(t('配色已删除'));
-  };
-}
+const showPaletteEditor=(id,from)=>openPaletteEditor({workspace,openModal,closeModal,applyTheme,save,toast},id,from);
 // Every press flips what is on screen; when the new look matches the system it follows the system again, so the
 // first press is never a no-op (the old system → light → dark cycle did nothing on a light system).
 function cycleTheme(){const dark=!workspace.settings.dark,system=environment?.dark??systemTheme.matches;applyTheme(dark===system?'system':dark?'dark':'light');save();}
@@ -2532,111 +2477,9 @@ function showLocalHistory(){
 }
 async function copyText(text){if(native)await transport('clipboardWrite',{text});else await navigator.clipboard.writeText(text);}
 /** Current chapter index for the cursor, so dialogs and commands default to the chapter being written. */
-function currentSectionIndex(sections){const row=view.state.doc.lineAt(view.state.selection.main.head).number-1;return Math.max(0,sections.findIndex(section=>row>=section.row&&row<section.endRow));}
-function chapterSelection(form,sections){
-  const from=Number(form.get('from')),to=Number(form.get('to'));
-  if(to<from)throw Error(t('结束章节不能在起始章节之前。'));
-  return {from,to,result:chapterExport(view.state.doc.toString(),sections,{from,to,includeTitle:form.has('title'),stripMarkdown:form.has('plain')})};
-}
-/** Export one chapter or a range as TXT, or copy it to the clipboard; the document itself is not changed. */
-function showChapterExport(){
-  if(!current()||!view)return;const sections=ensureIndex().sections,at=currentSectionIndex(sections),markdown=documentKind(current())==='MD',options=sections.map((section,index)=>`<option value="${index}"${index===at?' selected':''}>${esc(String(index+1).padStart(2,'0')+'　'+section.title)}</option>`).join('');
-  const txt=documentKind(current())==='TXT',notes={txt:t('导出为 UTF-8 TXT，章节之间空一行；原文稿不会被修改。'),markdown:t('每段一个 Markdown 段落，章节标题为二级标题；粗体保留，着重号导出为斜体，Markdown 无法表示居中。'),html:t('离线 HTML，保留粗体、着重号和居中；复制时同时放入带格式内容，可粘贴到支持富文本的编辑器。')};
-  openModal(t('导出章节'),`<label>${t('起始章节')}<select name="from">${options}</select></label>
-    <label>${t('结束章节')}<select name="to">${options}</select></label>
-    ${txt?`<label>${t('文件格式')}<select name="format"><option value="txt">${t('纯文本 TXT')}</option><option value="markdown">Markdown</option><option value="html">${t('HTML（保留格式）')}</option></select></label>`:''}<label class="checkbox"><input name="title" type="checkbox" checked>${t('包含章节标题')}</label>
-    ${markdown?`<label class="checkbox"><input name="plain" type="checkbox" checked>${t('去除 Markdown 标记')}</label>`:''}<p><button type="button" class="secondary" id="copy-chapters">${t('复制到剪贴板')}</button>${txt?` <button type="button" class="secondary" id="chapter-epub">${t('导出 EPUB…')}</button>`:''}</p>
-    <small id="chapter-export-note">${notes.txt}</small>`,async form=>{
-    const {from,to,result,format,output}=await formattedSelection(form,sections);
-    if(!result.text)throw Error(t('所选章节没有正文。'));
-    const saved=await exportText(chapterFileName(current().name,sections,from,to).replace(/\.txt$/,{txt:'.txt',markdown:'.md',html:'.html'}[format]),output.text);
-    if(saved!==false)toast(say(`已导出 ${result.chapters} 章${missingNote(output.missing)}`,`Exported ${result.chapters} chapters${missingNote(output.missing)}`));
-  },{label:t('导出 TXT')});
-  const epub=$('#chapter-epub');if(epub)epub.onclick=()=>{
-    const form=new FormData($('#dialog-form'));
-    closeModal();
-    showEpubExport({from:Number(form.get('from')),to:Number(form.get('to')),includeTitle:form.has('title')});
-  };
-  const formatSelect=$('#dialog-body [name=format]');if(formatSelect)formatSelect.onchange=()=>{
-    $('#dialog-submit').textContent={txt:t('导出 TXT'),markdown:t('导出 Markdown'),html:t('导出 HTML')}[formatSelect.value];
-    $('#chapter-export-note').textContent=notes[formatSelect.value];
-  };
-  $('#copy-chapters').onclick=async()=>{
-    const button=$('#copy-chapters');
-    button.disabled=true;
-    $('#dialog-error').textContent='';
-    try{
-      const {result,format,output}=await formattedSelection(new FormData($('#dialog-form')),sections);
-      if(!result.text)throw Error(t('所选章节没有正文。'));
-      const rich=format==='html'?await copyRich(output.html,result.text):(await copyText(format==='markdown'?output.text:result.text),false);
-      closeModal();
-      toast(say(`已复制 ${result.chapters} 章，共 ${Writer.countText(result.text,workspace.settings.writer.countMode).toLocaleString()} 字${format==='html'&&!rich?'（此平台只能复制纯文本）':''}`,`Copied ${result.chapters} chapters, ${Writer.countText(result.text,workspace.settings.writer.countMode).toLocaleString()} characters${format==='html'&&!rich?' (this platform supports plain text copying only)':''}`));
-    }catch(cause){
-      $('#dialog-error').textContent=t(cause.message);
-    }finally{
-      button.disabled=false;
-    }
-  };
-}
-/** The plain selection plus its Markdown or HTML form, using the formats currently in the editor. */
-async function formattedSelection(form,sections){
-  const selection=chapterSelection(form,sections),format=form.get('format')||'txt',doc=current(),text=view.state.doc.toString(),entries=formatsOf(view.state)?.entries||[],options={from:selection.from,to:selection.to,includeTitle:form.has('title')};
-  const output=format==='markdown'
-    ?chapterMarkdown(text,sections,entries,options,{tables:await exportTables(doc,entries)})
-    :format==='html'?chapterHtml(text,sections,entries,options,{title:doc.name.replace(/\.[^.]+$/,''),styles:stylesFor(doc),images:await exportImages(doc,entries),tables:await exportTables(doc,entries)}):selection.result;
-  return {...selection,format,output};
-}
-/** Copies HTML with a plain-text fallback; returns false when only plain text could be copied. */
-async function copyRich(html,text){
-  if(!native&&navigator.clipboard?.write&&window.ClipboardItem){
-    await navigator.clipboard.write([new ClipboardItem({'text/html':new Blob([html],{type:'text/html'}),'text/plain':new Blob([text],{type:'text/plain'})})]);
-    return true;
-  }
-  await copyText(text);
-  return false;
-}
-/** EPUB of a TXT chapter range with book information, formats and an optional cover. The identifier is kept per document. */
-function showEpubExport(defaults={}){
-  const doc=current();if(!doc||!view||documentKind(doc)!=='TXT'){toast(t('请先打开 TXT 文稿。'));return;}
-  const sections=ensureIndex().sections,project=projectConfig(workspace,doc),info=project?.rawConfig?.kind==='workspace'?project.rawConfig.project:{},from=defaults.from??0,to=defaults.to??sections.length-1;
-  const options=selected=>sections.map((section,index)=>`<option value="${index}"${index===selected?' selected':''}>${esc(String(index+1).padStart(2,'0')+'　'+section.title)}</option>`).join('');
-  openModal(t('导出 EPUB'),`<label>${t('书名')}<input name="book" required maxlength="1000" value="${esc(info?.name||doc.name.replace(/\.[^.]+$/,''))}"></label>
-    <label>${t('作者')}<input name="author" maxlength="200" value="${esc(info?.author||'')}"></label>
-    <label>${t('简介')}<textarea name="description" rows="3" maxlength="4000">${esc(info?.description||'')}</textarea></label>
-    <label>${t('语言')}<input name="language" required maxlength="35" value="zh-CN"></label>
-    <label>${t('起始章节')}<select name="from">${options(from)}</select></label>
-    <label>${t('结束章节')}<select name="to">${options(to)}</select></label>
-    <label class="checkbox"><input name="title" type="checkbox"${defaults.includeTitle===false?'':' checked'}>${t('包含章节标题')}</label>
-    <label>${t('封面图片（可选）')}<input name="cover" type="file" accept="${Object.keys(COVER_TYPES).join(',')}"></label>
-    <small>${t('每章一个页面，保留粗体、着重号和居中；包含 EPUB 3 目录和供旧阅读器使用的 NCX 目录。原文稿不会被修改。')}</small>`,async form=>{
-    const start=Number(form.get('from')),end=Number(form.get('to'));
-    if(end<start)throw Error(t('结束章节不能在起始章节之前。'));
-    const file=form.get('cover');
-    let cover=null;
-    if(file&&file.size){
-      if(file.size>MAX_COVER_BYTES)throw Error(t('封面图片不能超过 5 MB。'));
-      if(!COVER_TYPES[file.type])throw Error(t('封面须为 JPEG、PNG、GIF 或 WebP 图片。'));
-      cover={bytes:new Uint8Array(await file.arrayBuffer()),type:file.type};
-    }
-    const identifier=workspace.epubIdentifiers?.[doc.id]||'urn:uuid:'+crypto.randomUUID();
-    const {buildEpub}=await loadEpubExport(),entries=formatsOf(view.state)?.entries||[],result=buildEpub({text:view.state.doc.toString(),sections,entries,styles:stylesFor(doc),images:await exportImages(doc,entries,true),tables:await exportTables(doc,entries),from:start,to:end,includeTitle:form.has('title'),cover,metadata:{title:form.get('book'),author:form.get('author'),description:form.get('description'),language:form.get('language').trim(),identifier}});
-    if(workspace.epubIdentifiers?.[doc.id]!==identifier){workspace.epubIdentifiers={...workspace.epubIdentifiers,[doc.id]:identifier};save();}
-    const saved=await exportBinary(epubFileName(form.get('book')),result.bytes,'application/epub+zip');
-    if(saved!==false)toast(say(`已导出 EPUB：${result.chapters} 章${missingNote(result.missing)}`,`Exported EPUB: ${result.chapters} chapters${missingNote(result.missing)}`));
-  },{label:t('导出 EPUB')});
-}
-async function exportBookHtml(){
-  if(!current()||!view||documentKind(current())!=='TXT')return toast(t('请先打开 TXT 文稿。'));
-  const sections=ensureIndex().sections,name=current().name.replace(/\.[^.]+$/,''),doc=current(),entries=formatsOf(view.state)?.entries||[],output=chapterHtml(view.state.doc.toString(),sections,entries,{from:0,to:sections.length-1},{title:name,styles:stylesFor(doc),images:await exportImages(doc,entries),tables:await exportTables(doc,entries)});
-  if(await exportText(name+'.html',output.text)!==false)toast(say(`已导出带格式 HTML${missingNote(output.missing)}`,`Exported formatted HTML${missingNote(output.missing)}`));
-}
-async function copyCurrentChapter(){
-  if(!current()||!view)return;
-  const sections=ensureIndex().sections,at=currentSectionIndex(sections),result=chapterExport(view.state.doc.toString(),sections,{from:at,stripMarkdown:documentKind(current())==='MD'});
-  if(!result.text)throw Error(t('当前章节没有正文。'));
-  await copyText(result.text);
-  toast(say(`已复制本章：${sections[at].title}`,`Copied chapter: ${sections[at].title}`));
-}
+const {showChapterExport,showEpubExport,exportBookHtml,copyCurrentChapter}=createExportDialogs({
+  get view(){return view;},get workspace(){return workspace;},current,ensureIndex,openModal,closeModal,toast,save,copyText,stylesFor,exportImages,exportTables,
+});
 async function pickBackupFile(){
   if(native){const files=await transport('import',{}),file=files?.[0];if(!file)return null;return typeof file.text==='string'?new TextEncoder().encode(file.text):fromBase64(file.data);}
   return new Promise(resolve=>{
