@@ -29,7 +29,7 @@ export async function tour(page,{url,profile,width},visit){
   await page.locator('#mobile-library').click();if(width>600)await page.locator('#outline-toggle').click();await take('sidebars');
   await page.locator('#mobile-library').click();if(width>600)await page.locator('#outline-toggle').click();await settled(page);
   await page.locator('#more-tools').click();await take('overflow');await escape();
-  await page.locator('#more-tools').click();await page.locator('#settings').click();await page.locator('#dialog[open]').waitFor();await take('settings');await page.locator('#dialog-cancel').click();await settled(page);
+  await page.locator('#more-tools').click();await page.locator('#settings').click();await page.locator('#dialog[open]').waitFor();await take('settings');await page.locator('#dialog-close').click();await settled(page);
   await page.evaluate(()=>{const v=velaEditorView,i=v.state.doc.toString().indexOf('灯塔');v.dispatch({selection:{anchor:i,head:i+2},scrollIntoView:true});v.focus();});await page.waitForSelector('#selection-menu:not([hidden])');await take('selection');await escape();
   await page.keyboard.press('Control+f');await page.locator('.cm-search, .search-panel, #search-panel').first().waitFor().catch(()=>{});await take('search');await escape();
   await page.locator('[data-tab=note]').click();await page.waitForSelector('.cm-editor');await page.locator('[data-display=preview]').click();await page.locator('#preview .katex').first().waitFor();await page.waitForFunction(()=>[...document.querySelectorAll('#editor .cm-line')].some(line=>line.textContent.startsWith('const')&&line.querySelector('span')));await take('markdown');

@@ -149,8 +149,19 @@ const dispose=bindSteppers(container);
 
 运行 `node tests/source-app-server.mjs`，访问输出地址的 `/ui-gallery.html`。`?theme=dark` 展示深色，`?lang=en` 展示英文，可组合使用。画廊列出全部组件及适用的正常、选中、禁用、边界和错误状态；Tab、方向键、空格与指针可测试焦点和悬停。两个对话框入口可打开真实模态层。
 
-画廊及脚本仅由源码服务器提供。构建脚本继续使用显式入口和复制清单，`app.js` 不导入组件模块，`dist/web` 与 `rawfile/web` 不包含画廊或独立组件脚本。
+画廊及脚本仅由源码服务器提供。构建脚本继续使用显式入口和复制清单，`app.js` 通过按需加载的 `settings-view.mjs` 使用组件；`dist/web` 与 `rawfile/web` 不包含开发画廊，组件代码按生产分块规则打包。
 
 `node tests/ui-components-browser.mjs` 检查 390×844、1280×850 的浅色和深色，以及宽屏触摸环境；截图和结果保存在 `test-results/ui-redesign/phase-1/`。截图名为 `<宽度>-<主题>-gallery/focus/hover/sheet/fullscreen.png`（手机不生成 hover 图）。
 
 `tests/css-refactor-equivalence-browser.mjs` 保持固定基准 `f818cc5`，仅允许上述 22 个新变量从未定义变为已定义；所有原有变量和可见 CSS 属性继续严格比较，包括伪元素。新增变量值由组件测试检查，未更新外观基准。
+
+
+## 阶段 2：设置页接入
+
+`web/settings-view.mjs` 使用 `switchControl`、`segmented`、`stepper`、`settingRow` 与 `bindSteppers`，不引入平行控件实现。主题、语言、字数口径和 AI 请求格式使用原生 radio 分段按钮；字体与 AI 服务/模型继续使用应用统一下拉框。阅读方式给分段按钮增加三个示意图；配色沿用可自定义色卡。
+
+普通设置通过声明项的 `get()` / `set(value)` 即时保存，数字在 `change` 时校验。无效数字保留输入并在所属行显示 `aria-invalid` 与修正说明，不修改已保存值。AI 的服务地址、格式、版本、密钥仅保存在视图草稿中，验证成功后生效；密钥从不写入工作区。
+
+设置使用现有 `#dialog`：桌面分类与当前详情并列，899 px 以下全屏列表 → 详情。Android 返回与左上返回按子对话框、详情、分类列表逐层关闭。打开子对话框时保留设置视图，返回后恢复分类、草稿、滚动和触发控件焦点；设置会话关闭时释放步进器、事件与草稿。字体异步列表通过额外的 `isCurrent()` 回调检查所属会话。
+
+`switchControl` 新增可选 `hideLabel: true`（默认 `false`）：在设置行已经显示名称时隐藏重复的可见标签，原生开关的 `aria-label` 保留完整名称。`tests/settings-view-browser.mjs` 检查逐项即时持久化、非法数字、全局配置未知字段、AI 草稿和确认、返回栈、语言重绘、字体下限与触控尺寸。截图位于 `test-results/ui-redesign/phase-2/`。外观基准仍为 `f818cc5`；CSS 等价性只暂时豁免具名场景 `settings`，合并后由 Claude 更新基准并移除豁免。

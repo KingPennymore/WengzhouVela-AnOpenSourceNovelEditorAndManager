@@ -1,3 +1,4 @@
+import {settingsSection} from './settings-helper.mjs';
 import { _electron as electron } from 'playwright';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -190,7 +191,7 @@ try {
   await page.locator('#more-tools').click();
   await page.locator('#settings').click();
   await page.locator('.settings-navigation').getByRole('button', { name: '工作区配置' }).click();
-  await page.locator('#cleanup-redundant').click();
+  await settingsSection(page,'storage');await page.locator('#cleanup-redundant').click();
   await page.locator('[name=cleanupTarget]').selectOption('0');
   await page.locator('#dialog-submit').click();
   await page.waitForFunction(

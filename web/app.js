@@ -7,7 +7,6 @@ import {showSyncCleanup} from './sync-cleanup.mjs';
 import {syncTarget} from './sync-target.mjs';
 import {createGitClient} from './git-login.mjs';
 import {applyFontPreference,normalizeFontName} from './app-core/system-fonts.mjs';
-import {mountFontSettings} from './app-core/font-settings.mjs';
 import { WorkspaceSession, bindSessionLifecycle } from './app-core/workspace-session.mjs';
 import { createAppCommands, bindAppShortcuts } from './app-core/command-bus.mjs';
 import { layoutShell as layoutAppShell } from './app-core/shell-layout.mjs';
@@ -50,7 +49,7 @@ import {native,transport,readWorkspace,saveWorkspace,saveWorkspaceAsync,exportTe
 import {shortcuts,matchesKey} from './shortcuts.mjs';
 import {SidebarLayout} from './sidebars.mjs';
 import {reconcilePanel,textInfoCache} from './document-panels.mjs';
-import {UIShell,organizeSettings} from './ui-shell.mjs';
+import {UIShell} from './ui-shell.mjs';
 import {createVelaV2,velaText,projectConfig,projectWriter,includeNewReadingFile,rewriteVelaFiles,configFolder,readable,GLOBAL_VELA_PATH,globalConfig,formatHome,legacySidecar,addFormatRecord,configStyles,readPosition,positionEntry,positionOffset,positionUpdate} from './vela.mjs';
 import {completionExtensions} from './completion.mjs';
 import {syncTextEqual} from './vela-sync.mjs';
@@ -76,7 +75,7 @@ import {createExportDialogs} from './export-dialogs.mjs';
 import {createFileDialogs} from './file-dialogs.mjs';
 import {renderPlainChapters} from './reader-layout.mjs';
 import {textPoint,invalidateTextIndex} from './reading-position.mjs';
-import {loadOutlineView,loadMapView,loadPdfPreview,loadReader,loadLatexEditor,loadMarkdownPreview,loadHtmlPreview,loadGuide,loadSubscriptions,loadUpdateView,loadGlossaryView,loadAiAssistant,loadAiSettings,chunkFailure} from './lazy.mjs';
+import {loadOutlineView,loadMapView,loadPdfPreview,loadReader,loadLatexEditor,loadMarkdownPreview,loadHtmlPreview,loadGuide,loadSubscriptions,loadUpdateView,loadGlossaryView,loadAiAssistant,loadSettingsView,chunkFailure} from './lazy.mjs';
 import {fromBase64} from './plugin-package.mjs';
 import {documentPath,uniquePath,preparePaths,adoptFolder,folderTree,gitFileState} from './workspace.mjs';
 import {chapterSettings,chapterMatcher} from './chapters.mjs';
@@ -940,9 +939,7 @@ function updateAiAssistant(){
 }
 /** Opens Settings at the AI assistant section. */
 function openAiSettings(){
-  $('#settings').click();
-  const section=$('#ai-settings')?.closest('.settings-section');
-  if(section)document.querySelector(`.settings-navigation [aria-controls="${section.id}"]`)?.click();
+  return showSettings('ai');
 }
 function renderDisplayOptions(){
   const doc=current();$('#display-options').hidden=home||!doc;if(!doc)return;
@@ -1357,7 +1354,15 @@ $('#format-table').onclick=()=>showTableDialog();
 $('#editor').addEventListener('vela-table-settings',event=>showTableDialog(event.detail.id));
 $('#editor').addEventListener('click',e=>{const figure=e.target.closest('.vela-format-image');if(figure&&view)showImageDialog(figure.dataset.formatImage);});
 $('#preview').addEventListener('click',e=>{if(e.target.closest('a')){e.preventDefault();toast(t('阅读预览中的外部链接不在应用内打开。'));}});
+// Keep a mounted settings session while the shared modal hosts one of its child dialogs.
+let settingsParent=null;
+function dismissSettings(){const root=$('#dialog-body');delete root.settingsController;closeModal();}
 function openModal(title,html,submit,options={}){
+  const previous=$('#dialog-body');
+  if(previous.settingsController&&$('#dialog').open){
+    settingsParent={body:previous,title:$('#dialog-title').textContent,focus:document.activeElement,handler:dialogHandler,cancel:dialogCancel};
+    previous.replaceWith(previous.cloneNode(false));
+  }
   if(!$('#dialog').open){const origin=document.activeElement;dialogReturnFocus=origin?.closest('#toolbar-overflow')?ui.toggle:origin;}
   ui.close();const mounted=beginViewSession($('#dialog-body'));$('#dialog-body').trashDispose?.();$('#dialog').classList.remove('settings-dialog','trash-dialog');
   dialogVersion++;
@@ -1378,7 +1383,21 @@ function setDialogBusy(busy){
   for(const id of ['dialog-submit','dialog-close','dialog-cancel'])$('#'+id).disabled=busy;
   $('#dialog-submit').textContent=busy?t('正在处理…'):t(dialogSubmitLabel);
 }
-function closeModal(){if(dialogBusy)return;dialogCancel?.();dialogCancel=null;$('#dialog').close();}
+function closeModal(){
+  if(dialogBusy)return;
+  const child=document.querySelector('.ai-consent-dialog[open]');if(child){child.close('cancel');return;}
+  if($('#dialog-body').settingsController?.back())return;
+  dialogCancel?.();dialogCancel=null;
+  if(settingsParent){
+    const parent=settingsParent;settingsParent=null;
+    $('#dialog-body').viewSession?.dispose();$('#dialog-body').replaceWith(parent.body);
+    $('#dialog').classList.add('settings-dialog');$('#dialog-title').textContent=parent.title;
+    $('#dialog-submit').hidden=true;$('#dialog-error').textContent='';dialogHandler=parent.handler;dialogCancel=parent.cancel;
+    setDialogBusy(false);const focusId=parent.focus?.id,editId=parent.focus?.dataset.editPalette;parent.body.settingsController?.resume();
+    (focusId?document.getElementById(focusId):editId?parent.body.querySelector(`[data-edit-palette="${CSS.escape(editId)}"]`):parent.focus)?.focus({preventScroll:true});return;
+  }
+  $('#dialog').close();
+}
 $('#dialog-close').innerHTML=icon('close');$('#dialog-close').onclick=closeModal;$('#dialog-cancel').onclick=closeModal;
 $('#dialog').addEventListener('cancel',e=>{e.preventDefault();closeModal();});
 $('#dialog').addEventListener('close',()=>{
@@ -1397,7 +1416,7 @@ $('#dialog').addEventListener('close',()=>{
 $('#dialog-form').addEventListener('invalid',e=>{e.target.scrollIntoView({block:'nearest'});},true);
 $('#dialog-form').onsubmit=async e=>{
   e.preventDefault();
-  if(dialogBusy)return;
+  if(dialogBusy||$('#dialog-body').settingsController)return;
   const version=dialogVersion,data=new FormData(e.target),focused=document.activeElement;
   let failed=false;
   $('#dialog-error').textContent='';
@@ -1407,7 +1426,8 @@ $('#dialog-form').onsubmit=async e=>{
     const result=await dialogHandler?.(data);
     if(version===dialogVersion&&result!==false){
       dialogCancel=null;
-      $('#dialog').close();
+      setDialogBusy(false);
+      if(settingsParent)closeModal();else $('#dialog').close();
     }
   }catch(err){
     failed=true;
@@ -1422,7 +1442,6 @@ $('#dialog-form').onsubmit=async e=>{
     }
   }
 };
-$('#dialog-form').addEventListener('submit',()=>{const check=$('#dialog-body [name=updateChecks]');if(check)workspace.settings.updateChecks=check.checked;});
 function addDocument(doc){
   const format=documentSourceProvider(doc.name);
   if(format&&documentKind(doc)!=='VODT'){doc.kind='PLUGIN';doc.formatId=format.id;}
@@ -1850,116 +1869,92 @@ $('#quick-chapter-bottom').onclick=()=>jump(chapterPosition(view.state.doc.toStr
 // Keep the editor selection and mobile keyboard when operating the quick tools.
 document.querySelectorAll('.quickbar button').forEach(b=>b.addEventListener('mousedown',e=>e.preventDefault()));
 $('#quick-git').onclick=()=>repositoryView.gitDocument();
-$('#settings').onclick=()=>{
-  const s=workspace.settings.writer;let aiForm=null;
-  openModal(t('编辑器设置'),`<label>${t('语言')}<select name="language"><option value="zh-CN" ${workspace.settings.language!=='en'?'selected':''}>${t('简体中文')}</option><option value="en" ${workspace.settings.language==='en'?'selected':''}>English</option></select></label>
-    <label>${t('外观')}<select name="theme">${[['system',t('跟随系统')],['light',t('浅色模式')],['dark',t('深色模式')]].map(([value,label])=>`<option value="${value}" ${workspace.settings.theme===value?'selected':''}>${label}</option>`).join('')}</select></label>
-    <fieldset class="palette-options"><legend>${t('配色方案')}</legend>${allPalettes().map(p=>`<label class="palette-choice${p.custom?' custom':''}"><input type="radio" name="palette" value="${p.id}" ${p.id===workspace.settings.palette?'checked':''}><span class="palette-swatches"><i style="background:${p.light.accent}"></i><i style="background:${p.light.soft}"></i><i style="background:${p.dark.paper}"></i></span><span>${esc(p.custom?p.name:t(p.name))}</span>${p.custom?`<button type="button" class="text-button palette-edit" data-edit-palette="${p.id}" aria-label="${say(`编辑配色 ${esc(p.custom?p.name:t(p.name))}`,`Edit palette ${esc(p.custom?p.name:t(p.name))}`)}">${t('编辑')}</button>`:''}</label>`).join('')}${customPalettes().length<MAX_CUSTOM_PALETTES?`<button type="button" class="palette-add" id="new-palette">${t('＋ 自定义配色')}</button>`:''}</fieldset>
-    <label>${t('文字字号')}<input type="number" name="fontSize" min="10" max="40" value="${textFontSize}" required></label>
-    <label>${t('阅读方式')}<select name="readingMode"><option value="scroll" ${workspace.settings.readingMode==='scroll'?'selected':''}>${t('上下滑动')}</option><option value="pages" ${workspace.settings.readingMode==='pages'?'selected':''}>${t('左右翻页')}</option><option value="double" ${workspace.settings.readingMode==='double'?'selected':''}>${t('双页阅读')}</option></select></label>
-    <label class="checkbox"><input name="globalVelaOverride" type="checkbox" ${globalConfig(workspace)?.config?.reader?.appearancePolicy==='personal'?'checked':''}>${t('统一使用我的阅读排版')}</label>
-    <p><button type="button" class="secondary" id="edit-global-vela">${t('编辑全局 .vela')}</button></p>
-    <label class="checkbox"><input name="autoNouns" type="checkbox" ${workspace.settings.autoNouns!==false?'checked':''}>${t('正文名词候选补全')}</label>
-    <small>${t('本地推测人名、地名等候选，不自动加入术语库。')}</small><label class="checkbox"><input name="glossaryPanel" type="checkbox" ${workspace.settings.glossaryPanel?'checked':''}>${t('正文与术语库同屏')}</label>
-    <label class="checkbox"><input name="highlightTerms" type="checkbox" ${workspace.settings.highlightTerms?'checked':''}>${t('正文术语高亮与释义')}</label>
-    <label class="checkbox"><input name="novelLineNumbers" type="checkbox" ${workspace.settings.novelLineNumbers?'checked':''}>${t('小说模式显示行号')}</label>
-    <label class="checkbox"><input name="richText" type="checkbox" ${workspace.settings.richText?'checked':''}>${t('TXT 格式工具')}<small>${t('粗体、着重号、注音、插图和样式；格式保存在作品配置 .vela 中，TXT 正文不变')}</small></label>
-    <label>${t('字数规则')}<select name="countMode"><option value="nonspace" ${s.countMode==='nonspace'?'selected':''}>${t('非空白字符（含标点）')}</option><option value="letters" ${s.countMode==='letters'?'selected':''}>${t('仅文字与数字')}</option></select></label>
-    <label class="checkbox"><input name="includeHeading" type="checkbox" ${s.includeHeading?'checked':''}>${t('字数包含章节标题')}</label>
-    <p>${t('自动识别标准中英章节标题；额外模板保存在工作区 .vela 配置中。')}</p>
-    <div class="notice">${say(`文舟 ${environment?.version||(environment?.platform==='android'?__VELA_HARMONY_VERSION__+'-android.1':__VELA_HARMONY_VERSION__)}`,`Vela ${environment?.version||(environment?.platform==='android'?__VELA_HARMONY_VERSION__+'-android.1':__VELA_HARMONY_VERSION__)}`)}<br>${t('开源小说创作 / 阅读工具')}</div>
-    <fieldset class="ai-settings" id="ai-settings"><p>${t('正在读取…')}</p></fieldset>
-    <p><button type="button" class="secondary" id="create-vela" ${workspace.documents.some(doc=>documentKind(doc)==='VELA'&&documentPath(doc)!==GLOBAL_VELA_PATH&&configFolder(documentPath(doc))===currentScope())?'disabled':''}>${t('创建 .vela 配置')}</button></p>
-    <p><button type="button" class="secondary" id="backup-all">${t('导出全部文稿备份')}</button> <button type="button" class="secondary" id="restore-backup">${t('恢复文稿备份')}</button> <button type="button" class="secondary" id="show-licenses">${t('开源许可')}</button>${native
-    ?`<button type="button" class="secondary" id="check-updates">${t('检查更新')}</button><label class="checkbox"><input name="updateChecks" type="checkbox" ${workspace.settings.updateChecks!==false?'checked':''}>${t('自动检查更新')}</label>`
-    :''}</p>`,async f=>{
-    // First, so an invalid AI section stops the whole save before anything else changes.
-    const ai=aiForm?.apply(f);
-    const configPriorityChanged=(globalConfig(workspace)?.config?.reader?.appearancePolicy==='personal')!==f.has('globalVelaOverride');
-    workspace.settings.writer=chapterSettings({...s,titleTemplates:[],countMode:f.get('countMode'),includeHeading:f.has('includeHeading')});
-    workspace.settings.language=f.get('language');
-    await setLanguage(workspace.settings.language);
-    renderAppLabels();
-    outlineRevision='';
-    workspace.settings.fontFamily=normalizeFontName(f.get('fontFamily'));
-    applyWorkspaceFont();
-    if(environment?.platform==='windows')workspace.settings.updateChecks=f.has('updateChecks');
-    workspace.settings.readingMode=f.get('readingMode');
-    workspace.settings.autoNouns=f.has('autoNouns');
-    workspace.settings.glossaryPanel=f.has('glossaryPanel');
-    workspace.settings.highlightTerms=f.has('highlightTerms');
-    {const lines=f.has('novelLineNumbers');if(lines!==!!workspace.settings.novelLineNumbers){workspace.settings.novelLineNumbers=lines;refreshGutters();}}
-    workspace.settings.richText=f.has('richText');
-    editorStates.clear();
-    if(current())refreshFileType(current());
-    ensureGlobalVela();
-    const global=globalConfig(workspace);
-    if(global?.config){
-      global.config.reader={...global.config.reader,appearancePolicy:f.has('globalVelaOverride')?'personal':'project',mode:f.get('readingMode')};
-      global.doc.text=velaText(global.config);
-      global.doc.updatedAt=Date.now();
-    }
-    workspace.settings.palette=f.get('palette')||'pine';
-    reader?.localize();
-    if(home)renderHome();
-    if(pageName==='github'){
-      if(repositoryView.selectedRepo)repositoryView.renderRepository().catch(fail);
-      else repositoryView.renderGitHub();
-    }
-    applyTheme(f.get('theme'));
-    setFontSize(Number(f.get('fontSize')));
-    index=null;
-    save();
-    updateStats();
-    reader?.layout();
-    if(pageName==='reader'&&configPriorityChanged)reader.home();
-    if(pageName==='subscriptions')subscriptions?.render();
-    if(ai){aiAssistant?.refreshStatus();updateAiAssistant();if(ai.enabled&&!ai.ready)toast(t('AI 助手已启用，但还没有为这个接口地址保存 API Key。'));}
-  });
-  mountFontSettings($('#dialog-body'),workspace.settings.fontFamily,{native,transport,window});
-  const cleanup=document.createElement('p');cleanup.innerHTML=`<button type="button" class="secondary" id="cleanup-redundant">${t('清除冗余文件')}</button>`;$('#dialog-body').append(cleanup);
-  organizeSettings($('#dialog-body'));
-  $('#cleanup-redundant').onclick=()=>showSyncCleanup({workspace,client:gh,connected:!!repositoryView.account,native,workflow:syncWorkflow,busy:syncBusy,save,openModal,escape:esc,toast,applied:async()=>{
-    restorePulledEditor('write');
-    if(!save())throw Error(t('清理后关联信息保存失败，请刷新工作区。'));
-  }});
-  if($('#check-updates'))$('#check-updates').onclick=()=>checkWindowsUpdates(true);
-  const settingsSession=$('#dialog-body').viewSession;
-  loadAiSettings().then(module=>settingsSession.alive()?module.mountAiSettings($('#ai-settings'),{workspace,toast,changed:()=>{aiAssistant?.refreshStatus();updateAiAssistant();}}):null).then(form=>{aiForm=form;}).catch(error=>{if(settingsSession.alive())chunkFailure($('#ai-settings'),error,openAiSettings);});
-  // A palette radio inside a label: the edit button must not select it; both buttons replace the settings dialog.
-  $('#dialog-body').querySelectorAll('[data-edit-palette]').forEach(button=>button.onclick=event=>{event.preventDefault();showPaletteEditor(button.dataset.editPalette);});
-  const newPalette=$('#new-palette');if(newPalette)newPalette.onclick=()=>showPaletteEditor('',$('#dialog-body [name=palette]:checked')?.value||workspace.settings.palette);
-  $('#edit-global-vela').onclick=()=>{
-    const doc=ensureGlobalVela();
-    closeModal();
-    if(!workspace.openIds.includes(doc.id))workspace.openIds.push(doc.id);
-    switchDocument(doc.id);
-    showView('write');
-    isPreview=true;
-    updateEditorVisibility();
-    renderVela();
-    save();
-  };
-  $('#create-vela').onclick=()=>{
-    const folder=currentScope();
-    if(workspace.documents.some(doc=>documentKind(doc)==='VELA'&&documentPath(doc)!==GLOBAL_VELA_PATH&&configFolder(documentPath(doc))===folder))return;
-    const config=createVelaV2(folder?basename(folder):'内部文件夹');
-    config.reading.items=workspace.documents.filter(doc=>readable(doc)&&(!folder||documentPath(doc).startsWith(folder+'/'))).map(doc=>({id:doc.id,path:documentPath(doc).slice(folder?folder.length+1:0)}));
-    const doc=newDocument('.vela',velaText(config));
-    doc.path=(folder?folder+'/':'')+'.vela';
-    closeModal();
-    addDocument(doc);
-  };
-  $('#backup-all').onclick=()=>exportText('Vela-backup-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(workspace,null,2)).catch(fail);
-  $('#restore-backup').onclick=()=>pickBackupFile().then(bytes=>{if(bytes)previewBackupRestore(bytes);}).catch(fail);
-  $('#show-licenses').onclick=()=>{
-    const licenses=window.WENZHOU_LICENSES||[];
-    openModal(t('开源许可'),`<label>${t('组件')}<select id="license-component">${licenses.map((item,i)=>`<option value="${i}">${esc(item.name)}</option>`).join('')}</select></label><textarea id="license-text" rows="15" readonly aria-label="${t('许可全文')}" style="font-family:monospace;font-size:10px"></textarea>`,null,{noSubmit:true});
-    const show=()=>{$('#license-text').value=licenses[Number($('#license-component').value)]?.text||'';};
-    $('#license-component').onchange=show;
-    show();
-  };
-};
+let settingsOpening=0;
+async function showSettings(group){
+  const request=++settingsOpening;
+  const session=openModal(t('设置'),`<p>${t('正在读取…')}</p>`,null,{noSubmit:true});
+  try{
+    const module=await loadSettingsView();
+    if(request!==settingsOpening||!session.alive())return;
+    module.mountSettings($('#dialog-body'),{
+      get workspace(){return workspace;},native,transport,environment,fontSize:()=>textFontSize,globalReader:()=>globalConfig(workspace)?.config?.reader||{},
+      version:environment?.version||(environment?.platform==='android'?__VELA_HARMONY_VERSION__+'-android.1':__VELA_HARMONY_VERSION__),
+      palettes:allPalettes,customPalettes,maxPalettes:MAX_CUSTOM_PALETTES,
+      canCreateVela:()=>!workspace.documents.some(doc=>documentKind(doc)==='VELA'&&documentPath(doc)!==GLOBAL_VELA_PATH&&configFolder(documentPath(doc))===currentScope()),
+      paletteEditor:(id,from)=>showPaletteEditor(id,from),toast,save,openModal,close:closeModal,
+      changed:async(name,value)=>{
+        const settings=workspace.settings;
+        if(name==='language'){
+          await setLanguage(value);settings.language=value;renderAppLabels();renderDocuments();outlineRevision='';reader?.localize();updateStats();editorStates.clear();if(current())refreshFileType(current());
+          if(home)renderHome();
+          if(pageName==='github'){if(repositoryView.selectedRepo)repositoryView.renderRepository().catch(fail);else repositoryView.renderGitHub();}
+          if(pageName==='subscriptions')subscriptions?.render();
+        }else if(name==='theme')applyTheme(value);
+        else if(name==='palette'){settings.palette=value;applyTheme(settings.theme);}
+        else if(name==='fontFamily'){settings.fontFamily=normalizeFontName(value);applyWorkspaceFont();reader?.layout();}
+        else if(name==='fontSize')setFontSize(value);
+        else if(name==='countMode'||name==='includeHeading'){
+          settings.writer=chapterSettings({...settings.writer,titleTemplates:[],[name]:value});index=null;updateStats();
+        }else if(name==='readingMode'||name==='globalVelaOverride'){
+          if(name==='readingMode')settings.readingMode=value;
+          ensureGlobalVela();const global=globalConfig(workspace);
+          global.config.reader={...global.config.reader,[name==='readingMode'?'mode':'appearancePolicy']:name==='readingMode'?value:value?'personal':'project'};
+          global.doc.text=velaText(global.config);global.doc.updatedAt=Date.now();
+          if(reader?.id)reader.config=projectConfig(workspace,reader.doc)?.config;reader?.layout();
+          if(pageName==='reader'&&name==='globalVelaOverride')reader.home();
+        }else{
+          settings[name]=value;
+          if(name==='novelLineNumbers')refreshGutters();
+          if(['autoNouns','highlightTerms','glossaryPanel','richText'].includes(name)){editorStates.clear();if(current())refreshFileType(current());}
+        }
+        save();
+      },
+      aiChanged:()=>{save();aiAssistant?.refreshStatus();updateAiAssistant();},
+      bindActions:root=>{
+        const bind=(id,fn)=>{const node=root.querySelector('#'+id);if(node)node.onclick=fn;};
+        bind('cleanup-redundant',()=>showSyncCleanup({workspace,client:gh,connected:!!repositoryView.account,native,workflow:syncWorkflow,busy:syncBusy,save,openModal,escape:esc,toast,applied:async()=>{
+          restorePulledEditor('write');
+          if(!save())throw Error(t('清理后关联信息保存失败，请刷新工作区。'));
+        }}));
+        bind('check-updates',()=>checkWindowsUpdates(true));
+        const openConfig=doc=>{
+          dismissSettings();
+          if(!workspace.documents.includes(doc))addDocument(doc);
+          else {if(!workspace.openIds.includes(doc.id))workspace.openIds.push(doc.id);switchDocument(doc.id);}
+          showView('write');isPreview=true;updateEditorVisibility();renderVela();save();
+        };
+        const workConfig=()=>{
+          const folder=currentScope(),existing=workspace.documents.find(doc=>documentKind(doc)==='VELA'&&documentPath(doc)!==GLOBAL_VELA_PATH&&configFolder(documentPath(doc))===folder);
+          if(existing)return existing;
+          const config=createVelaV2(folder?basename(folder):'内部文件夹');
+          config.reading.items=workspace.documents.filter(doc=>readable(doc)&&(!folder||documentPath(doc).startsWith(folder+'/'))).map(doc=>({id:doc.id,path:documentPath(doc).slice(folder?folder.length+1:0)}));
+          const doc=newDocument('.vela',velaText(config));doc.path=(folder?folder+'/':'')+'.vela';return doc;
+        };
+        bind('edit-global-vela',()=>openConfig(ensureGlobalVela()));
+        bind('create-vela',()=>openConfig(workConfig()));
+        bind('edit-chapter-templates',()=>{
+          openConfig(workConfig());
+          // i18n-data: the configuration section key is a stable selector.
+          $('[data-vela-section="章节"]')?.click();$('#vela-form [name=titleTemplates]')?.focus();
+        });
+        bind('backup-all',()=>exportText('Vela-backup-'+new Date().toISOString().slice(0,10)+'.json',JSON.stringify(workspace,null,2)).catch(fail));
+        bind('restore-backup',()=>pickBackupFile().then(bytes=>{if(bytes)previewBackupRestore(bytes);}).catch(fail));
+        bind('show-licenses',()=>{
+          const licenses=window.WENZHOU_LICENSES||[];
+          openModal(t('开源许可'),`<label>${t('组件')}<select id="license-component">${licenses.map((item,i)=>`<option value="${i}">${esc(item.name)}</option>`).join('')}</select></label><textarea id="license-text" rows="15" readonly aria-label="${t('许可全文')}" style="font-family:monospace;font-size:var(--text-xs)"></textarea>`,null,{noSubmit:true});
+          const show=()=>{$('#license-text').value=licenses[Number($('#license-component').value)]?.text||'';};
+          $('#license-component').onchange=show;
+          show();
+        });
+        bind('new-palette',()=>showPaletteEditor('',workspace.settings.palette));
+        root.querySelectorAll('[data-edit-palette]').forEach(button=>button.onclick=event=>{event.preventDefault();showPaletteEditor(button.dataset.editPalette);});
+
+        bind('show-guide',async()=>{dismissSettings();try{const {guide}=await loadGuide();const existing=workspace.documents.find(d=>d.name==='操作指南.md');if(existing)switchDocument(existing.id);else addDocument(newDocument('操作指南.md',guide));}catch(error){fail(error);}}); // i18n-data: the guide file name
+      }
+    },{group});
+  }catch(error){if(session.alive())chunkFailure($('#dialog-body'),error,()=>showSettings(group));}
+}
+$('#settings').onclick=()=>showSettings();
 
 function showView(name){
   if(session.dirty&&!save())return;if(name!=='write')$('#preview').odfDispose?.();ui.close();pageName=name;ui.editorContext(pageName,home);document.body.dataset.page=name;document.body.classList.toggle('start-open',home&&name==='write');

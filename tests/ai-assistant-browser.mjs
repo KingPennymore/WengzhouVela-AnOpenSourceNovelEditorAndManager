@@ -1,3 +1,4 @@
+import {settingsSection,closeSettings} from './settings-helper.mjs';
 import assert from 'node:assert/strict';
 import {mkdir} from 'node:fs/promises';
 import {launchBrowser} from './browser-launch.mjs';
@@ -33,14 +34,14 @@ try{
   const shot=async name=>{await settled(page);await page.screenshot({path:`${out}/${profile}-${name}.png`});};
   const openSettings=async()=>{
     await page.locator('#more-tools').click();await page.locator('#settings').click();
-    await page.locator('.settings-navigation button').filter({hasText:'AI 助手'}).click();
+    await settingsSection(page,'ai');
     await field('Enabled').waitFor();
   };
-  const closeSettings=async()=>{await page.locator('#dialog-submit').click();await page.waitForFunction(()=>!document.querySelector('#dialog').open);};
+  const closeAiSettings=async()=>{const other=field('ExtractModelOther');if(await other.isVisible())await other.dispatchEvent('change');await closeSettings(page);};
   const bounds=async()=>{
     await settled(page);
     const box=await page.locator('#dialog').evaluate(dialog=>{
-      const r=dialog.getBoundingClientRect(),button=dialog.querySelector('#dialog-submit').hidden?dialog.querySelector('#dialog-cancel'):dialog.querySelector('#dialog-submit'),b=button.getBoundingClientRect();
+      const r=dialog.getBoundingClientRect(),button=dialog.classList.contains('settings-dialog')?dialog.querySelector('#dialog-close'):dialog.querySelector('#dialog-cancel'),b=button.getBoundingClientRect();
       return {left:r.left,right:r.right,top:r.top,bottom:r.bottom,width:innerWidth,height:visualViewport.height,overflow:dialog.scrollWidth>dialog.clientWidth+1,reachable:document.elementFromPoint(b.x+b.width/2,b.y+b.height/2)?.closest('button')===button};
     });
     assert.ok(box.left>=0&&box.right<=box.width+1&&box.top>=0&&box.bottom<=box.height+1&&!box.overflow&&box.reachable,JSON.stringify(box));
@@ -62,21 +63,23 @@ try{
       assert.equal(await page.evaluate(()=>performance.getEntriesByType('resource').some(entry=>/ai-panel/.test(entry.name))),false);
     });
     await check('Settings includes AI; enabling requires consent',async()=>{
-      await openSettings();assert.equal(await page.locator('.ai-consent').isHidden(),true);
-      await field('Enabled').check();assert.equal(await page.locator('.ai-consent').isVisible(),true);
-      await page.locator('#dialog-submit').click();await page.locator('#dialog-error').filter({hasText:'数据发送说明'}).waitFor();
+      await openSettings();assert.equal(await page.locator('.ai-consent-dialog').count(),0);
+      await field('Enabled').check();await page.locator('.ai-consent-dialog[open]').waitFor();
+      await page.locator('.ai-consent-dialog button[value=cancel]').click();await page.waitForFunction(()=>!document.querySelector('[name=aiEnabled]').checked);
+      await field('Enabled').check();await page.locator('.ai-consent-dialog button[value=agree]').click();
+      await page.waitForFunction(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')).settings.ai?.consented);
       await bounds();
     });
     await check('wrong key fails; Enter verifies a good key without submitting Settings',async()=>{
       await field('Provider').selectOption('custom');assert.equal(await page.locator('[data-ai-format]').isVisible(),true);
       await field('Endpoint').fill('https://mock-ai.test/v1');await field('Key').fill('sk-wrong');await page.locator('[data-ai-verify]').click();
-      await page.locator('#dialog-error').filter({hasText:'Incorrect API key'}).waitFor();assert.match(await page.locator('.ai-key-status').textContent(),/尚未保存/);
+      await page.locator('[data-ai-error]').filter({hasText:'Incorrect API key'}).waitFor();assert.match(await page.locator('.ai-key-status').textContent(),/尚未保存/);
       await field('Key').fill('sk-good-1234');await field('Key').press('Enter');
       await page.locator('.ai-key-status').filter({hasText:'1234'}).waitFor();assert.equal(await field('Key').inputValue(),'');
       assert.equal(await page.locator('#dialog').evaluate(el=>el.open),true);
       assert.deepEqual(await field('ExtractModel').locator('option').evaluateAll(options=>options.map(o=>o.value)),['model-a','model-b','\ufffdother']);
       assert.ok(seen.some(item=>item.url==='https://mock-ai.test/v1/models'&&item.auth==='Bearer sk-good-1234'));
-      await field('Consent').check();await field('SuggestModel').selectOption('model-b');
+      await field('SuggestModel').selectOption('model-b');
     });
     if(mobile)await check('keyboard viewport settles, keeps endpoint visible and preserves entered values',async()=>{
       await field('Endpoint').focus();
@@ -90,8 +93,8 @@ try{
       await shot('keyboard');await page.evaluate(()=>setTestKeyboardHeight(null));await page.waitForFunction(()=>document.body.dataset.keyboard==='false');
     });
     await check('model choices survive category navigation and save; key never enters workspace',async()=>{
-      await page.locator('.settings-navigation button').first().click();await field('Endpoint').scrollIntoViewIfNeeded();
-      assert.equal(await field('SuggestModel').inputValue(),'model-b');await closeSettings();
+      await settingsSection(page,'appearance');await settingsSection(page,'ai');await field('Endpoint').scrollIntoViewIfNeeded();
+      await field('SuggestModel').waitFor();assert.equal(await field('SuggestModel').inputValue(),'model-b');await closeAiSettings();
       const stored=await page.evaluate(()=>localStorage.getItem('wenzhou.workspace')),ai=JSON.parse(stored).settings.ai;
       assert.equal(ai.enabled,true);assert.equal(ai.consented,true);assert.equal(ai.endpoint,'https://mock-ai.test/v1');assert.equal(ai.models.extract,'model-a');assert.equal(ai.models.suggest,'model-b');assert.ok(!stored.includes('sk-good-1234'));
     });
@@ -105,14 +108,14 @@ try{
       // Native dialog close events dispose the session on the next event turn.
       await page.waitForFunction(()=>document.querySelector('#ai-button').getAttribute('aria-expanded')==='false');
       await button.click();await page.locator('[data-ai-settings]').click();await field('Enabled').waitFor();await bounds();
-      await field('ExtractModel').selectOption('\ufffdother');await field('ExtractModelOther').fill('manual-model');await closeSettings();
+      await field('ExtractModel').selectOption('\ufffdother');await field('ExtractModelOther').fill('manual-model');await closeAiSettings();
       await button.click();await page.locator('.ai-destination').filter({hasText:'manual-model'}).waitFor();await page.locator('#dialog-cancel').click();
     });
     await check('preview and home hide the button; disabling releases its reserved space',async()=>{
       await page.locator('[data-display=preview]').click();await page.waitForFunction(()=>document.querySelector('#ai-button').hidden);
       await page.locator('[data-display=source]').click();await page.waitForFunction(()=>!document.querySelector('#ai-button').hidden);
       await page.keyboard.press('Control+Alt+h');await page.locator('#start-page').waitFor();assert.equal(await page.locator('#ai-button').isHidden(),true);
-      await openRecentFile(page,page.locator('[data-recent=book]'));await openSettings();await field('Enabled').uncheck();await closeSettings();
+      await openRecentFile(page,page.locator('[data-recent=book]'));await openSettings();await field('Enabled').uncheck();await closeAiSettings();
       assert.equal(await page.locator('#ai-button').isHidden(),true);assert.equal(await page.locator('#editor').evaluate(el=>getComputedStyle(el).paddingTop),'0px');
     });
     assert.deepEqual(errors,[]);

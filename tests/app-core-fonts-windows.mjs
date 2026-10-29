@@ -1,3 +1,4 @@
+import { closeSettings } from './settings-helper.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -34,7 +35,7 @@ try {
   );
   const font = result.value.includes('Consolas') ? 'Consolas' : result.value[0];
   await page.locator('[name=fontFamily]').selectOption(font);
-  await page.locator('#dialog-submit').click();
+  await closeSettings(page);
   await page.locator('#dialog').waitFor({ state: 'hidden' });
   assert.ok(
     (await page.locator('body').evaluate((body) => getComputedStyle(body).fontFamily)).includes(

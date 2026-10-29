@@ -8,10 +8,10 @@ import {tour,tourPage,tourVariants} from './app-tour.mjs';
 // (theme switches), so the page shows stale colors there. Rule: no visible element that scrolls (overflow auto or
 // scroll) has an opaque background color or image; the background belongs to a non-scrolling ancestor. Checked on
 // every page and popup of tests/app-tour.mjs, for all four profile sizes, light and dark.
-// Exempt: popups that are never open while the theme fades — dialogs (the theme setting applies when the dialog
-// closes), completion tooltips, the selection menu and its list, and the toolbar overflow menu (pressing its theme
-// button closes it first).
-const exempt=['dialog','.cm-tooltip','.selection-menu','.selection-more','#toolbar-overflow'];
+// Settings apply themes while open, so their navigation and detail scrollers are checked too.
+// Exempt: other dialogs, completion tooltips, the selection menu and its list, and the toolbar overflow menu
+// (pressing its theme button closes it first).
+const exempt=['dialog:not(.settings-dialog)','.cm-tooltip','.selection-menu','.selection-more','#toolbar-overflow'];
 const server=await startSourceAppServer();
 const browser=await launchBrowser();
 const failures=[],scanned=[],errors=[];

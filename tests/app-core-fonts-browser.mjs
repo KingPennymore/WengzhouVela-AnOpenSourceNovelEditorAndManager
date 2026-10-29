@@ -1,3 +1,4 @@
+import { settingsSection, closeSettings } from './settings-helper.mjs';
 import { launchBrowser } from './browser-launch.mjs';
 import { selectAppView } from './navigation-helper.mjs';
 import assert from 'node:assert/strict';
@@ -50,6 +51,7 @@ try {
       await page.locator('#more-tools').click();
       await page.locator('#settings').click();
     } else await page.keyboard.press('Control+,');
+    await settingsSection(page, 'appearance');
     await page.locator('[name=fontFamily]').waitFor();
   };
   await settings();
@@ -68,20 +70,18 @@ try {
     ).includes(font),
   );
   await page.screenshot({ path: 'test-results/fonts/settings-desktop.png' });
-  await page.locator('#dialog-cancel').click();
+  await closeSettings(page);
   assert.equal(
     await page.evaluate(() => document.documentElement.style.getPropertyValue('--app-font-family')),
-    '',
+    '"' + font + '",system-ui,sans-serif',
   );
-  console.log(
-    'PASS font enumeration requires a click; cancel leaves application typography unchanged',
-  );
+  console.log('PASS font enumeration requires a click; a chosen font applies immediately');
 
   await settings();
   await page.locator('[data-font-list]').click();
   await page.locator(`[name=fontFamily] option[value="${font}"]`).waitFor({ state: 'attached' });
   await page.locator('[name=fontFamily]').selectOption(font);
-  await page.locator('#dialog-submit').click();
+  await closeSettings(page);
   await page.locator('#dialog').waitFor({ state: 'hidden' });
   for (const selector of ['body', '.cm-scroller']) {
     assert.ok(
@@ -130,7 +130,7 @@ try {
   );
   await settings();
   await page.locator('[name=fontFamily]').selectOption('system-ui');
-  await page.locator('#dialog-submit').click();
+  await closeSettings(page);
   assert.equal(
     await page.locator('body').evaluate((node) => getComputedStyle(node).fontFamily),
     'system-ui, sans-serif',
@@ -142,7 +142,7 @@ try {
   await page.screenshot({ path: 'test-results/fonts/settings-mobile.png' });
   const rect = await page.locator('.font-settings').boundingBox();
   assert.ok(rect.width <= 390);
-  await page.locator('#dialog-cancel').click();
+  await closeSettings(page);
   await page.evaluate(() => {
     window.queryLocalFonts = async () => {
       throw new Error('Permission denied');
@@ -155,7 +155,7 @@ try {
     (await page.locator('.font-settings [role=status]').textContent()).includes('未能读取'),
   );
   await page.locator('[name=fontFamily]').selectOption('');
-  await page.locator('#dialog-submit').click();
+  await closeSettings(page);
   assert.equal(
     await page.evaluate(() => document.documentElement.style.getPropertyValue('--app-font-family')),
     '',

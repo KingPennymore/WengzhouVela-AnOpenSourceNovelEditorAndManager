@@ -1,3 +1,4 @@
+import {closeSettings} from './settings-helper.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { launchBrowser } from './browser-launch.mjs';
@@ -104,7 +105,7 @@ try {
       await page.locator('[name=aiKey]').fill('sk-test');
       await page.locator('[data-ai-verify]').click();
       await page.locator('.ai-key-status').filter({ hasText: 'test' }).waitFor();
-      await page.locator('#dialog-submit').click();
+      await closeSettings(page);
       await page.waitForFunction(() => !document.querySelector('#dialog').open);
       const baselineCount = await page.evaluate(
         () => JSON.parse(localStorage.getItem('wenzhou.workspace')).documents.length,

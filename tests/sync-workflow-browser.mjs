@@ -1,3 +1,4 @@
+import {settingsSection,closeSettings} from './settings-helper.mjs';
 import { launchBrowser } from './browser-launch.mjs';
 import { build } from 'esbuild';
 import { createHash } from 'node:crypto';
@@ -104,10 +105,10 @@ try {
   );
   await page.locator('#more-tools').click();
   await page.locator('#settings').click();
-  await page.locator('.settings-navigation').getByRole('button', { name: '工作区配置' }).click();
+  await settingsSection(page,'storage');
   await page.locator('#cleanup-redundant').click();
   await page.locator('#dialog-submit').click();
-  await page.waitForSelector('#dialog[open]', { state: 'hidden' });
+  await page.locator('.settings-section').waitFor();await closeSettings(page);
   await ready();
   assert.equal(
     await page.evaluate(({ target, sha }) => cacheProbe.get(target, target.repo, sha), {

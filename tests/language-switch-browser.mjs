@@ -1,3 +1,4 @@
+import {setSetting,closeSettings} from './settings-helper.mjs';
 import assert from 'node:assert/strict';
 import {launchBrowser} from './browser-launch.mjs';
 import {startSourceAppServer} from './source-app-server.mjs';
@@ -21,7 +22,7 @@ try{
   const page=await context.newPage();page.on('pageerror',error=>errors.push(error.message));
   const switchTo=async language=>{
     await page.locator('#more-tools').click();await page.locator('#settings').click();
-    await page.locator('#dialog-body [name=language]').selectOption(language);await page.locator('#dialog-submit').click();
+    await setSetting(page,'language',language);await closeSettings(page);
     await page.waitForTimeout(400);
   };
   const views=async check=>{

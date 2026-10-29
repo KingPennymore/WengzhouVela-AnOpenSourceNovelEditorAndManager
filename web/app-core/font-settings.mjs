@@ -9,8 +9,9 @@ const defaultFont = '"HarmonyOS Sans SC","Segoe UI","Microsoft YaHei",sans-serif
  * @param {HTMLElement} root
  * @param {unknown} current
  * @param {import('./system-fonts.mjs').FontServices} services
+ * @param {() => boolean} [isCurrent]
  */
-export function mountFontSettings(root, current, services) {
+export function mountFontSettings(root, current, services, isCurrent = () => root.isConnected) {
   const document = root.ownerDocument;
   const field = document.createElement('fieldset');
   field.className = 'font-settings';
@@ -67,15 +68,17 @@ export function mountFontSettings(root, current, services) {
     status.textContent = t('正在读取系统字体…');
     try {
       const fonts = await listSystemFonts(services);
-      if (!field.isConnected) return;
+      if (!field.isConnected || !isCurrent()) return;
       populate(fonts);
       status.textContent = fonts.length
         ? t('已读取本机可用字体。')
         : t('系统未提供可选字体，仍可使用默认或跟随系统。');
     } catch {
-      if (field.isConnected) status.textContent = t('未能读取字体列表，可重试或选择跟随系统字体。');
+      if (field.isConnected && isCurrent()) {
+        status.textContent = t('未能读取字体列表，可重试或选择跟随系统字体。');
+      }
     } finally {
-      button.disabled = false;
+      if (isCurrent()) button.disabled = false;
     }
   };
   button.onclick = load;

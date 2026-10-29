@@ -1,3 +1,4 @@
+import {setSetting,closeSettings} from './settings-helper.mjs';
 import {launchBrowser} from './browser-launch.mjs';
 import assert from 'node:assert/strict';
 import {writeFile} from 'node:fs/promises';
@@ -17,6 +18,6 @@ try{
  const measure=await p.evaluate(async()=>{window.nounTransfers=[];const v=velaEditorView,times=[];for(let n=0;n<20;n++){const t=performance.now();v.dispatch({changes:{from:30,insert:'字'}});await new Promise(requestAnimationFrame);times.push(performance.now()-t);}await new Promise(r=>setTimeout(r,500));times.sort((a,b)=>a-b);return {inputP95:times[19],incrementalTransfers:window.nounTransfers,liveWorkers:window.nounLive,length:v.state.doc.length};});
  assert.ok(measure.inputP95<150,JSON.stringify(measure));assert.ok(measure.incrementalTransfers.every(x=>x.bytes<20000),JSON.stringify(measure));assert.equal(measure.liveWorkers,1);
  await p.locator('[data-tab=other]').click();await p.waitForTimeout(400);assert.equal(await p.evaluate(()=>window.nounLive),1);await p.evaluate(()=>velaEditorView.focus());await p.keyboard.press('Control+End');await p.keyboard.press('Control+Space');await p.waitForTimeout(250);assert.ok(!(await p.locator('.cm-tooltip-autocomplete').allTextContents()).join('').includes('星澜'));
- await p.keyboard.press('Escape');await p.locator('#settings').click();await p.locator('[name=autoNouns]').uncheck();await p.locator('#dialog-submit').click();assert.equal(await p.evaluate(()=>window.nounLive),0);
+ await p.keyboard.press('Escape');await p.locator('#settings').click();await setSetting(p,'autoNouns',false);await closeSettings(p);assert.equal(await p.evaluate(()=>window.nounLive),0);
  await writeFile('test-results/storyboard/noun-performance.json',JSON.stringify({indexedMs,...measure},null,2));console.log(JSON.stringify({indexedMs,...measure}));
 }finally{await browser.close();}

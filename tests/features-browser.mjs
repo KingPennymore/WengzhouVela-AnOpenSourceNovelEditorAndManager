@@ -1,3 +1,4 @@
+import {setSetting,closeSettings} from './settings-helper.mjs';
 import {launchBrowser} from './browser-launch.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
 import assert from 'node:assert/strict';
@@ -38,7 +39,7 @@ try{
   await check('系统深浅模式实时跟随，手动外观可固定并在重启后保留',async()=>{
     await p.emulateMedia({colorScheme:'light'});await p.waitForFunction(()=>!document.body.classList.contains('dark'));
     await p.emulateMedia({colorScheme:'dark'});await p.waitForFunction(()=>document.body.classList.contains('dark'));
-    await p.locator('#more-tools').click();await p.locator('#settings').click();await p.locator('[name="theme"]').selectOption('light');await p.locator('#dialog-submit').click();
+    await p.locator('#more-tools').click();await p.locator('#settings').click();await setSetting(p,'theme','light');await closeSettings(p);
     // The new look is painted when the cross-fade starts; until then the old dark class is still on.
     await p.waitForFunction(()=>!document.body.classList.contains('dark'));
     await p.emulateMedia({colorScheme:'dark'});assert.equal(await p.locator('body').evaluate(el=>el.classList.contains('dark')),false);

@@ -1,3 +1,4 @@
+import {setSetting,closeSettings} from './settings-helper.mjs';
 import {launchBrowser} from './browser-launch.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
 import assert from 'node:assert/strict';
@@ -48,7 +49,7 @@ try{
   // CodeMirror deliberately ignores acceptance keys just after a popup opens.
   await page.waitForTimeout(250);await page.keyboard.press('Enter');const accepted=await page.evaluate(()=>velaEditorView.state.doc.toString());assert.ok(accepted.endsWith(longName),accepted);
   result.longPrefixCompletion=true;
-  await page.keyboard.press('Escape');await page.locator('#settings').click();await page.locator('[name=autoNouns]').uncheck();await page.locator('#dialog-submit').click();assert.equal(await page.evaluate(()=>nounStats.live),0);
+  await page.keyboard.press('Escape');await page.locator('#settings').click();await setSetting(page,'autoNouns',false);await closeSettings(page);assert.equal(await page.evaluate(()=>nounStats.live),0);
   await page.close();
   // The removed icons must stay absent with the sidebar both expanded and collapsed.
   for(const [profile,width] of [['android',390],['harmonyos',390],['windows',1280],['android',320]]){

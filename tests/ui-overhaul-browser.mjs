@@ -1,3 +1,4 @@
+import {setSetting,closeSettings} from './settings-helper.mjs';
 import {launchBrowser} from './browser-launch.mjs';
 import {selectAppView} from './navigation-helper.mjs';
 import {openRecentFile} from './start-page-helper.mjs';
@@ -23,8 +24,8 @@ try{
   for(const id of ['mobile-library','settings','search-editor','outline-toggle']){const box=await page.locator('#'+id).boundingBox();assert.ok(box.x>=0&&box.x+box.width<=width+1,id);assert.ok(box.height>=32,id);}
   await page.keyboard.press('Escape');
   assert.ok(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
-  await page.locator('#more-tools').click();await page.locator('#settings').click();assert.equal(await page.locator('.settings-section').count(),6);await settled(page);await page.screenshot({path:`${out}/${profile}-settings.png`});
-  await page.locator('[name=language]').selectOption('en');await page.locator('#dialog-submit').click();await page.locator('#more-tools').click();await page.locator('#settings').click();assert.equal(await page.locator('.settings-navigation button').first().textContent(),'Appearance and language');await page.locator('#dialog-cancel').click();
+  await page.locator('#more-tools').click();await page.locator('#settings').click();await page.locator('[data-settings-group]').first().waitFor();assert.equal(await page.locator('[data-settings-group]').count(),8);assert.equal(await page.locator('.settings-section').count(),1);await settled(page);await page.screenshot({path:`${out}/${profile}-settings.png`});
+  await setSetting(page,'language','en');await closeSettings(page);await page.locator('#more-tools').click();await page.locator('#settings').click();assert.equal(await page.locator('.settings-navigation button strong').first().textContent(),'Appearance');await closeSettings(page);
   await page.keyboard.press('Control+Alt+h');await page.screenshot({path:`${out}/${profile}-home-en.png`});
   await selectAppView(page,'reader');await page.locator('.reader-library').waitFor();/* the reader is a lazy chunk */await page.screenshot({path:`${out}/${profile}-library-en.png`});assert.equal(await page.locator('[data-read=book] strong').textContent(),'航程');await page.locator('[data-read=book]').click();assert.equal(await page.locator('#reader-title').textContent(),'航程');assert.equal(await page.locator('#preview-toggle').count(),0);await readerReady(page);await page.screenshot({path:`${out}/${profile}-reader-en.png`});
   await page.locator('#reader-back').click();await selectAppView(page,'write');
