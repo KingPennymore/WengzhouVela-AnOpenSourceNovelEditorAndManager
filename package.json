@@ -11,6 +11,7 @@
     "test:android:native": "node scripts/test-android-native.mjs",
     "dev": "node scripts/serve.mjs",
     "test": "node --test tests/*.test.mjs vendor/acode-writer/tests/*.test.cjs",
+    "test:browser": "node scripts/test-browser.mjs",
     "test:ui": "node tests/browser.mjs && node tests/features-browser.mjs && node tests/workspace-browser.mjs && node tests/file-manager-browser.mjs && node tests/sidebars-browser.mjs && node tests/studio-browser.mjs",
     "test:reading": "node tests/reading-browser.mjs && node tests/reading-config-browser.mjs && node tests/double-reading-browser.mjs",
     "test:tex": "node tests/tex-browser.mjs",
