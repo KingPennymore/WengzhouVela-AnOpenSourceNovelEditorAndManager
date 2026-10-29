@@ -87,8 +87,9 @@ try{
     await n.locator('#mobile-library').click();assert.equal(await n.locator('#setup-storage,#open-folder,#internal-storage').count(),0);
     await n.locator('#new-folder').click();await n.locator('[name=name]').fill('小说');await n.locator('#dialog-submit').click();await n.locator('#new-folder').click();await n.locator('[name=name]').fill('资料');await n.locator('[data-pick-folder="小说"]').click();await n.locator('#dialog-submit').click();await n.locator('#new-doc').click();await n.locator('[name=name]').fill('人物.md');await n.locator('[name=skeleton]').uncheck();await n.locator('#dialog-submit').click();assert.equal((await nativeSave(n)).documents.find(d=>d.name==='人物.md').path,'小说/资料/人物.md');assert.equal(await n.evaluate(()=>window.__roots.internal['小说/资料/人物.md']),'');
   });
-  await check('内部目录刷新后保留文稿，启动页与命令不再出现外部目录入口',async()=>{
-    await n.locator('#refresh-folder').click();await n.waitForFunction(()=>document.querySelector('#current-name').textContent==='启动页');assert.ok((await nativeSave(n)).documents.some(d=>d.path==='小说/资料/人物.md'));assert.equal(await n.locator('[data-start="open-folder"],[data-start="setup-storage"]').count(),0);await n.locator('#more-tools').click();await n.locator('#commands').click();assert.equal((await n.locator('#command-list').innerText()).includes('打开文件夹工作区'),false);await n.locator('#dialog-cancel').click();assert.equal(await n.locator('#library').isVisible(),true);
+  await check('内部目录刷新后保留文稿并留在当前文稿，启动页与命令不再出现外部目录入口',async()=>{
+    // Refreshing keeps the open document in the editor; the start page is checked separately below.
+    await n.locator('#refresh-folder').click();await n.locator('#toast',{hasText:'工作区已刷新'}).waitFor();assert.equal(await n.locator('#current-name').textContent(),'人物.md');await n.keyboard.press('Control+Alt+h');await n.locator('#start-page').waitFor();assert.ok((await nativeSave(n)).documents.some(d=>d.path==='小说/资料/人物.md'));assert.equal(await n.locator('[data-start="open-folder"],[data-start="setup-storage"]').count(),0);await n.locator('#more-tools').click();await n.locator('#commands').click();assert.equal((await n.locator('#command-list').innerText()).includes('打开文件夹工作区'),false);await n.locator('#dialog-cancel').click();assert.equal(await n.locator('#library').isVisible(),true);
   });
   let pulledId;
   await check('同仓库同路径重复拉取覆盖本地文件且保留标签 ID',async()=>{
