@@ -6,7 +6,7 @@
 
 | 编号 | 事项 | 位置 | 完成标准 | 状态 |
 | --- | --- | --- | --- | --- |
-| O22 | 全量浏览器回归并行：`npm run test:browser` 串行跑 92 个套件需 40 分钟以上 | `scripts/test-browser.mjs`、`scripts/serve.mjs` | 支持 `--jobs N`（默认 3）并行；各路用独立 dist 端口或共享一个只读服务；依赖固定端口的套件串行；失败时输出断言的 actual/expected 与出错行（目前只显示末尾几行，`features-browser` 在全量回归中偶发失败一次、单独 10 次均通过，原因未知）；结果与串行一致，总时长降到 15 分钟以内 | 待做 |
+| — | 暂无待做项 | | | |
 
 ## 已完成
 
@@ -40,3 +40,5 @@
 | O24 | `project-service.mjs` 1700 → 688 行：`batch` 移到 `project-batch.mjs`，插件 io/快照/素材/预览接口移到 `project-plugin-api.mjs`，以对象混入原型，方法体不变。未改为延迟加载：插件在启动加载时同步调用 `bind()`，改异步需重写插件 API 创建流程，39 KB 不值得 | `1f551df` |
 | O25 | 名词索引 worker 2,182 KB → 667 KB：构建时把 jieba 排除词表前缀压缩（每词一位数字表示与上一词共用的字数），worker 启动时解码；改用 UTF-8 输出而非 \u 转义。源文件 `vendor/jieba/filter.mjs` 不变，校验脚本与基准仍可用；候选结果与源码版一致 | `8c366c2` |
 | O23 | 顶层状态统一访问：`app.js` 声明一个 `appState`（getter/setter 直达变量），拆出的模块都用 `withState(services)` 取状态，去掉各处手写 getter。未把约 1000 处直接引用改成 `state.x`：大量同名局部变量（view、index、home、reader）使机械替换风险高、收益低；`renderPreview`（193 行，读写约 50 个外部名字，含 7 个可变状态）拆出去只会搬走复杂度，未拆。之后改动预览、设置或启动流程时再顺带拆相应部分 | `74d8038` |
+| O22 | 浏览器回归并行：`npm run test:browser` 支持 `--jobs N`（默认 3），16 个测时序、动画帧、Electron 窗口或改写共享文件的套件先单独跑；失败时输出完整断言；写死 4173 的套件改读 `VELA_TEST_URL`；新增 `tests/test-browser.test.mjs`。串行 1385 s → 并行约 710–1070 s（Codex，会话中断后由我提交） | `aea82a4` |
+| O27 | 偶发失败根因：主题切换走 View Transitions，`dark` 类与配色在下一帧才生效，`features`、`palette`、`workspace` 读得太早；应用侧把配色归一与冷启动外观记录移到淡入淡出之前同步写入（原先若淡入淡出中途关闭应用，下次冷启动外观不对）；测试改为等待生效 | `6cd4d97`、`b2b65ae`、`33a9cc9`、`baf26e4` |
