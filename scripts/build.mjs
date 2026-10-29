@@ -22,7 +22,15 @@ await mkdir('dist',{recursive:true});await writeFile('dist/app-metafile.json',JS
 const sourceText={name:'source-text',setup(build){build.onResolve({filter:/(^|\/)i18n\.mjs$/},({path:file,resolveDir})=>({path:resolve(resolveDir,file.replace(/i18n\.mjs$/,'i18n-worker.mjs'))}));}};
 await build({entryPoints:['web/map-fill-worker.js'],bundle:true,outfile:`${out}/map-fill-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof',plugins:[sourceText]});
 await build({entryPoints:['web/map-simplify-worker.js'],bundle:true,outfile:`${out}/map-simplify-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof',plugins:[sourceText]});
-await build({entryPoints:['web/noun-worker.js'],bundle:true,outfile:`${out}/noun-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof',plugins:[sourceText]});
+// The jieba exclusion list (114k sorted words) ships front-coded: each word is one digit, the number of characters
+// shared with the previous word, then the rest. Kept as UTF-8 instead of \u escapes, the worker drops from 2.2 MB to 0.7 MB.
+const compactVocabulary={name:'compact-vocabulary',setup(build){build.onLoad({filter:/jieba[\\/]filter\.mjs$/},async({path})=>{
+  const words=JSON.parse((await readFile(path,'utf8')).match(/excludedWords=("[^"]*")/)[1]).split(' ');let previous=[],coded='';
+  for(const word of words){const chars=[...word];let shared=0;while(shared<9&&shared<previous.length&&chars[shared]===previous[shared])shared++;coded+=shared+chars.slice(shared).join('');previous=chars;}
+  const decode='const words=[];let previous=[];for(const [,shared,rest] of coded.matchAll(/(\\d)(\\D*)/g)){previous=[...previous.slice(0,+shared),...rest];words.push(previous.join(\'\'));}';
+  return {contents:`const coded=${JSON.stringify(coded)};${decode}export const excludedWords=words.join(' ');`,loader:'js'};
+});}};
+await build({entryPoints:['web/noun-worker.js'],bundle:true,outfile:`${out}/noun-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof',charset:'utf8',plugins:[sourceText,compactVocabulary]});
 await build({entryPoints:['web/workspace-save-worker.js'],bundle:true,outfile:`${out}/workspace-save-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof',plugins:[sourceText]});
 await build({entryPoints:['web/project-archive-worker.js'],bundle:true,outfile:`${out}/project-archive-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof',plugins:[sourceText]});
 await build({entryPoints:['web/tex-component-worker.js'],bundle:true,outfile:`${out}/tex-component-worker.js`,format:'iife',target:'chrome105',minify:true,legalComments:'eof',plugins:[sourceText]});
