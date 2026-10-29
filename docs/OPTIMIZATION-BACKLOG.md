@@ -6,9 +6,12 @@
 
 | 编号 | 事项 | 位置 | 完成标准 | 状态 |
 | --- | --- | --- | --- | --- |
-| O17 | `palette-browser.mjs` 在全量回归中偶发失败（`strictEqual` 断言，`test-browser` 只显示末尾 4 行，看不到哪条），单独运行通过；另外 worktree 里跑 Windows/Electron 套件需要 `windows/node_modules` 目录联接到主仓库 | `tests/palette-browser.mjs`、`scripts/test-browser.mjs` | 找出不稳定的断言并改为等待条件；失败时 `test-browser` 输出断言的 actual/expected；连续 3 次全量回归该套件通过 | 待做 |
-| O19 | 首屏主包延迟加载：`dist/web/app.js` 836 KB，其中 markdown-it 一族约 140 KB、`guide.mjs` 45 KB、DOMPurify 30 KB，以及订阅、仓库、更新、组件下载、插件、词汇表、项目归档等非首屏视图都在启动时加载 | `web/app.js`、`web/lazy.mjs` | 这些模块经 `lazy.mjs` 在首次使用时加载，`app.js` 至少减小 250 KB，功能与全量回归不变 | Codex 处理中（`codex/lazy-load`） |
-| O20 | 拆分 `web/app.js`（3200 行、240 KB）：设置对话框、更多菜单、启动页等按视图移入 `web/app-core/` | `web/app.js` | 每次拆出一个视图，行为不变，`npm run lint:core` 与全量回归通过 | 待 O19 合入后做 |
+| O20 | 拆分 `web/app.js`：已拆出配色编辑器、导出对话框、仓库视图、文件对话框，插件对话框与订阅同步进行中；剩余部分受顶层状态耦合限制，见 O23 | `web/app.js` | 每次拆出一块，行为不变，全量回归通过 | 进行中（本会话） |
+| O21 | 英文词典按需加载：`web/i18n-*.mjs` 与 `planning-i18n.mjs` 约 145 KB 在启动时全部进入 `dist/web/app.js`，中文用户用不到 | `web/i18n.mjs`、`web/app.js` 启动流程 | 词典成为延迟分包；启动时语言为英文则先加载词典再渲染，切到英文时加载后再 `setLanguage`；`t()`/`say()` 仍为同步；中文启动不请求词典分包；`app.js` 减小 ≥120 KB；`language-switch`、`i18n-coverage` 与全量回归通过 | 待做 |
+| O22 | 全量浏览器回归并行：`npm run test:browser` 串行跑 92 个套件需 40 分钟以上 | `scripts/test-browser.mjs`、`scripts/serve.mjs` | 支持 `--jobs N`（默认 3）并行；各路用独立 dist 端口或共享一个只读服务；依赖固定端口的套件串行；失败时输出断言的 actual/expected；结果与串行一致，总时长降到 15 分钟以内 | 待做 |
+| O23 | `web/app.js` 顶层状态收拢：`workspace`、`view`、`home`、`isPreview`、`index`、`selectedFolder` 等顶层 `let` 被到处直接读写，拆分时只能传一堆 getter/setter | `web/app.js` | 引入一个状态对象，逐步替换直接读写；之后拆出预览渲染（`renderPreview`）、设置对话框、文件操作与回收站、启动流程 `boot`；每步行为不变、全量回归通过 | 待做（O21、O22 之后） |
+| O24 | `web/project-service.mjs`（1700 行，主包内 39 KB）：找出启动时用不到的部分改为延迟加载，再按职责拆分 | `web/project-service.mjs` | 主包减小、行为不变、全量回归通过 | 待做 |
+| O25 | 名词索引 worker 2.1 MB，主要是 `vendor/jieba/filter.mjs` 词表；只在使用时加载，优先级低 | `web/noun-worker.js`、`vendor/jieba` | 词表改为更紧凑的格式或压缩后按需解压，结果不变 | 待做 |
 
 ## 已完成
 
@@ -33,3 +36,5 @@
 | O15 | O8 遗漏的超长单行：`map-algorithm-view.mjs`（第 10–12 行，最长 3039 字符）按语句与处理函数拆行、对话框模板拆成拼接片段；`map-view.mjs` 工具栏模板按区段拆分；`map-images.mjs` 的 `validateMapImages` 一条语句一行。三个文件 esbuild 压缩产物前后逐字节相同。`web/` 下超过 1500 字符的行只剩词典 `planning-i18n.mjs` | `23b5570` |
 | O16 | `csv-embed.mjs` 删除与 `escapeHtml` 逐字相同的本地 `escape`，改为从 `text-utils.mjs` 导入 | `5729772` |
 | O18 | worker 与独立 HTML 阅读器的打包不再带界面词典：它们从不切换语言，构建时把 `i18n.mjs` 换成 `web/i18n-worker.mjs`；四个文件合计 833 KB → 74 KB | `2be1f67` |
+| O17 | `palette-browser` 偶发失败：一次 Ctrl+Alt+T 就会切换外观，但 `dark` 类要等淡入淡出开始才变，循环按键可能按两次切回原样；刷新前未等主题设置保存。改为等待类变化与保存 | `0174586` |
+| O19 | 首屏主包延迟加载：Markdown 渲染、DOMPurify、使用指南、订阅、更新、组件下载、词汇表、项目归档改为首次使用时加载，`app.js` 836 KB → 525 KB（Codex）；归档能力补丁移到 `project-contract.mjs` 共用 | `5ba8f15`、`78c4108` |
