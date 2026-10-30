@@ -166,13 +166,13 @@
 }
 
 .cm-content {
-  padding:var(--space-4) var(--space-6) 100px var(--space-4)!important;
+  padding:var(--space-4) var(--space-3) 100px!important;
   caret-color:var(--accent);
 }
 
 @media (max-width:600px) {
   .cm-content {
-    padding:var(--space-3) var(--space-4) 80px var(--space-2)!important;
+    padding:var(--space-3) var(--space-3) 80px!important;
   }
 }
 
@@ -213,27 +213,27 @@
   padding-inline:0!important;
 }
 
-/* A fixed line-number column: editing a line, or reaching another digit, never moves the text. */
-.cm-gutter.cm-lineNumbers {
-  flex:none;
-  width:64px;
-  min-width:64px!important;
-  max-width:64px;
+/* A narrow metadata lane above each logical line. Pseudo content cannot enter
+   selections, copy/paste, undo history, or the saved manuscript. Empty alternative
+   text also keeps this visual number out of the accessible manuscript text. */
+.vela-inline-line-numbers .cm-line.vela-numbered-line {
+  position:relative;
+  padding-block-start:var(--text-xs)!important;
 }
-
-.cm-lineNumbers .cm-gutterElement {
-  min-width:0!important;
-  width:100%;
-  padding-left:0!important;
-  padding-right:var(--space-3)!important;
-  overflow:hidden;
-  white-space:nowrap;
-}
-
-@media (max-width:600px) {
-  .cm-lineNumbers .cm-gutterElement {
-    padding-right:var(--space-2)!important;
-  }
+.vela-inline-line-numbers .cm-line.vela-numbered-line::before {
+  content:attr(data-vela-line-number) / "";
+  position:absolute;
+  inset-block-start:0;
+  inset-inline-start:var(--space-1);
+  font-size:var(--text-xs);
+  line-height:1;
+  font-family:Consolas,"Cascadia Mono",monospace;
+  font-weight:400;
+  font-variant-numeric:tabular-nums;
+  color:var(--muted);
+  opacity:.4;
+  pointer-events:none;
+  user-select:none;
 }
 
 .cm-cursor {
@@ -279,11 +279,6 @@
   background:var(--accent-tint)!important;
 }
 
-.cm-activeLineGutter {
-  background:transparent!important;
-  color:var(--accent)!important;
-  font-weight:400;
-}
 
 .cm-tooltip-autocomplete {
   font-family:var(--app-font-family,"HarmonyOS Sans SC","Segoe UI","Microsoft YaHei",sans-serif);

@@ -34,7 +34,8 @@ import {bindStylePanel} from './format-style-panel.mjs';
 import {icon,fileIcon} from './icons.mjs';
 import {planningTopSheet} from './planning-sheet.mjs';
 import {EditorState,Compartment,Transaction} from '@codemirror/state';
-import {EditorView, keymap, lineNumbers, highlightActiveLine, highlightActiveLineGutter} from '@codemirror/view';
+import {inlineLineNumbers} from './inline-line-numbers.mjs';
+import {EditorView, keymap, highlightActiveLine} from '@codemirror/view';
 import {history, historyKeymap, defaultKeymap, undo, redo, undoDepth, redoDepth} from '@codemirror/commands';
 import {searchKeymap, openSearchPanel, highlightSelectionMatches} from '@codemirror/search';
 import {languageSupport,loadLanguage} from './languages.mjs';
@@ -244,7 +245,7 @@ const appState={
   get subscriptions(){return subscriptions;},get plugins(){return plugins;},get texCompiler(){return texCompiler;},
 };
 const withState=services=>Object.assign(Object.create(appState),services);
-const sourceRendering=new Compartment(),gutters=new Compartment(),formatEnv=new Compartment(),pluginExtras=new Compartment(),projectReadonly=new Compartment(),completer=new Compartment(),pluginKeys=new Compartment(),languages=new Compartment(),systemTheme=matchMedia('(prefers-color-scheme: dark)');
+const sourceRendering=new Compartment(),lineNumberSlot=new Compartment(),formatEnv=new Compartment(),pluginExtras=new Compartment(),projectReadonly=new Compartment(),completer=new Compartment(),pluginKeys=new Compartment(),languages=new Compartment(),systemTheme=matchMedia('(prefers-color-scheme: dark)');
 const editorStates=new Map(),editorScrolls=new Map();
 const aiSuggestionSlot=new Compartment();
 let aiSuggestions=[];
@@ -736,16 +737,16 @@ function showFormatReview(){
   $('#drop-all-review').onclick=()=>{for(const item of [...formatsOf(view.state).review])settleReview(view,item.id);closeModal();renderFormatTools();};
 }
 // Line numbers help code but not novel paragraphs, which wrap over many lines; TXT in novel mode hides them unless asked.
-const gutterExtensions=doc=>documentKind(doc)==='TXT'&&projectConfig(workspace,doc)?.config?.editor?.mode!=='code'&&!workspace.settings.novelLineNumbers?[]:[lineNumbers(),highlightActiveLineGutter()];
-function refreshGutters(){
-  for(const [id,state] of editorStates){const doc=workspace.documents.find(item=>item.id===id);if(doc)editorStates.set(id,state.update({effects:gutters.reconfigure(gutterExtensions(doc))}).state);}
-  if(view&&current())view.dispatch({effects:gutters.reconfigure(gutterExtensions(current()))});
+const lineNumberExtensions=doc=>documentKind(doc)==='TXT'&&projectConfig(workspace,doc)?.config?.editor?.mode!=='code'&&!workspace.settings.novelLineNumbers?[]:inlineLineNumbers();
+function refreshLineNumbers(){
+  for(const [id,state] of editorStates){const doc=workspace.documents.find(item=>item.id===id);if(doc)editorStates.set(id,state.update({effects:lineNumberSlot.reconfigure(lineNumberExtensions(doc))}).state);}
+  if(view&&current())view.dispatch({effects:lineNumberSlot.reconfigure(lineNumberExtensions(current()))});
 }
 function sourceRenderExtensions(doc){
   const editor=projectConfig(workspace,doc)?.config?.editor;
   return [
     outlineMarkers(()=>projectConfig(workspace,doc)?.config?.formats?.outline?.showEditorMarkers===false?[]:documents?.outlineAnchors.entries(doc)||[],openOutlineMarkers),
-    gutters.of(gutterExtensions(doc)),
+    lineNumberSlot.of(lineNumberExtensions(doc)),
     languages.of(languageFor(doc)),
     syntaxHighlighting(defaultHighlightStyle),
     editor?.wrap===false?[]:indentedLineWrapping('same')
@@ -1924,7 +1925,7 @@ async function showSettings(group){
           if(pageName==='reader'&&name==='globalVelaOverride')reader.home();
         }else{
           settings[name]=value;
-          if(name==='novelLineNumbers')refreshGutters();
+          if(name==='novelLineNumbers')refreshLineNumbers();
           if(['autoNouns','highlightTerms','glossaryPanel','richText'].includes(name)){editorStates.clear();if(current())refreshFileType(current());}
         }
         save();
