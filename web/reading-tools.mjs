@@ -13,9 +13,9 @@ function show(reader,mode='search') {
   reader.chrome(true);reader.closeTools?.();
   const panel=document.createElement('aside');panel.className='reader-tools-panel';
   const workspace=reader.workspace(),entries=workspace.annotations?.[reader.id]||[],esc=reader.escape;
-  panel.innerHTML=`<header><strong>${t(mode==='search'?'全文搜索':'批注')}</strong><button data-tools-close aria-label="${t('关闭')}">${icon('close')}</button></header>
+  panel.innerHTML=`<header><strong>${t(mode==='search'?'全文搜索':'批注')}</strong><button data-tools-close class="ui-icon-button" aria-label="${t('关闭')}" title="${t('关闭')}">${icon('close')}</button></header>
     <section class="reader-search-section" ${mode==='search'?'':'hidden'}><input data-book-query type="search" placeholder="${t('全文搜索')}" aria-label="${t('全文搜索')}"><div class="reader-search-results"></div></section>
-    <section class="reader-notes-section" ${mode==='notes'?'':'hidden'}><label>${t('批注')}<textarea rows="3" maxlength="10000"></textarea></label><div class="button-row"><button data-reader-bookmark title="${t('添加书签')}" aria-label="${t('添加书签')}">${icon('bookmark')}</button><button data-reader-note title="${t('添加批注')}" aria-label="${t('添加批注')}">${icon('annotation')}</button></div>
+    <section class="reader-notes-section" ${mode==='notes'?'':'hidden'}><textarea rows="3" maxlength="10000" aria-label="${t('批注')}" placeholder="${t('在选中位置写下批注')}"></textarea><div class="button-row"><button data-reader-bookmark class="ui-button ui-button--secondary">${icon('bookmark')}<span>${t('添加书签')}</span></button><button data-reader-note class="ui-button ui-button--primary">${icon('annotation')}<span>${t('添加批注')}</span></button></div>
     <div class="reader-annotations"></div></section>`;
   reader.root.querySelector('.reader-document').append(panel);
   let timer,epoch=0,controller;

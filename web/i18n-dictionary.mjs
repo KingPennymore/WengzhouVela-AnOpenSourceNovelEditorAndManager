@@ -269,5 +269,14 @@ Object.assign(dictionary,{
   "粗体、着重号、注音、插图和样式；格式保存在作品配置 .vela 中，TXT 正文不变。": "Bold, emphasis marks, pronunciation, illustrations and styles are saved in the work’s .vela configuration. TXT text remains unchanged.",
   "尚未填写 API Key，请粘贴密钥后重新验证。": "No API key was entered. Paste your key and verify again.",
   "AI 助手已启用，请填写此接口的 API Key，再点按“验证并保存”。": "AI assistant is enabled. Enter the API key for this endpoint, then select “Verify and save”.",
-  "连接检测未通过，请检查网络与 GitHub 地址后重试。": "The connection test failed. Check your network and GitHub address, then try again."
+  "连接检测未通过，请检查网络与 GitHub 地址后重试。": "The connection test failed. Check your network and GitHub address, then try again.",
+  "有更新": "Updated",
+  "失败": "Failed",
+  "完成": "Done",
+  "重试": "Retry",
+  "没有符合筛选的订阅。": "No subscriptions match this filter.",
+  "还没有订阅": "No subscriptions yet",
+  "批量操作": "Bulk actions",
+  "网络连接失败，请检查网络后重试。": "The network request failed. Check your connection and try again.",
+  "在选中位置写下批注": "Write a note for the selection"
 });

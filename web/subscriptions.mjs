@@ -1,8 +1,10 @@
 import {decodeContent,MAX_TEXT_BYTES} from './model.mjs';
 import {parseVela,readingItems,configFolder,velaVisiblePaths} from './vela.mjs';
 import {GitHub} from './github.mjs';
-import {t} from './i18n.mjs';
+import {t,say} from './i18n.mjs';
 import {textBytes,MB} from './text-utils.mjs';
+import {icon} from './icons.mjs';
+import {segmented} from './ui-components.mjs';
 export function subscriptionRepo(value){
   const url=new URL(value.trim());
   if(url.protocol!=='https:'||url.hostname!=='github.com'||url.port||url.username||url.password||url.search||url.hash)throw new Error(t('请输入 HTTPS GitHub 仓库地址。'));
@@ -19,6 +21,13 @@ export function subscriptionChanged(previous,next){
     return Object.keys(next.watched).some(path=>Object.hasOwn(previous.watched,path)&&previous.watched[path]!==next.watched[path]);
   }
   return previous.signature!==next.signature;
+}
+/** A stored refresh error as a sentence the reader can act on; browser network errors arrive in English. */
+export function refreshError(message){
+  const text=t(message);
+  if(text!==message)return text;
+  if(/failed to fetch|networkerror|network request failed|load failed|timed? ?out/i.test(message))return t('网络连接失败，请检查网络后重试。');
+  return say(`刷新失败：${message}`,`Refresh failed: ${message}`);
 }
 export class SubscriptionAPI {
   constructor(transport){
@@ -103,6 +112,7 @@ export class Subscriptions {
     this.running=null;
     this.visited=false;
     this.filter='all';
+    this.selecting=false;
   }
   items(){
     return this.workspace().subscriptions||=[];
@@ -203,11 +213,11 @@ export class Subscriptions {
     if(this.detail){
       const item=this.detail,s=item.snapshot;
       this.root.innerHTML=`<div class="subscription-scroll">
-          <header class="page-header">
-            <button id="subscription-back" class="secondary">← ${t('订阅')}</button>
-            <h1>${esc(s.name)}</h1>
-            <button id="subscription-pull" class="primary">${t('拉取文件')}</button></header>
-          <p data-user-content>${esc(s.description)}</p>${s.vela?`<p class="vela-badge">.vela ${t('工作区')}</p>`:''}<h2>Releases</h2>${s.releases.map(release=>`<section class="release"><h3 data-user-content>${esc(release.name)}</h3><time>${esc(release.published||'')}</time><article class="markdown release-body" data-user-content>${this.renderMarkdown(release.body)}</article></section>`).join('')||`<p>${t('暂无发布版本')}</p>`}<h2>Changelog</h2>
+          <button id="subscription-back" class="ui-button ui-button--text subscription-back">← ${t('订阅')}</button>
+          <header class="page-header subscription-header">
+            <h1 data-user-content>${esc(s.name)}</h1>
+            <button id="subscription-pull" class="ui-button ui-button--primary">${t('拉取文件')}</button></header>
+          <p data-user-content>${esc(s.description)}</p>${s.vela?`<p class="vela-badge">.vela ${t('工作区')}</p>`:''}<h2>${say('发布版本','Releases')}</h2>${s.releases.map(release=>`<section class="release"><h3 data-user-content>${esc(release.name)}</h3><time>${esc(release.published?new Date(release.published).toLocaleString():'')}</time><article class="markdown release-body" data-user-content>${this.renderMarkdown(release.body)}</article></section>`).join('')||`<p>${t('暂无发布版本')}</p>`}<h2>${say('更新日志','Changelog')}</h2>
           <article class="markdown release-body" data-user-content>${item.changelogText?this.renderMarkdown(item.changelogText):t(s.changelog?'正在读取…':'未找到 Changelog 文件')}</article></div>`;
       this.root.querySelector('#subscription-pull').onclick=()=>this.pull(item).catch(this.fail);
       this.root.querySelector('#subscription-back').onclick=()=>{
@@ -218,28 +228,33 @@ export class Subscriptions {
     }
     const visible=this.items().filter(item=>this.filter==='all'||this.filter==='unread'&&item.unread||this.filter==='errors'&&item.error||this.filter==='downloaded'&&this.workspace().documents.some(doc=>doc.subscription?.repo===item.repo));
     const active=this.items().filter(item=>this.selected.has(item.repo));
+    const filters=[['all',t('全部')],['unread',t('有更新')],['downloaded',t('已下载')],['errors',t('失败')]].map(([value,label])=>({value,label}));
     this.root.innerHTML=`<div class="subscription-scroll">
-        <header class="page-header">
+        <header class="page-header subscription-header">
           <h1>${t('订阅')}</h1>
-          <div class="button-row">
-            <button id="subscription-add" class="primary">＋ ${t('订阅仓库')}</button>
-            <button id="subscription-refresh" class="secondary" ${this.running?'disabled':''}>${t(this.running?'正在刷新…':'刷新')}</button></div>
-        </header>
-        <div class="subscription-bulk">
-          <select id="subscription-filter" aria-label="${t('筛选订阅')}">${[['all','全部'],['unread','未读更新'],['downloaded','已下载'],['errors','刷新失败']].map(([value,label])=>`<option value="${value}" ${value===this.filter?'selected':''}>${t(label)}</option>`).join('')}</select>${this.running?`<button id="subscription-cancel" class="secondary">${t('取消刷新')}</button>`:''}<label>
-            <input id="subscription-select-all" type="checkbox" ${active.length===this.items().length&&active.length?'checked':''}>${t('全选')}</label>
-          <button id="subscription-ignore" class="secondary" ${active.length?'':'disabled'}>${t('忽略')}</button>
-          <button id="subscription-delete" class="danger" ${active.length?'':'disabled'}>${t('删除订阅')}</button>
-          <span>${active.length} / ${this.items().length}</span></div>
-        <div class="subscription-list">${visible.map(item=>`<div class="subscription-card" data-subscription="${esc(item.repo)}">
-          <label class="subscription-selection"><input type="checkbox" data-select-subscription="${esc(item.repo)}" aria-label="${t('选择')} ${esc(item.repo)}" ${this.selected.has(item.repo)?'checked':''}></label>
+          <div class="subscription-actions">
+            <button id="subscription-refresh" class="ui-icon-button" aria-label="${t('刷新')}" title="${t('刷新')}" ${this.running?'disabled':''}>${icon('refresh')}</button>${this.items().length?`
+            <button id="subscription-select" class="ui-button ui-button--secondary" aria-pressed="${this.selecting}">${t(this.selecting?'完成':'选择')}</button>`:''}
+            <button id="subscription-add" class="ui-button ui-button--primary">＋ ${t('订阅仓库')}</button></div>
+        </header>${this.running?`
+        <div class="subscription-progress" role="status">${t('正在刷新…')}<button id="subscription-cancel" class="ui-button ui-button--text ui-button--compact">${t('取消刷新')}</button></div>`:''}${this.items().length?segmented('subscription-filter',filters,this.filter,{label:t('筛选订阅')}):''}
+        <div class="subscription-list">${visible.map(item=>`<div class="subscription-card${this.selected.has(item.repo)?' selected':''}" data-subscription="${esc(item.repo)}">${this.selecting?`
+          <label class="subscription-selection"><input type="checkbox" data-select-subscription="${esc(item.repo)}" aria-label="${t('选择')} ${esc(item.repo)}" ${this.selected.has(item.repo)?'checked':''}></label>`:''}
           <button class="subscription-open" data-subscription-open="${esc(item.repo)}">
-            <strong data-user-content>${esc(item.snapshot.name)}${item.unread?'<i class="update-dot"></i>':''}</strong>
+            <strong><span data-user-content>${esc(item.snapshot.name)}</span>${item.unread?`<i class="update-dot" aria-hidden="true"></i><span class="subscription-badge">${t('有更新')}</span>`:''}</strong>
             <small>${item.snapshot.vela?'.vela':'GitHub'} · ${esc(new Date(item.snapshot.checkedAt).toLocaleString())}</small>
             <span data-user-content>${esc(item.snapshot.releases?.[0]
       ?[item.snapshot.releases[0].tag,item.snapshot.releases[0].name].filter((v,i,a)=>a.indexOf(v)===i).join(' · ')
-      :item.snapshot.changelog?'Changelog · '+item.snapshot.changelog.path:item.snapshot.description)}</span></button>
-          <button class="text-button" data-ignore-subscription="${esc(item.repo)}">${t('忽略')}</button>${item.error?`<p class="error">${esc(t(item.error))}</p>`:''}</div>`).join('')||`<p class="blank">${t('订阅 GitHub 仓库以查看发布版本和更新日志。')}</p>`}</div></div>`;
+      :item.snapshot.changelog?say('更新日志','Changelog')+' · '+item.snapshot.changelog.path:item.snapshot.description)}</span></button>${item.unread&&!this.selecting?`
+          <button class="ui-button ui-button--text ui-button--compact" data-ignore-subscription="${esc(item.repo)}">${t('忽略')}</button>`:''}${item.error?`
+          <div class="subscription-error" role="alert"><p class="error">${esc(refreshError(item.error))}</p><button class="ui-button ui-button--secondary ui-button--compact" data-retry-subscription ${this.running?'disabled':''}>${t('重试')}</button></div>`:''}</div>`).join('')||(this.items().length
+      ?`<p class="blank">${t('没有符合筛选的订阅。')}</p>`
+      :`<div class="ui-empty"><strong>${t('还没有订阅')}</strong><p>${t('订阅 GitHub 仓库以查看发布版本和更新日志。')}</p></div>`)}</div>${this.selecting?`
+        <div class="subscription-bulk" role="toolbar" aria-label="${t('批量操作')}">
+          <label class="subscription-select-all"><input id="subscription-select-all" type="checkbox" ${active.length===visible.length&&active.length?'checked':''}>${t('全选')}</label>
+          <span class="subscription-count">${active.length} / ${visible.length}</span>
+          <button id="subscription-ignore" class="ui-button ui-button--secondary ui-button--compact" ${active.length?'':'disabled'}>${t('忽略')}</button>
+          <button id="subscription-delete" class="ui-button ui-button--danger ui-button--compact" ${active.length?'':'disabled'}>${t('删除订阅')}</button></div>`:''}</div>`;
     this.root.querySelector('#subscription-add').onclick=()=>this.modal(
       t('订阅仓库'),
       `<label>GitHub HTTPS URL<input name="url" type="url" required placeholder="https://github.com/owner/repository"></label>`,
@@ -251,34 +266,49 @@ export class Subscriptions {
         },{label:t('拉取文件')});
         return false;
       });
-    this.root.querySelector('#subscription-filter').onchange=e=>{
-      this.filter=e.target.value;
+    const on=(selector,event,handler)=>{const node=this.root.querySelector(selector);if(node)node[event]=handler;};
+    this.root.querySelectorAll('[name=subscription-filter]').forEach(radio=>radio.onchange=()=>{
+      this.filter=radio.value;
       this.selected.clear();
       this.render();
-    };
-    const cancel=this.root.querySelector('#subscription-cancel');
-    if(cancel)cancel.onclick=()=>this.abort?.abort();
-    this.root.querySelector('#subscription-refresh').onclick=()=>{
+    });
+    on('#subscription-cancel','onclick',()=>this.abort?.abort());
+    const refresh=()=>{
       this.refresh();
       this.render();
     };
-    this.root.querySelector('#subscription-select-all').onchange=e=>{
+    on('#subscription-refresh','onclick',refresh);
+    this.root.querySelectorAll('[data-retry-subscription]').forEach(button=>button.onclick=refresh);
+    on('#subscription-select','onclick',()=>{
+      this.selecting=!this.selecting;
+      this.selected.clear();
+      this.render();
+    });
+    on('#subscription-select-all','onchange',e=>{
       this.selected=new Set(e.target.checked?visible.map(item=>item.repo):[]);
       this.render();
-    };
-    this.root.querySelector('#subscription-ignore').onclick=()=>this.ignore(active);
-    this.root.querySelector('#subscription-delete').onclick=()=>this.modal(t('删除订阅'),`<p>${t('删除所选订阅？本地已保存的文件保留。')}</p>`,()=>{
+    });
+    on('#subscription-ignore','onclick',()=>this.ignore(active));
+    on('#subscription-delete','onclick',()=>this.modal(t('删除订阅'),`<p>${t('删除所选订阅？本地已保存的文件保留。')}</p>`,()=>{
       this.workspace().subscriptions=this.items().filter(item=>!this.selected.has(item.repo));
       this.selected.clear();
+      if(!this.items().length)this.selecting=false;
       this.save();
       this.dot();
       this.render();
-    });
+    },{label:t('删除订阅'),destructive:true}));
     this.root.querySelectorAll('[data-select-subscription]').forEach(input=>input.onchange=()=>{
       input.checked?this.selected.add(input.dataset.selectSubscription):this.selected.delete(input.dataset.selectSubscription);
       this.render();
     });
     this.root.querySelectorAll('[data-subscription-open]').forEach(button=>button.onclick=()=>{
+      // In selection mode a tap on the card toggles it, like the checkbox.
+      if(this.selecting){
+        const repo=button.dataset.subscriptionOpen;
+        this.selected.has(repo)?this.selected.delete(repo):this.selected.add(repo);
+        this.render();
+        return;
+      }
       if(!this.suppressClick)this.open(this.items().find(item=>item.repo===button.dataset.subscriptionOpen)).catch(this.fail);
     });
     this.root.querySelectorAll('[data-ignore-subscription]').forEach(button=>button.onclick=()=>this.ignore([this.items().find(item=>item.repo===button.dataset.ignoreSubscription)]));
