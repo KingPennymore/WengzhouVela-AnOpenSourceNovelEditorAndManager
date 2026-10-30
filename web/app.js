@@ -49,7 +49,6 @@ import {native,transport,readWorkspace,saveWorkspace,saveWorkspaceAsync,exportTe
 import {shortcuts,matchesKey} from './shortcuts.mjs';
 import {SidebarLayout} from './sidebars.mjs';
 import {reconcilePanel,textInfoCache} from './document-panels.mjs';
-import {createMobileEditor} from './mobile-editor.mjs';
 import {UIShell} from './ui-shell.mjs';
 import {createVelaV2,velaText,projectConfig,projectWriter,includeNewReadingFile,rewriteVelaFiles,configFolder,readable,GLOBAL_VELA_PATH,globalConfig,formatHome,legacySidecar,addFormatRecord,configStyles,readPosition,positionEntry,positionOffset,positionUpdate} from './vela.mjs';
 import {completionExtensions} from './completion.mjs';
@@ -218,13 +217,6 @@ const builtinControls=Object.fromEntries([['top-toolbar',['search-editor','outli
 Object.defineProperty(window,'velaEditorView',{get:()=>view,configurable:true});
 const pluginUi=new PluginUiHost({roots:pluginRoots,shell:ui,builtins:()=>builtinControls,onError:error=>fail(error)});initMotion();
 const sidebars=new SidebarLayout(()=>view?.requestMeasure());
-const mobileEditor=createMobileEditor({shell:ui,workspace:()=>workspace,current:()=>workspace?current():null,view:()=>view,page:()=>pageName,home:()=>home,preview:()=>isPreview,
-  supported:()=>!['OUTLINE','MAP','CSV','GLY'].includes(documentKind(current()))&&!isComponentDocument(current()),
-  enabled:()=>workspace?.settings.immersiveWriting===true,formatAvailable:()=>!home&&!isPreview&&(documentKind(current())==='MD'||!$('#format-tools').hidden),
-  layout:()=>{ui.layout();sidebars.update(false);},modeChanged:()=>{if(workspace&&view)updateStats();},
-  revealCaret:()=>{if(view&&!isPreview)view.dispatch({effects:EditorView.scrollIntoView(view.state.selection.main.head,{y:'nearest',yMargin:24})});}
-});
-
 const extensionContext=new ViewContext(()=>{
   const doc=workspace?.documents.find(d=>d.id===workspace.activeId),selection=view?.state.selection.main;
   return {file:doc?{id:doc.id,name:doc.name,path:documentPath(doc)}:null,kind:doc?documentKind(doc):null,mode:isPreview?'preview':'source',page:pageName,selection:!home&&pageName==='write'&&isPreview&&['MAP','OUTLINE'].includes(doc?documentKind(doc):null)?$('#preview').planningApi?.selection?.()||null:selection?{from:selection.from,to:selection.to}:null};
@@ -333,7 +325,7 @@ function renderSyncStatus(){
 
 function activeUndoDepth(){return isPreview&&documentKind(current())==='MAP'?$('#preview').mapHistoryDepth?.().undo||0:view?undoDepth(view.state):0;}
 function activeRedoDepth(){return isPreview&&documentKind(current())==='MAP'?$('#preview').mapHistoryDepth?.().redo||0:view?redoDepth(view.state):0;}
-function status(message,changed=false){mobileEditor.status(message,changed);$('#save-state').textContent=t(message);$('#save-state').classList.toggle('dirty',changed);renderSyncStatus();}
+function status(message,changed=false){$('#save-state').textContent=t(message);$('#save-state').classList.toggle('dirty',changed);renderSyncStatus();}
 function save(show = false) {
   return session.save(show);
 }
@@ -428,7 +420,7 @@ function updateStats(){
   }
   const idx=ensureIndex(),pos=view.state.selection.main.head,row=view.state.doc.lineAt(pos),section=Writer.sectionAt(idx,row.number-1);
   $('#chapter-count').textContent=say(`${idx.chapterCount} 章`,`${idx.chapterCount} chapters`);
-  $('#word-count').textContent=mobileEditor.active?say(`${section?.count||0} / ${idx.total} 字`,`${section?.count||0} / ${idx.total} chars`):say(`本章 ${section?.count||0} 字 · 全文 ${idx.total} 字`,`Chapter ${section?.count||0} chars · Total ${idx.total} chars`);
+  $('#word-count').textContent=say(`本章 ${section?.count||0} 字 · 全文 ${idx.total} 字`,`Chapter ${section?.count||0} chars · Total ${idx.total} chars`);
   $('#current-chapter').textContent=section?.title||t('全文');
   $('#cursor-position').textContent=say(`行 ${row.number}，列 ${pos-row.from+1}`,`Ln ${row.number}, Col ${pos-row.from+1}`);
   renderSelectionCount();
@@ -824,7 +816,6 @@ function makeState(doc){
       if(!update.docChanged)updateStats();
     }
   if(update.docChanged&&isPreview&&documentKind(current())==='TEX')texPreview?.changed();
-  mobileEditor.input(update);
   if(update.docChanged||update.selectionSet){extensionContext.changed();$('#quick-undo').disabled=activeUndoDepth()===0;$('#quick-redo').disabled=activeRedoDepth()===0;}
 })
   ]});
@@ -1032,6 +1023,7 @@ $('#start-page').onclick=async e=>{
   const action=e.target.closest('[data-start]');if(!action)return;
   const name=action.dataset.start;
   if(name==='continue'){switchDocument(action.dataset.doc);return;}
+  if(name==='check-update'){checkWindowsUpdates(true).catch(fail);return;}
   if(name==='recent'||name==='back'){setStartPanel($('#start-page'),name==='recent'?'recent':'actions');return;}
   if(name==='guide'){
     const target=workspace,find=()=>target.documents.find(d=>/^操作指南\.(txt|md)$/i.test(d.name)); // i18n-data: the guide's file name
@@ -1366,7 +1358,7 @@ for(const [id,name] of [
 ])$('#'+id).innerHTML=icon(name);
 for(const button of document.querySelectorAll('#markdown-tools button,#format-tools button'))if(!button.title&&button.getAttribute('aria-label'))button.title=button.getAttribute('aria-label');
 function layoutShell() {
-  layoutAppShell(document, innerWidth, !!home);mobileEditor.update();
+  layoutAppShell(document, innerWidth, !!home);
 }
 const formatCommand=run=>()=>{if(!view||!richTextEnabled(current())||formatBlocked())return;if(run(view)===false)toast(t('请先选中要设置格式的文字。'));renderFormatTools();view.focus();};
 $('#format-strong').onclick=formatCommand(v=>toggleInline(v,'strong'));
@@ -1386,7 +1378,6 @@ $('#preview').addEventListener('click',e=>{if(e.target.closest('a')){e.preventDe
 let settingsParent=null;
 function dismissSettings(){const root=$('#dialog-body');delete root.settingsController;closeModal();}
 function openModal(title,html,submit,options={}){
-  mobileEditor.reveal();
   const previous=$('#dialog-body');
   if(previous.settingsController&&$('#dialog').open){
     settingsParent={body:previous,title:$('#dialog-title').textContent,focus:document.activeElement,handler:dialogHandler,cancel:dialogCancel};
@@ -1936,7 +1927,7 @@ async function showSettings(group){
           if(name==='novelLineNumbers')refreshGutters();
           if(['autoNouns','highlightTerms','glossaryPanel','richText'].includes(name)){editorStates.clear();if(current())refreshFileType(current());}
         }
-        if(name==='immersiveWriting')mobileEditor.update();save();
+        save();
       },
       aiChanged:()=>{save();aiAssistant?.refreshStatus();updateAiAssistant();},
       bindActions:root=>{
@@ -2011,7 +2002,7 @@ function showView(name){
     updateEditorVisibility();
     if(name==='write'&&isPreview&&isComponentDocument(current()))renderPreview();
   }
-  mobileEditor.update();sidebars.update();
+  sidebars.update();
 }
 document.querySelectorAll('[data-view]').forEach(button=>button.onclick=()=>{
   if(button.dataset.view==='write'&&pageName==='write'&&!home){ui.toggleEditorChrome();return;}
@@ -2498,7 +2489,6 @@ async function boot(){try{
     document.querySelectorAll('button').forEach(b=>{if(b.id!=='recover-data')b.disabled=true;});
   }}
 window.wenzhouBack=()=>{
- if(mobileEditor.reveal())return true;
  if(closeAppChoices())return true;
  if($('#dialog').open){closeModal();return true;}
  if(ui.menuOpen){ui.close(true);return true;}

@@ -798,6 +798,25 @@
     }
   }
 
+  /* Narrow screens show the status line under the tab bar (app-core/shell-layout.mjs), so it needs no bottom inset. */
+  body:not(.wide-shell) .statusbar {
+    height:28px;
+    padding-bottom:0;
+    border-top:0;
+    border-bottom:1px solid var(--hairline);
+  }
+
+  @media (orientation:landscape) and (max-height:520px) {
+    body:not(.wide-shell) .statusbar {
+      height:22px;
+    }
+  }
+
+  /* ...and the quick bar becomes the last row, above the system gesture area. */
+  body:not(.wide-shell) #writing-footer {
+    padding-bottom:var(--safe-bottom,0px);
+  }
+
   .statusbar>span:first-child {
     max-width:35%;
     overflow:hidden;
@@ -1953,13 +1972,13 @@
   body:not(.wide-shell) .document-tools {
     height:36px;
     flex-shrink:0;
-    border-bottom:1px solid var(--hairline);
+    border-top:1px solid var(--hairline);
     background:var(--panel);
   }
 
   @media (pointer:coarse) {
     body:not(.wide-shell) .document-tools {
-      height:44px;
+      height:36px;
     }
   }
 
@@ -4819,6 +4838,39 @@
     width:28px;
     min-width:28px;
     height:var(--control-h);
+  }
+
+  /* Narrow screens: the format tools share one low row, so image and clear-format stay on screen. */
+  body:not(.wide-shell) #document-tools .markdown-tools {
+    /* The touch minimum (state layer) follows --control-h: this row is deliberately lower than 44px. */
+    --control-h:34px;
+    flex:1 1 auto;
+    min-width:0;
+    gap:0;
+  }
+
+  body:not(.wide-shell) #document-tools .markdown-tools>button {
+    flex:1 1 0;
+    width:auto;
+    min-width:0;
+    max-width:48px;
+    height:34px;
+    min-height:34px;
+  }
+
+  body:not(.wide-shell) #document-tools :is(#format-style-label,.format-style-caret) {
+    display:none;
+  }
+
+  /* 320–360px phones: nine tools still fit one row. */
+  @media (max-width:370px) {
+    body:not(.wide-shell) #document-tools .markdown-tools {
+      --control-h:30px;
+    }
+  }
+
+  body:not(.wide-shell) #document-tools .tool-separator {
+    margin:0 2px;
   }
 
   #preview.plain-preview {
@@ -14690,70 +14742,6 @@
 
   /* End phase 1 base components. */
 
-  /* Phase 3: opt-in phone writing chrome. Wide and fine-pointer desktop layouts keep their existing owners. */
-  body[data-mobile-ui=true] .settings-navigation button>span:first-child {flex:0 0 var(--space-5);width:var(--space-5);text-align:center;}
-  body[data-mobile-editor=true] .topbar {display:flex;grid-template-columns:none;height:48px;min-height:48px;padding:0 var(--space-1);gap:var(--space-1);}
-  body[data-mobile-editor=true][data-mobile-immersed=true] .topbar {height:0;min-height:0;padding-block:0;border:0;overflow:hidden;visibility:hidden;}
-  body[data-mobile-editor=true] .topbar>.toolbar {display:none;}
-  body[data-mobile-editor=true] .topbar .breadcrumb {flex:1;min-width:0;gap:0;}
-  body[data-mobile-editor=true][data-mobile-format=true] .topbar .breadcrumb {display:none;}
-  body[data-mobile-editor=true] .breadcrumb :is(.app-name,.slash,.nav-separator) {display:none;}
-  body[data-mobile-editor=true] .mobile-editor-heading {position:relative;flex:1;min-width:0;height:var(--mobile-control-h);}
-  body[data-mobile-editor=true] .breadcrumb #current-name {display:block;min-width:0;max-width:none;height:var(--mobile-control-h);padding-top:var(--space-1);padding-bottom:var(--space-4);font-size:var(--text-sm);line-height:var(--leading-tight);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  body[data-mobile-editor=true][data-editor-chrome=expanded] .mobile-editor-heading {display:none;}
-  body[data-mobile-editor=true] .topbar :is(#mobile-library,.breadcrumb>button,.page-navigation .nav-item,.global-tools>button) {width:44px;min-width:44px;height:44px;min-height:44px;font-size:var(--text-sm);}
-  body[data-mobile-editor=true] .global-tools {flex:0 0 auto;padding:0;border:0;gap:0;}
-  body[data-mobile-editor=true][data-editor-chrome=expanded] .global-tools>:not(#more-tools,#outline-toggle),
-  body[data-mobile-editor=true][data-mobile-format=true] .global-tools>#outline-toggle {display:none;}
-  body[data-mobile-editor=true] #mobile-format-toggle {font-size:var(--text-md);font-weight:var(--weight-medium);}
-  body[data-mobile-editor=true] #mobile-format-toggle[aria-expanded=true] {background:var(--accent-tint);color:var(--accent);}
-  body[data-mobile-editor=true] .file-rowbar {height:44px;min-height:44px;}
-  body[data-mobile-editor=true][data-mobile-single=true] .file-rowbar,
-  body[data-mobile-editor=true][data-mobile-immersed=true] .file-rowbar {display:none;}
-  body[data-mobile-editor=true] .document-tabs {padding:0;height:44px;min-height:44px;}
-  body[data-mobile-editor=true] .document-tab {height:44px;min-height:44px;}
-  body[data-mobile-editor=true] .tab-open {height:44px;min-height:44px;font-size:var(--text-sm);}
-  body[data-mobile-editor=true] .tab-close {width:44px;min-width:44px;height:44px;min-height:44px;font-size:var(--text-md);}
-  body[data-mobile-editor=true] #document-tools {flex:1 1 0;height:44px;min-height:44px;max-width:none;border:0;background:transparent;overflow:hidden;}
-  body[data-mobile-editor=true]:not([data-mobile-format=true]) #document-tools {display:none;}
-  body[data-mobile-editor=true] #document-tools .document-tools-scroll {min-width:0;max-width:100%;overflow-x:auto;overflow-y:hidden;height:44px;}
-  body[data-mobile-editor=true] #document-tools .markdown-tools {height:44px;padding:0;flex-shrink:0;border:0;}
-  body[data-mobile-editor=true] #document-tools #format-style-label {display:none;}
-  body[data-mobile-editor=true] #document-tools #format-style .format-style-caret {display:none;}
-  body[data-mobile-editor=true] #document-tools button {height:44px;min-height:44px;min-width:44px;font-size:var(--text-sm);}
-  body[data-mobile-editor=true] .writing-view {padding-bottom:calc(48px + var(--safe-bottom,0px));}
-  body[data-mobile-editor=true][data-mobile-immersed=true] .writing-view {padding-bottom:0;}
-  body[data-mobile-editor=true] #writing-footer {padding-bottom:var(--safe-bottom,0px);}
-  body[data-mobile-editor=true][data-mobile-immersed=true] #writing-footer {transform:translateY(100%);visibility:hidden;pointer-events:none;}
-  /* Eight direct controls plus two 1px separators: 44px columns down to 354px wide, then they share the width (40px at 320px). */
-  body[data-mobile-editor=true] {--mobile-control-h:max(44px,var(--control-h));--quick-w:min(var(--mobile-control-h),calc((100vw - 2px) / 8));}
-  body[data-mobile-editor=true] .quickbar {display:grid;grid-template-columns:repeat(2,minmax(var(--quick-w),1fr)) 1px repeat(4,minmax(var(--quick-w),1fr)) 1px repeat(2,minmax(var(--quick-w),1fr));height:48px;min-height:48px;padding:0 clamp(0px,calc((100vw - 354px) / 2),var(--space-1));gap:0;overflow:hidden;}
-  body[data-mobile-editor=true] .quickbar>i {display:block;width:1px;height:var(--space-5);margin:0;background:var(--line);}
-  body[data-mobile-editor=true] .quickbar>i:first-of-type {order:2;}
-  body[data-mobile-editor=true] .quickbar>i~i {order:7;}
-  body[data-mobile-editor=true] .quickbar>button {height:var(--mobile-control-h);min-height:var(--mobile-control-h);min-width:var(--quick-w);padding:0;font-size:var(--text-xs);}
-  body[data-mobile-editor=true] .quickbar>button small {display:none;}
-  body[data-mobile-editor=true] #quick-undo {order:0;}
-  body[data-mobile-editor=true] #quick-redo {order:1;}
-  body[data-mobile-editor=true] #quick-top {order:3;}
-  body[data-mobile-editor=true] #quick-bottom {order:4;}
-  body[data-mobile-editor=true] #quick-chapter-top {order:5;}
-  body[data-mobile-editor=true] #quick-chapter-bottom {order:6;}
-  body[data-mobile-editor=true] #quick-git {order:8;}
-  body[data-mobile-editor=true] #quick-save {order:9;}
-  body[data-mobile-editor=true] #quick-save[data-mobile-save=saved] {color:var(--accent);}
-  body[data-mobile-editor=true] #quick-save[data-mobile-save=dirty] {color:var(--text);}
-  body[data-mobile-editor=true] #quick-save[data-mobile-save=failed] {color:var(--danger);}
-  body[data-mobile-editor=true] .mobile-save-status {position:absolute;width:1px;height:1px;clip-path:inset(50%);overflow:hidden;white-space:nowrap;}
-  body[data-mobile-editor=true] .mobile-editor-summary {position:absolute;left:0;right:0;bottom:var(--space-1);display:flex;min-width:0;gap:var(--space-1);line-height:var(--leading-tight);font-size:var(--text-xs);overflow:hidden;color:var(--muted);pointer-events:none;}
-  body[data-mobile-editor=true] .mobile-editor-summary>span {display:block;min-width:0;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--text-xs);}
-  body[data-mobile-editor=true] .mobile-editor-summary>#current-chapter {flex:1;}
-  body[data-mobile-editor=true] .mobile-editor-summary>#word-count {flex:0 1 auto;}
-  body[data-mobile-editor=true] .statusbar {display:none;}
-  body[data-mobile-editor=true] #toolbar-overflow :is(.toolbar-menu-heading,.menu-shortcut) {font-size:var(--text-xs);}
-  body[data-mobile-editor=true] #toolbar-overflow :is(button,.display-options button) {min-height:44px;min-width:44px;font-size:var(--text-sm);}
-  body[data-mobile-editor=true] #toolbar-overflow .display-options {display:flex;flex-wrap:wrap;width:100%;gap:var(--space-1);padding:var(--space-1);}
-  body[data-mobile-editor=true] #toolbar-overflow #sync-state {font-size:var(--text-xs);white-space:normal;}
 
 }
 
@@ -14856,6 +14844,7 @@
   }
   .settings-navigation { display:flex;flex-direction:column;overflow:auto;gap:var(--space-1);min-height:0; }
   .settings-navigation button { display:flex;align-items:center;justify-content:flex-start;text-align:start;gap:var(--space-3);padding:var(--space-3);min-height:var(--control-h);border-radius:var(--radius-md);font-size:var(--text-sm);color:var(--text); }
+  .settings-navigation button>span:first-child { flex:0 0 var(--space-5);width:var(--space-5);text-align:center; }
   .settings-navigation button>span:nth-child(2) { display:grid;flex:1;gap:var(--space-1);min-width:0; }
   .settings-navigation strong { font-weight:var(--weight-medium); }
   .settings-navigation small { font-size:var(--text-xs);color:var(--muted);white-space:normal; }

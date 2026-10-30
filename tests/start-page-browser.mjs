@@ -38,7 +38,7 @@ try{
     assert.equal(await page.locator('#outline-toggle').isVisible(),false);
     assert.equal(await page.locator('.resume-card').getAttribute('data-doc'),'book');
     assert.equal(await page.locator('#start-recent-panel').isVisible(),true);
-    const actions=page.locator('.start-action:visible');assert.equal(await actions.count(),profile==='windows'?8:7);
+    const actions=page.locator('.start-action:visible');assert.equal(await actions.count(),profile==='windows'?9:8);assert.ok(await page.locator('[data-start=check-update]').isVisible(),'check for updates from the start page');
     for(const button of await actions.all())assert.ok(await button.evaluate(el=>{const r=el.getBoundingClientRect();return r.width>=44&&r.height>=44&&r.left>=0&&r.right<=innerWidth;}));
     assert.equal(await page.locator('[data-start=commands]').isVisible(),profile==='windows');
     await page.screenshot({path:`${out}/${profile}-${width}-${theme}-home.png`});

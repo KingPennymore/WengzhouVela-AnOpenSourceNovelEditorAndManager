@@ -67,8 +67,9 @@ try{
     const toolWidths=await page.evaluate(()=>{const tools=document.querySelector('#document-tools').getBoundingClientRect(),scroll=document.querySelector('.document-tools-scroll').getBoundingClientRect();return {tools:tools.width,scroll:scroll.width};});
     assert.ok(toolWidths.scroll>=toolWidths.tools-1,'the toolbar scroll area spans the whole row');
     assert.equal(await page.locator('.quickbar').isVisible(),true);assert.equal(await page.locator('.quickbar [id^="quick-"]:not([hidden])').count(),8);
-    const order=await page.evaluate(()=>{const tools=document.querySelector('#document-tools').getBoundingClientRect(),editor=document.querySelector('#editor').getBoundingClientRect(),tabs=document.querySelector('.file-rowbar').getBoundingClientRect();return {toolsBelowTabs:tools.top>=tabs.bottom-1,toolsAboveEditor:tools.bottom<=editor.top+1};});
-    assert.deepEqual(order,{toolsBelowTabs:true,toolsAboveEditor:true});
+    const order=await page.evaluate(()=>{const tools=document.querySelector('#document-tools').getBoundingClientRect(),editor=document.querySelector('#editor').getBoundingClientRect(),tabs=document.querySelector('.file-rowbar').getBoundingClientRect();const status=document.querySelector('.statusbar').getBoundingClientRect(),quick=document.querySelector('.quickbar').getBoundingClientRect();return {statusBelowTabs:Math.abs(status.top-tabs.bottom)<1,toolsBelowEditor:tools.top>=editor.bottom-1,toolsAboveQuickbar:Math.abs(tools.bottom-quick.top)<2};});
+    // Narrow screens: tabs, then chapter and counts, the text, the format tools, and the quick bar last.
+    assert.deepEqual(order,{statusBelowTabs:true,toolsBelowEditor:true,toolsAboveQuickbar:true});
     await page.setViewportSize({width:1366,height:820});await page.waitForFunction(()=>document.body.dataset.shell==='wide');
     assert.equal(await page.locator('.status-actions [id^="quick-"]:not([hidden])').count(),8);assert.equal(await page.evaluate(()=>velaEditorView.state.doc.toString()),text);
   });
