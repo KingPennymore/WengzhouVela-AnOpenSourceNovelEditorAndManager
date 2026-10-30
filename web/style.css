@@ -679,6 +679,9 @@
     display:flex;
     align-items:stretch;
     overflow-x:auto;
+    overflow-y:hidden;
+    touch-action:pan-x;
+    scrollbar-width:none;
     border-bottom:1px solid var(--line);
     height:40px;
     background:var(--panel);
@@ -957,6 +960,11 @@
       height:40px;
     }
   }
+
+  @media (pointer:coarse) {
+    .file-rowbar {height:44px;min-height:44px;}
+  }
+  ::-webkit-scrollbar-corner {background:transparent;}
 
   .file-rowbar .document-tabs {
     flex:1;
@@ -1307,6 +1315,8 @@
   .document-tab {
     border-right:1px solid var(--line);
     flex-shrink:0;
+    height:100%;
+    overflow:hidden;
     justify-content:flex-start;
     gap:0;
     display:flex;
@@ -13257,8 +13267,10 @@
   }
 
   .sidebar-builtin-actions button {
-    width:36px;
-    height:var(--control-h);
+    width:44px;
+    height:44px;
+    min-width:44px;
+    min-height:44px;
     padding:0;
     display:grid;
     place-items:center;
@@ -14319,6 +14331,17 @@
     height:20px;
   }
 
+  .ai-actions {position:absolute;top:60px;right:12px;z-index:6;display:grid;gap:var(--space-1);padding:var(--space-1);max-width:calc(100% - 24px);border:1px solid var(--line);border-radius:var(--radius-md);background:var(--panel);box-shadow:var(--elev-2);}
+  .ai-actions button {min-height:44px;text-align:start;padding:var(--space-2) var(--space-3);font-size:var(--text-sm);}
+  .ai-button.ai-busy svg {visibility:hidden;}
+  .ai-button.ai-busy::after {content:'';position:absolute;width:20px;height:20px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:ai-spin 1s linear infinite;}
+  @keyframes ai-spin {to{transform:rotate(360deg);}}
+  @media (prefers-reduced-motion:no-preference) {
+    .ai-button.ai-complete {animation:ai-finish .35s ease;}
+    @keyframes ai-finish {50%{transform:scale(1.18);}to{transform:scale(1);}}
+  }
+  @media (prefers-reduced-motion:reduce) {.ai-button.ai-busy::after {animation:none;}}
+
   .ai-destination,.ai-key-status {
     color:var(--muted);
     font-size:var(--text-xs);
@@ -14766,7 +14789,7 @@
 
 
   /* Start page and recent documents */
-  body.start-open :is(.file-rowbar,#writing-footer,#outline-toggle,.toolbar,.breadcrumb>.slash,.breadcrumb>#current-name) {
+  body.start-open :is(#document-tools,.file-rowbar,#writing-footer,#outline-toggle,.toolbar,.breadcrumb>.slash,.breadcrumb>#current-name) {
     display:none;
   }
 

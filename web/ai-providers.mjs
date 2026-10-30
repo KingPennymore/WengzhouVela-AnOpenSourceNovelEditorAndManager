@@ -36,7 +36,7 @@ export const MAX_ENDPOINT=400,MAX_KEY=512;
 const PRINTABLE=/^[\x21-\x7e]*$/;
 /** The base URL without a trailing slash, or an Error explaining why it is refused. Native code applies the same rules. */
 export function normalizeEndpoint(value){
-  const text=String(value||'').trim().replace(/\/+$/,'');
+  const text=String(value||'').trim().replace(/\/+$/,'').replace(/\/chat\/completions$/,'');
   if(!text)return new Error(t('请填写接口地址。'));
   if(text.length>MAX_ENDPOINT||!PRINTABLE.test(text))return new Error(t('接口地址过长或包含非 ASCII 字符（国际化域名请使用 punycode 形式）。'));
   let url;
@@ -64,7 +64,7 @@ export function buildRequest(format,{model,system='',messages,maxTokens=1024,tem
     if(!VERSION.test(apiVersion))throw new Error(t('API 版本格式不正确。'));
     return {path:`/openai/deployments/${model}/chat/completions?api-version=${apiVersion}`,body:{messages:chat,max_tokens:maxTokens,temperature}};
   }
-  return {path:'/chat/completions',body:{model,messages:chat,max_tokens:maxTokens,temperature}};
+  return {path:'/chat/completions',body:{model,messages:chat,max_tokens:maxTokens,temperature,stream:false}};
 }
 
 /** Text and token usage from a response, or an Error carrying the service's own message. */
@@ -79,7 +79,9 @@ export function parseResponse(format,status,body){
     text=(body?.candidates?.[0]?.content?.parts||[]).map(part=>part.text||'').join('');
     usage={input:body?.usageMetadata?.promptTokenCount||0,output:body?.usageMetadata?.candidatesTokenCount||0};
   }else{
-    text=body?.choices?.[0]?.message?.content||'';
+    const content=body?.choices?.[0]?.message?.content;
+    text=Array.isArray(content)?content.filter(part=>part.type==='text').map(part=>part.text).join('\n'):content||'';
+    if(body?.choices?.[0]?.finish_reason==='length')return new Error(t('AI 输出达到长度上限，请减少所选章节或更换非思考模型后重试。'));
     usage={input:body?.usage?.prompt_tokens||0,output:body?.usage?.completion_tokens||0};
   }
   if(!text)return new Error(message||t('AI 服务没有返回内容。'));

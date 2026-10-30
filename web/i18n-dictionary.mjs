@@ -271,3 +271,5 @@ Object.assign(dictionary,{
   "术语库不是有效的 JSON 文件。": "The glossary is not a valid JSON file.",
   "创建文件": "Create file"
 });
+
+Object.assign(dictionary,{'AI 输出达到长度上限，请减少所选章节或更换非思考模型后重试。':'AI output reached its limit. Select fewer chapters or switch to a non-thinking model and retry.'});

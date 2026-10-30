@@ -49,7 +49,7 @@ final class AiBridge {
         }
         if (!"https".equals(scheme) && !("http".equals(scheme) && local)) throw fail("AI 接口地址必须使用 HTTPS，本机或局域网地址可使用 HTTP。");
         if ("http".equals(scheme) && !host.equals("localhost") && !host.equals("127.0.0.1") && !host.equals("10.0.2.2")) throw fail("Android 仅允许 localhost、127.0.0.1 和 10.0.2.2 使用 HTTP，其他地址请使用 HTTPS。");
-        return value.replaceAll("/+$", "");
+        return value.replaceAll("/+$", "").replaceAll("/chat/completions$", "");
     }
     private static JSONObject credential(JSONObject data) throws Exception {
         String format = string(data, "format");

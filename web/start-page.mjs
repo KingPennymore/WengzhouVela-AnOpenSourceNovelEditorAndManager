@@ -6,8 +6,6 @@ import { mountIncrementalList } from './incremental-list.mjs';
 const actions = [
   ['new-doc', 'newFile', '新建文件'],
   ['import-doc', 'import', '导入文件'],
-  ['recent', 'recent', '查看最近文件'],
-  ['quick-git', 'github', '管理 Git 仓库'],
   ['guide', 'guide', '查看操作指南'],
   ['commands', 'commands', '查看命令与快捷键'],
   ['plugins', 'plugins', '管理插件与组件'],
@@ -64,9 +62,9 @@ export function mountStartPage(root, host) {
     const back = root.querySelector('.start-back'),
       trigger = root.querySelector('[data-start=recent]');
     back.hidden = !expanded;
-    trigger.setAttribute('aria-expanded', String(expanded));
-    trigger.setAttribute('aria-controls', 'start-recent-panel');
-    if (focus) (expanded ? back : trigger).focus({ preventScroll: true });
+    trigger?.setAttribute('aria-expanded', String(expanded));
+    trigger?.setAttribute('aria-controls', 'start-recent-panel');
+    if (focus) (expanded ? back : root.querySelector('.resume-card'))?.focus({ preventScroll: true });
   };
   root.setStartPanel(panel, { focus: false });
   // Defer resume indexing to a frame after mounting; stale sessions never write DOM.

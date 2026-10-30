@@ -3,9 +3,6 @@
    overrides that injected theme or CodeMirror's inline geometry. */
 
 /* Writing, preview and text tools */
-#editor:has(> .ai-button:not([hidden])) .cm-content {
-  padding-right:64px!important;
-}
 
 .cm-editor.cm-focused {
   outline:none;

@@ -4,7 +4,14 @@ import {t,say} from './i18n.mjs';
 import {native,transport} from './platform.mjs';
 import {buildRequest,parseResponse,parseModels,verifyPath,authHeaders,normalizeEndpoint,validKey,preset,AZURE_API_VERSION} from './ai-providers.mjs';
 
-let browserKey=null,requestCounter=0;
+let browserKey=null,requestCounter=0,activeRequests=0;
+const activityListeners=new Set();
+export function subscribeAiActivity(listener){activityListeners.add(listener);listener(activeRequests);return ()=>activityListeners.delete(listener);}
+export async function aiComplete(workspace,options){
+  activeRequests++;for(const listener of activityListeners)listener(activeRequests);
+  try{return await complete(workspace,options);}
+  finally{activeRequests--;for(const listener of activityListeners)listener(activeRequests);}
+}
 
 /** Default settings; stored in workspace.settings.ai, never with the key. */
 export function aiSettings(workspace){
@@ -51,7 +58,7 @@ export const aiReady=(settings,status)=>!!settings.enabled&&!!status?.saved&&sta
  * Sends one generation request. `purpose` picks the model ('extract' or 'suggest'); `chars` is what counts toward
  * the daily limit (the text the user chose to send).
  */
-export async function aiComplete(workspace,{purpose,system,messages,maxTokens,temperature,signal}){
+async function complete(workspace,{purpose,system,messages,maxTokens,temperature,signal}){
   const settings=aiSettings(workspace),chars=[system,...messages.map(message=>message.content)].join('').length;
   if(signal?.aborted)throw new DOMException('Aborted','AbortError');
   if(!settings.consented||!aiReady(settings,await aiStatus()))throw new Error(t('未配置 AI 服务。'));
@@ -60,6 +67,13 @@ export async function aiComplete(workspace,{purpose,system,messages,maxTokens,te
   if(settings.usage.day!==today)settings.usage={day:today,chars:0};
   if(settings.dailyChars&&settings.usage.chars+chars>settings.dailyChars)throw new Error(say(`已达到每日发送上限（${settings.dailyChars.toLocaleString()} 字），明天再试，或在 AI 设置中调整。`,`Daily limit reached (${settings.dailyChars.toLocaleString()} characters). Try tomorrow or change it in AI settings.`));
   const request=buildRequest(settings.format,{model:settings.models[purpose]||settings.models.extract,system,messages,maxTokens,temperature,apiVersion:settings.apiVersion});
+  // Like the local Tarot client, use non-streaming chat requests. DeepSeek's
+  // thinking tokens share the output budget; short continuation budgets otherwise
+  // leave no final answer. These bounded text tasks explicitly use non-thinking mode.
+  if(settings.format==='openai' && new URL(settings.endpoint).hostname==='api.deepseek.com'){
+    request.body.thinking={type:'disabled'};
+    if(purpose==='extract')request.body.response_format={type:'json_object'};
+  }
   settings.usage.chars+=chars;
   let result;
   if(native){
