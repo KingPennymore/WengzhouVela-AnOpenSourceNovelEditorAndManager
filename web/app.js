@@ -1493,7 +1493,7 @@ $('#new-doc').onclick=()=>{
     selectedFolder=folder;
     const template=form.has('skeleton')&&templatesFor(name).some(o=>o.id==='format')?'format':'empty';
     addDocument(newDocument(name,templateText(name,template,projectConfig(workspace,{name,path:(folder?folder+'/':'')+name})?.config?.formats)));
-  });bindNewFile($('#dialog-body'),workspace);
+  },{label:t('创建文件')});bindNewFile($('#dialog-body'),workspace);
 };
 $('#doc-search').oninput=renderDocuments;
 $('#doc-list').onclick=e=>{

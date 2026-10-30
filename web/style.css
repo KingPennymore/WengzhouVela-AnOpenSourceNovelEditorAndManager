@@ -11273,6 +11273,21 @@
     color:var(--accent);
   }
 
+  /* An invalid configuration spans the page in one column, whatever layout the preview root uses. */
+  .vela-config-error {
+    grid-column:1/-1;
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:var(--space-2);
+    max-width:640px;
+    padding:var(--space-4);
+  }
+
+  .vela-config-error>p {
+    margin:0;
+  }
+
   .vela-config-header {
     display:flex;
     align-items:center;
@@ -13553,6 +13568,14 @@
     font-size:var(--text-xs);
     line-height:1.5;
     white-space:nowrap;
+  }
+
+  /* Phones: the dialog actions share the full width, primary on the right, in thumb reach. */
+  @media (max-width:600px) {
+    #dialog .dialog-actions>button {
+      flex:1;
+      font-size:var(--text-sm);
+    }
   }
 
   #dialog-submit.destructive {
