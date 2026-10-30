@@ -101,6 +101,7 @@ import {escapeHtml as esc,textBytes,MB,formatBytes} from './text-utils.mjs';
 const $=s=>document.querySelector(s);
 
 for(const [id,name] of Object.entries({'theme':'theme','settings':'settings','mobile-library':'files','search-icon':'search','github-icon':'github','search-editor':'search','focus-toggle':'focus','outline-toggle':'outline','export-doc':'export','add-glossary':'glossary'})) $('#'+id).innerHTML=icon(name);
+const fileToolLabels={'refresh-folder':'刷新','new-folder':'新建','workspace-root':'根目录','paste-file':'粘贴','open-trash':'回收站'};
 function renderAppLabels(){
   for(const [id,name,label] of [
     ['refresh-folder','refresh','刷新'],
@@ -119,7 +120,9 @@ function renderAppLabels(){
     ['md-quote','quote','Markdown 引用']
   ]){
     const button=$('#'+id);
-    button.innerHTML=icon(name);
+    // File tools also carry a short visible label; style.css shows it on phones, where there is no hover hint.
+    const short=fileToolLabels[id];
+    button.innerHTML=icon(name)+(short?`<span class="tool-label" aria-hidden="true">${t(short)}</span>`:'');
     button.title=t(label);
     button.setAttribute('aria-label',t(label));
   }
