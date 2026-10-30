@@ -7635,6 +7635,24 @@
     pointer-events:none;
   }
 
+  /* A blank map says where to start instead of showing an empty canvas. */
+  .map-empty-hint {
+    position:absolute;
+    top:50%;
+    left:50%;
+    width:min(320px,calc(100% - var(--space-6)));
+    margin:0;
+    transform:translate(-50%,-50%);
+    padding:var(--space-4);
+    border:1px dashed var(--line);
+    border-radius:var(--radius-md);
+    background:var(--panel);
+    color:var(--muted);
+    font-size:var(--text-sm);
+    text-align:center;
+    pointer-events:none;
+  }
+
   .map-toolbar .planning-primary button>span {
     display:none;
   }
@@ -9922,7 +9940,8 @@
     }
   }
 
-  @media (max-width:380px) {
+  /* Phones show the cell and table size once, in the status line under the grid. */
+  @media (max-width:600px) {
     .csv-toolbar .csv-context {
       display:none;
     }

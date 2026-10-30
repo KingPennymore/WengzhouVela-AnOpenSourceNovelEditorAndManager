@@ -266,5 +266,7 @@ Object.assign(dictionary,{
   "批量操作": "Bulk actions",
   "网络连接失败，请检查网络后重试。": "The network request failed. Check your connection and try again.",
   "在选中位置写下批注": "Write a note for the selection",
-  "新建": "New"
+  "新建": "New",
+  "选择“绘制点”后点按地图开始绘制。": "Choose “Draw points”, then tap the map to start drawing.",
+  "术语库不是有效的 JSON 文件。": "The glossary is not a valid JSON file."
 });
