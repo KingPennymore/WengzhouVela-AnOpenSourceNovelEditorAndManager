@@ -6,7 +6,7 @@ import { openRecentFile } from './start-page-helper.mjs';
 import { settingsSection, setSetting, closeSettings } from './settings-helper.mjs';
 import { editorAction, revealEditorChrome } from './mobile-editor-helper.mjs';
 import { settled, noMotion } from './wait-helpers.mjs';
-const out = 'test-results/ui-redesign/phase-3';
+const out = 'test-results/ui-redesign/phase-6';
 await mkdir(out, { recursive: true });
 const server = process.env.VELA_TEST_URL
     ? { url: process.env.VELA_TEST_URL }
@@ -226,17 +226,16 @@ try {
         assert.ok((await page.evaluate(chromeMetrics)).total <= 140);
         await page.locator('#mobile-format-toggle').click();
         await page.locator('[data-tab=book]').click();
-        await page.locator('#quick-jump').focus();
-        await page.keyboard.press('Enter');
-        await page.keyboard.press('End');
-        assert.equal(await page.evaluate(() => document.activeElement.id), 'quick-outline');
-        await page.keyboard.press('Escape');
-        assert.equal(await page.evaluate(() => document.activeElement.id), 'quick-jump');
+        assert.equal(await page.locator('#quick-jump,#mobile-jump-menu,#mobile-git').count(),0);
+        const direct = await page.locator('.quickbar>button').evaluateAll(nodes=>nodes.map(el=>({id:el.id,r:el.getBoundingClientRect().toJSON(),order:Number(getComputedStyle(el).order),title:el.title,label:el.getAttribute('aria-label')})).sort((a,b)=>a.order-b.order));
+        assert.deepEqual(direct.map(x=>x.id),['quick-undo','quick-redo','quick-top','quick-bottom','quick-chapter-top','quick-chapter-bottom','quick-git','quick-save']);
+        assert.equal(new Set(direct.map(x=>Math.round(x.r.top))).size,1);
+        for(const item of direct){assert.ok(item.r.width>=44&&item.r.height>=44,JSON.stringify(item));assert.ok(item.r.x>=0&&item.r.right<=390,JSON.stringify(item));assert.ok(item.title&&item.label);}
+        assert.equal(await page.locator('.topbar #current-chapter').count(),1);
+        assert.equal(await page.locator('.topbar #word-count').count(),1);
         await setCursor(text.indexOf('第二章') + 20);
-        await page.locator('#quick-jump').click();
-        assert.equal(await page.locator('#mobile-jump-menu button').count(), 5);
-        await readable('#mobile-jump-menu');
-        await shot('jump');
+        await page.evaluate(()=>testKeyboard(430));
+        await page.waitForFunction(()=>document.body.dataset.keyboard==='true');
         await page.locator('#quick-top').click();
         assert.equal(await page.evaluate(() => velaEditorView.state.selection.main.head), 0);
         await editorAction(page, '#quick-bottom');
@@ -254,9 +253,11 @@ try {
         );
         await setCursor(20);
         await editorAction(page, '#quick-chapter-bottom');
-        assert.ok((await page.evaluate(() => velaEditorView.state.selection.main.head)) > 20);
-        await page.locator('#quick-jump').click();
-        await page.locator('#quick-outline').click();
+        assert.equal(await page.evaluate(() => velaEditorView.state.selection.main.head),text.indexOf('第二章')-1);
+        assert.equal(await page.evaluate(()=>velaEditorView.hasFocus),true);
+        assert.equal(await page.locator('body').getAttribute('data-keyboard'),'true');
+        await page.evaluate(()=>testKeyboard(null));
+        await page.locator('#outline-toggle').click();
         await page.waitForFunction(() => document.body.classList.contains('show-outline'));
         await page.locator('#outline-toggle').click();
         await setCursor(20);
@@ -279,7 +280,20 @@ try {
         await page.locator('#quick-save').click();
         await page.locator('.mobile-save-status[data-state=saved]').waitFor();
         await openSettings();
-        assert.equal(await page.locator('[name=immersiveWriting]').isChecked(), true);
+        assert.equal(await page.locator('[name=immersiveWriting]').isChecked(), false);
+        await closeSettings(page);
+        await setCursor(200);
+        await page.keyboard.type('abcdef');
+        await settled(page);
+        assert.notEqual(await page.locator('body').getAttribute('data-mobile-immersed'),'true');
+        await openSettings();
+        await setSetting(page,'immersiveWriting',true);
+        await closeSettings(page);
+        await page.reload();
+        await page.waitForFunction(()=>window.velaReady);
+        if(await page.locator('#start-page').isVisible())await openRecentFile(page,page.locator('[data-recent=book]'));
+        await openSettings();
+        assert.equal(await page.locator('[name=immersiveWriting]').isChecked(),true);
         await closeSettings(page);
         await burst();
         await shot('immersed');
@@ -429,7 +443,7 @@ try {
   });
   await reduced.addInitScript(
     (seed) => localStorage.setItem('wenzhou.workspace', JSON.stringify(seed)),
-    seed,
+    {...seed,settings:{...seed.settings,immersiveWriting:true}},
   );
   const rp = await reduced.newPage();
   await rp.goto(server.url + '/?ui=harmonyos');
@@ -456,7 +470,6 @@ try {
     ['single', '单文稿'],
     ['multiple', '多文稿'],
     ['format', '格式工具展开'],
-    ['jump', '跳转菜单'],
     ['immersed', '沉浸写作'],
     ['landscape', '横屏 844×390'],
     ['settings-categories', '设置图标对齐'],
@@ -474,7 +487,7 @@ try {
   ]);
   await writeFile(
     out + '/index.html',
-    `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>文舟 UI 重构 · 阶段 3 截图</title><style>body{margin:24px;background:#f3f6f4;color:#20352a;font:16px/1.5 system-ui}main{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}figure{margin:0;border:1px solid #ccd7d0;border-radius:12px;background:white;padding:12px}img{display:block;max-width:100%;max-height:600px;margin:auto}figcaption{font-size:14px;padding:12px 0}a{color:inherit}h1{font-size:24px}p{max-width:80ch}</style><h1>文舟 UI 重构 · 阶段 3</h1><p>手机操作栏：单文稿 96 px、多文稿 140 px；格式工具复用顶栏。点击截图查看原图。<a href="before.json">修改前测量</a> · <a href="results.json">本轮测试测量</a></p><main>${cards.map(({ file, label }) => `<figure><a href="${file}"><img loading="lazy" src="${file}" alt="${label}"></a><figcaption>${label}</figcaption></figure>`).join('')}</main></html>`,
+    `<!doctype html><html lang="zh-CN"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>文舟 UI 重构 · 阶段 6 截图</title><style>body{margin:24px;background:#f3f6f4;color:#20352a;font:16px/1.5 system-ui}main{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:20px}figure{margin:0;border:1px solid #ccd7d0;border-radius:12px;background:white;padding:12px}img{display:block;max-width:100%;max-height:600px;margin:auto}figcaption{font-size:14px;padding:12px 0}a{color:inherit}h1{font-size:24px}p{max-width:80ch}</style><h1>文舟 UI 重构 · 阶段 6</h1><p>手机底栏八个直接操作；章节与字数在顶栏文件名下方；沉浸写作默认关闭。点击截图查看原图。<a href="results.json">本轮测试测量</a></p><main>${cards.map(({ file, label }) => `<figure><a href="${file}"><img loading="lazy" src="${file}" alt="${label}"></a><figcaption>${label}</figcaption></figure>`).join('')}</main></html>`,
   );
   console.log('PASS phone chrome, formats, jump/save, immersion and desktop geometry');
 } finally {

@@ -217,7 +217,7 @@ const pluginUi=new PluginUiHost({roots:pluginRoots,shell:ui,builtins:()=>builtin
 const sidebars=new SidebarLayout(()=>view?.requestMeasure());
 const mobileEditor=createMobileEditor({shell:ui,workspace:()=>workspace,current:()=>workspace?current():null,view:()=>view,page:()=>pageName,home:()=>home,preview:()=>isPreview,
   supported:()=>!['OUTLINE','MAP','CSV','GLY'].includes(documentKind(current()))&&!isComponentDocument(current()),
-  enabled:()=>workspace?.settings.immersiveWriting!==false,formatAvailable:()=>!home&&!isPreview&&(documentKind(current())==='MD'||!$('#format-tools').hidden),
+  enabled:()=>workspace?.settings.immersiveWriting===true,formatAvailable:()=>!home&&!isPreview&&(documentKind(current())==='MD'||!$('#format-tools').hidden),
   layout:()=>{ui.layout();sidebars.update(false);},modeChanged:()=>{if(workspace&&view)updateStats();},
   revealCaret:()=>{if(view&&!isPreview)view.dispatch({effects:EditorView.scrollIntoView(view.state.selection.main.head,{y:'nearest',yMargin:24})});}
 });
@@ -1383,7 +1383,7 @@ $('#preview').addEventListener('click',e=>{if(e.target.closest('a')){e.preventDe
 let settingsParent=null;
 function dismissSettings(){const root=$('#dialog-body');delete root.settingsController;closeModal();}
 function openModal(title,html,submit,options={}){
-  mobileEditor.reveal();mobileEditor.closeMenu();
+  mobileEditor.reveal();
   const previous=$('#dialog-body');
   if(previous.settingsController&&$('#dialog').open){
     settingsParent={body:previous,title:$('#dialog-title').textContent,focus:document.activeElement,handler:dialogHandler,cancel:dialogCancel};
@@ -2495,7 +2495,7 @@ async function boot(){try{
     document.querySelectorAll('button').forEach(b=>{if(b.id!=='recover-data')b.disabled=true;});
   }}
 window.wenzhouBack=()=>{
- if(mobileEditor.closeMenu(true)||mobileEditor.reveal())return true;
+ if(mobileEditor.reveal())return true;
  if(closeAppChoices())return true;
  if($('#dialog').open){closeModal();return true;}
  if(ui.menuOpen){ui.close(true);return true;}

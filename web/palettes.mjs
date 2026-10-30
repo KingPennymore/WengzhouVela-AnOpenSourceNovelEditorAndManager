@@ -57,7 +57,9 @@ function legibleColors(base){
 }
 export function paletteFor(id,dark){
   const palette=palettes.find(item=>item.id===id)||custom.find(item=>item.id===id)||palettes[0];
-  return {id:palette.id,colors:legibleColors(dark?palette.dark:palette.light)};
+  const colors=dark?palette.dark:palette.light;
+  // Custom palettes keep the colours the writer chose; their editor already warns about low contrast.
+  return {id:palette.id,colors:palettes.includes(palette)?legibleColors(colors):colors};
 }
 // Translucent accent layers for tints, focus rings and glows; Chromium 105 has no color-mix().
 const accentLayers={tint:'1f',ring:'47',glow:'33'};
