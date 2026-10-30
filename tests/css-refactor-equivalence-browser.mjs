@@ -12,7 +12,7 @@ import {outlineFixture} from './planning-fixtures.mjs';
 import {outlineText} from '../web/outline.mjs';
 import {createMap, mapText} from '../web/map.mjs';
 
-const baseline = process.env.CSS_BASE_REF || 'e224ac9'; // UI redesign: moved to each phase's merge (docs/UI-REDESIGN.md)
+const baseline = process.env.CSS_BASE_REF || '913cad9'; // UI redesign: moved to each phase's merge (docs/UI-REDESIGN.md)
 const height = Number(process.env.CSS_HEIGHT || 960);
 const fromGit = file => execFileSync('git', ['show', `${baseline}:${file}`], {encoding: 'utf8'});
 const oldHtml = fromGit('web/index.html');
