@@ -195,6 +195,7 @@ export function createAiAssistant(app) {
     });
   }
   return {
+    closeMenu(){if(!expanded)return false;expanded=false;render();return true;},
     update,
     refreshStatus: () => {
       status = null;

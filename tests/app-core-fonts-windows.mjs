@@ -1,4 +1,4 @@
-import { closeSettings } from './settings-helper.mjs';
+import { closeSettings, settingsSection } from './settings-helper.mjs';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -28,6 +28,8 @@ try {
   assert.ok(result.value.length > 0);
   await page.locator('#more-tools').click();
   await page.locator('#settings').click();
+  await settingsSection(page, 'appearance');
+  await page.locator('[data-font-list]').click();
   await page.waitForFunction(
     () =>
       document.querySelector('[name=fontFamily]').options.length > 2 &&

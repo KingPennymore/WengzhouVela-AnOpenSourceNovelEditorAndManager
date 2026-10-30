@@ -20,24 +20,25 @@ const devices=await _android.devices(),device=devices.find(d=>d.serial()===seria
 if(!device)throw new Error('请先启动 Wenzhou_QA_API36 测试模拟器。');
 let p,checks=[],errors=[],deviceClosed=false;
 await mkdir('test-results',{recursive:true});
-const connect=async()=>{const web=await device.webView({pkg:'me.wenzhou.write'});p=await web.page();p.on('pageerror',e=>errors.push(e.message));await p.waitForSelector('.cm-editor',{timeout:30000,state:'attached'});await p.waitForFunction(()=>typeof window.wenzhouSave==='function');};
+const connect=async()=>{const web=await device.webView({pkg:'me.wenzhou.write'});p=await web.page();p.on('pageerror',e=>errors.push(e.message));await p.waitForFunction(()=>window.velaReady===true);await p.waitForFunction(()=>typeof window.wenzhouSave==='function');};
 const check=async(name,run)=>{await run();checks.push(name);console.log('PASS '+name);};
 const invoke=async(op,payload={})=>{
   const result=await p.evaluate(async({op,payload})=>JSON.parse(await window.WenzhouNative.call(op,JSON.stringify(payload))),{op,payload});
   if(!result.ok)throw new Error(result.error);return result.value;
 };
 async function nav(name){if(await p.locator('body').evaluate(el=>el.classList.contains('reader-open')))await p.locator('#reader-back').click();await selectAppView(p,name);}
+const openDoc=async id=>{const row=p.locator(`[data-doc="${id}"]`);if(await row.isHidden())await p.locator('#mobile-library').click();await row.click();};
 const saved=()=>p.evaluate(()=>{if(!window.wenzhouSave())throw Error('Native save failed');return JSON.parse(window.WenzhouNative.readWorkspace());});
 const prefix='移植验证-'+Date.now();
 try{
   await connect();
   await check('Android 原生桥、内部工作区和操作指南首次启动',async()=>{
     assert.equal(await p.evaluate(()=>window.WenzhouNative.platform),'android');
-    const state=await saved();assert.equal(state.storage.internal,true);assert.equal(state.storage.needsSetup,false);assert.ok(state.documents.some(d=>d.name==='操作指南.md'));
+    const state=await saved();assert.equal(state.storage.internal,true);assert.equal(state.storage.needsSetup,false);assert.ok(state.documents.some(d=>/^操作指南\.(md|txt)$/.test(d.name)),'startup guide is available in source or plain-text mode');
     const layout=await p.evaluate(()=>({top:document.querySelector('.topbar').getBoundingClientRect().top,env:JSON.parse(window.WenzhouNative.readEnvironment())}));
     assert.ok(layout.top>=layout.env.top-.5);assert.equal(await p.locator('#setup-storage,#open-folder').count(),0);
   });
-  await p.evaluate(prefix=>{const state=JSON.parse(window.WenzhouNative.readWorkspace()),doc={id:crypto.randomUUID(),name:'正文.txt',path:prefix+'/正文.txt',text:'第一章 开始\n原始正文\n\n第二章 继续\n后续正文',updatedAt:Date.now(),remote:null};state.settings.theme='system';state.settings.libraryOpen=false;state.documents.unshift(doc);state.folders.push(prefix+'/空目录');state.activeId=doc.id;state.openIds.push(doc.id);const result=window.WenzhouNative.writeWorkspace(JSON.stringify(state));if(result!=='ok')throw Error(result);},prefix);
+  await p.evaluate(prefix=>{const state=JSON.parse(window.WenzhouNative.readWorkspace()),doc={id:crypto.randomUUID(),name:'正文.txt',path:prefix+'/正文.txt',text:'第一章 开始\n原始正文\n\n第二章 继续\n后续正文',updatedAt:Date.now(),remote:null};state.settings.theme='system';state.settings.libraryOpen=false;state.settings.startWithEmptyHome=false;state.documents.unshift(doc);state.folders.push(prefix+'/空目录');state.activeId=doc.id;state.openIds.push(doc.id);const result=window.WenzhouNative.writeWorkspace(JSON.stringify(state));if(result!=='ok')throw Error(result);},prefix);
   await p.reload();await p.waitForSelector('.cm-editor',{state:'attached'});
   await check('Android 正文候选后台 Worker 与补全撤销',()=>checkNativeNouns(p));
   await check('Tab 缩进、撤回重做、章节跳转和实际文件保存',async()=>{
@@ -57,21 +58,20 @@ try{
   const png='iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVQIHWP4z8DwHwAFgAI/ScLbtAAAAABJRU5ErkJggg==';
   await check('整批文件写入保留 UTF-16 CSV、HTML、Markdown、图片和空目录',async()=>{
     await saved();const files=[{path:prefix+'/人物.CSV',data:Buffer.concat([Buffer.from([255,254]),Buffer.from('姓名;身份\n甲;主角','utf16le')]).toString('base64')},{path:prefix+'/页面.HTML',data:Buffer.from('<!doctype html><h1>原生页面</h1>').toString('base64')},{path:prefix+'/设定.md',data:Buffer.from('# 设定\n\n- [ ] 场景\n\n![封面](封面.png)').toString('base64')},{path:prefix+'/封面.png',data:png}];
-    const state=await invoke('writeWorkspaceFiles',{files,folders:[prefix+'/空目录']});assert.equal(state.documents.find(d=>d.path===prefix+'/人物.CSV').text,'姓名;身份\n甲;主角');assert.equal(state.entries.find(e=>e.path===prefix+'/封面.png').editable,false);assert.ok(state.folders.includes(prefix+'/空目录'));
+    const state=await invoke('writeWorkspaceFiles',{files,folders:[prefix+'/空目录']});assert.equal(state.documents.find(d=>d.path===prefix+'/人物.CSV').text,'\uFEFF姓名;身份\n甲;主角');assert.equal(state.entries.find(e=>e.path===prefix+'/封面.png').editable,false);assert.ok(state.folders.includes(prefix+'/空目录'));
     assert.equal(await invoke('readWorkspaceAsset',{path:prefix+'/封面.png'}),'data:image/png;base64,'+png);
     await p.reload();await p.waitForSelector('.cm-editor',{state:'attached'});
   });
   await check('CSV 显示为可编辑表格，Markdown 工具栏与本地图片预览',async()=>{
     await p.locator('#mobile-library').click();const state=await saved(),csv=state.documents.find(d=>d.path===prefix+'/人物.CSV');
-    await p.locator(`[data-doc="${csv.id}"]`).click();await editCsvCell(p,1,0,'乙');assert.match((await saved()).documents.find(d=>d.id===csv.id).text,/乙/);
-    const md=state.documents.find(d=>d.path===prefix+'/设定.md');await p.locator(`[data-doc="${md.id}"]`).click();assert.equal(await p.locator('#markdown-tools').isVisible(),true);
-    await editorAction(p,'[data-display=preview]');await p.locator('#preview img').waitFor();assert.equal(await p.locator('body').evaluate(b=>b.classList.contains('show-library')),true);
-    await p.locator('#mobile-library').click();
+    await openDoc(csv.id);await editCsvCell(p,1,0,'乙');assert.match((await saved()).documents.find(d=>d.id===csv.id).text,/乙/);
+    const md=state.documents.find(d=>d.path===prefix+'/设定.md');await openDoc(md.id);if(await p.locator('#markdown-tools').isHidden())await p.locator('#mobile-format-toggle').click();assert.equal(await p.locator('#markdown-tools').isVisible(),true);
+    await editorAction(p,'[data-display=preview]');await p.locator('#preview img').waitFor();assert.equal(await p.locator('body').evaluate(b=>b.classList.contains('show-library')),false);
   });
   await check('嵌入与独立 HTML 预览：保留编辑区、本地资源、源码状态及脚本隔离',async()=>{
     await saved();const html='<!doctype html><html><head><link rel="stylesheet" href="样式.css"></head><body><h1 id="title">排版验证</h1><img id="cover" src="封面.png"><button id="action">交互按钮</button><div contenteditable="true" id="editable">Editable</div><script src="行为.js"></script></body></html>';
     const state=await invoke('writeWorkspaceFiles',{files:[{path:prefix+'/预览.html',data:Buffer.from(html).toString('base64')},{path:prefix+'/样式.css',data:Buffer.from('h1{color:rgb(17,85,34);font-size:30px}body{margin:12px}').toString('base64')},{path:prefix+'/行为.js',data:Buffer.from("document.body.dataset.script='ready';document.querySelector('#action').onclick=()=>document.querySelector('#title').textContent='交互成功';").toString('base64')}]});
-    await p.reload();await p.waitForSelector('.cm-editor',{state:'attached'});await p.locator('#mobile-library').click();const doc=(await saved()).documents.find(d=>d.path===prefix+'/预览.html');await p.locator(`[data-doc="${doc.id}"]`).click();
+    await p.reload();await p.waitForSelector('.cm-editor',{state:'attached'});await p.locator('#mobile-library').click();const doc=(await saved()).documents.find(d=>d.path===prefix+'/预览.html');await openDoc(doc.id);
     await p.evaluate(()=>{const editor=velaEditorView;editor.dispatch({selection:{anchor:12}});});
     const context=p.context(),pagesBefore=context.pages().length;
     await p.locator('[data-display="preview"]').click();const embedded=p.frameLocator('#preview iframe');await embedded.locator('#title').waitFor();
@@ -86,23 +86,23 @@ try{
     assert.equal(await preview.evaluate(()=>document.body.dataset.script||''),'');assert.equal(await preview.evaluate(()=>typeof window.WenzhouNative+':'+typeof window.WenzhouAndroid),'undefined:undefined');
     const blocked=await preview.evaluate(async()=>{try{return (await fetch('/../workspace.json')).status;}catch{return 0;}});assert.ok(blocked===403||blocked===0);
     await device.tap({text:'脚本：关'});await preview.waitForFunction(()=>document.body.dataset.script==='ready');await preview.locator('#action').click();assert.equal(await preview.locator('#title').innerText(),'交互成功');
-    await device.tap({text:'返回编辑'});await p.locator('#preview iframe').waitFor();await p.locator('[data-display="source"]').click();await p.locator('.cm-editor').waitFor();assert.equal(await p.locator('body').evaluate(b=>b.classList.contains('show-library')),true);await p.locator('#mobile-library').click();
+    await device.tap({text:'返回编辑'});await p.locator('#preview iframe').waitFor();await p.locator('[data-display="source"]').click();await p.locator('.cm-editor').waitFor();assert.equal(await p.locator('body').evaluate(b=>b.classList.contains('show-library')),false);
   });
   await check('.vela GUI 原生保存、只读阅读、HTML 禁止编辑与双指字号状态',async()=>{
     await saved();const config={version:2,kind:'workspace',id:'android-qa',project:{name:'验证工作区'},chapters:{templates:['【{number}】{title}']},reader:{},reading:{layout:{fontSize:21},items:['正文.txt','人物.CSV','预览.html','设定.md'].map((path,i)=>({id:'file-'+i,path}))}};
-    await invoke('writeWorkspaceFiles',{files:[{path:prefix+'/.vela',data:Buffer.from(JSON.stringify(config)).toString('base64')}]});await p.reload();await p.waitForSelector('.cm-editor',{state:'attached'});await p.locator('#mobile-library').click();const state=await saved(),manifest=state.documents.find(d=>d.path===prefix+'/.vela');await p.locator(`[data-doc="${manifest.id}"]`).click();await p.waitForSelector('#vela-form');await p.locator('#vela-form [name=fontSize]').fill('22');await p.locator('#vela-form .primary').click();assert.equal(JSON.parse(adb('shell','run-as','me.wenzhou.write','cat','files/workspaces/文舟/'+prefix+'/.vela')).reading.layout.fontSize,22);
+    await invoke('writeWorkspaceFiles',{files:[{path:prefix+'/.vela',data:Buffer.from(JSON.stringify(config)).toString('base64')}]});await p.reload();await p.waitForSelector('.cm-editor',{state:'attached'});await p.locator('#mobile-library').click();const state=await saved(),manifest=state.documents.find(d=>d.path===prefix+'/.vela');await openDoc(manifest.id);await p.waitForSelector('#vela-form');await p.locator('#vela-form [name=fontSize]').fill('22');await p.locator('#vela-form .primary').click();assert.equal(JSON.parse(adb('shell','run-as','me.wenzhou.write','cat','files/workspaces/文舟/'+prefix+'/.vela')).reading.layout.fontSize,22);
     await p.locator('#mobile-library').click();await nav('reader');const book=state.documents.find(d=>d.path===prefix+'/正文.txt');await p.locator(`[data-read="${book.id}"]`).click();await p.waitForFunction(()=>document.querySelector('.reader-content')?.textContent.includes('原始正文'));assert.equal(await p.locator('.reader-content [contenteditable],.reader-content textarea').count(),0);assert.equal(await p.locator('#document-tabs').isVisible(),false);const before=(await saved()).documents.find(d=>d.id===book.id).text;await p.keyboard.press('Control+z');assert.equal((await saved()).documents.find(d=>d.id===book.id).text,before);await p.evaluate(()=>window.wenzhouNativeScale(1.2));assert.ok(await p.locator('.reader-content').evaluate(el=>parseFloat(getComputedStyle(el).fontSize)>22));
     await nav('reader');const html=state.documents.find(d=>d.path===prefix+'/预览.html'),wait=p.context().waitForEvent('page');await p.locator(`[data-read="${html.id}"]`).click();const preview=await wait;await preview.waitForSelector('#title');assert.equal(await preview.locator('#action').isDisabled(),true);assert.equal(await preview.locator('#editable').getAttribute('contenteditable'),null);assert.equal(await preview.evaluate(()=>typeof window.WenzhouNative+':'+typeof window.WenzhouAndroid),'undefined:undefined');await preview.waitForFunction(()=>window.velaHtmlReaderReady===true);assert.equal(await preview.evaluate(()=>document.body.dataset.script||''),'');adb('shell','input','keyevent','4');await p.locator('.reader-header').waitFor({state:'attached'});await nav('write');assert.equal(await invoke('readWorkspaceFile',{path:prefix+'/封面.png'}),png);
     await assert.rejects(invoke('publicApi',{path:'/user',method:'GET'}),/repository|仓库/);await assert.rejects(invoke('publicApi',{path:'/repos/o/r',method:'POST'}),/repository|仓库/);
   });
   await check('Android 全屏阅读页数、方向键焦点及真实横向纵向滑动翻页',async()=>{
-    await p.locator('#settings').click();await setSetting(p,'readingMode','pages');await closeSettings(p);await nav('reader');const book=(await saved()).documents.find(d=>d.path===prefix+'/正文.txt');await p.locator(`[data-read="${book.id}"]`).click();await p.waitForTimeout(400);
+    if(await p.locator('#settings').isHidden())await p.locator('#more-tools').click();await p.locator('#settings').click();await setSetting(p,'readingMode','pages');await closeSettings(p);await nav('reader');const book=(await saved()).documents.find(d=>d.path===prefix+'/正文.txt');await p.locator(`[data-read="${book.id}"]`).click();await p.waitForTimeout(400);
     assert.match(await p.locator('#reader-position').textContent(),/^1 \/ \d+$/);assert.equal(await p.locator('#library').isVisible(),false);assert.equal(JSON.parse(await p.evaluate(()=>WenzhouNative.readEnvironment())).bottom,0);await p.locator('.reader-viewport').focus();assert.equal(await p.locator('.reader-viewport').evaluate(e=>getComputedStyle(e).outlineStyle),'none');
     const box=await p.locator('.reader-viewport').boundingBox(),scale=await p.evaluate(()=>devicePixelRatio);const x=Math.round((box.x+box.width/2)*scale),y=Math.round((box.y+box.height/2)*scale),dx=Math.round(box.width*.25*scale),dy=Math.round(box.height*.2*scale);
     const pageNumber=async()=>Number((await p.locator('#reader-position').textContent()).split('/')[0]);const start=await pageNumber();adb('shell','input','swipe',String(x+dx),String(y),String(x-dx),String(y),'220');await p.waitForTimeout(300);assert.equal(await pageNumber(),start+1);adb('shell','input','swipe',String(x),String(y+dy),String(x),String(y-dy),'220');await p.waitForTimeout(300);assert.equal(await pageNumber(),start+2);adb('shell','input','swipe',String(x-dx),String(y),String(x+dx),String(y),'220');await p.waitForTimeout(300);assert.equal(await pageNumber(),start+1);adb('shell','input','swipe',String(x),String(y-dy),String(x),String(y+dy),'220');await p.waitForTimeout(300);assert.equal(await pageNumber(),start);await nav('write');
   });
   await check('Android 双页阅读横屏展开、竖屏回退，以及原生 HTML 双页配置',async()=>{
-    await p.locator('#settings').click();await setSetting(p,'readingMode','double');await closeSettings(p);await nav('reader');const book=(await saved()).documents.find(d=>d.path===prefix+'/正文.txt');await p.locator(`[data-read="${book.id}"]`).click();await p.waitForTimeout(300);assert.equal(await p.locator('.reader-double').count(),0);
+    if(await p.locator('#settings').isHidden())await p.locator('#more-tools').click();await p.locator('#settings').click();await setSetting(p,'readingMode','double');await closeSettings(p);await nav('reader');const book=(await saved()).documents.find(d=>d.path===prefix+'/正文.txt');await p.locator(`[data-read="${book.id}"]`).click();await p.waitForTimeout(300);assert.equal(await p.locator('.reader-double').count(),0);
     try{
       adb('shell','settings','put','system','accelerometer_rotation','0');adb('shell','settings','put','system','user_rotation','1');await p.waitForSelector('.reader-double');assert.match(await p.locator('#reader-position').textContent(),/\d+–\d+ \/ /);
       const opened=p.context().waitForEvent('page');await invoke('previewHtml',{path:prefix+'/预览.html',reading:true,readingMode:'double'});const preview=await opened;await preview.waitForSelector('.vela-reader-spread');assert.equal(await preview.evaluate(()=>typeof window.WenzhouNative+':'+typeof window.WenzhouAndroid),'undefined:undefined');adb('shell','input','keyevent','4');await p.waitForFunction(()=>document.visibilityState==='visible');
@@ -127,8 +127,9 @@ try{
     await assert.rejects(invoke('api',{path:'//example.com',method:'GET'}),/请求路径/);
     await assert.rejects(invoke('login',{token:'invalid token'}),/令牌格式/);
   });
-  await check('Acode JS 插件安装、执行及配置持久化',async()=>{
-    const plugin=zipSync({'plugin.json':strToU8(JSON.stringify({id:'wenzhou.qa',name:'移植验证插件',version:'1.0.0',main:'main.js'})),'main.js':strToU8("acode.setPluginInit('wenzhou.qa',()=>{document.body.dataset.androidPlugin='ready';});acode.setPluginUnmount('wenzhou.qa',()=>{});")});
+  await check('Vela API 4 插件安装、执行及配置持久化',async()=>{
+    const plugin=zipSync({'plugin.json':strToU8(JSON.stringify({id:'wenzhou.qa',name:'移植验证插件',version:'1.0.0',main:'main.js',vela:{api:'>=4 <5'}})),'main.js':strToU8("VelaPlugins.register('wenzhou.qa',{activate(vela){document.body.dataset.androidPlugin='ready';vela.dispose(()=>delete document.body.dataset.androidPlugin);}});")});
+    await p.locator('#more-tools').click();await p.locator('#plugins').click();
     // Exercise the same ZIP input handler without opening the native picker.
     await p.locator('#plugin-input').setInputFiles({name:'qa-plugin.zip',mimeType:'application/zip',buffer:Buffer.from(plugin)});
     await p.waitForFunction(()=>document.body.dataset.androidPlugin==='ready');assert.match(await p.evaluate(()=>window.WenzhouNative.readPlugins()),/wenzhou.qa/);
@@ -136,7 +137,7 @@ try{
   });
   await check('Android WebView 本地 XeLaTeX 中文编译、PDF 渲染与宏包持久化',async()=>{
     await saved();const source=String.raw`\documentclass{ctexart}\begin{document}\section{文舟}中文 PDF。\end{document}`;
-    const folder=await invoke('writeWorkspaceFiles',{files:[{path:prefix+'/main.tex',data:Buffer.from(source).toString('base64')}]});await p.reload();await p.waitForSelector('.cm-editor',{state:'attached'});if(!await p.locator('#library').isVisible())await p.locator('#mobile-library').click();const doc=(await saved()).documents.find(doc=>doc.path===prefix+'/main.tex');await p.locator(`[data-doc="${doc.id}"]`).click();await editorAction(p,'[data-display=preview]');await p.locator('.tex-compile').click();await p.waitForFunction(()=>!document.querySelector('.tex-compile').disabled,{},{timeout:180000});await writeFile('test-results/android-tex.log',await p.locator('.tex-log pre').textContent());assert.equal(await p.locator('.tex-status').textContent(),'编译完成');assert.ok(await p.locator('.pdf-canvas canvas').evaluate(canvas=>canvas.width>0));assert.match(await p.evaluate(()=>window.WenzhouNative.readPlugins()),/vela.tex.cjk/);await p.screenshot({path:'test-results/android-tex.png'});
+    const folder=await invoke('writeWorkspaceFiles',{files:[{path:prefix+'/main.tex',data:Buffer.from(source).toString('base64')}]});await p.reload();await p.waitForSelector('.cm-editor',{state:'attached'});if(!await p.locator('#library').isVisible())await p.locator('#mobile-library').click();const doc=(await saved()).documents.find(doc=>doc.path===prefix+'/main.tex');await openDoc(doc.id);await editorAction(p,'[data-display=preview]');await p.locator('.tex-compile').click();await p.waitForFunction(()=>!document.querySelector('.tex-compile').disabled,{},{timeout:180000});await writeFile('test-results/android-tex.log',await p.locator('.tex-log pre').textContent());assert.equal(await p.locator('.tex-status').textContent(),'编译完成');assert.ok(await p.locator('.pdf-canvas canvas').evaluate(canvas=>canvas.width>0));assert.match(await p.evaluate(()=>window.WenzhouNative.readPlugins()),/vela.tex.cjk/);await p.screenshot({path:'test-results/android-tex.png'});
   });
   await check('进程退出后文稿、主题和插件重新加载',async()=>{
     const before=await saved();await device.close();deviceClosed=true;adb('shell','am','force-stop','me.wenzhou.write');adb('shell','am','start','-W','-n','me.wenzhou.write/.MainActivity');

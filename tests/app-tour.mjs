@@ -25,7 +25,7 @@ export async function tourPage(browser,{profile,width,height,theme}){
 export async function tour(page,{url,profile,width},visit){
   const take=async name=>{await settled(page);await visit(name);},escape=async()=>{await page.keyboard.press('Escape');await settled(page);};
   await page.goto(url+'/?ui='+profile);await page.waitForFunction(()=>window.velaReady===true);await page.locator('#start-page').waitFor();
-  if(await page.locator('#start-page').getAttribute('data-panel')!=='recent')await page.locator('[data-start=recent]').click();await take('start');
+  if(await page.locator('#start-page').getAttribute('data-panel')!=='recent')await page.locator('#start-page').evaluate(root=>root.setStartPanel('recent',{focus:false}));await take('start');
   await page.locator('[data-recent=book]').click();await page.waitForSelector('.cm-editor');await take('editor');
   await page.locator('#mobile-library').click();if(width>600)await page.locator('#outline-toggle').click();await take('sidebars');
   await page.locator('#mobile-library').click();if(width>600)await page.locator('#outline-toggle').click();await settled(page);

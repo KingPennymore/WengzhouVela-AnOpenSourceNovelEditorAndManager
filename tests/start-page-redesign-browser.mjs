@@ -196,7 +196,7 @@ try {
         assert.equal(await page.locator('#current-name').textContent(), '笔记1.md');
         await home();
         assert.equal(await page.locator('.resume-card').getAttribute('data-doc'), 'note1');
-        await page.locator('[data-start=recent]').click();
+        await page.locator('#start-page').evaluate(root=>root.setStartPanel('recent'));
         assert.equal(await page.locator('[data-recent]').count(), 8);
         await page.locator('[data-recent=note6]').click();
         await home();

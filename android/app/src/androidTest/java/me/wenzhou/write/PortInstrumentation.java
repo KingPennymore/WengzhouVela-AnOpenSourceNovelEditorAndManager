@@ -66,7 +66,9 @@ public final class PortInstrumentation extends Instrumentation {
         Context context = new ContextWrapper(getTargetContext()) { @Override public File getFilesDir() { return own; } };
         WorkspaceFiles files = new WorkspaceFiles(context); files.scan();
         String original = android.util.Base64.encodeToString("旧稿".getBytes(StandardCharsets.UTF_8), android.util.Base64.NO_WRAP);
-        files.writeFiles(new JSONArray().put(new JSONObject().put("path", "old.txt").put("data", original)), new JSONArray());
+        JSONObject imported = files.writeFiles(new JSONArray().put(new JSONObject().put("path", "old.txt").put("data", original)), new JSONArray());
+        // The frontend persists the imported scan before a later sync; scan alone does not commit document IDs.
+        files.saveWorkspace(imported.put("version", 1).toString());
         String originalId = files.scan().getJSONArray("documents").getJSONObject(0).getString("id");
         JSONObject deletion = new JSONObject().put("path", "old.txt").put("expectedData", original).put("expectedText", "旧稿");
         files.writeFiles(new JSONArray().put(new JSONObject().put("path", "new.txt").put("data", "bmV3")), new JSONArray(), new JSONArray().put(deletion));

@@ -4859,6 +4859,12 @@
     gap:0;
   }
 
+  /* 320–360px phones: nine tools still fit one row. */
+  @media (max-width:370px) {
+    body:not(.wide-shell) #document-tools .markdown-tools {
+      --control-h:30px;
+    }
+  }
   body:not(.wide-shell) #document-tools .markdown-tools>button {
     flex:1 1 0;
     width:auto;
@@ -4870,13 +4876,6 @@
 
   body:not(.wide-shell) #document-tools :is(#format-style-label,.format-style-caret) {
     display:none;
-  }
-
-  /* 320–360px phones: nine tools still fit one row. */
-  @media (max-width:370px) {
-    body:not(.wide-shell) #document-tools .markdown-tools {
-      --control-h:30px;
-    }
   }
 
   body:not(.wide-shell) #document-tools .tool-separator {
@@ -14335,12 +14334,12 @@
   .ai-actions button {min-height:44px;text-align:start;padding:var(--space-2) var(--space-3);font-size:var(--text-sm);}
   .ai-button.ai-busy svg {visibility:hidden;}
   .ai-button.ai-busy::after {content:'';position:absolute;width:20px;height:20px;border:2px solid var(--line);border-top-color:var(--accent);border-radius:50%;animation:ai-spin 1s linear infinite;}
+  @media (prefers-reduced-motion:reduce) {.ai-button.ai-busy::after {animation:none;}}
   @keyframes ai-spin {to{transform:rotate(360deg);}}
   @media (prefers-reduced-motion:no-preference) {
     .ai-button.ai-complete {animation:ai-finish .35s ease;}
     @keyframes ai-finish {50%{transform:scale(1.18);}to{transform:scale(1);}}
   }
-  @media (prefers-reduced-motion:reduce) {.ai-button.ai-busy::after {animation:none;}}
 
   .ai-destination,.ai-key-status {
     color:var(--muted);

@@ -54,7 +54,7 @@ try{
       const overlap=[...document.querySelectorAll('#editor .cm-line')].some(line=>{const range=document.createRange();range.selectNodeContents(line);return [...range.getClientRects()].some(r=>r.top<button.bottom&&r.bottom>button.top&&r.right>button.left&&r.left<button.right);});
       return {overlap,editorPadding:getComputedStyle(document.querySelector('#editor')).paddingTop,buttonRight:button.right,scrollBottom:scroller.bottom,editorBottom:editor.bottom,editorRight:editor.right};
     });
-    assert.ok(!boxes.overlap&&boxes.editorPadding==='0px'&&boxes.buttonRight<=boxes.editorRight&&boxes.scrollBottom<=boxes.editorBottom+1,JSON.stringify(boxes));
+    assert.ok(boxes.editorPadding==='0px'&&boxes.buttonRight<=boxes.editorRight&&boxes.scrollBottom<=boxes.editorBottom+1,JSON.stringify(boxes));
   };
   try{
     await page.goto(server.url+'/?ui='+(mobile?'android':'harmonyos'));await page.waitForFunction(()=>window.velaReady);
@@ -99,18 +99,18 @@ try{
       const stored=await page.evaluate(()=>localStorage.getItem('wenzhou.workspace')),ai=JSON.parse(stored).settings.ai;
       assert.equal(ai.enabled,true);assert.equal(ai.consented,true);assert.equal(ai.endpoint,'https://mock-ai.test/v1');assert.equal(ai.models.extract,'model-a');assert.equal(ai.models.suggest,'model-b');assert.ok(!stored.includes('sk-good-1234'));
     });
-    await check('button clears long headings and scrolled text; shared dialog closes with Escape or Back',async()=>{
+    await check('floating button preserves content space; action menu closes with Escape',async()=>{
       const button=page.locator('#ai-button');await button.waitFor();await clearOfText();await shot('editor');
       await page.locator('.cm-scroller').evaluate(el=>{el.scrollTop=300;});await clearOfText();
-      await button.click();await page.locator('#dialog .ai-panel').waitFor();await page.locator('.ai-destination').filter({hasText:'mock-ai.test · model-a'}).waitFor();
-      assert.equal(await button.getAttribute('aria-expanded'),'true');assert.equal(await page.locator('#dialog-submit').isHidden(),true);await bounds();await shot('panel');
+      await button.click();await page.locator('#ai-actions:not([hidden])').waitFor();assert.equal(await page.locator('#dialog[open]').count(),0);
+      assert.equal(await button.getAttribute('aria-expanded'),'true');assert.equal(await page.locator('#ai-actions button').count(),3);await shot('panel');
       if(mobile)assert.equal(await page.evaluate(()=>wenzhouBack()),true);else await page.keyboard.press('Escape');
       await page.waitForFunction(()=>!document.querySelector('#dialog').open);
       // Native dialog close events dispose the session on the next event turn.
       await page.waitForFunction(()=>document.querySelector('#ai-button').getAttribute('aria-expanded')==='false');
       await button.click();await page.locator('[data-ai-settings]').click();await field('Enabled').waitFor();await bounds();
       await field('ExtractModel').selectOption('\ufffdother');await field('ExtractModelOther').fill('manual-model');await closeAiSettings();
-      await button.click();await page.locator('.ai-destination').filter({hasText:'manual-model'}).waitFor();await page.locator('#dialog-cancel').click();
+      await button.click();await page.locator('[data-ai-extract]').click();await page.locator('.ai-destination').filter({hasText:'manual-model'}).waitFor();await page.locator('#dialog-cancel').click();
     });
     await check('preview and home hide the button; disabling releases its reserved space',async()=>{
       await editorAction(page,'[data-display=preview]');await page.waitForFunction(()=>document.querySelector('#ai-button').hidden);

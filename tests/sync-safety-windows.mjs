@@ -1,4 +1,4 @@
-import {settingsSection} from './settings-helper.mjs';
+import {settingsSection,closeSettings} from './settings-helper.mjs';
 import { _electron as electron } from 'playwright';
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
@@ -190,7 +190,6 @@ try {
   await application.evaluate(() => (globalThis.syncRemoteStage = 4));
   await page.locator('#more-tools').click();
   await page.locator('#settings').click();
-  await page.locator('.settings-navigation').getByRole('button', { name: '工作区配置' }).click();
   await settingsSection(page,'storage');await page.locator('#cleanup-redundant').click();
   await page.locator('[name=cleanupTarget]').selectOption('0');
   await page.locator('#dialog-submit').click();
@@ -214,7 +213,8 @@ try {
   );
   await cleanupNew.locator('input').check();
   await page.locator('#dialog-submit').click();
-  await page.waitForSelector('#dialog[open]', { state: 'hidden' });
+  await page.locator('#dialog.settings-dialog').waitFor();
+  await closeSettings(page);
   await assert.rejects(fs.access(path.join(root, 'new.txt')));
   assert.equal(await fs.readFile(path.join(root, 'edited.txt'), 'utf8'), '本地修改');
   assert.equal(await fs.readFile(path.join(root, 'local-only.txt'), 'utf8'), '本地独有');

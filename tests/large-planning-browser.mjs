@@ -23,7 +23,7 @@ try{
   },{seed,mapText:seed.documents.find(d=>d.id==='m').text});
   const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto(server.url);await page.waitForFunction(()=>window.velaReady);
   const open=async id=>{await page.locator(`[data-tab=${id}]`).click();await page.waitForFunction(id=>document.querySelector('#current-name')?.textContent===({o:'大型.pcs',r:'关系.pcs',m:'地图.vlmp',guide:'操作指南.txt'})[id],id);if(id==='o'||id==='r')await page.locator('.outline-large-plane').waitFor();if(id==='m')await page.locator('.map-stage canvas').waitFor();await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));};
-  await open('o');assert.equal(await page.locator('.outline-graph').getAttribute('data-graph-level'),'overview');assert.equal(await page.locator('[data-card]').count(),0);assert.equal(await page.locator('#editor .cm-lineNumbers').count(),0,'preview must not initialize source gutters');
+  await open('o');assert.equal(await page.locator('.outline-graph').getAttribute('data-graph-level'),'overview');assert.equal(await page.locator('[data-card]').count(),0);assert.equal(await page.locator('#editor .vela-numbered-line').count(),0,'preview must not initialize source gutters');
   const text=await page.evaluate(()=>velaEditorView.state.doc.toString());assert.equal(text,seed.documents.find(d=>d.id==='o').text,'plugins retain access to the full text state');
   await page.locator('.outline-plane').focus();await page.keyboard.press('ArrowUp');await page.waitForSelector(`[data-card=${lastNode}]`);await page.locator('.outline-plane').focus();await page.keyboard.press('ArrowDown');await page.waitForSelector('[data-card=n0]');assert.ok(await page.locator('[data-card]').count()<=300);await page.locator('.outline-detail [data-close]').click();
   await page.evaluate(()=>new Promise(resolve=>requestAnimationFrame(()=>requestAnimationFrame(resolve))));const node=page.locator('[data-node=n0]'),box=await node.boundingBox();
@@ -33,8 +33,8 @@ try{
   await page.locator('[data-node=n0]').click();await page.locator('.outline-detail input[name=title]').fill('优化后的节点');await page.locator('.outline-detail button[type=submit]').click();
   const title=()=>page.evaluate(()=>JSON.parse(velaEditorView.state.doc.toString()).nodes.n0.title);assert.equal(await title(),'优化后的节点');
   await page.locator('#quick-undo').click();assert.equal(await title(),'节点0');await page.locator('#quick-redo').click();assert.equal(await title(),'优化后的节点');
-  await editorAction(page,'[data-display=source]');await page.locator('#editor:not([hidden]) .cm-lineNumbers').waitFor();assert.equal(await title(),'优化后的节点');
-  await editorAction(page,'[data-display=preview]');await page.locator('.outline-large-plane').waitFor();assert.equal(await page.locator('#editor .cm-lineNumbers').count(),0);
+  await editorAction(page,'[data-display=source]');await page.locator('#editor:not([hidden]) .vela-numbered-line').first().waitFor();assert.equal(await title(),'优化后的节点');
+  await editorAction(page,'[data-display=preview]');await page.locator('.outline-large-plane').waitFor();assert.equal(await page.locator('#editor .vela-numbered-line').count(),0);
   await open('r');assert.equal(await page.locator('.outline-graph').getAttribute('data-graph-level'),'overview');await page.locator('.outline-plane').focus();await page.keyboard.press('ArrowDown');await page.locator('[data-card]').first().waitFor();assert.ok(await page.locator('[data-card]').count()<=300);
   await open('m');assert.equal(await page.evaluate(()=>largeProbe.mapParses),1);await open('guide');assert.equal(await page.evaluate(()=>largeProbe.live.size),0,'leaving stops fill workers');
   await open('m');assert.equal(await page.evaluate(()=>largeProbe.mapParses),1,'returning reuses validated map data');await page.waitForFunction(()=>largeProbe.live.size===0&&largeProbe.starts>0,null,{timeout:30000});

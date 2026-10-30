@@ -84,10 +84,10 @@ try {
     page.setDefaultTimeout(15000);
     const panel = async () => {
       await page.locator('#ai-button').click();
-      await page.locator('#dialog .ai-panel').waitFor();
+      await page.locator('#ai-actions:not([hidden])').waitFor();
     };
     const close = async () => {
-      await page.locator('#dialog-cancel').click();
+      if(await page.locator('#dialog[open]').count())await page.locator('#dialog-cancel').click();else await page.keyboard.press('Escape');
       await page.waitForFunction(() => !document.querySelector('#dialog').open);
       await settled(page);
     };
@@ -187,8 +187,7 @@ try {
       );
       console.log('PASS', width, 'cancelled response writes no artifacts');
       await panel();
-      await page.locator('[data-ai-suggest]').check();
-      await close();
+      await page.locator('[data-ai-suggest]').click();
       const pos = text.indexOf('\n\n第二章');
       await page.evaluate((pos) => {
         velaEditorView.dispatch({ selection: { anchor: pos } });
@@ -221,8 +220,7 @@ try {
       assert.equal(requests.length, count);
       await page.locator('.cm-content').dispatchEvent('compositionend', { data: '' });
       await panel();
-      await page.locator('[data-ai-suggest]').uncheck();
-      await close();
+      await page.locator('[data-ai-suggest]').click();
       await page.keyboard.press('End');
       await page.keyboard.type('。');
       const disabledCount = requests.length;

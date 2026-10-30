@@ -34,11 +34,11 @@ try{
     assert.match(await page.locator('#format-emphasis').getAttribute('title'),/Ctrl\+Shift\+E/);
   });
   await check('novel TXT hides line numbers by default and the setting brings them back',async()=>{
-    assert.equal(await page.locator('.cm-lineNumbers').count(),0);
+    assert.equal(await page.locator('.vela-numbered-line').count(),0);
     await page.locator('#more-tools').click();await page.locator('#settings').click();await setSetting(page,'novelLineNumbers',true);await closeSettings(page);
-    await page.locator('.cm-lineNumbers').waitFor();
+    await page.locator('.vela-numbered-line').first().waitFor();
     await page.locator('#more-tools').click();await page.locator('#settings').click();await setSetting(page,'novelLineNumbers',false);await closeSettings(page);
-    await page.waitForFunction(()=>!document.querySelector('.cm-lineNumbers'));
+    await page.waitForFunction(()=>!document.querySelector('.vela-numbered-line'));
   });
   await check('the TXT format tools can be switched off and on in settings',async()=>{
     const toggle=async on=>{await page.locator('#more-tools').click();await page.locator('#settings').click();await settingsSection(page,'editing');const box=page.locator('#dialog-body [name=richText]');assert.equal(await box.isChecked(),!on);await box.setChecked(on);await closeSettings(page);await page.waitForFunction(()=>!document.querySelector('#dialog').open);};

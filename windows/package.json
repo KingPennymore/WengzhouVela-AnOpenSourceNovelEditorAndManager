@@ -13,7 +13,7 @@
     "package": "electron-builder --win nsis zip --x64"
   },
   "devDependencies": {
-    "electron": "44.5.1",
+    "electron": "44.10.0",
     "electron-builder": "26.15.3"
   },
   "build": {
