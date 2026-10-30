@@ -17,17 +17,17 @@ import {diffMarkup} from './sync-preview.mjs';
 import {escapeHtml as esc,textBytes,formatBytes} from './text-utils.mjs';
 
 export function createRepositoryView(context){
-  const {$,native,transport,toast,fail,openModal,closeModal,save,showView,cycleTheme,current,showHome,
+  const {$,native,transport,toast,fail,openModal,closeModal,save,showView,current,showHome,
     syncBusy,syncActivity,syncWorkflow,editorStates,makeState,updateStats,renderPreview,renderDocuments,
     renderSyncStatus,previewDownload,materializeDownload,restorePulledEditor,currentScope,loadSubscriptionDocument}=context;
   let account=null,repositories=[],selectedRepo=null,selectedBranch='',selectedPath='',loadEpoch=0;
   let remoteSelection=new Map(),remoteSelectionRepo='',remoteSelecting=false;
   const gitName=()=>context.gh.provider==='gitea'?'Gitea':context.gh.provider==='gitee'?'Gitee':'GitHub';
   const setGitServer=()=>{if(context.gh.provider==='gitea'){context.gh=createGitClient(transport,'gitea',$('#gitea-instance')?.value||context.gh.server);context.workspace.settings.giteaServer=context.gh.server;save();}};
-  $('#github-view').addEventListener('click',e=>{if(e.target.closest('[data-return-write]'))showView('write');if(e.target.closest('[data-toggle-theme]'))cycleTheme();});
+  $('#github-view').addEventListener('click',e=>{if(e.target.closest('[data-return-write]'))showView('write');});
   let githubOffline=false;
-  const githubTopbar=()=>`<div class="github-topbar"><button class="secondary" data-return-write="true">${t('← 返回编辑器')}</button><div class="button-row"><span>${say(`${gitName()} 仓库管理`,`${gitName()} repositories`)}</span><button data-toggle-theme="true" title="${context.workspace.settings.dark?t('切换到浅色模式'):t('切换到深色模式')}" aria-label="${context.workspace.settings.dark?t('切换到浅色模式'):t('切换到深色模式')}">${icon(context.workspace.settings.dark?'sun':'theme')}</button></div>
-    </div>`;
+  // The page navigation already offers the editor and the theme; this bar only names the service.
+  const githubTopbar=()=>`<div class="github-topbar"><button class="ui-button ui-button--text" data-return-write="true">${t('← 返回编辑器')}</button><span class="github-topbar-title">${say(`${gitName()} 仓库管理`,`${gitName()} repositories`)}</span></div>`;
   function renderGitHub(){
     const root=$('#github-view');
     if(!account){
@@ -47,7 +47,7 @@ export function createRepositoryView(context){
     if(selectedRepo){renderRepository();return;}
     root.innerHTML=`${githubTopbar()}<header class="page-header"><div><span class="page-kicker">${gitName().toUpperCase()} / ${esc(account.login)}${context.gh.server?' / '+esc(context.gh.server):''}</span><h1>${t('仓库')} <span class="count-badge">${repositories.length}</span></h1>
       </div>
-      <div class="account-actions"><button class="secondary" id="refresh-repos">${t('刷新')}</button><button class="primary" id="create-repo">${t('＋ 新建仓库')}</button><button class="secondary" id="commit-workspace">${t('提交整个工作区')}</button><button class="secondary" id="logout">${t('退出登录')}</button></div>
+      <div class="account-actions"><button class="ui-button ui-button--secondary" id="refresh-repos">${t('刷新')}</button><button class="ui-button ui-button--primary" id="create-repo">${t('＋ 新建仓库')}</button><button class="ui-button ui-button--secondary" id="commit-workspace">${t('提交整个工作区')}</button><button class="ui-button ui-button--text" id="logout">${t('退出登录')}</button></div>
       </header><label class="search-box" style="max-width:400px;margin-bottom:24px">${icon('search')}<input id="repo-search" aria-label="${t('搜索仓库')}" placeholder="${t('搜索仓库名称…')}"></label>
       <div id="repo-grid" class="repo-grid"></div>`;
     if(githubOffline){
@@ -136,13 +136,13 @@ export function createRepositoryView(context){
   }
   async function renderRepository(){
     const repo=selectedRepo,epoch=++loadEpoch,root=$('#github-view');if(!repo)return;
-    root.innerHTML=`${githubTopbar()}<header class="page-header"><div><button class="text-button" id="back-repos">${t('← 返回仓库列表')}</button><h1>${esc(repo.name)}</h1>
+    root.innerHTML=`${githubTopbar()}<header class="page-header"><div><button class="ui-button ui-button--text" id="back-repos">${t('← 返回仓库列表')}</button><h1>${esc(repo.name)}</h1>
       <p>${esc(repo.full_name)} · ${repo.private?t('私有仓库'):t('公开仓库')}</p>
       </div>
-      <div class="button-row"><button class="secondary" id="repo-pull">${t('拉取整个仓库')}</button><button class="secondary" id="repo-settings">${t('仓库设置')}</button><button class="secondary" id="repo-commit-workspace">${t('提交整个工作区')}</button><button class="primary" id="repo-commit">${t('提交当前文件')}</button></div>
+      <div class="button-row"><button class="ui-button ui-button--primary" id="repo-commit">${t('提交当前文件')}</button><button class="ui-button ui-button--secondary" id="repo-pull">${t('拉取整个仓库')}</button><button class="ui-button ui-button--secondary" id="repo-commit-workspace">${t('提交整个工作区')}</button><button class="ui-button ui-button--secondary" id="repo-settings">${t('仓库设置')}</button></div>
       </header><div class="repo-toolbar"><label>${t('分支')} <select id="branch-select" aria-label="${t('选择分支')}"><option>${esc(selectedBranch)}</option></select></label>
-      <button class="secondary" id="create-branch">${t('＋ 新建分支')}</button><button class="secondary" id="refresh-files">${t('刷新')}</button><button class="secondary" id="repo-history">${t('提交记录')}</button></div>
-      ${syncTargetMarkup({...gitIdentity(context.gh),repo:repo.full_name,branch:selectedBranch},repositoryFolder(context.workspace,repo.full_name,context.gh.provider,context.gh.server,selectedBranch),esc)}<div class="remote-selection-tools"><button id="remote-multi" class="secondary">${t('多选')}</button><button id="remote-select-all" class="secondary" hidden>${t('全选本页')}</button><button id="remote-pull-selected" class="primary" hidden>${t('拉取选中项')}</button><span id="remote-selected-count"></span><button id="remote-cancel-selection" class="secondary" hidden>${t('取消多选')}</button></div>
+      <button class="ui-button ui-button--secondary ui-button--compact" id="create-branch">${t('＋ 新建分支')}</button><button class="ui-button ui-button--secondary ui-button--compact" id="refresh-files">${t('刷新')}</button><button class="ui-button ui-button--secondary ui-button--compact" id="repo-history">${t('提交记录')}</button></div>
+      ${syncTargetMarkup({...gitIdentity(context.gh),repo:repo.full_name,branch:selectedBranch},repositoryFolder(context.workspace,repo.full_name,context.gh.provider,context.gh.server,selectedBranch),esc)}<div class="remote-selection-tools"><button id="remote-multi" class="ui-button ui-button--secondary ui-button--compact">${t('多选')}</button><button id="remote-select-all" class="ui-button ui-button--secondary ui-button--compact" hidden>${t('全选本页')}</button><button id="remote-pull-selected" class="ui-button ui-button--primary ui-button--compact" hidden>${t('拉取选中项')}</button><span id="remote-selected-count"></span><button id="remote-cancel-selection" class="ui-button ui-button--text ui-button--compact" hidden>${t('取消多选')}</button></div>
       <p class="path-label">${esc(selectedPath||'/')}</p>
       <div class="file-list" id="file-list"><p class="loading">${t('正在读取文件…')}</p>
       </div>`;

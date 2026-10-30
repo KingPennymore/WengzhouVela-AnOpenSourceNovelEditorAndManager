@@ -1,6 +1,8 @@
 // Messages from app.js.
 export const appTranslations={
   '插件文稿工具':'Plugin document tools',
+  '切换到浅色模式':'Switch to light mode',
+  '切换到深色模式':'Switch to dark mode',
   '文稿不存在。':'Document not found.',
   '章节序号无效。':'Invalid chapter number.',
   '章节不存在。':'Chapter not found.',
@@ -107,14 +109,11 @@ export const appTranslations={
   '只需选纸张、文字和强调色，背景、面板、分隔线和选区会自动推导，保持与内置配色相同的层次。配色只保存在本机设置中。':'Choose paper, text and accent colours. Backgrounds, panels, dividers and selections are derived automatically to match the built-in palettes’ hierarchy. Palettes are saved on this device only.',
   '保存并使用':'Save and use',
   '配色已删除':'Palette deleted',
-  '＋ 自定义配色':'＋ Custom palette',
   '简体中文':'Simplified Chinese',
   '小说模式显示行号':'Show line numbers in novel mode',
   '粗体、着重号、注音、插图和样式；格式保存在作品配置 .vela 中，TXT 正文不变':'Bold, emphasis marks, pronunciation, illustrations and styles. Formats are saved in the work’s .vela; TXT text stays unchanged',
   '恢复文稿备份':'Restore document backup',
   '清理后关联信息保存失败，请刷新工作区。':'Could not save sync links after cleanup. Refresh the workspace.',
-  '切换到浅色模式':'Switch to light mode',
-  '切换到深色模式':'Switch to dark mode',
   '代码托管平台':'Code hosting provider',
   ' · 已归档':' · Archived',
   '正在同步，请稍后退出。':'Syncing. Sign out when sync finishes.',
@@ -236,6 +235,4 @@ export const appTranslations={
   'TXT 着重号':'TXT emphasis marks',
   'TXT 居中':'TXT centering',
   'LaTeX 排版组件':'LaTeX typesetting component',
-  'LaTeX 离线引擎（旧版分包，建议安装完整组件包）':'LaTeX offline engine (legacy split package; install the full component)',
-  'LaTeX 中文支持（旧版分包，建议安装完整组件包）':'LaTeX Chinese support (legacy split package; install the full component)',
 };

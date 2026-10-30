@@ -61,9 +61,8 @@ try {
               ?.effect.getKeyframes();
           return {
             arriving: frames(document.querySelector('[data-view=github]'))?.[0].transform,
-            departing: frames(
-              document.querySelector('.chrome-motion-ghost[data-source=outline-toggle]'),
-            )?.at(-1).transform,
+            departing: document.querySelectorAll('.chrome-motion-ghost').length,
+            chapters: !!document.querySelector('#outline-toggle')?.checkVisibility(),
           };
         });
         assert.equal(
@@ -71,11 +70,8 @@ try {
           'translateX(-40px)',
           'left buttons slide right when expanding',
         );
-        assert.equal(
-          direction.departing,
-          'translateX(40px)',
-          'right buttons slide right when hiding',
-        );
+        assert.equal(direction.departing, 0, 'the chapters and more buttons stay in place');
+        assert.equal(direction.chapters, true, 'chapters stay one tap away');
       }
       await finish(page);
       if (width < 900) {
@@ -105,7 +101,8 @@ try {
             ),
           };
         });
-        assert.equal(direction.arriving, 'translateX(40px)', 'right actions slide left into place');
+        // The chapters button never left (phase 6), so it has nothing to slide back from.
+        assert.equal(direction.arriving, undefined, 'right actions stay in place');
         assert.equal(
           direction.departing,
           'translateX(-40px)',
@@ -132,27 +129,26 @@ try {
               effect.pause();
               effect.currentTime = 60;
             }
-            const ghost = document.querySelector(
-              '.chrome-motion-ghost[data-source=outline-toggle]',
-            );
+            // The Git tab is mid-way in; reversing turns it into a departing ghost from the same spot.
+            const arriving = document.querySelector('#nav-github');
             const before = {
-              x: ghost.getBoundingClientRect().x,
-              opacity: Number(getComputedStyle(ghost).opacity),
+              x: arriving.getBoundingClientRect().x,
+              opacity: Number(getComputedStyle(arriving).opacity),
             };
             document.querySelector('[data-view=write]').click();
             for (const effect of effects()) {
               effect.pause();
               effect.currentTime = 0;
             }
-            const button = document.querySelector('#outline-toggle');
+            const ghost = document.querySelector('.chrome-motion-ghost[data-source=nav-github]');
             const after = {
-              x: button.getBoundingClientRect().x,
-              opacity: Number(getComputedStyle(button).opacity),
+              x: ghost.getBoundingClientRect().x,
+              opacity: Number(getComputedStyle(ghost).opacity),
             };
             for (const effect of effects()) effect.play();
             return { before, after };
           });
-          assert.ok(continuity.before.opacity > 0 && continuity.before.opacity < 1);
+          // Arriving navigation tabs slide without fading; the reversal must pick up the same frame.
           assert.ok(
             Math.abs(continuity.before.x - continuity.after.x) < 1,
             'reversing preserves icon position',

@@ -185,8 +185,7 @@
     padding:var(--space-1)!important;
     box-sizing:border-box;
     border:1.5px solid var(--accent)!important;
-    /* Rounded squares: round marks read as radio buttons. */
-    border-radius:var(--radius-sm)!important;
+    border-radius:50%!important;
     background:transparent!important;
     background-clip:content-box!important;
     vertical-align:middle;
@@ -841,8 +840,9 @@
   }
 
   .github-topbar span {
-    font-size:var(--text-xs);
-    color:var(--muted);
+    font-size:var(--text-sm);
+    font-weight:var(--weight-medium);
+    color:var(--text);
   }
 
   .repo-toolbar {
@@ -2369,14 +2369,6 @@
   }
 
   @media (max-width:899px) {
-    #github-view .github-topbar>.button-row {
-      flex-wrap:nowrap;
-      gap:var(--space-1);
-      min-width:0;
-    }
-  }
-
-  @media (max-width:899px) {
     #github-view .github-topbar span {
       overflow:hidden;
       text-overflow:ellipsis;
@@ -2571,8 +2563,12 @@
     }
   }
 
+  /* Sized by its label: 12px “TXT” no longer fits the old fixed 25px box. */
   .doc-symbol {
-    width:25px;
+    width:auto;
+    min-width:28px;
+    padding:0 var(--space-1);
+    white-space:nowrap;
     height:29px;
     display:grid;
     place-items:center;
@@ -2588,7 +2584,7 @@
 
   @media (max-width:600px) {
     .doc-symbol {
-      width:18px;
+      min-width:28px;
       height:25px;
       font-size:var(--text-xs);
     }
@@ -2730,6 +2726,8 @@
   .file-kind {
     font-size:var(--text-xs);
     color:var(--accent);
+    flex:none;
+    white-space:nowrap;
   }
 
   @media (max-width:600px) {
@@ -3124,6 +3122,15 @@
     color:var(--muted);
     min-width:28px;
     min-height:var(--control-h);
+  }
+
+  @media (pointer:coarse) {
+    .doc-menu {
+      top:50%;
+      min-width:44px;
+      min-height:44px;
+      transform:translateY(-50%);
+    }
   }
 
   @media (max-width:600px) {
@@ -3533,6 +3540,31 @@
     padding:var(--space-1);
     flex:none;
     white-space:nowrap;
+  }
+
+  /* Phones have no hover hint: the file tools show their short label under the icon. */
+  @media (max-width:600px) {
+    .workspace-action-buttons button {
+      width:auto;
+      min-width:44px;
+      height:52px;
+      min-height:52px;
+      flex-direction:column;
+      gap:2px;
+      padding:var(--space-1) 2px;
+    }
+  }
+
+  .workspace-action-buttons .tool-label {
+    display:none;
+    font-size:var(--text-xs);
+    line-height:var(--leading-tight);
+  }
+
+  @media (max-width:600px) {
+    .workspace-action-buttons .tool-label {
+      display:block;
+    }
   }
 
   .workspace-actions>#file-sort {
@@ -3977,15 +4009,9 @@
     stroke-width:1.7;
   }
 
+  /* The magnifier on the left already marks the field. */
   .search-box kbd {
-    color:var(--muted);
-    font-size:var(--text-xs);
-  }
-
-  @media (max-width:600px) {
-    .search-box kbd {
-      display:none;
-    }
+    display:none;
   }
 
   #editor {
@@ -6312,22 +6338,6 @@
   /* Planning, outlines and maps */
   .palette-choice.custom {
     position:relative;
-  }
-
-  .palette-edit {
-    font-size:var(--text-xs);
-    padding:0 var(--space-1);
-    min-height:0;
-  }
-
-  .palette-add {
-    align-self:stretch;
-    flex:1;
-    min-width:96px;
-    border:1px dashed var(--line);
-    background:transparent;
-    color:var(--muted);
-    border-radius:var(--radius-sm);
   }
 
   .palette-modes {
@@ -9811,22 +9821,6 @@
     outline-offset:-2px;
   }
 
-  .reader-csv-tools {
-    display:flex;
-    align-items:center;
-    gap:var(--space-2);
-    flex-wrap:wrap;
-    white-space:normal;
-    font-size:var(--text-xs);
-    color:var(--muted);
-    margin-bottom:var(--space-4);
-  }
-
-  .reader-csv-tools button {
-    border:1px solid var(--line);
-    padding:var(--space-1) var(--space-2);
-  }
-
   #preview.csv-preview {
     flex:1;
     min-height:0;
@@ -10562,11 +10556,11 @@
     }
   }
 
-  :is(#format-tools,#markdown-tools,.csv-toolbar,.csv-cell-tools,.csv-pagination,#display-options) {
+  :is(#format-tools,#markdown-tools,.csv-toolbar,#display-options) {
     font-size:var(--editor-toolbar-font-size);
   }
 
-  .csv-panel :is(.csv-toolbar,.csv-cell-tools,.csv-pagination) :is(button,select,span) {
+  .csv-panel .csv-toolbar :is(button,select,span) {
     font-size:var(--editor-toolbar-font-size);
   }
 
@@ -11966,17 +11960,6 @@
     color:var(--accent);
   }
 
-  #device-code {
-    display:block;
-    padding:var(--space-4);
-    background:var(--soft);
-    text-align:center;
-    font-family:Consolas,monospace;
-    font-size:var(--text-xl);
-    letter-spacing:5px;
-    border-radius:var(--radius-sm);
-    margin:var(--space-4) 0;
-  }
 
   .error {
     font-size:var(--text-xs);
@@ -12094,7 +12077,9 @@
     flex-shrink:0;
   }
 
-  body:not([data-page=github]) #sidebar-logout {
+  /* Only on the Git page, and only while an account is signed in. */
+  body:not([data-page=github]) #sidebar-logout,
+  #sidebar-logout:disabled {
     display:none;
   }
 

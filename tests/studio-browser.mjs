@@ -44,7 +44,7 @@ try{
     assert.equal(await page.locator('.page-navigation button').count(),4);for(const button of await page.locator('.page-navigation button').all())assert.equal(await button.isVisible(),true);
     assert.equal(await page.locator('#current-name').isVisible(),false);await page.locator('#mobile-library').click();await page.waitForFunction(()=>document.querySelector('#app').dataset.sidebarsAnimating==='false');
     const frames=await page.evaluate(async()=>{const values=[];document.querySelector('[data-view=github]').click();do{await new Promise(requestAnimationFrame);values.push({bottom:document.querySelector('#library').getBoundingClientRect().bottom,footer:document.querySelector('#writing-footer').getBoundingClientRect().top});}while(document.querySelector('#app').dataset.sidebarsAnimating==='true');return values;});
-    assert.ok(frames.length>=1);assert.ok(frames.at(-1).bottom>0);assert.ok(frames.at(-1).footer>=frames[0].footer);assert.equal(await page.locator('#sidebar-logout').isVisible(),true);assert.equal(await page.locator('#sidebar-logout').isDisabled(),true);
+    assert.ok(frames.length>=1);assert.ok(frames.at(-1).bottom>0);assert.ok(frames.at(-1).footer>=frames[0].footer);assert.equal(await page.locator('#sidebar-logout').isVisible(),false,'sign out appears only while an account is signed in');
     await page.locator('#mobile-library').click();await page.waitForFunction(()=>document.querySelector('#app').dataset.sidebarsAnimating==='false');for(const button of await page.locator('.page-navigation button').all())assert.equal(await button.isVisible(),true);await page.screenshot({path:'test-results/vela-050-mobile-github.png'});
   });
   await check('设置可创建缺失的 .vela，新工作区自动创建配置，新文件进入阅读清单',async()=>{
