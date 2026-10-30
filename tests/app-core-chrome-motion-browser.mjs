@@ -61,8 +61,9 @@ try {
               ?.effect.getKeyframes();
           return {
             arriving: frames(document.querySelector('[data-view=github]'))?.[0].transform,
-            departing: document.querySelectorAll('.chrome-motion-ghost').length,
-            chapters: !!document.querySelector('#outline-toggle')?.checkVisibility(),
+            departing: frames(
+              document.querySelector('.chrome-motion-ghost[data-source=search-editor]'),
+            )?.at(-1).transform,
           };
         });
         assert.equal(
@@ -70,8 +71,11 @@ try {
           'translateX(-40px)',
           'left buttons slide right when expanding',
         );
-        assert.equal(direction.departing, 0, 'the chapters and more buttons stay in place');
-        assert.equal(direction.chapters, true, 'chapters stay one tap away');
+        assert.equal(
+          direction.departing,
+          'translateX(40px)',
+          'right buttons slide right when hiding',
+        );
       }
       await finish(page);
       if (width < 900) {
@@ -90,7 +94,7 @@ try {
               .find((item) => !('transitionProperty' in item) && !('animationName' in item))
               ?.effect.getKeyframes();
           return {
-            arriving: frames(document.querySelector('#outline-toggle'))?.[0].transform,
+            arriving: frames(document.querySelector('#search-editor'))?.[0].transform,
             departing: frames(
               document.querySelector('.chrome-motion-ghost[data-source=nav-github]'),
             )?.at(-1).transform,
@@ -101,8 +105,7 @@ try {
             ),
           };
         });
-        // The chapters button never left (phase 6), so it has nothing to slide back from.
-        assert.equal(direction.arriving, undefined, 'right actions stay in place');
+        assert.equal(direction.arriving, 'translateX(40px)', 'right actions slide left into place');
         assert.equal(
           direction.departing,
           'translateX(-40px)',
@@ -129,26 +132,25 @@ try {
               effect.pause();
               effect.currentTime = 60;
             }
-            // The Git tab is mid-way in; reversing turns it into a departing ghost from the same spot.
-            const arriving = document.querySelector('#nav-github');
+            const ghost = document.querySelector('.chrome-motion-ghost[data-source=search-editor]');
             const before = {
-              x: arriving.getBoundingClientRect().x,
-              opacity: Number(getComputedStyle(arriving).opacity),
+              x: ghost.getBoundingClientRect().x,
+              opacity: Number(getComputedStyle(ghost).opacity),
             };
             document.querySelector('[data-view=write]').click();
             for (const effect of effects()) {
               effect.pause();
               effect.currentTime = 0;
             }
-            const ghost = document.querySelector('.chrome-motion-ghost[data-source=nav-github]');
+            const button = document.querySelector('#search-editor');
             const after = {
-              x: ghost.getBoundingClientRect().x,
-              opacity: Number(getComputedStyle(ghost).opacity),
+              x: button.getBoundingClientRect().x,
+              opacity: Number(getComputedStyle(button).opacity),
             };
             for (const effect of effects()) effect.play();
             return { before, after };
           });
-          // Arriving navigation tabs slide without fading; the reversal must pick up the same frame.
+          assert.ok(continuity.before.opacity > 0 && continuity.before.opacity < 1);
           assert.ok(
             Math.abs(continuity.before.x - continuity.after.x) < 1,
             'reversing preserves icon position',
@@ -167,9 +169,7 @@ try {
         assert.equal(await page.locator('.chrome-motion-ghost').count(), 0);
       }
       // Real overlapping controls: the editor's search panel stays open beneath the menu.
-      if (width < 900) await page.locator('#more-tools').tap();
       await page.locator('#search-editor').tap();
-      await finish(page);
       await page.locator('.vela-search-panel').waitFor();
       await page.locator('#more-tools').tap();
       await finish(page);

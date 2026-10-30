@@ -11,6 +11,7 @@ const actions = [
   ['guide', 'guide', '查看操作指南'],
   ['commands', 'commands', '查看命令与快捷键'],
   ['plugins', 'plugins', '管理插件与组件'],
+  ['check-update', 'update', '检查更新'],
   ['settings', 'settings', '打开设置'],
 ];
 const actionButton = ([action, name, label]) =>

@@ -42,14 +42,17 @@ export function layoutShell(document, width, home) {
     const quickbar = document.querySelector('.quickbar');
     const status = document.querySelector('.statusbar');
     if (!paper || !quickbar || !status) throw new Error('应用布局容器缺失');
+    // Narrow screens: chapter and counts sit under the tab bar, the format tools just above the quick bar.
     if (wide) rowbar.append(tools);
-    else paper.insertBefore(tools, document.getElementById('editor'));
+    else paper.append(tools);
     if (wide) {
       status.insertBefore(actions, status.querySelector('.status-right'));
       actions.append(...quickbar.childNodes);
+      quickbar.after(status);
     } else {
       quickbar.append(...actions.childNodes);
       actions.remove();
+      rowbar.after(status);
     }
     document.body.classList.toggle('wide-shell', wide);
     document.body.dataset.shell = mode;

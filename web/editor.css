@@ -191,7 +191,9 @@
   border-right:1px solid var(--line)!important;
   color:var(--muted)!important;
   font-size:var(--text-xs);
-  font-family:Consolas,monospace;
+  /* Phones lack Consolas; tabular digits keep every number, bold or not, the same width. */
+  font-family:Consolas,"Cascadia Mono","Roboto Mono","HarmonyOS Sans SC",monospace;
+  font-variant-numeric:tabular-nums;
   min-width:52px;
   background:var(--paper)!important;
   border-right-color:var(--hairline)!important;
@@ -210,6 +212,29 @@
 
 .cm-gutterElement {
   padding-right:var(--space-3)!important;
+}
+
+/* A fixed line-number column: editing a line, or reaching another digit, never moves the text. */
+.cm-gutter.cm-lineNumbers {
+  flex:none;
+  width:52px;
+  min-width:52px!important;
+  max-width:52px;
+}
+
+@media (max-width:600px) {
+  .cm-gutter.cm-lineNumbers {
+    width:44px;
+    min-width:44px!important;
+    max-width:44px;
+  }
+}
+
+.cm-lineNumbers .cm-gutterElement {
+  min-width:0!important;
+  padding-left:0!important;
+  overflow:visible;
+  white-space:nowrap;
 }
 
 @media (max-width:600px) {

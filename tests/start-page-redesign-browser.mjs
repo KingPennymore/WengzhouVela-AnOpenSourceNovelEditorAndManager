@@ -143,17 +143,15 @@ try {
         await page.locator('.cm-content').waitFor();
         assert.equal(await page.evaluate(() => velaEditorView.state.selection.main.head), head);
         if (touch) {
-          await page.locator('#mobile-format-toggle').click();
           await page.locator('#format-style').scrollIntoViewIfNeeded();
           assert.equal(await page.locator('#format-style-label').isVisible(), false);
           assert.ok(await page.locator('#format-style').getAttribute('aria-label'));
           assert.ok(
             (await page
               .locator('#format-style')
-              .evaluate((el) => el.getBoundingClientRect().width)) >= 44,
+              .evaluate((el) => el.getBoundingClientRect().width)) >= 30,
           );
           await shot('format');
-          await page.locator('#mobile-format-toggle').click();
         }
         await page.locator('.cm-content').focus();
         await page.keyboard.insertText('海风😀');

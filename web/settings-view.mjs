@@ -27,7 +27,6 @@ export function mountSettings(root,host,{group}={}){
     item('appearance','palette','palette',t('配色方案')),
     item('appearance','fontFamily','font',t('界面与正文字体')),
     item('appearance','language','segmented',t('语言'),'',{options:[{value:'zh-CN',label:t('简体中文')},{value:'en',label:'English'}]}),
-    item('editing','immersiveWriting','switch',t('沉浸写作'),t('连续输入时收起操作栏，滑动或点按屏幕边缘恢复。'),{default:false}),
     item('editing','fontSize','number',t('文字字号'),'',{min:10,max:40}),
     item('editing','richText','switch',t('TXT 格式工具'),t('粗体、着重号、注音、插图和样式；格式保存在作品配置 .vela 中，TXT 正文不变。')),
     item('editing','novelLineNumbers','switch',t('小说模式显示行号')),
