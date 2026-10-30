@@ -7635,6 +7635,24 @@
     pointer-events:none;
   }
 
+  /* A blank map says where to start instead of showing an empty canvas. */
+  .map-empty-hint {
+    position:absolute;
+    top:50%;
+    left:50%;
+    width:min(320px,calc(100% - var(--space-6)));
+    margin:0;
+    transform:translate(-50%,-50%);
+    padding:var(--space-4);
+    border:1px dashed var(--line);
+    border-radius:var(--radius-md);
+    background:var(--panel);
+    color:var(--muted);
+    font-size:var(--text-sm);
+    text-align:center;
+    pointer-events:none;
+  }
+
   .map-toolbar .planning-primary button>span {
     display:none;
   }
@@ -9922,7 +9940,8 @@
     }
   }
 
-  @media (max-width:380px) {
+  /* Phones show the cell and table size once, in the status line under the grid. */
+  @media (max-width:600px) {
     .csv-toolbar .csv-context {
       display:none;
     }
@@ -11252,6 +11271,21 @@
   .vela-sections button[aria-current] {
     background:var(--soft);
     color:var(--accent);
+  }
+
+  /* An invalid configuration spans the page in one column, whatever layout the preview root uses. */
+  .vela-config-error {
+    grid-column:1/-1;
+    display:flex;
+    flex-direction:column;
+    align-items:flex-start;
+    gap:var(--space-2);
+    max-width:640px;
+    padding:var(--space-4);
+  }
+
+  .vela-config-error>p {
+    margin:0;
   }
 
   .vela-config-header {
@@ -13534,6 +13568,14 @@
     font-size:var(--text-xs);
     line-height:1.5;
     white-space:nowrap;
+  }
+
+  /* Phones: the dialog actions share the full width, primary on the right, in thumb reach. */
+  @media (max-width:600px) {
+    #dialog .dialog-actions>button {
+      flex:1;
+      font-size:var(--text-sm);
+    }
   }
 
   #dialog-submit.destructive {

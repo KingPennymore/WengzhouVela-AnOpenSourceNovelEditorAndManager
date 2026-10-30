@@ -7,7 +7,8 @@ import {MB} from './text-utils.mjs';
 
 export function parseGlossary(text){
   if(typeof text!=='string'||text.length>MB)throw Error(t('术语库最多 1 MB。'));
-  const value=JSON.parse(text);
+  let value;
+  try{value=JSON.parse(text);}catch{throw Error(t('术语库不是有效的 JSON 文件。'));}
   if(!value||value.version!==1||!Array.isArray(value.entries)||value.entries.length>5000)
     throw Error(t('术语库需要 version: 1 和 entries 数组（最多 5000 项）。'));
   const terms=new Set(),

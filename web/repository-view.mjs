@@ -209,7 +209,7 @@ export function createRepositoryView(context){
             openModal(t('删除远端文件'),`<p>${say(`将从 ${esc(repo.full_name)} 的 ${esc(branch)} 分支删除 ${esc(f.path)}。本地文稿不会删除。`,`Delete ${esc(f.path)} from ${esc(repo.full_name)} on branch ${esc(branch)}. Local documents are kept.`)}</p><label>${t('提交说明')}<input name="message" required value="${esc(/* User-editable commit message. */ '删除 '+f.name)}"></label>`,async data=>{
               await context.gh.deleteFile({repo:repo.full_name,branch,path:f.path,sha:f.sha,message:data.get('message')});
               renderRepository();
-            },{label:t('确认删除并提交')});
+            },{label:t('确认删除并提交'),destructive:true});
           }
       }catch(e){fail(e);}};
     }catch(e){if(epoch===loadEpoch)$('#file-list').innerHTML=`<p class="error" style="padding:16px">${esc(t(e.message))}</p>`;}

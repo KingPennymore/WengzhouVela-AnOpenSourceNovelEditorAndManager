@@ -58,7 +58,7 @@ export function createFileDialogs(app){
     $('#duplicate-doc').onclick=async()=>{try{await manageFile('copy',path,copyDestination(app.workspace,path));closeModal();}catch(error){$('#dialog-error').textContent=t(error.message);}};
     if(doc)$('#menu-export').onclick=()=>exportText(doc.name,doc.text).catch(fail);
     $('#file-properties').onclick=()=>showProperties(path,directory).catch(fail);
-    $('#delete-doc').onclick=()=>openModal(t('移入回收站'),`<p>${say(`将“${esc(path)}”${directory?t('及其中全部文件'):''}移入回收站？可在当前工作区的回收站中恢复。`,`Move “${esc(path)}”${directory?t('及其中全部文件'):''} to trash? You can restore it from this app.workspace’s trash.`)}</p><small>${t('不会删除 GitHub 中的文件。')}</small>`,async()=>manageFile('delete',path),{label:t('移入回收站')});
+    $('#delete-doc').onclick=()=>openModal(t('移入回收站'),`<p>${say(`将“${esc(path)}”${directory?t('及其中全部文件'):''}移入回收站？可在当前工作区的回收站中恢复。`,`Move “${esc(path)}”${directory?t('及其中全部文件'):''} to trash? You can restore it from this workspace’s trash.`)}</p><small>${t('不会删除 GitHub 中的文件。')}</small>`,async()=>manageFile('delete',path),{label:t('移入回收站')});
   }
   function renameItem(path){
     openModal(t('重命名'),`<label>${t('名称')}<input name="name" required maxlength="160" value="${esc(basename(path))}"></label>`,async f=>{
