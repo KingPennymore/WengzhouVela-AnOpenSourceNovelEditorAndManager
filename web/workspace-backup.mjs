@@ -94,7 +94,7 @@ export function prepareBackupRestore(backup,folder){
     if(doc.name==='.vela')
       try {
         const config=JSON.parse(doc.text);
-        if(config.version===2&&config.kind==='workspace'){
+        if([2,3].includes(config.version)&&config.kind==='workspace'){
           config.id=crypto.randomUUID();
           doc.text=JSON.stringify(config,null,2) + '\n';
         }

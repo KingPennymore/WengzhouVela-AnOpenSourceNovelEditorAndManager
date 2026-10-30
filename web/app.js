@@ -52,6 +52,7 @@ import {native,transport,readWorkspace,saveWorkspace,saveWorkspaceAsync,exportTe
 import {shortcuts,matchesKey} from './shortcuts.mjs';
 import {SidebarLayout} from './sidebars.mjs';
 import {reconcilePanel,textInfoCache} from './document-panels.mjs';
+import {mountStatusLine} from './status-line.mjs';
 import {UIShell} from './ui-shell.mjs';
 import {createVela,velaText,projectConfig,projectWriter,editorPreferences,setVelaPreference,includeNewReadingFile,rewriteVelaFiles,configFolder,readable,GLOBAL_VELA_PATH,globalConfig,formatHome,legacySidecar,addFormatRecord,configStyles,readPosition,positionEntry,positionOffset,positionUpdate} from './vela.mjs';
 import {completionExtensions} from './completion.mjs';
@@ -423,7 +424,7 @@ function updateStats(){
   }
   const idx=ensureIndex(),pos=view.state.selection.main.head,row=view.state.doc.lineAt(pos),section=Writer.sectionAt(idx,row.number-1);
   $('#chapter-count').textContent=say(`${idx.chapterCount} 章`,`${idx.chapterCount} chapters`);
-  $('#word-count').textContent=say(`本章 ${section?.count||0} 字 · 全文 ${idx.total} 字`,`Chapter ${section?.count||0} chars · Total ${idx.total} chars`);
+  {const chapterCount=(section?.count||0).toLocaleString('en-US'),total=idx.total.toLocaleString('en-US');$('#word-count').textContent=say(`本章 ${chapterCount} / 全文 ${total} 字`,`Chapter ${chapterCount} / Total ${total} chars`);}
   $('#current-chapter').textContent=section?.title||t('全文');
   $('#cursor-position').textContent=say(`行 ${row.number}，列 ${pos-row.from+1}`,`Ln ${row.number}, Col ${pos-row.from+1}`);
   renderSelectionCount();
@@ -1384,6 +1385,7 @@ for(const button of document.querySelectorAll('#markdown-tools button,#format-to
 function layoutShell() {
   layoutAppShell(document, innerWidth, !!home);
 }
+mountStatusLine($('.statusbar'),{toast});
 const formatCommand=run=>()=>{if(!view||!richTextEnabled(current())||formatBlocked())return;if(run(view)===false)toast(t('请先选中要设置格式的文字。'));renderFormatTools();view.focus();};
 $('#format-strong').onclick=formatCommand(v=>toggleInline(v,'strong'));
 $('#format-emphasis').onclick=formatCommand(v=>toggleInline(v,'emphasis'));

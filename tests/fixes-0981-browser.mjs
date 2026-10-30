@@ -74,7 +74,7 @@ try{
   });
   await check('the .vela editor keeps the stored positions when it saves the form',async()=>{
     await page.evaluate(()=>document.querySelector('[data-tab=config]').click());await page.locator('#vela-form').waitFor();
-    await page.locator('#vela-form [name=description]').fill('简介');await page.locator('#vela-form footer .primary').click();await page.locator('#toast',{hasText:'工作区配置已保存'}).waitFor();
+    await page.locator('#vela-form [name=description]').fill('简介');await page.locator('#vela-form [data-vela-save]').click();await page.locator('#toast',{hasText:'工作区配置已保存'}).waitFor();
     const vela=await velaOf(page);assert.equal(vela.project.description,'简介');assert.ok(vela.positions?.['正文.txt'],'form save dropped positions');
     await page.context().close();
   });

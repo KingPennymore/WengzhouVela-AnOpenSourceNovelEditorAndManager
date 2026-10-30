@@ -197,7 +197,7 @@ export function renderVelaV2({root,doc,workspace,escape:esc,onSave,onOpenPath,on
   advanced.append(filesLabel);
   const backup=(workspace.configBackups?.[doc.id]||[]).findLast(item=>{
     try{
-      return parseVela(item.text).version===2;
+      return [2,3].includes(parseVela(item.text).version);
     }catch{
       return false;
     }

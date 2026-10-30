@@ -807,6 +807,31 @@
     padding-bottom:0;
     border-top:0;
     border-bottom:1px solid var(--hairline);
+    /* One row that never truncates: status-line.mjs shrinks the type, then scrolls a long chapter title. */
+    display:flex;
+    justify-content:flex-start;
+    gap:var(--space-3);
+    padding-left:var(--space-3);
+    padding-right:var(--space-3);
+    font-variant-numeric:tabular-nums;
+    white-space:nowrap;
+  }
+
+  body:not(.wide-shell) .statusbar #current-chapter {
+    flex:1 1 auto;
+    min-width:0;
+    max-width:none;
+    overflow:hidden;
+    text-overflow:clip;
+    text-align:start;
+  }
+
+  body:not(.wide-shell) .statusbar :is(#word-count,#cursor-position,.status-right) {
+    flex:none;
+    min-width:auto;
+    max-width:none;
+    overflow:visible;
+    text-overflow:clip;
   }
 
   @media (orientation:landscape) and (max-height:520px) {
@@ -949,20 +974,21 @@
 
   @media (max-width:600px) {
     .file-rowbar {
-      height:40px;
+      height:32px;
     }
   }
 
   @media (orientation:landscape) and (max-height:520px) {
     .file-rowbar {
       display:flex;
-      min-height:40px;
-      height:40px;
+      min-height:32px;
+      height:32px;
     }
   }
 
+  /* A low tab bar on touch screens: the state-layer touch minimum follows --control-h, lowered for this row only. */
   @media (pointer:coarse) {
-    .file-rowbar {height:44px;min-height:44px;}
+    .file-rowbar {--control-h:32px;height:32px;min-height:32px;}
   }
   ::-webkit-scrollbar-corner {background:transparent;}
 

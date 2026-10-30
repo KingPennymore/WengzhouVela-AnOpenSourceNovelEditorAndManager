@@ -250,7 +250,9 @@ function inspect({ roots, accessibility }) {
       // Native switches/radios may be transparent; their visible label is the hit area.
       if (!visible(target) || el.closest('[inert]')) continue;
       const r = target.getBoundingClientRect();
-      if (matchMedia('(pointer:coarse)').matches && (r.width < 43.9 || r.height < 43.9))
+      // The tab bar and format tools are deliberately low rows (user request); 30px is their floor.
+      const floor = el.closest('.file-rowbar,#document-tools') ? 29.9 : 43.9;
+      if (matchMedia('(pointer:coarse)').matches && (r.width < floor || r.height < floor))
         targets.push({
           selector: path(el),
           target: path(target),
