@@ -783,8 +783,9 @@
       justify-content:center;
       column-gap:var(--space-2);
       height:calc(28px + var(--safe-bottom,0px));
-      padding-left:max(var(--space-5),calc(8vw + var(--safe-left,0px)));
-      padding-right:max(var(--space-5),calc(8vw + var(--safe-right,0px)));
+      /* 28px keeps the counts clear of curved phone corners (tests/mobile-status-browser.mjs). */
+      padding-left:max(28px,calc(8vw + var(--safe-left,0px)));
+      padding-right:max(28px,calc(8vw + var(--safe-right,0px)));
       overflow:hidden;
       white-space:nowrap;
     }
@@ -2157,7 +2158,7 @@
   @media (min-width:900px) and (hover:hover) and (pointer:fine) {
     .topbar .global-tools>button {
       width:40px;
-      height:var(--control-h);
+      height:40px;
       min-width:40px;
     }
   }
@@ -5481,9 +5482,10 @@
     outline:none;
   }
 
+  /* The reader focuses its own page on open; a ring around the whole page reads as a frame, not focus. */
   .reader-viewport:focus-visible {
-    outline:2px solid var(--accent);
-  outline-offset:2px;}
+    outline:none;
+  }
 
   .reader-content:not(.tex-pdf) {
     padding:var(--reader-marginTop,var(--space-5)) var(--reader-marginRight,35px) var(--reader-marginBottom,var(--space-5)) var(--reader-marginLeft,35px);
@@ -11279,7 +11281,7 @@
   @media (max-width:700px) {
     .vela-pages button {
       flex:1;
-      min-height:var(--control-h);
+      min-height:max(40px,var(--control-h));
     }
   }
 
@@ -14583,9 +14585,9 @@
   body[data-mobile-editor=true] .topbar .breadcrumb {flex:1;min-width:0;gap:0;}
   body[data-mobile-editor=true][data-mobile-format=true] .topbar .breadcrumb {display:none;}
   body[data-mobile-editor=true] .breadcrumb :is(.app-name,.slash,.nav-separator) {display:none;}
-  body[data-mobile-editor=true] .breadcrumb #current-name {display:block;flex:1;min-width:0;max-width:none;height:44px;font-size:var(--text-sm);line-height:44px;}
-  body[data-mobile-editor=true][data-mobile-single=false] .breadcrumb #current-name,
-  body[data-mobile-editor=true][data-editor-chrome=expanded] .breadcrumb #current-name {display:none;}
+  body[data-mobile-editor=true] .mobile-editor-heading {position:relative;flex:1;min-width:0;height:var(--mobile-control-h);}
+  body[data-mobile-editor=true] .breadcrumb #current-name {display:block;min-width:0;max-width:none;height:var(--mobile-control-h);padding-top:var(--space-1);padding-bottom:var(--space-4);font-size:var(--text-sm);line-height:var(--leading-tight);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  body[data-mobile-editor=true][data-editor-chrome=expanded] .mobile-editor-heading {display:none;}
   body[data-mobile-editor=true] .topbar :is(#mobile-library,.breadcrumb>button,.page-navigation .nav-item,.global-tools>button) {width:44px;min-width:44px;height:44px;min-height:44px;font-size:var(--text-sm);}
   body[data-mobile-editor=true] .global-tools {flex:0 0 auto;padding:0;border:0;gap:0;}
   body[data-mobile-editor=true][data-editor-chrome=expanded] .global-tools>:not(#more-tools),
@@ -14610,31 +14612,34 @@
   body[data-mobile-editor=true][data-mobile-immersed=true] .writing-view {padding-bottom:0;}
   body[data-mobile-editor=true] #writing-footer {padding-bottom:var(--safe-bottom,0px);}
   body[data-mobile-editor=true][data-mobile-immersed=true] #writing-footer {transform:translateY(100%);visibility:hidden;pointer-events:none;}
-  body[data-mobile-editor=true] .quickbar {display:grid;grid-template-columns:44px 44px 52px minmax(0,1fr) minmax(44px,64px);height:48px;min-height:48px;padding:0 var(--space-1);gap:var(--space-1);overflow:hidden;}
-  body[data-mobile-editor=true] .quickbar>i {display:none;}
-  body[data-mobile-editor=true] .quickbar>button {height:44px;min-height:44px;min-width:44px;padding:0 var(--space-1);font-size:var(--text-xs);}
+  /* Eight direct controls plus two 1px separators: 44px columns down to 354px wide, then they share the width (40px at 320px). */
+  body[data-mobile-editor=true] {--mobile-control-h:max(44px,var(--control-h));--quick-w:min(var(--mobile-control-h),calc((100vw - 2px) / 8));}
+  body[data-mobile-editor=true] .quickbar {display:grid;grid-template-columns:repeat(2,minmax(var(--quick-w),1fr)) 1px repeat(4,minmax(var(--quick-w),1fr)) 1px repeat(2,minmax(var(--quick-w),1fr));height:48px;min-height:48px;padding:0 clamp(0px,calc((100vw - 354px) / 2),var(--space-1));gap:0;overflow:hidden;}
+  body[data-mobile-editor=true] .quickbar>i {display:block;width:1px;height:var(--space-5);margin:0;background:var(--line);}
+  body[data-mobile-editor=true] .quickbar>i:first-of-type {order:2;}
+  body[data-mobile-editor=true] .quickbar>i~i {order:7;}
+  body[data-mobile-editor=true] .quickbar>button {height:var(--mobile-control-h);min-height:var(--mobile-control-h);min-width:var(--quick-w);padding:0;font-size:var(--text-xs);}
   body[data-mobile-editor=true] .quickbar>button small {display:none;}
   body[data-mobile-editor=true] #quick-undo {order:0;}
   body[data-mobile-editor=true] #quick-redo {order:1;}
-  body[data-mobile-editor=true] #quick-jump {order:2;display:flex;gap:var(--space-1);align-items:center;justify-content:center;}
-  body[data-mobile-editor=true] #quick-jump>span {font-size:var(--text-sm);}
-  body[data-mobile-editor=true] #quick-jump>svg {display:none;}
-  body[data-mobile-editor=true] #quick-git {display:none;}
-  body[data-mobile-editor=true] #quick-save {order:4;}
-  body[data-mobile-editor=true] #quick-save>:not(.mobile-save-status) {display:none;}
-  body[data-mobile-editor=true] .mobile-save-status {font-size:var(--text-xs);line-height:var(--leading);white-space:nowrap;}
-  body[data-mobile-editor=true] .mobile-save-status[data-state=failed] {color:var(--danger);}
-  body[data-mobile-editor=true] .mobile-editor-summary {order:3;display:grid;align-content:center;min-width:0;gap:0;line-height:var(--leading-tight);font-size:var(--text-xs);overflow:hidden;color:var(--muted);}
+  body[data-mobile-editor=true] #quick-top {order:3;}
+  body[data-mobile-editor=true] #quick-bottom {order:4;}
+  body[data-mobile-editor=true] #quick-chapter-top {order:5;}
+  body[data-mobile-editor=true] #quick-chapter-bottom {order:6;}
+  body[data-mobile-editor=true] #quick-git {order:8;}
+  body[data-mobile-editor=true] #quick-save {order:9;}
+  body[data-mobile-editor=true] #quick-save[data-mobile-save=saved] {color:var(--accent);}
+  body[data-mobile-editor=true] #quick-save[data-mobile-save=dirty] {color:var(--text);}
+  body[data-mobile-editor=true] #quick-save[data-mobile-save=failed] {color:var(--danger);}
+  body[data-mobile-editor=true] .mobile-save-status {position:absolute;width:1px;height:1px;clip-path:inset(50%);overflow:hidden;white-space:nowrap;}
+  body[data-mobile-editor=true] .mobile-editor-summary {position:absolute;left:0;right:0;bottom:var(--space-1);display:flex;min-width:0;gap:var(--space-1);line-height:var(--leading-tight);font-size:var(--text-xs);overflow:hidden;color:var(--muted);pointer-events:none;}
   body[data-mobile-editor=true] .mobile-editor-summary>span {display:block;min-width:0;max-width:100%;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:var(--text-xs);}
+  body[data-mobile-editor=true] .mobile-editor-summary>#current-chapter {flex:1;}
+  body[data-mobile-editor=true] .mobile-editor-summary>#word-count {flex:0 1 auto;}
   body[data-mobile-editor=true] .statusbar {display:none;}
-  body[data-mobile-editor=true] .mobile-jump-menu {position:fixed;left:var(--space-2);right:var(--space-2);z-index:220;padding:var(--space-1);border:1px solid var(--line);border-radius:var(--radius-md);background:var(--panel);box-shadow:var(--elev-3);overflow:auto;}
-  body[data-mobile-editor=true] .mobile-jump-menu button {display:flex;align-items:center;gap:var(--space-3);width:100%;min-height:44px;text-align:start;padding:var(--space-2) var(--space-3);font-size:var(--text-sm);}
-  body[data-mobile-editor=true] .mobile-jump-menu button small {font-size:var(--text-sm);}
-  body[data-mobile-editor=true] .mobile-jump-menu svg {width:20px;height:20px;}
   body[data-mobile-editor=true] #toolbar-overflow :is(.toolbar-menu-heading,.menu-shortcut) {font-size:var(--text-xs);}
   body[data-mobile-editor=true] #toolbar-overflow :is(button,.display-options button) {min-height:44px;min-width:44px;font-size:var(--text-sm);}
   body[data-mobile-editor=true] #toolbar-overflow .display-options {display:flex;flex-wrap:wrap;width:100%;gap:var(--space-1);padding:var(--space-1);}
-  body[data-mobile-editor=true] #toolbar-overflow #mobile-git .menu-label {white-space:nowrap;}
   body[data-mobile-editor=true] #toolbar-overflow #sync-state {font-size:var(--text-xs);white-space:normal;}
 
 }

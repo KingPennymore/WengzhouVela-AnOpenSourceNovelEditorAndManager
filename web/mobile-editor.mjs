@@ -1,7 +1,6 @@
 // Mobile writing chrome owns presentation and input cadence; editing and persistence stay in the host.
 import { t } from './i18n.mjs';
 import { icon } from './icons.mjs';
-import { menuKey } from './menu-controller.mjs';
 
 export function createMobileEditor(host) {
   const $ = (s) => document.querySelector(s),
@@ -18,27 +17,9 @@ export function createMobileEditor(host) {
   toggle.textContent = 'Aa';
   toggle.hidden = true;
   global.insertBefore(toggle, $('#more-tools'));
-  const jump = document.createElement('button');
-  jump.id = 'quick-jump';
-  jump.type = 'button';
-  jump.hidden = true;
-  jump.innerHTML = icon('outline') + '<span></span>';
-  quick.append(jump);
-  const menu = document.createElement('div');
-  menu.id = 'mobile-jump-menu';
-  menu.className = 'mobile-jump-menu';
-  menu.hidden = true;
-  menu.setAttribute('role', 'menu');
-  document.body.append(menu);
-  jump.setAttribute('aria-haspopup', 'menu');
-  jump.setAttribute('aria-controls', menu.id);
-  jump.setAttribute('aria-expanded', 'false');
-  const arrows = ['quick-top', 'quick-bottom', 'quick-chapter-top', 'quick-chapter-bottom'].map(
-    (id) => $('#' + id),
-  );
   // Keep #quick-git in place: planning editors use it as their bottom-action anchor.
   const moved = [
-    ...arrows,
+    $('#current-name'),
     $('#plugin-bottom-toolbar'),
     $('#current-chapter'),
     $('#word-count'),
@@ -47,31 +28,18 @@ export function createMobileEditor(host) {
     node.before(anchor);
     return { node, anchor, role: node.getAttribute('role') };
   });
-  const outline = document.createElement('button');
-  outline.id = 'quick-outline';
-  outline.type = 'button';
-  outline.setAttribute('role', 'menuitem');
-  outline.innerHTML = icon('outline') + '<span></span>';
-  menu.append(outline);
-  outline.onclick = () => $('#outline-toggle').click();
+  const heading = document.createElement('div');
+  heading.className = 'mobile-editor-heading';
+  heading.hidden = true;
+  $('.breadcrumb').append(heading);
   const summary = document.createElement('span');
   summary.className = 'mobile-editor-summary';
-  summary.hidden = true;
-  quick.append(summary);
+  heading.append(summary);
   const saved = document.createElement('span');
   saved.className = 'mobile-save-status';
   saved.hidden = true;
   saved.setAttribute('role', 'status');
   $('#quick-save').append(saved);
-  const git = document.createElement('button');
-  git.id = 'mobile-git';
-  git.type = 'button';
-  git.hidden = true;
-  git.setAttribute('role', 'menuitem');
-  git.innerHTML = icon('git') + '<span class="menu-label"></span>';
-  host.shell.groups.document.append(git);
-  git.onclick = () => $('#quick-git').click();
-  const gitLabel = git.querySelector('.menu-label');
   let active = false,
     immersed = false,
     override = null,
@@ -82,8 +50,7 @@ export function createMobileEditor(host) {
     oldHeight = innerHeight,
     oldWidth = innerWidth,
     keyboard = false,
-    touch = null,
-    keyboardMenu = false;
+    touch = null;
   let saveMessage = '已保存到本机',
     saveDirty = false;
   const mobile = () =>
@@ -99,16 +66,6 @@ export function createMobileEditor(host) {
     toggle.title = t('格式工具');
     toggle.setAttribute('aria-label', t('格式工具'));
     toggle.setAttribute('aria-controls', 'document-tools');
-    jump.title = t('跳转');
-    jump.setAttribute('aria-label', t('跳转'));
-    jump.querySelector('span').textContent = t('跳转');
-    menu.setAttribute('aria-label', t('跳转'));
-    outline.querySelector('span').textContent = t('章节目录');
-    outline.setAttribute('aria-label', t('章节目录'));
-    gitLabel.textContent = t('Git 仓库与提交');
-    git.title = gitLabel.textContent;
-    git.setAttribute('aria-label', gitLabel.textContent);
-    git.disabled = $('#quick-git').disabled;
     const label = saveMessage.startsWith('保存失败')
       ? t('保存失败')
       : saveDirty
@@ -120,17 +77,16 @@ export function createMobileEditor(host) {
       : saveDirty
         ? 'dirty'
         : 'saved';
-    if (active) $('#quick-save').setAttribute('aria-label', label + ' · ' + t('保存'));
-  };
-  const closeMenu = (focus = false) => {
-    if (menu.hidden) return false;
-    menu.hidden = true;
-    jump.setAttribute('aria-expanded', 'false');
-    if (focus) {
-      if (keyboardMenu) jump.focus({ preventScroll: true });
-      else host.view()?.focus();
+    if (active) {
+      const save = $('#quick-save'), name = label + ' · ' + t('保存');
+      save.setAttribute('aria-label', name);
+      save.title = name;
+      const state = saved.dataset.state;
+      if (save.dataset.mobileSave !== state) {
+        save.dataset.mobileSave = state;
+        save.querySelector('span:not(.mobile-save-status)').innerHTML = icon(state === 'failed' ? 'alert' : 'save');
+      }
     }
-    return true;
   };
   function keepCaret(change) {
     const view = host.view(),
@@ -167,7 +123,6 @@ export function createMobileEditor(host) {
       !view.state.selection.main.empty ||
       host.enabled() === false ||
       blockers() ||
-      !menu.hidden ||
       view.composing
     )
       return;
@@ -186,23 +141,18 @@ export function createMobileEditor(host) {
     active = next;
     body.dataset.mobileEditor = String(active);
     const current = host.current()?.id;
-    if (current !== docId || !active || host.preview() || host.enabled() === false) {
+    if (current !== docId || !active || host.preview()) {
       reveal();
       override = null;
       docId = current;
-    }
+    } else if (host.enabled() === false) reveal(); // immersion off: keep the format toolbar choice
     toggle.hidden = !active || !formatAvailable();
-    jump.hidden = !active;
     saved.hidden = !active;
-    summary.hidden = !active;
-    git.hidden = !active;
+    heading.hidden = !active;
     if (active) {
       const tools = $('#document-tools');
       if (tools && tools.parentElement !== top) top.insertBefore(tools, global);
-      for (const node of arrows) {
-        if (node.parentElement !== menu) menu.insertBefore(node, outline);
-        node.setAttribute('role', 'menuitem');
-      }
+      if ($('#current-name').parentElement !== heading) heading.prepend($('#current-name'));
       for (const id of ['current-chapter', 'word-count'])
         if ($('#' + id).parentElement !== summary) summary.append($('#' + id));
       const group = host.shell.groups.document;
@@ -217,9 +167,7 @@ export function createMobileEditor(host) {
       const expanded = formatAvailable() && (override ?? selected);
       body.dataset.mobileFormat = String(expanded);
       toggle.setAttribute('aria-expanded', String(expanded));
-      outline.disabled = $('#outline-toggle').disabled;
     } else {
-      closeMenu();
       body.dataset.mobileFormat = 'false';
       body.dataset.mobileImmersed = 'false';
       if (changed)
@@ -238,7 +186,10 @@ export function createMobileEditor(host) {
       if (display && display.closest('#toolbar-overflow')) (wide ? tools : row).append(display);
       const sync = $('#sync-state');
       if (sync?.closest('#toolbar-overflow')) host.shell.toolbar.prepend(sync);
+      $('#quick-save').title = t('保存 (Ctrl+S)');
       $('#quick-save').setAttribute('aria-label', $('#quick-save').title);
+      $('#quick-save').querySelector('span:not(.mobile-save-status)').innerHTML = icon('save');
+      delete $('#quick-save').dataset.mobileSave;
     }
     const height =
         Number.parseFloat(
@@ -292,58 +243,15 @@ export function createMobileEditor(host) {
       });
   };
   toggle.addEventListener('mousedown', (event) => event.preventDefault(), { signal });
-  jump.addEventListener('mousedown', (event) => event.preventDefault(), { signal });
   toggle.onclick = () => {
     reveal();
     override = !(override ?? (editable() && !host.view().state.selection.main.empty));
     update();
     host.view()?.requestMeasure();
   };
-  jump.onclick = (event) => {
-    reveal();
-    if (closeMenu()) return;
-    keyboardMenu = event.detail === 0;
-    menu.hidden = false;
-    jump.setAttribute('aria-expanded', 'true');
-    const height =
-      Number.parseFloat(
-        getComputedStyle(document.documentElement).getPropertyValue('--app-height'),
-      ) || innerHeight;
-    menu.style.maxHeight = Math.max(44, height - 64) + 'px';
-    menu.style.top =
-      Math.max(
-        4,
-        Math.min(
-          quick.getBoundingClientRect().top - menu.getBoundingClientRect().height - 8,
-          height - menu.getBoundingClientRect().height - 8,
-        ),
-      ) + 'px';
-    if (keyboardMenu) menu.querySelector('button:not(:disabled)')?.focus({ preventScroll: true });
-  };
-  menu.addEventListener('mousedown', (event) => event.preventDefault(), { signal });
-  menu.addEventListener(
-    'click',
-    (event) => {
-      if (event.target.closest('button:not(:disabled)')) closeMenu();
-    },
-    { signal },
-  );
-  document.addEventListener(
-    'keydown',
-    (event) => {
-      if (!menu.hidden)
-        menuKey(event, [...menu.querySelectorAll('button')], {
-          close: () => closeMenu(),
-          returnFocus: keyboardMenu ? jump : host.view()?.contentDOM,
-          trapTab: true,
-        });
-    },
-    { signal, capture: true },
-  );
   document.addEventListener(
     'pointerdown',
     (event) => {
-      if (!menu.hidden && !menu.contains(event.target) && !jump.contains(event.target)) closeMenu();
       if (
         immersed &&
         (event.clientY < 44 ||
@@ -398,7 +306,6 @@ export function createMobileEditor(host) {
   const observer = new MutationObserver(() => {
     if (document.querySelector('dialog[open]') || host.shell.menuOpen) {
       reveal();
-      closeMenu();
     }
   });
   observer.observe($('#dialog'), { attributes: true, attributeFilter: ['open'] });
@@ -408,7 +315,6 @@ export function createMobileEditor(host) {
     update,
     input,
     reveal,
-    closeMenu,
     get active() {
       return active;
     },
@@ -422,7 +328,6 @@ export function createMobileEditor(host) {
       observer.disconnect();
       cancelAnimationFrame(frame);
       cancelAnimationFrame(updateFrame);
-      menu.remove();
     },
   };
 }
