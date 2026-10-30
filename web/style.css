@@ -14789,7 +14789,7 @@
 
 
   /* Start page and recent documents */
-  body.start-open :is(#document-tools,.file-rowbar,#writing-footer,#outline-toggle,.toolbar,.breadcrumb>.slash,.breadcrumb>#current-name) {
+  body.start-open :is(#document-tools,.file-rowbar,#writing-footer,.statusbar,#outline-toggle,.toolbar,.breadcrumb>.slash,.breadcrumb>#current-name) {
     display:none;
   }
 
