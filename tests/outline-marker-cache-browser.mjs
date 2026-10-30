@@ -18,7 +18,9 @@ try{
   window.probe={view,get calls(){return calls;},replace(){entries=[{outlineId:'o',collection:'outline',nodeId:'b',title:'新节点',anchor:{offset:0}}];view.dispatch({effects:outlineMarksChanged.of(null)});},make};
  `,resolveDir:process.cwd()},bundle:true,write:false,format:'iife',target:'chrome105'});
  await page.addScriptTag({content:bundle.outputFiles[0].text});
- await page.locator('.outline-line-marker').waitFor();
+ await page.locator('.cm-content .cm-line .outline-line-marker').waitFor();
+ assert.equal(await page.locator('.outline-gutter').count(),0,'outline links do not create a gutter');
+ assert.equal(await page.locator('.cm-gutters .outline-line-marker').count(),0);
  assert.equal(await page.evaluate(()=>probe.calls),1,'visible lines share a single workspace anchor query');
  await page.evaluate(()=>probe.replace());
  await page.waitForFunction(()=>document.querySelector('.outline-line-marker')?.title.includes('新节点'));

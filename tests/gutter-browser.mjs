@@ -24,7 +24,20 @@ try{
       await page.context().close();
     });
     await check(`${ui}: with line numbers on, the gutter keeps its width`,async()=>{
-      const page=await open(ui,viewport,true),g=await gutter(page);assert.ok(g.numbers>0&&g.width>=38&&g.border>0,JSON.stringify(g));await page.context().close();
+      const page=await open(ui,viewport,true);
+      await page.evaluate(()=>{const v=velaEditorView;v.dispatch({changes:{from:0,to:v.state.doc.length,insert:'line\n'.repeat(1000)}});});
+      await page.waitForTimeout(100);
+      const positions=[];
+      for(const row of [1,9,10,99,100,999,1000]){
+        await page.evaluate(row=>{const v=velaEditorView;v.dispatch({selection:{anchor:v.state.doc.line(row).from},scrollIntoView:true});v.focus();},row);
+        await page.keyboard.type('x');await page.waitForTimeout(80);
+        positions.push(await page.evaluate(()=>({width:document.querySelector('.cm-lineNumbers').getBoundingClientRect().width,x:document.querySelector('.cm-content').getBoundingClientRect().x})));
+      }
+      await page.evaluate(()=>{velaEditorView.scrollDOM.scrollTop=0;});await page.waitForTimeout(100);
+      positions.push(await page.evaluate(()=>({width:document.querySelector('.cm-lineNumbers').getBoundingClientRect().width,x:document.querySelector('.cm-content').getBoundingClientRect().x})));
+      assert.ok(positions.every(p=>p.width===64),JSON.stringify(positions));
+      assert.equal(new Set(positions.map(p=>p.x)).size,1,'selection and offscreen caret must not shift the gutter/content');
+      await page.context().close();
     });
   }
   assert.deepEqual(errors,[]);

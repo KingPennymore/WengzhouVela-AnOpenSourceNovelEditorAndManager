@@ -132,12 +132,14 @@
 
 
 /* Planning, outlines and maps */
-.cm-gutters:not(:has(.cm-lineNumbers)):not(:has(.outline-line-marker)) {
-  border-right-width:0!important;
-}
-
 .outline-line-marker {
-  width:16px;
+  display:inline-grid;
+  place-items:center;
+  width:var(--control-h);
+  min-width:var(--control-h);
+  height:var(--control-h);
+  margin-inline-start:var(--space-1);
+  vertical-align:middle;
   color:var(--accent);
   font-size:var(--text-md);
   padding:0;
@@ -189,53 +191,47 @@
   color:var(--muted)!important;
   font-size:var(--text-xs);
   /* Phones lack Consolas; tabular digits keep every number, bold or not, the same width. */
-  font-family:Consolas,"Cascadia Mono","Roboto Mono","HarmonyOS Sans SC",monospace;
+  font-family:Consolas,"Cascadia Mono","Roboto Mono",monospace;
   font-variant-numeric:tabular-nums;
-  min-width:52px;
+  min-width:0;
   background:var(--paper)!important;
   border-right-color:var(--hairline)!important;
 }
 
 @media (max-width:600px) {
   .cm-gutters {
-    min-width:38px;
     font-size:var(--text-xs);
   }
 }
 
 .cm-gutters:not(:has(.cm-lineNumbers)) {
+  border-right-width:0!important;
   min-width:0!important;
 }
 
 .cm-gutterElement {
-  padding-right:var(--space-3)!important;
+  padding-inline:0!important;
 }
 
 /* A fixed line-number column: editing a line, or reaching another digit, never moves the text. */
 .cm-gutter.cm-lineNumbers {
   flex:none;
-  width:52px;
-  min-width:52px!important;
-  max-width:52px;
-}
-
-@media (max-width:600px) {
-  .cm-gutter.cm-lineNumbers {
-    width:44px;
-    min-width:44px!important;
-    max-width:44px;
-  }
+  width:64px;
+  min-width:64px!important;
+  max-width:64px;
 }
 
 .cm-lineNumbers .cm-gutterElement {
   min-width:0!important;
+  width:100%;
   padding-left:0!important;
-  overflow:visible;
+  padding-right:var(--space-3)!important;
+  overflow:hidden;
   white-space:nowrap;
 }
 
 @media (max-width:600px) {
-  .cm-gutterElement {
+  .cm-lineNumbers .cm-gutterElement {
     padding-right:var(--space-2)!important;
   }
 }
@@ -286,7 +282,7 @@
 .cm-activeLineGutter {
   background:transparent!important;
   color:var(--accent)!important;
-  font-weight:600;
+  font-weight:400;
 }
 
 .cm-tooltip-autocomplete {
