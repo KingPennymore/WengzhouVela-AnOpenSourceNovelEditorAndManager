@@ -1,3 +1,4 @@
+import {fontFamilyCss} from './app-core/system-fonts.mjs';
 /* global __VELA_HARMONY_VERSION__ */
 import {createPluginDialogs} from './plugin-dialogs.mjs';
 import {createSubscriptionSync} from './subscription-sync.mjs';
@@ -51,7 +52,7 @@ import {shortcuts,matchesKey} from './shortcuts.mjs';
 import {SidebarLayout} from './sidebars.mjs';
 import {reconcilePanel,textInfoCache} from './document-panels.mjs';
 import {UIShell} from './ui-shell.mjs';
-import {createVelaV2,velaText,projectConfig,projectWriter,includeNewReadingFile,rewriteVelaFiles,configFolder,readable,GLOBAL_VELA_PATH,globalConfig,formatHome,legacySidecar,addFormatRecord,configStyles,readPosition,positionEntry,positionOffset,positionUpdate} from './vela.mjs';
+import {createVelaV2,velaText,projectConfig,projectWriter,editorPreferences,setVelaPreference,includeNewReadingFile,rewriteVelaFiles,configFolder,readable,GLOBAL_VELA_PATH,globalConfig,formatHome,legacySidecar,addFormatRecord,configStyles,readPosition,positionEntry,positionOffset,positionUpdate} from './vela.mjs';
 import {completionExtensions} from './completion.mjs';
 import {syncTextEqual} from './vela-sync.mjs';
 import {initI18n,setLanguage,t,say} from './i18n.mjs';
@@ -245,7 +246,7 @@ const appState={
   get subscriptions(){return subscriptions;},get plugins(){return plugins;},get texCompiler(){return texCompiler;},
 };
 const withState=services=>Object.assign(Object.create(appState),services);
-const sourceRendering=new Compartment(),lineNumberSlot=new Compartment(),formatEnv=new Compartment(),pluginExtras=new Compartment(),projectReadonly=new Compartment(),completer=new Compartment(),pluginKeys=new Compartment(),languages=new Compartment(),systemTheme=matchMedia('(prefers-color-scheme: dark)');
+const sourceRendering=new Compartment(),editorAppearance=new Compartment(),lineNumberSlot=new Compartment(),formatEnv=new Compartment(),pluginExtras=new Compartment(),projectReadonly=new Compartment(),completer=new Compartment(),pluginKeys=new Compartment(),languages=new Compartment(),systemTheme=matchMedia('(prefers-color-scheme: dark)');
 const editorStates=new Map(),editorScrolls=new Map();
 const aiSuggestionSlot=new Compartment();
 let aiSuggestions=[];
@@ -432,7 +433,7 @@ function updateStats(){
 // they stop changing instead of on every selection update.
 let selectionCountTimer=0;
 function renderSelectionCount(){
-  clearTimeout(selectionCountTimer);const selection=view.state.selection.main,output=$('#selection-count'),count=()=>say(`选中 ${Writer.countText(view.state.sliceDoc(selection.from,selection.to),workspace.settings.writer.countMode)} 字`,`${Writer.countText(view.state.sliceDoc(selection.from,selection.to),workspace.settings.writer.countMode)} selected chars`);
+  clearTimeout(selectionCountTimer);const selection=view.state.selection.main,output=$('#selection-count'),count=()=>say(`选中 ${Writer.countText(view.state.sliceDoc(selection.from,selection.to),projectWriter(workspace,current()).countMode)} 字`,`${Writer.countText(view.state.sliceDoc(selection.from,selection.to),projectWriter(workspace,current()).countMode)} selected chars`);
   if(selection.empty)output.textContent='';else if(selection.to-selection.from<=4000)output.textContent=count();else{
     const state=view.state;
     selectionCountTimer=setTimeout(()=>{if(view?.state===state)output.textContent=count();},160);
@@ -447,7 +448,7 @@ function activateLanguage(doc){
 function refreshFileType(doc){
   const effects=[languages.reconfigure(languageFor(doc)),completer.reconfigure(projectConfig(workspace,doc)?.config?.editor?.completion===false
     ?[]
-    :completionExtensions(doc,()=>({documents:workspace.documents,autoNouns:workspace.settings.autoNouns,highlightTerms:workspace.settings.highlightTerms,terms:glossaryTerms(workspace,doc),glossary:workspace.writingTools?.glossary||[],snippets:workspace.writingTools?.snippets||[],packages:(plugins?.records||[]).filter(record=>record.enabled).flatMap(record=>(record.texFiles||[]).map(file=>file.path)),entries:(workspace.entries||[]).filter(item=>!item.directory).map(item=>item.path)})))];
+    :completionExtensions(doc,()=>({documents:workspace.documents,autoNouns:editorPreferences(workspace,doc).autoNouns,highlightTerms:editorPreferences(workspace,doc).highlightTerms,terms:glossaryTerms(workspace,doc),glossary:workspace.writingTools?.glossary||[],snippets:editorPreferences(workspace,doc).snippets,packages:(plugins?.records||[]).filter(record=>record.enabled).flatMap(record=>(record.texFiles||[]).map(file=>file.path)),entries:(workspace.entries||[]).filter(item=>!item.directory).map(item=>item.path)})))];
   if(workspace.activeId===doc.id&&view)view.dispatch({effects});else if(editorStates.has(doc.id))editorStates.set(doc.id,editorStates.get(doc.id).update({effects}).state);
   activateLanguage(doc);
   updateEditorVisibility();
@@ -737,7 +738,8 @@ function showFormatReview(){
   $('#drop-all-review').onclick=()=>{for(const item of [...formatsOf(view.state).review])settleReview(view,item.id);closeModal();renderFormatTools();};
 }
 // Line numbers help code but not novel paragraphs, which wrap over many lines; TXT in novel mode hides them unless asked.
-const lineNumberExtensions=doc=>documentKind(doc)==='TXT'&&projectConfig(workspace,doc)?.config?.editor?.mode!=='code'&&!workspace.settings.novelLineNumbers?[]:inlineLineNumbers();
+const lineNumberExtensions=doc=>{const editor=projectConfig(workspace,doc)?.config?.editor;const enabled=editor?.lineNumbers??(documentKind(doc)!=='TXT'||editor?.mode==='code'||!!workspace.settings.novelLineNumbers);return enabled?inlineLineNumbers():[];};
+function writeWorkPreference(section,key,value){const project=current()&&projectConfig(workspace,current());const changed=setVelaPreference(workspace,current(),section,key,value);if(changed)editorStates.delete(project.doc.id);return changed;}
 function refreshLineNumbers(){
   for(const [id,state] of editorStates){const doc=workspace.documents.find(item=>item.id===id);if(doc)editorStates.set(id,state.update({effects:lineNumberSlot.reconfigure(lineNumberExtensions(doc))}).state);}
   if(view&&current())view.dispatch({effects:lineNumberSlot.reconfigure(lineNumberExtensions(current()))});
@@ -752,6 +754,11 @@ function sourceRenderExtensions(doc){
     editor?.wrap===false?[]:indentedLineWrapping('same')
   ];
 }
+function editorAppearanceExtensions(doc){
+ const editor=projectConfig(workspace,doc)?.config?.editor;
+ return [EditorView.theme({'.cm-content':{lineHeight:String(editor?.lineHeight||1.8),maxWidth:(editor?.maxWidth||1000)+'px',margin:'0 auto'}}),
+  EditorView.editorAttributes.of({style:`--editor-margin-left:${editor?.marginLeft??12}px;--editor-margin-right:${editor?.marginRight??12}px;${editor?.fontFamily?'--editor-document-font:'+fontFamilyCss(editor.fontFamily)+';':''}`})];
+}
 function makeState(doc){
   const editor=projectConfig(workspace,doc)?.config?.editor,position=workspace.editorPositions?.[doc.id];
   const csvLineBreak=documentKind(doc)==='CSV'?'\n':null;
@@ -765,7 +772,7 @@ function makeState(doc){
     pluginExtras.of(plugins?.extensions()||[]),
     completer.of(editor?.completion===false
     ?[]
-    :completionExtensions(doc,()=>({documents:workspace.documents,autoNouns:workspace.settings.autoNouns,highlightTerms:workspace.settings.highlightTerms,terms:glossaryTerms(workspace,doc),glossary:workspace.writingTools?.glossary||[],snippets:workspace.writingTools?.snippets||[],packages:(plugins?.records||[]).filter(record=>record.enabled).flatMap(record=>(record.texFiles||[]).map(file=>file.path))}))),
+    :completionExtensions(doc,()=>({documents:workspace.documents,autoNouns:editorPreferences(workspace,doc).autoNouns,highlightTerms:editorPreferences(workspace,doc).highlightTerms,terms:glossaryTerms(workspace,doc),glossary:workspace.writingTools?.glossary||[],snippets:editorPreferences(workspace,doc).snippets,packages:(plugins?.records||[]).filter(record=>record.enabled).flatMap(record=>(record.texFiles||[]).map(file=>file.path))}))),
     keymap.of([
     {key:'Enter',run:v=>documentKind(doc)==='TXT'&&editor?.mode!=='code'?paragraphNewline(v):false,shift:v=>documentKind(doc)==='TXT'&&editor?.mode!=='code'?paragraphNewline(v):false},
     {key:'Tab',run:v=>editorIndent(v)},
@@ -779,7 +786,7 @@ function makeState(doc){
     paragraphSelection(),
     highlightSelectionMatches(),
     editorSearch(),
-    EditorView.theme({'.cm-content':{lineHeight:String(editor?.lineHeight||1.8),maxWidth:(editor?.maxWidth||1000)+'px',margin:'0 auto'}}),
+    editorAppearance.of(editorAppearanceExtensions(doc)),
     scrollPastEndCustom(.35),
     EditorView.contentAttributes.of({'aria-label':t('文稿正文'),'spellcheck':'false'}),
     EditorView.updateListener.of(update=>{
@@ -886,6 +893,7 @@ function switchDocument(id){
   home=false;csvEditor?.reset();$('#start-page').hidden=true;$('#start-page').replaceChildren();isPreview=['CSV','VELA','GLY','VODT','PLUGIN','OUTLINE','MAP'].includes(documentKind(doc));
   // A file operation recreates the view; the kept state (undo history, formats) is reused while the text is unchanged.
   const kept=editorStates.get(id),reused=!!kept&&kept.doc.toString()===doc.text;if(view)view.setState(reused?kept:makeState(doc));else view=new EditorView({state:reused?kept:makeState(doc),parent:$('#editor')});if(!reused)restorePosition(doc);else restoreScroll(id);
+  if(reused){const rendering=isPreview&&['OUTLINE','MAP'].includes(documentKind(doc))?[]:sourceRenderExtensions(doc);const effects=[editorAppearance.reconfigure(editorAppearanceExtensions(doc)),sourceRendering.reconfigure(rendering)];if(rendering.length)effects.push(lineNumberSlot.reconfigure(lineNumberExtensions(doc)));view.dispatch({effects});refreshFileType(doc);}
   if(isPreview&&['OUTLINE','MAP'].includes(documentKind(doc))&&sourceRendering.get(view.state)?.length)view.dispatch({effects:sourceRendering.reconfigure([])});
   activateLanguage(doc);index=null;setFontSize(projectConfig(workspace,doc)?.config?.editor?.fontSize??workspace.settings.fontSize,false);$('#current-name').textContent=doc.name;
   updateEditorVisibility();if(alreadyOpen)renderDocumentSelection();else renderDocuments();updateStats();if(isPreview)renderPreview();scheduleWorkspaceSave();if(pageName!=='write'||document.body.dataset.page!=='write')showView('write');else sidebars.update();plugins?.emit('switch-file',plugins.activeFile);
@@ -897,11 +905,11 @@ function closeDocument(id){
   if(workspace.activeId===id){if(workspace.openIds.length)switchDocument(workspace.openIds[Math.min(position,workspace.openIds.length-1)]);else showHome();}else{renderDocuments();save();}
 }
 function updateGlossaryPanel(){
-  const root=$('#glossary-panel');root.hidden=!workspace.settings.glossaryPanel||home||isPreview||!['TXT','MD'].includes(documentKind(current()));
+  const root=$('#glossary-panel');root.hidden=!editorPreferences(workspace,current()).glossaryPanel||home||isPreview||!['TXT','MD'].includes(documentKind(current()));
   if(root.hidden){root.panelDispose?.();root.replaceChildren();root.glossaryTerms=null;return;}
   const terms=glossaryTerms(workspace,current());if(root.glossaryTerms===terms)return;root.glossaryTerms=terms;
   renderGlossaryPanel(root,terms,{escape:esc,onClose:()=>{
-    workspace.settings.glossaryPanel=false;
+    if(!writeWorkPreference('editor','glossaryPanel',false))workspace.settings.glossaryPanel=false;
     updateGlossaryPanel();
     save();
   },onOpen:path=>{
@@ -1828,17 +1836,8 @@ function applyWorkspaceFont() {
 }
 function setFontSize(value,persist=true){
   const size=Math.max(10,Math.min(40,Math.round(Number.isFinite(value)?value:16)));
+  if(persist&&!writeWorkPreference('editor','fontSize',size))workspace.settings.fontSize=size;
   textFontSize=size;
-  if(persist){
-    const project=current()&&documentKind(current())!=='VELA'?projectConfig(workspace,current()):null;
-    if(project?.config){
-      const config=project.rawConfig||project.config;
-      config.editor={...config.editor,fontSize:size};
-      project.doc.text=velaText(config);
-      project.doc.updatedAt=Date.now();
-      editorStates.delete(project.doc.id);
-    }else workspace.settings.fontSize=size;
-  }
   document.documentElement.style.setProperty('--editor-font-size',size+'px');
   view?.requestMeasure();
   if(isPreview&&current()&&documentKind(current())==='HTML')renderPreview();
@@ -1900,6 +1899,11 @@ async function showSettings(group){
     module.mountSettings($('#dialog-body'),{
       get workspace(){return workspace;},native,transport,environment,fontSize:()=>textFontSize,globalReader:()=>globalConfig(workspace)?.config?.reader||{},
       version:environment?.version||(environment?.platform==='android'?__VELA_HARMONY_VERSION__+'-android.1':__VELA_HARMONY_VERSION__),
+      preference:name=>{
+        if(name==='countMode'||name==='includeHeading')return projectWriter(workspace,current())[name];
+        if(['novelLineNumbers','autoNouns','highlightTerms','glossaryPanel'].includes(name))return editorPreferences(workspace,current())[name==='novelLineNumbers'?'lineNumbers':name];
+        return undefined;
+      },
       palettes:allPalettes,customPalettes,maxPalettes:MAX_CUSTOM_PALETTES,
       canCreateVela:()=>!workspace.documents.some(doc=>documentKind(doc)==='VELA'&&documentPath(doc)!==GLOBAL_VELA_PATH&&configFolder(documentPath(doc))===currentScope()),
       paletteEditor:(id,from)=>showPaletteEditor(id,from),toast,save,openModal,close:closeModal,
@@ -1915,7 +1919,7 @@ async function showSettings(group){
         else if(name==='fontFamily'){settings.fontFamily=normalizeFontName(value);applyWorkspaceFont();reader?.layout();}
         else if(name==='fontSize')setFontSize(value);
         else if(name==='countMode'||name==='includeHeading'){
-          settings.writer=chapterSettings({...settings.writer,titleTemplates:[],[name]:value});index=null;updateStats();
+          writeWorkPreference('chapters',name,value);settings.writer=chapterSettings({...settings.writer,titleTemplates:[],[name]:value});index=null;updateStats();
         }else if(name==='readingMode'||name==='globalVelaOverride'){
           if(name==='readingMode')settings.readingMode=value;
           ensureGlobalVela();const global=globalConfig(workspace);
@@ -1924,6 +1928,7 @@ async function showSettings(group){
           if(reader?.id)reader.config=projectConfig(workspace,reader.doc)?.config;reader?.layout();
           if(pageName==='reader'&&name==='globalVelaOverride')reader.home();
         }else{
+          if(['novelLineNumbers','autoNouns','highlightTerms','glossaryPanel'].includes(name))writeWorkPreference('editor',name==='novelLineNumbers'?'lineNumbers':name,value);
           settings[name]=value;
           if(name==='novelLineNumbers')refreshLineNumbers();
           if(['autoNouns','highlightTerms','glossaryPanel','richText'].includes(name)){editorStates.clear();if(current())refreshFileType(current());}

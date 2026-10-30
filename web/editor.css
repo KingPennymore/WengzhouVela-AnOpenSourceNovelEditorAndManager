@@ -153,7 +153,7 @@
 
 /* Dialogs, settings and floating controls */
 .cm-scroller {
-  font-family:var(--app-font-family,"HarmonyOS Sans SC","Microsoft YaHei",sans-serif)!important;
+  font-family:var(--editor-document-font,var(--app-font-family,"HarmonyOS Sans SC","Microsoft YaHei",sans-serif))!important;
   line-height:1.9;
   overflow:auto!important;
   overscroll-behavior:contain;
@@ -166,13 +166,13 @@
 }
 
 .cm-content {
-  padding:var(--space-4) var(--space-3) 100px!important;
+  padding:var(--space-4) var(--editor-margin-right,var(--space-3)) 100px var(--editor-margin-left,var(--space-3))!important;
   caret-color:var(--accent);
 }
 
 @media (max-width:600px) {
   .cm-content {
-    padding:var(--space-3) var(--space-3) 80px!important;
+    padding:var(--space-3) var(--editor-margin-right,var(--space-3)) 80px var(--editor-margin-left,var(--space-3))!important;
   }
 }
 

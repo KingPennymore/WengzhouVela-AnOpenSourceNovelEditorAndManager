@@ -1,3 +1,4 @@
+import {setVelaPreference} from './vela.mjs';
 // AI entry point: request/extraction views and continuation extensions remain lazy.
 import { t } from './i18n.mjs';
 import { icon } from './icons.mjs';
@@ -5,6 +6,7 @@ import { aiSettings, aiStatus, aiReady, subscribeAiActivity } from './ai-client.
 export function createAiAssistant(app) {
   let status = null,
     statusRequest = null,
+    statusFailed = false,
     expanded = false,
     edits = null,
     suggestions = null,
@@ -86,9 +88,11 @@ export function createAiAssistant(app) {
     (statusRequest ??= aiStatus()
       .then(
         (value) => {
+          statusFailed = false;
           status = value;
         },
         () => {
+          statusFailed = true;
           status = null;
         },
       )
@@ -125,7 +129,7 @@ export function createAiAssistant(app) {
   }
   function update() {
     button.hidden = !visible();
-    if (!button.hidden && !status && !statusRequest) refreshStatus();
+    if (!button.hidden && !status && !statusRequest && !statusFailed) refreshStatus();
     if (
       !button.hidden &&
       Object.values(aiSettings(app.workspace).suggestions || {}).some(Boolean) &&
@@ -172,6 +176,7 @@ export function createAiAssistant(app) {
         await enableSuggestions();
         const key = suggestionModule.suggestionProject(app.workspace, app.current());
         settings.suggestions ||= {};
+        setVelaPreference(app.workspace,app.current(),'ai','suggestions',!enabled);
         settings.suggestions[key] = !enabled;
         app.save();
         suggestions.refresh();
@@ -193,6 +198,7 @@ export function createAiAssistant(app) {
     update,
     refreshStatus: () => {
       status = null;
+      statusFailed = false;
       return refreshStatus();
     },
   };

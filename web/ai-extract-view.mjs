@@ -1,7 +1,7 @@
 // The dialog owns cancellation; changing/closing a view discards every in-flight draft.
 import { t, say } from './i18n.mjs';
 import { escapeHtml as esc } from './text-utils.mjs';
-import { aiSettings } from './ai-client.mjs';
+import { aiSettings, aiModelFor } from './ai-client.mjs';
 import {
   chapterChoices,
   extractionBatches,
@@ -35,7 +35,7 @@ export function openExtraction(app, edits) {
   const settings = aiSettings(workspace);
   const destination = () =>
     document.querySelector('.ai-destination')?.textContent ||
-    `${new URL(settings.endpoint).host} · ${settings.models.extract}`;
+    `${new URL(settings.endpoint).host} · ${aiModelFor(workspace,source,'extract')}`;
   root.innerHTML = `<p class="ai-destination">${esc(destination())}</p><p>${t('选择章节')}</p><p class="button-row"><button type="button" data-all>${t('全选')}</button><button type="button" data-none>${t('取消选择')}</button></p><div class="ai-chapters">${choices.map((c, i) => `<label class="checkbox"><input type="checkbox" name="aiChapter" value="${i}" checked>${esc(c.title)} · ${c.chars} ${t('字')}</label>`).join('')}</div><fieldset><legend>${t('选择产物')}</legend>${Object.entries(
     names,
   )
@@ -89,6 +89,7 @@ export function openExtraction(app, edits) {
       try {
         draft = await extractDraft(workspace, {
           text: source.text,
+          document:source,
           chapters,
           types,
           signal: controller.signal,

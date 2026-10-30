@@ -1,3 +1,4 @@
+import {projectConfig} from './vela.mjs';
 // One entry point for AI requests (docs/AI-ASSIST.md). In the apps the key stays in the native secure store and the
 // native `ai` operation sends requests; the browser preview is for testing only and keeps the key in memory.
 import {t,say} from './i18n.mjs';
@@ -54,11 +55,14 @@ export async function aiClear(){
 /** True when the saved key belongs to the configured service (changing the endpoint needs the key again). */
 export const aiReady=(settings,status)=>!!settings.enabled&&!!status?.saved&&status.format===settings.format&&status.endpoint===normalizeEndpoint(settings.endpoint);
 
+export function aiModelFor(workspace,doc,purpose,settings=aiSettings(workspace)){
+ return (doc&&projectConfig(workspace,doc)?.config?.ai?.models?.[purpose])||settings.models[purpose]||settings.models.extract;
+}
 /**
  * Sends one generation request. `purpose` picks the model ('extract' or 'suggest'); `chars` is what counts toward
  * the daily limit (the text the user chose to send).
  */
-async function complete(workspace,{purpose,system,messages,maxTokens,temperature,signal}){
+async function complete(workspace,{purpose,system,messages,maxTokens,temperature,signal,document:source}){
   const settings=aiSettings(workspace),chars=[system,...messages.map(message=>message.content)].join('').length;
   if(signal?.aborted)throw new DOMException('Aborted','AbortError');
   if(!settings.consented||!aiReady(settings,await aiStatus()))throw new Error(t('未配置 AI 服务。'));
@@ -66,7 +70,8 @@ async function complete(workspace,{purpose,system,messages,maxTokens,temperature
   const now=new Date(),today=[now.getFullYear(),String(now.getMonth()+1).padStart(2,'0'),String(now.getDate()).padStart(2,'0')].join('-');
   if(settings.usage.day!==today)settings.usage={day:today,chars:0};
   if(settings.dailyChars&&settings.usage.chars+chars>settings.dailyChars)throw new Error(say(`已达到每日发送上限（${settings.dailyChars.toLocaleString()} 字），明天再试，或在 AI 设置中调整。`,`Daily limit reached (${settings.dailyChars.toLocaleString()} characters). Try tomorrow or change it in AI settings.`));
-  const request=buildRequest(settings.format,{model:settings.models[purpose]||settings.models.extract,system,messages,maxTokens,temperature,apiVersion:settings.apiVersion});
+  const document=source||workspace.documents?.find(doc=>doc.id===workspace.activeId);
+  const request=buildRequest(settings.format,{model:aiModelFor(workspace,document,purpose,settings),system,messages,maxTokens,temperature,apiVersion:settings.apiVersion});
   // Like the local Tarot client, use non-streaming chat requests. DeepSeek's
   // thinking tokens share the output budget; short continuation budgets otherwise
   // leave no final answer. These bounded text tasks explicitly use non-thinking mode.
@@ -81,6 +86,7 @@ async function complete(workspace,{purpose,system,messages,maxTokens,temperature
     const cancel=()=>transport('ai',{action:'cancel',requestId}).catch(()=>{});
     signal?.addEventListener('abort',cancel,{once:true});
     try{result=await transport('ai',{action:'request',requestId,method:'POST',path:request.path,body:request.body});}
+    catch(error){cancel();throw error;}
     finally{signal?.removeEventListener('abort',cancel);}
     if(signal?.aborted)throw new DOMException('Aborted','AbortError');
   }else{

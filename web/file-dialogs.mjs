@@ -20,9 +20,8 @@ export function createFileDialogs(app){
       const previous=JSON.stringify(app.workspace),parts=path.split('/');
       app.workspace.folders=[...new Set([...(app.workspace.folders||[]),...parts.map((_,i)=>parts.slice(0,i+1).join('/'))])];
       if(f.has('workspace')){
-        const config=createVelaV2(basename(path)),defaults=globalConfig(app.workspace)?.config?.workspaceDefaults;
-        for(const key of ['editor','reader','chapters'])if(defaults?.[key])config[key]=structuredClone(defaults[key]);
-        if(defaults?.reading?.layout)config.reading.layout=structuredClone(defaults.reading.layout);
+        const defaults=globalConfig(app.workspace)?.config?.workspaceDefaults;
+        const config=createVelaV2(basename(path),{defaults});
         const doc=newDocument('.vela',velaText(config));
         doc.path=path+'/.vela';
         app.workspace.documents.push(doc);

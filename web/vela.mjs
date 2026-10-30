@@ -174,9 +174,26 @@ export function readingDocuments(workspace){
     return 0;
   });
 }
+/** UI defaults remain local; only explicit project preferences override them. */
+export function setVelaPreference(workspace,doc,section,key,value){
+ if(!doc||documentKind(doc)==='VELA')return false;
+ const project=projectConfig(workspace,doc);if(!project?.doc)return false;
+ if(project.warning||project.error)throw Error(t('配置无效，请切换源码修复。'));
+ const config=structuredClone(project.rawConfig||project.config),relative=documentPath(doc).slice(project.folder?project.folder.length+1:0);
+ const layer=config.files?.[relative]?.[section]?config.files[relative]:config;
+ layer[section]={...layer[section],[key]:value};
+ project.doc.text=velaText(config);project.doc.updatedAt=Date.now();return true;
+}
+export function editorPreferences(workspace,doc){
+ const value=projectConfig(workspace,doc)?.config?.editor||{},local=workspace.settings;
+ return {...value,lineNumbers:value.lineNumbers??!!local.novelLineNumbers,
+  autoNouns:value.autoNouns??local.autoNouns,highlightTerms:value.highlightTerms??local.highlightTerms,
+  glossaryPanel:value.glossaryPanel??local.glossaryPanel,
+  snippets:[...new Map([...(workspace.writingTools?.snippets||[]),...(value.snippets||[])].map(item=>[item.label,item])).values()]};
+}
 export function projectWriter(workspace,doc){
   const project=projectConfig(workspace,doc);
-  return chapterSettings({...workspace.settings.writer,titleTemplates:project?.config?.chapters?.templates||[]});
+  return chapterSettings({...workspace.settings.writer,...project?.config?.chapters,titleTemplates:project?.config?.chapters?.templates||[]});
 }
 export function includeNewReadingFile(workspace,doc){
   if(!readable(doc))return;
@@ -254,6 +271,9 @@ export function rewriteVelaFiles(before,after,action,path,destination=''){
           if(!Object.keys(next).length)delete config.positions;
         }
         for(const editor of [config.editor,config.workspaceDefaults?.editor,...Object.values(config.files||{}).map(value=>value.editor)])if(editor?.glossaries)editor.glossaries=editor.glossaries.map(rewrite).filter(path=>path!==null);
+        for(const layer of [config,config.workspaceDefaults,...Object.values(config.files||{})])if(layer?.ai?.targets)for(const [kind,target] of Object.entries(layer.ai.targets)){
+          const next=rewrite(target);if(next===null)delete layer.ai.targets[kind];else layer.ai.targets[kind]=next;
+        }
         for(const [object,key] of [[config.project,'cover'],[config.formats?.latex,'main'],[config.publishing,'changelog']])if(object?.[key]){
           const next=rewrite(object[key]);
           if(next===null)delete object[key];

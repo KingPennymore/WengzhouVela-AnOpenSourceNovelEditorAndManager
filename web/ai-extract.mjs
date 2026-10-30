@@ -42,7 +42,7 @@ export const batchLimit = (settings) =>
   Math.min(6000, Math.max(256, Math.floor((settings.contextTokens || 8192) * 0.2)));
 export async function extractDraft(
   workspace,
-  { text, chapters, types, signal, progress, complete = aiComplete },
+  { text, chapters, types, signal, progress, document, complete = aiComplete },
 ) {
   const settings = aiSettings(workspace),
     batches = extractionBatches(text, chapters, batchLimit(settings)),
@@ -53,7 +53,7 @@ export async function extractDraft(
     if (signal?.aborted) throw new DOMException('Aborted', 'AbortError');
     progress?.({ completed: i, total: batches.length });
     const result = await complete(workspace, {
-      purpose: 'extract',
+      purpose: 'extract',document,
       system,
       messages: [{ role: 'user', content: batches[i] }],
       maxTokens: Math.min(6000, Math.floor((settings.contextTokens || 8192) * 0.25)),

@@ -20,7 +20,7 @@ export function mountSettings(root,host,{group}={}){
   const scrolls=new Map(),drafts=new Map();
   let settings=host.workspace.settings;
   const item=(group,name,type,label,help='',extra={})=>({group,name,type,label,help,...extra,
-    get:()=>name==='fontSize'?host.fontSize():name==='globalVelaOverride'?host.globalReader().appearancePolicy==='personal':name==='countMode'||name==='includeHeading'?settings.writer[name]:settings[name],
+    get:()=>host.preference?.(name)??(name==='fontSize'?host.fontSize():name==='globalVelaOverride'?host.globalReader().appearancePolicy==='personal':name==='countMode'||name==='includeHeading'?settings.writer[name]:settings[name]),
     set:value=>host.changed(name,value)});
   const items=()=>[
     item('appearance','theme','segmented',t('主题'),'',{options:options([['system','跟随系统'],['light','浅色模式'],['dark','深色模式']])}),
@@ -42,7 +42,7 @@ export function mountSettings(root,host,{group}={}){
   const summary=id=>{
     if(id==='appearance'){const palette=host.palettes().find(p=>p.id===settings.palette);return [t({system:'跟随系统',light:'浅色模式',dark:'深色模式'}[settings.theme]||'跟随系统'),palette&&(palette.custom?palette.name:t(palette.name))].filter(Boolean).join(' · ');}
     if(id==='editing')return host.fontSize()+' px';
-    if(id==='chapters')return t(settings.writer.countMode==='letters'?'仅文字与数字':'非空白字符（含标点）');
+    if(id==='chapters')return t((host.preference?.('countMode')??settings.writer.countMode)==='letters'?'仅文字与数字':'非空白字符（含标点）');
     if(id==='reading')return t({scroll:'上下滑动',pages:'左右翻页',double:'双页阅读'}[settings.readingMode]||'上下滑动');
     if(id==='terms'){const count=[settings.autoNouns!==false,settings.highlightTerms,settings.glossaryPanel].filter(Boolean).length;return say(`${count} 项已开启`,`${count} enabled`);}
     if(id==='storage')return say(`${host.workspace.documents.length} 个文件`,`${host.workspace.documents.length} files`);

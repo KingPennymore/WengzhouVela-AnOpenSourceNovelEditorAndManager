@@ -88,3 +88,48 @@
 新建文件对话框按文件类型选择，名称扩展名同步修改，也可手工输入受支持的其他扩展名。当前文件夹已有 `.vela` 时禁用作品设置选项，手工改文件名也不能绕过重复检查；`.global.vela` 限根目录且同样不能重复。普通新建文件夹不再自动创建设置文件，可勾选“同时建立作品设置”。移动与创建位置通过可视目录选择，移动文件夹时不列出其自身和后代。
 
 地图参考网格可设 `formats.map.showHexGrid: true`，默认 false，按全局、作品和单文件配置继承；地图本身可用 `grid.visible` 覆盖。两处均只接受布尔值。网格仅辅助显示，不影响边界算法或绘制点。
+
+
+## 作品编辑与 AI 偏好（兼容 version 2 / 3）
+
+本次增加可选字段，版本号不变；旧文件无需迁移，未知扩展字段继续保留。
+优先级为内置 / 本机偏好 → `.global.vela` → 作品 `.vela` → `files[相对路径]`。
+`workspaceDefaults` 仍仅用于新建作品，不影响已有作品。
+
+```json
+{
+  "version": 2,
+  "kind": "workspace",
+  "id": "my-book",
+  "project": {"name": "我的作品"},
+  "editor": {
+    "lineNumbers": true,
+    "marginLeft": 12,
+    "marginRight": 12,
+    "fontFamily": "serif",
+    "autoNouns": true,
+    "highlightTerms": true,
+    "glossaryPanel": false,
+    "snippets": [{"label": "省略号", "text": "……"}]
+  },
+  "chapters": {"countMode": "letters", "includeHeading": false},
+  "ai": {
+    "suggestions": false,
+    "models": {"extract": "deepseek-chat", "suggest": "deepseek-chat"},
+    "targets": {"glossary": "辅助/术语.gly", "outline": "辅助/情节.pcs", "places": "辅助/地图.vlmp"}
+  }
+}
+```
+
+- `editor.lineNumbers`：显示逻辑行上方的淡色行号；未填写时沿用本机“小说模式显示行号”。行号样式固定，不写入正文。
+- `marginLeft` / `marginRight`：编辑正文左右内边距，0–120 CSS px，默认各 12；与阅读边距独立。
+- `fontFamily`：正文字体族名称，最多 160 字符；不存在时使用系统后备字体，不改变应用界面字体、不下载字体。空字符串恢复跟随界面字体。
+- `autoNouns` / `highlightTerms` / `glossaryPanel`：分别控制名词候选、术语高亮和同屏术语；`editor.completion` 仍是补全总开关。
+- `snippets`：最多 256 个 `{label,text}`，label 为非空字符串（最多 80 字符），text 最多 8192 字符。继承时数组整体替换；与本机片段合并时，作品的同名片段优先。
+- `chapters.countMode`：`nonspace`（非空白字符）或 `letters`（文字与数字）；`includeHeading` 为布尔值。未填写时沿用本机统计规则。
+- `ai.models`：覆盖本机的整理 / 续写模型选择；仍使用本机已配置服务及密钥，发送前确认显示实际模型。
+- `ai.targets`：相对于作品 `.vela` 文件夹的项目路径；glossary 允许 `.gly/.glossary`，outline 允许 `.pcs/.process`，places 允许 `.vlmp/.velamap`。路径须可跨平台使用，不允许绝对路径、越界或保留名称。移动 / 重命名时随关联路径更新；实际写入仍须预览确认。
+- `ai.suggestions: false` 禁用作品续写。`true` 只表示作品允许，仍须用户在本机启用 AI、同意发送，并主动打开当前作品续写。菜单操作同步保存作品偏好与本机授权状态。
+
+`ai` 仅接受 `suggestions`、`models`、`targets`；密钥、接口地址、服务开关、发送同意、每日用量等设备数据不得放入此对象。
+新增字段同时适用于全局、作品、单文件和新作品默认配置。设置中的行号、补全细分开关及字数规则会写入当前生效配置层；直接编辑 `.vela` 时须保持 JSON 有效。

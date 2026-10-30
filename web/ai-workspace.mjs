@@ -28,17 +28,19 @@ export function extractionContext(workspace, source) {
     while (used.includes((prefix + name).toLocaleLowerCase())) name = stem + '-AI-' + n++ + suffix;
     return prefix + name;
   };
+  const preferred=project?.config?.ai?.targets||{};
+  const target=(kind,fallback)=>preferred[kind]?prefix+relativePath(preferred[kind]):fallback;
   return {
     root,
     prefix,
     project,
     targets: {
-      glossary:
+      glossary:target('glossary',
         glossaryPaths(workspace, source).find(
           (p) => p.startsWith(prefix) && available.some((d) => documentPath(d) === p),
-        ) || unique('.gly'),
-      outline: unique('.pcs'),
-      places: unique('.vlmp'),
+        ) || unique('.gly')),
+      outline: target('outline',unique('.pcs')),
+      places: target('places',unique('.vlmp')),
     },
     available,
   };

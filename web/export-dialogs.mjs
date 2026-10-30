@@ -3,7 +3,7 @@ import {escapeHtml as esc} from './text-utils.mjs';
 import Writer from '../vendor/acode-writer/src/core.js';
 import {documentKind} from './model.mjs';
 import {native,exportText,exportBinary} from './platform.mjs';
-import {projectConfig} from './vela.mjs';
+import {projectConfig,projectWriter} from './vela.mjs';
 import {formatsOf} from './rich-text-editor.mjs';
 import {chapterExport,chapterFileName} from './chapter-export.mjs';
 import {chapterMarkdown,chapterHtml} from './rich-text-export.mjs';
@@ -55,7 +55,7 @@ export function createExportDialogs(app){
         if(!result.text)throw Error(t('所选章节没有正文。'));
         const rich=format==='html'?await copyRich(output.html,result.text):(await copyText(format==='markdown'?output.text:result.text),false);
         closeModal();
-        toast(say(`已复制 ${result.chapters} 章，共 ${Writer.countText(result.text,app.workspace.settings.writer.countMode).toLocaleString()} 字${format==='html'&&!rich?'（此平台只能复制纯文本）':''}`,`Copied ${result.chapters} chapters, ${Writer.countText(result.text,app.workspace.settings.writer.countMode).toLocaleString()} characters${format==='html'&&!rich?' (this platform supports plain text copying only)':''}`));
+        toast(say(`已复制 ${result.chapters} 章，共 ${Writer.countText(result.text,projectWriter(app.workspace,app.current()).countMode).toLocaleString()} 字${format==='html'&&!rich?'（此平台只能复制纯文本）':''}`,`Copied ${result.chapters} chapters, ${Writer.countText(result.text,projectWriter(app.workspace,app.current()).countMode).toLocaleString()} characters${format==='html'&&!rich?' (this platform supports plain text copying only)':''}`));
       }catch(cause){
         $('#dialog-error').textContent=t(cause.message);
       }finally{

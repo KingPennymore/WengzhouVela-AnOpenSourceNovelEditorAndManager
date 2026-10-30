@@ -1,3 +1,4 @@
+import {validatePreferences} from './vela-preferences.mjs';
 import {t,say} from './i18n.mjs';
 import {planningDefaults,validatePlanning} from './planning-config.mjs';
 import {validateStyles} from './rich-text-styles.mjs';
@@ -105,13 +106,14 @@ export function parseV2(raw){
     for(const [path,settings] of Object.entries(value.files)){
       repoPath(path);
       object(settings,'file settings');
-      parseV2({version:2,kind:'global',editor:settings.editor,reader:settings.reader,reading:settings.reading,chapters:settings.chapters,formats:settings.formats});
+      parseV2({version:2,kind:'global',editor:settings.editor,reader:settings.reader,reading:settings.reading,chapters:settings.chapters,formats:settings.formats,ai:settings.ai});
     }
   }
   if(value.workspaceDefaults){
     object(value.workspaceDefaults,'workspaceDefaults');
-    parseV2({version:2,kind:'global',editor:value.workspaceDefaults.editor,reader:value.workspaceDefaults.reader,reading:value.workspaceDefaults.reading,chapters:value.workspaceDefaults.chapters,formats:value.workspaceDefaults.formats});
+    parseV2({version:2,kind:'global',editor:value.workspaceDefaults.editor,reader:value.workspaceDefaults.reader,reading:value.workspaceDefaults.reading,chapters:value.workspaceDefaults.chapters,formats:value.workspaceDefaults.formats,ai:value.workspaceDefaults.ai});
   }
+  validatePreferences(value);
   validatePlanning(value.formats);
   const latex=value.formats?.latex;
   if(latex){
@@ -122,10 +124,15 @@ export function parseV2(raw){
   if(value.publishing?.changelog) repoPath(value.publishing.changelog);
   return value;
 }
-export function createVelaV2(name,{global=false}={}){
-  return parseV2(global
+export function createVelaV2(name,{global=false,defaults}={}){
+  const value=global
     ?{version:2,kind:'global',editor:{},reader:{appearancePolicy:'project'},library:{mode:'auto',showUnconfiguredFiles:true}}
-    :{version:2,kind:'workspace',id:crypto.randomUUID(),project:{name},chapters:{templates:[]},editor:{},reading:{items:[]}});
+    :{version:2,kind:'workspace',id:crypto.randomUUID(),project:{name},chapters:{templates:[]},editor:{},reading:{items:[]}};
+  if(!global&&defaults){
+    for(const key of ['editor','reader','chapters','formats','ai'])if(defaults[key]!==undefined)value[key]=structuredClone(defaults[key]);
+    if(defaults.reading?.layout)value.reading.layout=structuredClone(defaults.reading.layout);
+  }
+  return parseV2(value);
 }
 /**
  * `richText` holds everything about TXT formatting: `enabled`, named `styles` and, per TXT (path relative to the
