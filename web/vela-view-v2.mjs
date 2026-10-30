@@ -1,7 +1,7 @@
 import {parseVela,velaText,readingLayoutDefaults,readable,configFolder,readingItems,globalConfig,allFiles} from './vela.mjs';
 import {formatPaneHtml,bindFormatPane} from './vela-format-view.mjs';
 // Which page (configuration or TXT formats) each .vela was showing, so saving keeps the page.
-const pages=new Map();
+const pages=new Map(),scrolls=new Map();
 import {effectiveVela} from './vela-v2.mjs';
 import {documentPath} from './workspace.mjs';
 import {t} from './i18n.mjs';
@@ -23,14 +23,16 @@ export function renderVelaV2({root,doc,workspace,escape:esc,onSave,onOpenPath,on
   // i18n-data: data-section keys are selectors, not UI text
   root.innerHTML=`<form id="vela-form" class="vela-config">
       <header class="vela-config-header">
-        <span class="vela-config-mark">.vela v${config.version}</span>
-        <div>
+        <div class="vela-config-title">
           <h2>${t(global?'全局默认配置':'作品配置')}</h2>
-          <small data-user-content>${esc(folder||t('内部文件夹'))}</small></div>
-        <div class="vela-pages" role="tablist">
-          <button type="button" role="tab" data-vela-page="config">${t(global?'默认配置':'作品配置')}</button>
-          <button type="button" role="tab" data-vela-page="format">${t('TXT 格式')}</button></div>
+          <small><span class="vela-config-mark">.vela v${config.version}</span> · <span data-user-content>${esc(folder||t('内部文件夹'))}</span></small>
+        </div>
+        <button type="submit" class="ui-button primary" data-vela-save>${t('保存配置')}</button>
       </header>
+      <nav class="vela-pages" role="tablist" aria-label="${t('配置页面')}">
+        <button type="button" role="tab" data-vela-page="config">${t(global?'默认配置':'作品配置')}</button>
+        <button type="button" role="tab" data-vela-page="format">${t('TXT 格式')}</button>
+      </nav>
       <div class="vela-page" data-page="config">
         <nav class="vela-sections">${['作品信息','编辑','章节','阅读排版','阅读清单','高级'].filter(name=>!global||!['作品信息','章节'].includes(name)).map(name=>`<button type="button" data-vela-section="${name}">${t(name)}</button>`).join('')}</nav>
         <div class="vela-config-grid">${global
@@ -119,7 +121,7 @@ export function renderVelaV2({root,doc,workspace,escape:esc,onSave,onOpenPath,on
       <div class="vela-page" data-page="format" hidden>${formatPaneHtml({config,global,folder,inherited:globalConfig(workspace)?.config,workspace,escape:esc})}</div>
       <footer class="vela-config-actions">
         <p id="vela-error" class="error" role="alert"></p>
-        <button class="primary">${t('保存配置')}</button></footer>
+</footer>
     </form>`;
   const form=root.querySelector('form'),
     chosen=new Set(selected),
@@ -163,6 +165,11 @@ export function renderVelaV2({root,doc,workspace,escape:esc,onSave,onOpenPath,on
         await onSave(velaText(next),{records:true});
       }
     });
+  for(const panel of [root.querySelector('.vela-config-grid'),root.querySelector('[data-page="format"]')]){
+    const key=doc.id+':'+(panel.dataset.page||'config');
+    panel.addEventListener('scroll',()=>scrolls.set(key,panel.scrollTop),{signal:session.signal,passive:true});
+    queueMicrotask(()=>{if(session.alive())panel.scrollTop=scrolls.get(key)||0;});
+  }
   const autoBox=form.elements.readingAuto,
     syncAuto=()=>{
       if(!autoBox)return;
@@ -258,11 +265,12 @@ export function renderVelaV2({root,doc,workspace,escape:esc,onSave,onOpenPath,on
   root.querySelectorAll('[data-vela-section]').forEach(button=>button.onclick=()=>{
     root.querySelectorAll('[data-vela-section]').forEach(item=>item.removeAttribute('aria-current'));
     button.setAttribute('aria-current','true');
-    root.querySelector(`[data-section="${button.dataset.velaSection}"]`).scrollIntoView({behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'instant':'smooth',block:'start'});
+    const panel=root.querySelector('.vela-config-grid'),card=root.querySelector(`[data-section="${button.dataset.velaSection}"]`);
+    panel.scrollTo({top:card.offsetTop-parseFloat(getComputedStyle(panel).paddingTop),behavior:matchMedia('(prefers-reduced-motion:reduce)').matches?'instant':'smooth'});
   });
   form.onsubmit=async e=>{
     e.preventDefault();
-    const button=form.querySelector('footer .primary');
+    const button=form.querySelector('[data-vela-save]');
     button.disabled=true;
     try{
       const data=new FormData(form),next=structuredClone(config);

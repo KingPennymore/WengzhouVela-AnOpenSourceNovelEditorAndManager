@@ -15,7 +15,7 @@ import {
 } from './project-contract.mjs';
 import {PluginTasks} from './plugin-tasks.mjs';
 import {
-  createVelaV2,
+  createVela,
   parseVela,
   velaText
 } from './vela.mjs';
@@ -575,7 +575,7 @@ export class ProjectService {
               throw error('E_PERMISSION',t('创建已取消。'));
             this.alive(binding);
             const candidate=structuredClone(this.state()),
-              config=createVelaV2(name),
+              config=createVela(name),
               doc=newDocument('.vela',velaText(config));
             doc.path=root + '/.vela';
             candidate.documents.push(doc);

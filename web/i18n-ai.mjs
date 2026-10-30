@@ -122,4 +122,5 @@ export const aiTranslations={
   '字符':'characters',
   '说明':'Description',
   '已存在':'Already exists',
+  "重新生成续写建议":"Regenerate continuation",
 };

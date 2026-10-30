@@ -1,4 +1,4 @@
-import {closeSettings} from './settings-helper.mjs';
+import { closeSettings } from './settings-helper.mjs';
 import assert from 'node:assert/strict';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { launchBrowser } from './browser-launch.mjs';
@@ -87,7 +87,8 @@ try {
       await page.locator('#ai-actions:not([hidden])').waitFor();
     };
     const close = async () => {
-      if(await page.locator('#dialog[open]').count())await page.locator('#dialog-cancel').click();else await page.keyboard.press('Escape');
+      if (await page.locator('#dialog[open]').count()) await page.locator('#dialog-cancel').click();
+      else await page.keyboard.press('Escape');
       await page.waitForFunction(() => !document.querySelector('#dialog').open);
       await settled(page);
     };
@@ -197,20 +198,45 @@ try {
       assert.equal(await page.evaluate(() => velaEditorView.state.doc.toString()), text);
       assert.ok(!requests.at(-1).messages.at(-1).content.includes('第二章'));
       assert.equal(requests.at(-1).model, 'model-b');
-      await page.keyboard.type('风');
-      await page.waitForFunction(() =>
-        document.querySelector('.ai-ghost-text')?.textContent.startsWith('从海'),
+      await page.keyboard.type('新');
+      assert.equal(await page.locator('.ai-ghost-text').textContent(), '风从海上吹来。灯塔亮起。');
+      assert.equal(await page.locator('.ai-ghost-actions button').count(), 3);
+      await page.locator('.ai-ghost-text').click();
+      assert.equal(
+        await page.evaluate(() => velaEditorView.state.doc.toString()),
+        text.slice(0, pos) + '新' + text.slice(pos),
+        'tapping the hint does not accept it',
       );
-      await page.keyboard.press('Tab');
+      await page.screenshot({ path: `test-results/release-0.9.9.9/${width}-ai-suggestion.png` });
+      const beforeRegenerate = requests.length;
+      await page.locator('[data-ai-suggestion=regenerate]').click();
+      await page.waitForFunction(
+        () => document.querySelector('#ai-button')?.getAttribute('aria-busy') !== 'true',
+      );
+      assert.ok(requests.length > beforeRegenerate);
+      await page.locator('[data-ai-suggestion=accept]').click();
       const accepted = await page.evaluate(() => velaEditorView.state.doc.toString());
-      assert.ok(accepted.includes('风从海上吹来'));
+      assert.ok(accepted.includes('新风从海上吹来'));
       await page.keyboard.press('Control+z');
       assert.equal(
         await page.evaluate(() => velaEditorView.state.doc.toString()),
-        text.slice(0, pos) + '风' + text.slice(pos),
+        text.slice(0, pos) + '新' + text.slice(pos),
       );
       await page.keyboard.press('End');
       await page.keyboard.type('新');
+      await page.locator('.ai-ghost-text').waitFor();
+      await page.keyboard.press('Tab');
+      assert.equal(
+        await page.locator('.ai-ghost-text').count(),
+        0,
+        'desktop shortcut still accepts',
+      );
+      await page.keyboard.press('Control+z');
+      await page.keyboard.type('。');
+      await page.locator('.ai-ghost-text').waitFor();
+      await page.locator('[data-ai-suggestion=dismiss]').click();
+      assert.equal(await page.locator('.ai-ghost-text').count(), 0);
+      await page.keyboard.type('续');
       await page.locator('.ai-ghost-text').waitFor();
       await page.keyboard.press('Escape');
       assert.equal(await page.locator('.ai-ghost-text').count(), 0);
@@ -229,7 +255,7 @@ try {
       console.log(
         'PASS',
         width,
-        'ghost text stays out of document, only preceding text sent, partial typing, Tab acceptance, undo, Escape and IME/disable suppression',
+        'ghost text persists across typing, tap does not accept, regenerate and explicit acceptance, undo, Escape and IME/disable suppression',
       );
       assert.deepEqual(errors, []);
     } catch (error) {

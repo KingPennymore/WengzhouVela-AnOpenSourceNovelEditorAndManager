@@ -124,16 +124,18 @@ export function parseV2(raw){
   if(value.publishing?.changelog) repoPath(value.publishing.changelog);
   return value;
 }
-export function createVelaV2(name,{global=false,defaults}={}){
+export function createVela(name,{global=false,defaults}={}){
   const value=global
-    ?{version:2,kind:'global',editor:{},reader:{appearancePolicy:'project'},library:{mode:'auto',showUnconfiguredFiles:true}}
-    :{version:2,kind:'workspace',id:crypto.randomUUID(),project:{name},chapters:{templates:[]},editor:{},reading:{items:[]}};
+    ?{version:3,kind:'global',editor:{},reader:{appearancePolicy:'project'},library:{mode:'auto',showUnconfiguredFiles:true}}
+    :{version:3,kind:'workspace',id:crypto.randomUUID(),project:{name:name?.trim()||'Vela'},chapters:{templates:[]},editor:{},reading:{items:[]}};
   if(!global&&defaults){
     for(const key of ['editor','reader','chapters','formats','ai'])if(defaults[key]!==undefined)value[key]=structuredClone(defaults[key]);
     if(defaults.reading?.layout)value.reading.layout=structuredClone(defaults.reading.layout);
   }
   return parseV2(value);
 }
+/** Compatibility name for extensions; all newly created configurations use the latest schema. */
+export const createVelaV2=createVela;
 /**
  * `richText` holds everything about TXT formatting: `enabled`, named `styles` and, per TXT (path relative to the
  * .vela folder), the format record in `documents`. Top-level `styles` from 0.9.7 are still read.
@@ -175,7 +177,7 @@ export function effectiveVela(global,project,path=''){
   result=mergeConfig(result,file);
   result.reading={...result.reading,layout:mergeConfig(mergeConfig(recommended,file.reader?.layout),file.reading?.layout)};
   if(g.reader?.appearancePolicy==='personal') result.reading.layout=mergeConfig(result.reading.layout,g.reader.layout);
-  return {...result,version:2,kind:project?.kind||global?.kind||'workspace',project:project?.project||{name:'文稿'}}; // i18n-data: default name stored in .vela
+  return {...result,version:project?.version||global?.version||3,kind:project?.kind||global?.kind||'workspace',project:project?.project||{name:'文稿'}}; // i18n-data: default name stored in .vela
 }
 export function effectiveFileVela(global,base,file){
   const result=mergeConfig(base,file);

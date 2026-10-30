@@ -1,6 +1,6 @@
-# .vela 第二版配置
+# .vela 第三版配置
 
-0.8.0 分开保存个人默认值与作品配置。第三版新增作品配置中的 `richText`：TXT 格式工具开关、命名样式和每个 TXT 的格式记录（0.9.8 起；0.9.7 的 `正文.txt.vela` 旁注仍可读取，保存时并入 `.vela`），设计见 [VELA-V3-DESIGN.md](VELA-V3-DESIGN.md)。解析器同时接受 `version: 2` 和 `3`。所有路径使用 `/`、相对于配置所在文件夹，不允许绝对路径或越界路径。
+0.8.0 分开保存个人默认值与作品配置。第三版新增作品配置中的 `richText`：TXT 格式工具开关、命名样式和每个 TXT 的格式记录（0.9.8 起；0.9.7 的 `正文.txt.vela` 旁注仍可读取，保存时并入 `.vela`），设计见 [VELA-V3-DESIGN.md](VELA-V3-DESIGN.md)。解析器同时接受 `version: 2` 和 `3`。0.9.9.9 起，新建配置统一使用第三版；加载、导入或同步中检测到有效的第一、二版文件时，自动升级到第三版，并在普通本地历史中保留转换前的原文。损坏、不支持或未来版本的文件保持原样，不会用默认值覆盖。所有路径使用 `/`、相对于配置所在文件夹，不允许绝对路径或越界路径。
 
 | 文件 | 职责 |
 | --- | --- |
@@ -15,7 +15,7 @@
 
 ```json
 {
-  "version": 2,
+  "version": 3,
   "kind": "workspace",
   "id": "my-novel",
   "project": {"name": "航程", "author": "作者", "description": "作品简介"},
@@ -39,7 +39,7 @@
 
 ```json
 {
-  "version": 2,
+  "version": 3,
   "kind": "global",
   "editor": {"fontSize": 18},
   "reader": {"appearancePolicy": "project", "layout": {"fontSize": 20}},
@@ -92,13 +92,13 @@
 
 ## 作品编辑与 AI 偏好（兼容 version 2 / 3）
 
-本次增加可选字段，版本号不变；旧文件无需迁移，未知扩展字段继续保留。
+这些可选字段沿用第三版结构。第一版的作品名称、字号、标题模板和阅读路径会映射到对应字段；第二版保持稳定作品 ID、显式空清单和未知扩展字段，只升级版本。`kind: document` 的旧 TXT 旁注继续采用既有的格式合并流程。
 优先级为内置 / 本机偏好 → `.global.vela` → 作品 `.vela` → `files[相对路径]`。
 `workspaceDefaults` 仍仅用于新建作品，不影响已有作品。
 
 ```json
 {
-  "version": 2,
+  "version": 3,
   "kind": "workspace",
   "id": "my-book",
   "project": {"name": "我的作品"},

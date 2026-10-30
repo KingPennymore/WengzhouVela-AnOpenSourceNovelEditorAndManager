@@ -3,7 +3,7 @@ import {createOutline,outlineText} from './outline.mjs';
 import {createMap,mapText} from './map.mjs';
 import {fileKind} from './model.mjs';
 import {createGlossary,glossaryText} from './glossary.mjs';
-import {createVelaV2,velaText} from './vela.mjs';
+import {createVela,velaText} from './vela.mjs';
 import {createVelaOdt} from './odf-base.mjs';
 // Starter content follows the file format itself: the skeleton a new file of that type needs, not story placeholders.
 const code={
@@ -152,9 +152,9 @@ const formats={
       return t('工作区配置结构');
     },
     get description(){
-      return t('使用现有 VELA 配置结构。');
+      return t('使用第三版 .vela 配置结构。');
     },
-    text:name=>velaText(createVelaV2(name.replace(/\.vela$/i,''),{global:name==='.global.vela'}))
+    text:name=>velaText(createVela(name.replace(/\.vela$/i,''),{global:name==='.global.vela'}))
   },
   CODE:{
     get label(){

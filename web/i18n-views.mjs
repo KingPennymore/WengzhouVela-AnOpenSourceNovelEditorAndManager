@@ -17,4 +17,6 @@ export const viewsTranslations={
   '默认配置':'Default configuration',
   '资源/封面.png':'assets/cover.png',
   '保留在工作区中':'Kept in the workspace',
+  "配置页面":"Configuration pages",
+  "使用第三版 .vela 配置结构。":"Create a version 3 .vela configuration.",
 };

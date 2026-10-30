@@ -930,7 +930,7 @@
     height:36px;
     border-bottom:1px solid var(--line);
     min-width:0;
-    min-height:40px;
+    min-height:36px;
     flex-shrink:0;
     background:var(--panel);
   }
@@ -1049,7 +1049,7 @@
 
   @media (min-width:1000px) {
     body[data-platform=windows] .topbar {
-      min-height:52px;
+      min-height:44px;
       padding-left:var(--space-4);
       padding-right:var(--space-4);
     }
@@ -1108,11 +1108,11 @@
     align-items:center;
     justify-content:space-between;
     height:auto;
-    min-height:calc(var(--control) + var(--space-4));
+    min-height:var(--control);
     display:grid;
     grid-template-columns:minmax(0,1fr) auto auto;
     gap:var(--space-2);
-    padding:var(--space-2) var(--space-3);
+    padding:0 var(--space-3);
     flex-shrink:0;
     overscroll-behavior:none;
     user-select:none;
@@ -1125,7 +1125,7 @@
   @media (max-width:900px) {
     .topbar {
       gap:var(--space-1);
-      padding:var(--space-2);
+      padding:0 var(--space-2);
     }
   }
 
@@ -1133,29 +1133,29 @@
     .topbar {
       grid-template-columns:minmax(0,1fr) auto;
       grid-template-rows:44px;
-      padding:var(--space-1) var(--space-1);
+      padding:0 var(--space-1);
       gap:var(--space-1);
-      min-height:52px;
+      min-height:44px;
     }
   }
 
   @media (max-width:340px) {
     .topbar {
-      padding:var(--space-1);
+      padding-inline:var(--space-1);
     }
   }
 
   @media (orientation:landscape) and (max-height:520px) {
     .topbar {
-      height:48px;
-      min-height:48px;
-      padding-block:var(--space-1);
+      height:auto;
+      min-height:44px;
+      padding-block:0;
     }
   }
 
   @media (min-width:900px) and (hover:hover) and (pointer:fine) {
     .topbar {
-      padding-block:var(--space-1);
+      padding-block:0;
     }
   }
 
@@ -4262,13 +4262,6 @@
     }
   }
 
-  .vela-preview form {
-    max-width:700px;
-    margin:auto;
-    display:flex;
-    flex-direction:column;
-    gap:var(--space-4);
-  }
 
   .vela-preview label {
     display:flex;
@@ -4527,20 +4520,22 @@
   }
 
   .vela-preview .vela-config {
-    display:grid;
-    max-width:1120px;
-    gap:var(--space-4);
+    display:flex;
+    flex-direction:column;
     width:100%;
+    max-width:none;
     height:100%;
+    flex:1;
     min-height:0;
-    grid-template-rows:auto minmax(0,1fr);
+    gap:0;
+    margin:0;
   }
 
   @media (max-width:600px) {
     .vela-preview .vela-config {
       display:flex;
       flex-direction:column;
-      gap:var(--space-2);
+      gap:0;
     }
   }
 
@@ -4552,7 +4547,7 @@
 
   @media (max-width:700px) {
     .vela-preview {
-      padding:var(--space-4) var(--space-4) var(--space-6);
+      padding:0;
     }
   }
 
@@ -11088,16 +11083,13 @@
   }
 
   .vela-config {
-    max-width:1120px;
-    margin:0 auto;
-    display:grid;
-    grid-template-columns:152px minmax(0,1fr);
-    gap:var(--space-4);
+    min-width:0;
   }
 
   .vela-config-header h2 {
-    margin:0 0 var(--space-1);
-    font-size:var(--text-xl);
+    margin:0;
+    font-size:var(--text-md);
+    line-height:var(--leading-tight);
   }
 
   @media (max-width:600px) {
@@ -11108,43 +11100,39 @@
 
   .vela-config-mark {
     font-family:monospace;
-    background:var(--paper);
-    border:1px solid var(--line);
-    border-radius:var(--radius);
-    padding:var(--space-3);
     color:var(--accent);
     font-size:var(--text-xs);
   }
 
   @media (max-width:600px) {
     .vela-config-mark {
-      padding:var(--space-2);
+      padding:0;
     }
   }
 
   .vela-sections {
-    padding:var(--space-3) 0;
     display:flex;
     flex-direction:column;
-    top:0;
-    align-self:start;
+    align-self:stretch;
     gap:var(--space-1);
     margin:0;
-    position:static;
+    padding:var(--space-2);
     min-height:0;
-    max-height:100%;
     overflow:auto;
     flex-wrap:nowrap;
+    border-inline-end:1px solid var(--line);
   }
 
   @media (max-width:600px) {
     .vela-sections {
       flex-direction:row;
-      padding:var(--space-2) 0;
+      padding:0 var(--space-1);
       z-index:1;
       flex-shrink:0;
-      max-height:none;
+      max-height:44px;
       min-height:44px;
+      border-inline-end:0;
+      border-bottom:1px solid var(--line);
     }
   }
 
@@ -11169,13 +11157,14 @@
   .vela-config-grid {
     display:flex;
     flex-direction:column;
-    gap:var(--space-4);
+    gap:var(--space-3);
     min-width:0;
     min-height:0;
     overflow:auto;
     overscroll-behavior:contain;
-    padding:0 var(--space-1) var(--space-4);
-    scroll-padding-top:4px;
+    position:relative;
+    padding:var(--space-3);
+    scroll-padding-top:12px;
   }
 
   @media (max-width:600px) {
@@ -11187,15 +11176,12 @@
   .vela-card {
     display:flex;
     flex-direction:column;
-    gap:var(--space-4);
+    gap:var(--space-3);
     min-width:0;
     border:1px solid var(--line);
-    border-radius:var(--radius);
-    padding:var(--space-5);
-    scroll-margin-top:16px;
-    transition:transform var(--dur) var(--ease-out),box-shadow var(--dur) var(--ease-out),border-color var(--dur-fast) ease,background-color var(--dur-fast) ease;
-    border-color:var(--hairline);
-    box-shadow:var(--elev-1);
+    border-radius:var(--radius-md);
+    padding:var(--space-4);
+    scroll-margin-top:12px;
     background:var(--paper);
   }
 
@@ -11208,7 +11194,7 @@
 
   .vela-card h3 {
     font-size:var(--text-md);
-    margin:0 0 var(--space-4);
+    margin:0 0 var(--space-2);
   }
 
   .vela-card label {
@@ -11352,38 +11338,33 @@
   .vela-config-header {
     display:flex;
     align-items:center;
-    gap:var(--space-4);
-    grid-column:1/-1;
-    padding:0 0 var(--space-4);
+    justify-content:space-between;
+    flex-shrink:0;
+    min-height:52px;
+    gap:var(--space-3);
+    padding:var(--space-1) var(--space-3);
     border-bottom:1px solid var(--line);
     margin:0;
-    padding-bottom:var(--space-3);
   }
 
   @media (max-width:600px) {
     .vela-config-header {
       flex-shrink:0;
-      padding:0 0 var(--space-2);
+      padding:var(--space-1) var(--space-3);
     }
   }
 
   @media (max-width:700px) {
     .vela-config-header {
-      flex-wrap:wrap;
+      flex-wrap:nowrap;
     }
   }
 
   .vela-config-actions {
-    align-items:center;
-    grid-column:2;
-    position:static;
-    border:0;
-    margin:var(--space-2) 0 0;
     display:flex;
-    justify-content:flex-end;
-    gap:var(--space-3);
     flex-shrink:0;
-    padding:var(--space-3) 0;
+    margin:0;
+    padding:var(--space-2) var(--space-3);
     border-top:1px solid var(--line);
     background:var(--panel);
   }
@@ -11426,26 +11407,19 @@
     gap:var(--space-1);
   }
 
-  .vela-config-header .vela-pages {
+  .vela-config>.vela-pages {
     display:flex;
+    flex-shrink:0;
     gap:var(--space-1);
-    padding:var(--space-1);
-    border-radius:var(--radius-md);
-    background:var(--soft);
-    margin-left:auto;
-    flex:none;
+    padding:0 var(--space-3);
+    border-bottom:1px solid var(--line);
+    margin:0;
   }
 
-  @media (max-width:700px) {
-    .vela-config-header .vela-pages {
-      flex-basis:100%;
-      margin-left:0;
-    }
-  }
 
   .vela-pages button {
-    min-height:var(--space-6);
-    padding:0 var(--space-4);
+    min-height:44px;
+    padding:0 var(--space-3);
     border:0;
     border-radius:var(--radius-sm);
     background:none;
@@ -11467,9 +11441,25 @@
   }
 
   .vela-page {
-    display:contents;
+    flex:1;
+    min-height:0;
+    min-width:0;
   }
 
+  .vela-page[data-page=config] {
+    display:grid;
+    grid-template-columns:152px minmax(0,1fr);
+  }
+  @media (max-width:600px) {
+    .vela-page[data-page=config] {display:flex;flex-direction:column;}
+  }
+  .vela-page[data-page=format] {overflow:auto;padding:var(--space-3);}
+  /* The configuration has its own Save action; text-only line/word and jump controls waste its viewport. */
+  body:has(#preview.vela-preview:not([hidden])) :is(.statusbar,#writing-footer) {display:none;}
+  body:has(#preview.vela-preview:not([hidden])) .writing-view {padding-bottom:0;}
+  .vela-config-title {min-width:0;}
+  .vela-config-title small {display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:var(--text-xs);}
+  .vela-config-actions:has(#vela-error:empty) {display:none;}
   .vela-page[hidden] {
     display:none;
   }
@@ -14364,7 +14354,8 @@
   .ai-ghost {color:var(--text);white-space:pre-wrap;}
   .ai-ghost-text {display:inline;border:0;background:transparent;box-shadow:none;padding:0;color:inherit;font:inherit;opacity:.35;text-align:left;white-space:pre-wrap;}
   .ai-ghost-actions {display:inline-flex;vertical-align:middle;}
-  .ai-ghost-actions button {min-height:var(--control-h);min-width:40px;padding:var(--space-1) var(--space-2);}
+  .ai-ghost-actions button {width:44px;height:44px;min-height:44px;min-width:44px;padding:var(--space-2);display:inline-grid;place-items:center;}
+  .ai-ghost-actions svg {width:20px;height:20px;}
 
   /* Phase 1 base components. Opt-in only; existing pages keep their original controls. */
   :is(.ui-button,.ui-icon-button,.ui-switch,.ui-segmented,.ui-stepper,.ui-setting-row,.ui-card,.ui-list-row,.ui-empty,.ui-loading,.ui-failure,.ui-notice,.ui-select,.ui-dialog) {
@@ -14805,13 +14796,13 @@
   }
 
   .vela-preview {
-    padding:var(--space-5);
+    padding:0;
     overflow:hidden;
   }
 
   @media (max-width:600px) {
     .vela-preview {
-      padding:var(--space-3);
+      padding:0;
     }
   }
 

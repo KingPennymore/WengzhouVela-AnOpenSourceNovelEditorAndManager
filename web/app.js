@@ -17,6 +17,7 @@ import {
   createDocumentSession,
   prepareWorkspace,
 } from './app-core/workspace-startup.mjs';
+import {upgradeWorkspaceVela} from './vela-upgrade.mjs';
 import {renderVelaEditor} from './vela-view.mjs';
 import {registerMapDirectory} from './map-directory.mjs';
 import {SidebarViews} from './sidebar-views.mjs';
@@ -52,7 +53,7 @@ import {shortcuts,matchesKey} from './shortcuts.mjs';
 import {SidebarLayout} from './sidebars.mjs';
 import {reconcilePanel,textInfoCache} from './document-panels.mjs';
 import {UIShell} from './ui-shell.mjs';
-import {createVelaV2,velaText,projectConfig,projectWriter,editorPreferences,setVelaPreference,includeNewReadingFile,rewriteVelaFiles,configFolder,readable,GLOBAL_VELA_PATH,globalConfig,formatHome,legacySidecar,addFormatRecord,configStyles,readPosition,positionEntry,positionOffset,positionUpdate} from './vela.mjs';
+import {createVela,velaText,projectConfig,projectWriter,editorPreferences,setVelaPreference,includeNewReadingFile,rewriteVelaFiles,configFolder,readable,GLOBAL_VELA_PATH,globalConfig,formatHome,legacySidecar,addFormatRecord,configStyles,readPosition,positionEntry,positionOffset,positionUpdate} from './vela.mjs';
 import {completionExtensions} from './completion.mjs';
 import {syncTextEqual} from './vela-sync.mjs';
 import {initI18n,setLanguage,t,say} from './i18n.mjs';
@@ -255,7 +256,7 @@ const session = new WorkspaceSession({
   locked: () => projectLocked,
   animating: () => !!sidebars.frame,
   flush: () => {
-    if (documents) flushFormats();
+    if (documents) {migrateConfigs(false);flushFormats();}
   },
   write: () => (documents ? documents.save() : (saveWorkspace(workspace), true)),
   writeAsync: async () =>
@@ -830,7 +831,20 @@ function makeState(doc){
 }
 const documentTextInfo=textInfoCache(text=>Writer.countText(text));
 let fileListRevision='';
+function migrateConfigs(schedule=true){
+  if(!documents||projectLocked)return;
+  const changed=upgradeWorkspaceVela(workspace,{change:(doc,text)=>{
+    documents.register(doc);documents.change(doc,text);editorStates.delete(doc.id);
+    const editor=view;
+    // Configs can also arrive while their source is open; avoid nested CodeMirror updates.
+    if(editor&&current()?.id===doc.id)queueMicrotask(()=>{
+      if(view===editor&&current()?.id===doc.id&&doc.text===text&&editor.state.doc.toString()!==text)editor.dispatch({changes:{from:0,to:editor.state.doc.length,insert:text},annotations:Transaction.addToHistory.of(false)});
+    });
+  }});
+  if(changed.length&&schedule&&window.velaReady)scheduleWorkspaceSave();
+}
 function renderDocuments(){
+  migrateConfigs();
   const query=$('#doc-search').value.toLowerCase();
   const allPaths=new Set(workspace.documents.map(documentPath));
   const docs=workspace.documents.filter(d=>!allPaths.has(sidecarTarget(documentPath(d)))&&(!query||documentPath(d).toLowerCase().includes(query)||documentTextInfo(d).includes(query)));
@@ -874,6 +888,7 @@ function restorePosition(doc){
   view.dispatch({selection:{anchor:at},effects:EditorView.scrollIntoView(at,{y:'center'}),annotations:Transaction.addToHistory.of(false)});
 }
 function switchDocument(id){
+  migrateConfigs();
   $('#start-page').viewSession?.dispose();
   if(!workspace.documents.some(d=>d.id===id))return;
   $('#preview').viewSession?.dispose();
@@ -1952,7 +1967,7 @@ async function showSettings(group){
         const workConfig=()=>{
           const folder=currentScope(),existing=workspace.documents.find(doc=>documentKind(doc)==='VELA'&&documentPath(doc)!==GLOBAL_VELA_PATH&&configFolder(documentPath(doc))===folder);
           if(existing)return existing;
-          const config=createVelaV2(folder?basename(folder):'内部文件夹');
+          const config=createVela(folder?basename(folder):'内部文件夹');
           config.reading.items=workspace.documents.filter(doc=>readable(doc)&&(!folder||documentPath(doc).startsWith(folder+'/'))).map(doc=>({id:doc.id,path:documentPath(doc).slice(folder?folder.length+1:0)}));
           const doc=newDocument('.vela',velaText(config));doc.path=(folder?folder+'/':'')+'.vela';return doc;
         };
@@ -2185,7 +2200,7 @@ function currentScope(){
 }
 function ensureGlobalVela(){
   const existing=globalConfig(workspace);if(existing)return existing.doc;
-  const config=createVelaV2('全局默认配置',{global:true});
+  const config=createVela('全局默认配置',{global:true});
   const doc=newDocument(GLOBAL_VELA_PATH,velaText(config));doc.path=GLOBAL_VELA_PATH;workspace.documents.push(doc);renderDocuments();return doc;
 }
 $('#add-glossary').onclick=()=>addSelectionToGlossary();
@@ -2213,7 +2228,7 @@ function addSelectionToGlossary(selectionText,sourceDoc=current()){
     const data=parseGlossary(source.text);
     data.entries.push({id:crypto.randomUUID(),term:form.get('term').trim(),definition:form.get('definition'),aliases:[]});
     const text=glossaryText(data);
-    const configDoc=project&&!project.global?project.doc:newDocument('.vela',''),config=project&&!project.global?structuredClone(project.rawConfig):createVelaV2(scope?basename(scope):'内部文件夹');
+    const configDoc=project&&!project.global?project.doc:newDocument('.vela',''),config=project&&!project.global?structuredClone(project.rawConfig):createVela(scope?basename(scope):'内部文件夹');
     const relative=path.slice(scope?scope.length+1:0),paths=config.editor?.glossaries||[];
     config.editor={...config.editor,glossaries:[...new Set([...paths,relative])]};
     const configText=velaText(config);
@@ -2367,6 +2382,7 @@ async function boot(){try{
     initializeStorage:native?()=>transport('initializeStorage'):null,
     invalidate:id=>editorStates.delete(id),
   });
+  migrateConfigs();
   projects=new ProjectService({workspace:()=>workspace,current,platform:environment?.platform||'browser',confirm:(title,message)=>pluginDialog(title,message,'confirm'),fail,prepare:candidate=>documents.prepareProject(candidate),lock:async()=>{
       if(view?.composing)throw new Error(t('请先完成输入法组合输入，再执行项目操作。'));
       if(!save())throw new Error(t('请先保存或导出当前文稿。'));
@@ -2471,7 +2487,7 @@ async function boot(){try{
   if(initialDoc)switchDocument(initialDoc.id);else await showHome();
   window.velaStartup?.reveal();
   // Persist startup migrations before exposing the workspace; geometry reads stay batched.
-  if(session.pendingWorkspaceSave)save();
+  if(session.pendingWorkspaceSave||documents.dirty.size)save();
   sidebars.update(false);performance.mark('vela:content-ready');
   const pluginBoot=plugins.boot().catch(error=>toast(say(`插件读取失败：${t(error.message)}`,`Could not load plugins: ${t(error.message)}`)));
   window.velaReady=true;performance.mark('vela:interactive');

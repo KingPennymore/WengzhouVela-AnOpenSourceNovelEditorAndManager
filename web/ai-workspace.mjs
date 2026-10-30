@@ -1,6 +1,6 @@
 // Draft application is an internal application operation, using ProjectService's
 // existing atomic transaction queue/recovery. It never uses the AI response as a path.
-import { projectConfig, createVelaV2, parseVela, velaText } from './vela.mjs';
+import { projectConfig, createVela, parseVela, velaText } from './vela.mjs';
 import { documentPath } from './workspace.mjs';
 import { relativePath } from './project-contract.mjs';
 import { glossaryPaths } from './glossary.mjs';
@@ -108,7 +108,7 @@ export class AiWorkspaceEdits {
         const old = await this.read(session, '.vela'),
           config = old.text
             ? parseVela(old.text)
-            : createVelaV2(source.name.replace(/\.[^.]+$/, ''));
+            : createVela(source.name.replace(/\.[^.]+$/, ''));
         config.editor ||= {};
         config.editor.glossaries = [...new Set([...(config.editor.glossaries || []), glossary])];
         const file = documentPath(source).slice(context.prefix.length),

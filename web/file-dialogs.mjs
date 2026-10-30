@@ -2,7 +2,7 @@ import {t,say} from './i18n.mjs';
 import {escapeHtml as esc,textBytes} from './text-utils.mjs';
 import {repoPath,newDocument,documentKind} from './model.mjs';
 import {native,transport,exportText} from './platform.mjs';
-import {createVelaV2,velaText,globalConfig} from './vela.mjs';
+import {createVela,velaText,globalConfig} from './vela.mjs';
 import {documentPath} from './workspace.mjs';
 import {itemPaths,basename,parentPath,copyDestination,within} from './file-manager.mjs';
 import {folderPickerHtml,bindFolderPicker} from './folder-picker.mjs';
@@ -21,7 +21,7 @@ export function createFileDialogs(app){
       app.workspace.folders=[...new Set([...(app.workspace.folders||[]),...parts.map((_,i)=>parts.slice(0,i+1).join('/'))])];
       if(f.has('workspace')){
         const defaults=globalConfig(app.workspace)?.config?.workspaceDefaults;
-        const config=createVelaV2(basename(path),{defaults});
+        const config=createVela(basename(path),{defaults});
         const doc=newDocument('.vela',velaText(config));
         doc.path=path+'/.vela';
         app.workspace.documents.push(doc);

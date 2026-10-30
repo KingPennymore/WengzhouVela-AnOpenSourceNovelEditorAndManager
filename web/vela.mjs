@@ -6,8 +6,8 @@ import {chapterSettings} from './chapters.mjs';
 import {documentPath} from './workspace.mjs';
 import {parseV2,effectiveVela,effectiveFileVela,itemId} from './vela-v2.mjs';
 import {parseDocumentVela,sidecarText,readSidecar,resolveSidecar,resolveRecord,sidecarPath,MAX_SIDECAR_CHARS,MAX_VELA_CHARS} from './rich-text.mjs';
-import {createVelaV2} from './vela-v2.mjs';
-export {createVelaV2,effectiveVela,configStyles} from './vela-v2.mjs';
+import {createVela} from './vela-v2.mjs';
+export {createVela,createVelaV2,effectiveVela,configStyles} from './vela-v2.mjs';
 export const readable=doc=>['TXT','MD','HTML','CSV','TEX','CODE','PDF','VODT','PLUGIN'].includes(documentKind(doc));
 export const GLOBAL_VELA_PATH='.global.vela';
 export const readingLayoutDefaults=Object.freeze({lineHeight:1.9,marginTop:24,marginBottom:24,marginLeft:35,marginRight:35});
@@ -451,7 +451,7 @@ export function addFormatRecord(workspace,path,record){
   }
   else{
     const folder=configFolder(path);
-    config=createVelaV2(folder?folder.split('/').at(-1):'内部文件夹'); // i18n-data: The default workspace name becomes configuration data.
+    config=createVela(folder?folder.split('/').at(-1):'内部文件夹'); // i18n-data: The default workspace name becomes configuration data.
     delete config.reading.items;
     delete config.chapters;
     delete config.editor;
