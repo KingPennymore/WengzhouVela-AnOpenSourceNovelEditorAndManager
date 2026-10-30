@@ -6,12 +6,12 @@ import { mountIncrementalList } from './incremental-list.mjs';
 const actions = [
   ['new-doc', 'newFile', '新建文件'],
   ['import-doc', 'import', '导入文件'],
-  ['recent', 'recent', '最近文件'],
-  ['quick-git', 'github', 'Git 仓库'],
-  ['guide', 'guide', '操作指南'],
-  ['commands', 'commands', '命令与快捷键'],
-  ['plugins', 'plugins', '插件与组件'],
-  ['settings', 'settings', '设置'],
+  ['recent', 'recent', '查看最近文件'],
+  ['quick-git', 'github', '管理 Git 仓库'],
+  ['guide', 'guide', '查看操作指南'],
+  ['commands', 'commands', '查看命令与快捷键'],
+  ['plugins', 'plugins', '管理插件与组件'],
+  ['settings', 'settings', '打开设置'],
 ];
 const actionButton = ([action, name, label]) =>
   `<button type="button" class="ui-button ui-button--secondary start-action" data-start="${action}"><span class="start-action-icon">${icon(name)}</span><strong>${t(label)}</strong></button>`;

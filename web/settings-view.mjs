@@ -29,7 +29,7 @@ export function mountSettings(root,host,{group}={}){
     item('appearance','language','segmented',t('语言'),'',{options:[{value:'zh-CN',label:t('简体中文')},{value:'en',label:'English'}]}),
     item('editing','immersiveWriting','switch',t('沉浸写作'),t('连续输入时收起操作栏，滑动或点按屏幕边缘恢复。'),{default:true}),
     item('editing','fontSize','number',t('文字字号'),'',{min:10,max:40}),
-    item('editing','richText','switch',t('TXT 格式工具'),t('粗体、着重号、注音、插图和样式；格式保存在作品配置 .vela 中，TXT 正文不变')),
+    item('editing','richText','switch',t('TXT 格式工具'),t('粗体、着重号、注音、插图和样式；格式保存在作品配置 .vela 中，TXT 正文不变。')),
     item('editing','novelLineNumbers','switch',t('小说模式显示行号')),
     item('terms','autoNouns','switch',t('正文名词候选补全'),t('本地推测人名、地名等候选，不自动加入术语库。'),{default:true}),
     item('terms','highlightTerms','switch',t('正文术语高亮与释义'),say('显示术语库中的释义。','Show definitions from the glossary.')),
@@ -61,11 +61,11 @@ export function mountSettings(root,host,{group}={}){
   };
   const action=(id,label)=>`<button type="button" class="ui-button ui-button--secondary" id="${id}">${esc(label)}</button>`;
   const extras=id=>{
-    if(id==='chapters')return settingRow({name:say('章节识别','Chapter recognition'),help:t('自动识别标准中英章节标题；额外模板保存在工作区 .vela 配置中。'),control:action('edit-chapter-templates',t('标题模板'))});
+    if(id==='chapters')return settingRow({name:say('章节识别','Chapter recognition'),help:t('自动识别标准中英章节标题；额外模板保存在工作区 .vela 配置中。'),control:action('edit-chapter-templates',t('编辑标题模板'))});
     if(id==='reading')return `<details><summary>${say('高级','Advanced')}</summary>${action('edit-global-vela',t('编辑全局 .vela'))}</details>`;
     if(id==='ai')return `<div class="ai-settings" id="ai-settings">${t('正在读取…')}</div>`;
     if(id==='storage')return settingRow({name:t('创建 .vela 配置'),help:say('保存当前作品的阅读列表与排版配置。','Save reading order and layout for this work.'),control:action('create-vela',t('创建 .vela 配置'))})+settingRow({name:t('清除冗余文件'),help:say('检查并确认后清理同步产生的冗余文件。','Review redundant sync files before removing them.'),control:action('cleanup-redundant',t('清除冗余文件'))});
-    if(id==='about')return `<div class="settings-backups">${action('backup-all',t('导出全部文稿备份'))}${action('restore-backup',t('恢复文稿备份'))}</div><div class="ui-list-row"><strong>Vela ${esc(host.version)}</strong><span>${t('开源小说创作 / 阅读工具')}</span></div>${host.native?action('check-updates',t('检查更新')):''}${action('show-licenses',t('开源许可'))}${action('show-guide',t('使用指南'))}${action('show-privacy',t('隐私政策'))}`;
+    if(id==='about')return `<div class="settings-backups">${action('backup-all',t('导出全部文稿备份'))}${action('restore-backup',t('恢复文稿备份'))}</div><div class="ui-list-row"><strong>Vela ${esc(host.version)}</strong><span>${t('开源小说创作 / 阅读工具')}</span></div>${host.native?action('check-updates',t('检查更新')):''}${action('show-licenses',t('查看开源许可'))}${action('show-guide',t('查看使用指南'))}${action('show-privacy',t('查看隐私政策'))}`;
     return '';
   };
   function remember(){

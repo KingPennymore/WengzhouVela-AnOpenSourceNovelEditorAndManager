@@ -6,7 +6,7 @@ html[data-startup] #startup-screen{position:fixed;inset:0;z-index:1000;display:g
    same 88dp mark in the same place, so a fade or an offset would read as a blink or a jump at the hand-off. */
 .startup-brand{position:relative}
 .startup-brand svg{display:block;width:88px;height:88px;border-radius:22px;background:var(--startup-accent);color:var(--startup-paper)}
-.startup-brand span{position:absolute;top:calc(100% + 18px);left:50%;transform:translateX(-50%);white-space:nowrap;font-family:var(--app-font-family,'HarmonyOS Sans SC','Microsoft YaHei',sans-serif);font-size:18px;letter-spacing:.22em;padding-left:.22em;font-weight:500;animation:vela-name-enter 260ms cubic-bezier(.22,1,.36,1) both}
+.startup-brand span{position:absolute;top:calc(100% + 18px);left:50%;transform:translateX(-50%);white-space:nowrap;font-family:var(--app-font-family,'HarmonyOS Sans SC','Microsoft YaHei',sans-serif);font-size:var(--text-md,1rem);letter-spacing:.22em;padding-left:.22em;font-weight:500;animation:vela-name-enter 260ms cubic-bezier(.22,1,.36,1) both}
 html[data-startup=loading] #app{opacity:0;pointer-events:none}
 /* Keep document chrome visible; only the body waits until the logo has gone. */
 html[data-startup] #app :is(#editor,#preview,#start-page,#glossary-panel,#subscriptions-view,#reader-view,#github-view){visibility:hidden!important;content-visibility:hidden}

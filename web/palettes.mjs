@@ -44,9 +44,20 @@ export const palettes=[
   }
 ];
 
+const legibleCache=new WeakMap();
+// Text has to survive both the plain surfaces and two translucent accent layers
+// (the start-page background plus its resume card). Keep stored palette bases intact.
+function legibleColors(base){
+  if(legibleCache.has(base))return legibleCache.get(base);
+  const value={...base},ink=luminance(base.paper)<.5?'#ffffff':'#000000';
+  const surfaces=()=>[value.bg,value.panel,value.paper,value.soft,mix(value.paper,value.accent,31/255),mix(mix(value.paper,value.accent,31/255),value.accent,31/255)];
+  for(let t=0;t<=1.001;t+=.02){value.accent=mix(base.accent,ink,Math.min(1,t));if(Math.min(...surfaces().map(bg=>contrast(value.accent,bg)))>=4.8)break;}
+  for(const key of ['text','muted'])for(let t=0;t<=1.001;t+=.02){value[key]=mix(base[key],ink,Math.min(1,t));if(Math.min(...surfaces().map(bg=>contrast(value[key],bg)))>=4.8)break;}
+  legibleCache.set(base,value);return value;
+}
 export function paletteFor(id,dark){
   const palette=palettes.find(item=>item.id===id)||custom.find(item=>item.id===id)||palettes[0];
-  return {id:palette.id,colors:dark?palette.dark:palette.light};
+  return {id:palette.id,colors:legibleColors(dark?palette.dark:palette.light)};
 }
 // Translucent accent layers for tints, focus rings and glows; Chromium 105 has no color-mix().
 const accentLayers={tint:'1f',ring:'47',glow:'33'};

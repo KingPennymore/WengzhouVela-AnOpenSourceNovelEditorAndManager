@@ -1,5 +1,6 @@
 // Development fixture only: neither this entry nor its HTML is in the build copy list.
 import {escapeHtml as esc} from './text-utils.mjs';
+import {applyPalette} from './palettes.mjs';
 import {t,setLanguage} from './i18n.mjs';
 import {button,iconButton,switchControl,segmented,stepper,settingRow,bindSteppers} from './ui-components.mjs';
 import {bindAppChoices} from './app-choices.mjs';
@@ -7,6 +8,7 @@ import {bindAppChoices} from './app-choices.mjs';
 const query=new URLSearchParams(location.search);
 await setLanguage(query.get('lang'));
 document.body.classList.toggle('dark',query.get('theme')==='dark');
+applyPalette(document.body,'pine',query.get('theme')==='dark');
 const choices=[{value:'system',label:t('跟随系统')},{value:'light',label:t('浅色模式')},{value:'dark',label:t('深色模式')}];
 const section=(name,content)=>`<section class="gallery-stack" aria-label="${esc(name)}"><h2>${esc(name)}</h2>${content}</section>`;
 const samples=content=>`<div class="gallery-samples">${content}</div>`;
@@ -23,7 +25,7 @@ ${section('Stepper',samples(number('font',16)+number('font-min',12)+number('font
 ${section('Select · app-choices',samples(select()+select('disabled')+select('error')))}
 ${section('Setting row',`<div class="ui-card">${settingRow({name:t('文字字号'),help:t('文稿正文'),helpId:'size-help',control:number('setting-font',16,{describedBy:'size-help'})})}${settingRow({name:t('自动补全'),help:t('跟随系统'),control:switchControl('setting-switch',true,t('自动补全'))})}</div>`)}
 ${section('Card and list row',`<article class="ui-card gallery-stack"><strong>${esc(t('最近文件'))}</strong><button type="button" class="ui-list-row"><span>${esc(t('空白文件'))}</span><span aria-hidden="true">→</span></button><button type="button" class="ui-list-row" disabled>${esc(t('只读'))}</button></article>`)}
-${section('Empty / loading / failure',`<div class="ui-empty"><strong>${esc(t('暂无文件'))}</strong>${button(t('导入文件'))}</div><div class="ui-loading" role="status" aria-live="polite">${esc(t('正在读取…'))}</div><div class="ui-failure" role="alert"><span>${esc(t('连接检测未通过。'))}</span>${button(t('检测连接'))}</div>`)}
+${section('Empty / loading / failure',`<div class="ui-empty"><strong>${esc(t('暂无文件'))}</strong>${button(t('导入文件'))}</div><div class="ui-loading" role="status" aria-live="polite">${esc(t('正在读取…'))}</div><div class="ui-failure" role="alert"><span>${esc(t('连接检测未通过，请检查网络与 GitHub 地址后重试。'))}</span>${button(t('检测连接'))}</div>`)}
 ${section('Notice',`<div class="ui-notice" role="status">${esc(t('工作区配置已保存'))}</div><div class="ui-notice ui-notice--error" role="alert">${esc(t('配置无效，请切换源码修复。'))}${button(t('源码'),{variant:'text'})}</div>`)}
 ${section('Icon button',samples(iconButton(t('关闭'),'×')+iconButton(t('关闭'),'×',{disabled:true})))}
 ${section('Dialog / mobile sheet',samples(`<button type="button" class="ui-button ui-button--secondary" data-open="sheet">${esc(t('设置'))}</button><button type="button" class="ui-button ui-button--secondary" data-open="fullscreen">${esc(t('独立预览'))}</button>`))}

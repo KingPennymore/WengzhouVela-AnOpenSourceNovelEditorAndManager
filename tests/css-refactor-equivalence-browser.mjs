@@ -13,6 +13,35 @@ import {outlineText} from '../web/outline.mjs';
 import {createMap, mapText} from '../web/map.mjs';
 
 const baseline = process.env.CSS_BASE_REF || '7031dce'; // UI redesign: moved to each phase's merge (docs/UI-REDESIGN.md)
+// 阶段 5 有意改外观，合并后由 Claude 更新基准并移除豁免。
+// B only: typography, corners, spacing and control metrics plus their computed numeric geometry.
+function phase5Property(property,before,after){
+  if(property==='transform'){
+    const values=value=>/^matrix\(/.test(value)?value.slice(7,-1).split(',').map(Number):null;
+    const a=values(before),b=values(after);return !!a&&!!b&&a.slice(0,4).every((n,i)=>n===b[i]);
+  }
+  return /^(?:font-size|border-(?:top|bottom|start|end)-(?:left|right|start|end)-radius|padding-(?:top|right|bottom|left|inline-start|inline-end|block-start|block-end)|margin-(?:top|right|bottom|left|inline-start|inline-end|block-start|block-end)|(?:row-|column-)?gap|min-height|height|(?:min-|max-)?(?:width|inline-size|block-size)|min-block-size|max-block-size|top|right|bottom|left|inset-(?:inline|block)-(?:start|end)|line-height|letter-spacing|text-indent|flex-basis|grid-template-(?:rows|columns)|transform-origin|perspective-origin|background-position(?:-x|-y)?|vertical-align|--radius|--control|--ui-font|--panel-spacing)$/.test(property);
+}
+
+// D/E are verified independently by contrast-browser.mjs. These exact corrections
+// are separate from B's geometry allowance; no general colour/display exemption.
+// 阶段 5 有意改外观，合并后由 Claude 更新基准并移除豁免。
+function phase5Accessibility(property,before,after,el,pseudo){
+  const pairs={
+    '--error':[['#b3412c','#9a2d22'],['#d67865','#ffc3b6']],
+    '--danger':[['#b53f3f','#9a2d22'],['#d26e6e','#ffc3b6']],
+    color:[['rgb(179, 65, 44)','rgb(154, 45, 34)'],['rgb(181, 63, 63)','rgb(154, 45, 34)'],['rgb(214, 120, 101)','rgb(255, 195, 182)'],['rgb(210, 110, 110)','rgb(255, 195, 182)']]
+  };
+  if((pairs[property] || (/^(?:border-(?:block|inline|top|right|bottom|left)[-\w]*color|stroke|fill|caret-color|outline-color|text-decoration-color|text-emphasis-color|(?:column|row)-rule-color|-webkit-text-(?:fill|stroke)-color)$/.test(property)?pairs.color:[]))?.some(([a,b])=>a===before&&b===after))return 'D:semantic-error-colours';
+  if(property==='opacity'&&before==='0.45'&&after==='0.85'&&el.matches(':disabled,:has(>input:disabled),input:disabled~span'))return 'D:disabled-text-opacity';
+  if(property==='opacity'&&after==='1'&&el.matches('.slash,.reader-pagebar time,.reader-progress,#reader-footer-chapter'))return 'D:muted-text-opacity';
+  const focus=el.matches(':focus-visible,.ui-switch>input:focus-visible+span,.ui-segmented-option>input:focus-visible+span,.palette-choice:has(input:focus-visible)');
+  if(focus&&/^(outline-(?:color|style|width|offset)|box-shadow)$/.test(property)){
+    if(property==='outline-style'&&after==='solid'||property==='outline-width'&&after==='2px'||property==='outline-offset'&&after==='2px'||property==='box-shadow'&&after==='none'||property==='outline-color'&&after===getComputedStyle(el).getPropertyValue('--accent').trim().replace(/^#([\da-f]{2})([\da-f]{2})([\da-f]{2})$/i,(_,r,g,b)=>`rgb(${parseInt(r,16)}, ${parseInt(g,16)}, ${parseInt(b,16)})`))return 'E:keyboard-focus';
+  }
+  return false;
+}
+
 const height = Number(process.env.CSS_HEIGHT || 960);
 const fromGit = file => execFileSync('git', ['show', `${baseline}:${file}`], {encoding: 'utf8'});
 const oldHtml = fromGit('web/index.html');
@@ -90,7 +119,9 @@ try {
           if (process.env.CSS_VIEWS && !process.env.CSS_VIEWS.split(',').includes(view)) return;
           await page.mouse.move(0, 0);
           await settled(page);
-          const result = await page.evaluate(() => {
+          const result = await page.evaluate(propertySource => {
+            const phase5Property=(0,eval)("("+propertySource.geometry+")");
+            const phase5Accessibility=(0,eval)("("+propertySource.accessibility+")");
             const {old, next} = window.cssEquivalence;
             const switchTo = current => {
               for (const link of old) link.sheet.disabled = current;
@@ -116,7 +147,8 @@ try {
             const before = snapshot();
             switchTo(true);
             const after = snapshot();
-            let differences = 0, unstable = 0, properties = 0;
+            let differences = 0, unstable = 0, properties = 0, intentional = 0;
+            const intended = {}, accessibility = {};
             const details = [], mismatches = [];
             before.forEach((style, index) => {
               const el = elements[Math.floor(index / 3)];
@@ -124,6 +156,9 @@ try {
                 if (addedTokens.has(property) && style[property] === undefined) continue;
                 properties++;
                 if (style[property] === after[index][property]) continue;
+                if(phase5Property(property,style[property],after[index][property])){intentional++;intended[property]=(intended[property]||0)+1;continue;}
+                const fix=phase5Accessibility(property,style[property],after[index][property],el,['','::before','::after'][index%3]);
+                if(fix){accessibility[fix]=(accessibility[fix]||0)+1;continue;}
                 differences++;
                 mismatches.push({el, pseudo: ['', '::before', '::after'][index % 3], property, value: style[property]});
                 if (details.length < 80) details.push({element: el.tagName.toLowerCase() + (el.id ? '#' + el.id : '') + (typeof el.className === 'string' && el.className ? '.' + el.className.trim().replace(/\s+/g, '.') : ''), pseudo: ['', '::before', '::after'][index % 3], property, before: style[property], after: after[index][property]});
@@ -133,8 +168,8 @@ try {
             for (const {el, pseudo, property, value} of mismatches) {
               if (getComputedStyle(el, pseudo || null).getPropertyValue(property) !== value) unstable++;
             }
-            return {elements: elements.length, properties, differences, unstable, details};
-          });
+            return {elements: elements.length, properties, differences, unstable, intentional, intended, accessibility, details};
+          },{geometry:phase5Property.toString(),accessibility:phase5Accessibility.toString()});
           results.push({profile, width, height, theme, view, ...result});
           console.log(`${result.differences ? 'FAIL' : 'PASS'} ${profile} ${width} ${theme} ${view}: ${result.elements} elements, ${result.differences} differences`);
           if (result.differences && process.env.CSS_FAIL_FAST) {
@@ -180,4 +215,4 @@ assert.ok(results.length > 0);
 assert.deepEqual(errors, []);
 assert.equal(results.reduce((sum, result) => sum + result.unstable, 0), 0, 'baseline must be stable');
 assert.equal(results.reduce((sum, result) => sum + result.differences, 0), 0, 'computed CSS must match');
-console.log(`PASS ${results.length} scenarios, zero computed-style differences (including ::before/::after)`);
+console.log(`PASS ${results.length} scenarios, zero unapproved computed-style differences (including ::before/::after); B geometry ${results.reduce((n,r)=>n+r.intentional,0)}, D/E corrections ${results.reduce((n,r)=>n+Object.values(r.accessibility).reduce((a,b)=>a+b,0),0)}`);
