@@ -50,7 +50,7 @@ try{
     await page.locator('[data-vela-page="config"]').click();await page.locator('[data-vela-section="阅读清单"]').click();
     const auto=page.locator('[name=readingAuto]');assert.equal(await auto.isChecked(),false);await auto.check();
     assert.equal(await page.locator('[name=readingFiles][value="笔记.txt"]').isChecked(),true,'every file is shown as included');
-    await page.locator('.vela-config-actions .primary').click();await page.waitForFunction(()=>JSON.parse(JSON.parse(localStorage.getItem('wenzhou.workspace')).documents.find(doc=>(doc.path||doc.name)==='航程/.vela').text).richText.enabled===true);
+    await page.locator('#vela-form [data-vela-save]').click();await page.waitForFunction(()=>JSON.parse(JSON.parse(localStorage.getItem('wenzhou.workspace')).documents.find(doc=>(doc.path||doc.name)==='航程/.vela').text).richText.enabled===true);
     const saved=await velaOf(page);assert.equal(saved.reading.items,undefined);assert.ok(saved.richText.documents['正文.txt'],'records are kept by a configuration save');
   });
   await check('“打开” opens the TXT with its formats',async()=>{

@@ -6,6 +6,7 @@ import {mkdir,readFile,writeFile} from 'node:fs/promises';
 import http from 'node:http';
 import path from 'node:path';
 import {until} from './wait-helpers.mjs';
+import {setSetting,closeSettings,settingsSection} from './settings-helper.mjs';
 const root=path.resolve('dist/web');
 const server=http.createServer(async(req,res)=>{
   const pathname=new URL(req.url,'http://localhost').pathname;
@@ -64,7 +65,8 @@ try{
   await check('查找替换面板、标题规则错误反馈和设置持久化',async()=>{
     await click('search-editor');assert.equal(await page.locator('.cm-search').isVisible(),true);await page.keyboard.press('Escape');
     await click('settings');assert.equal(await page.locator('[name="format"]').count(),0);assert.equal(await page.locator('[name="titleTemplates"]').count(),0);
-    await page.locator('[name="theme"]').selectOption('light');await click('dialog-submit');
+    // Settings apply at once: choose the light theme, then close.
+    await setSetting(page,'theme','light');await closeSettings(page);
     await page.reload();await page.waitForSelector('.cm-editor');assert.equal(await page.locator('#library').isVisible(),false);assert.equal(await page.locator('#outline').isVisible(),false);
     assert.equal(await page.locator('body').evaluate(el=>el.classList.contains('dark')),false);assert.equal(await page.locator('#theme').getAttribute('aria-label'),'切换到深色模式');
     await click('theme');assert.equal(await page.locator('body').evaluate(el=>el.classList.contains('dark')),true);await click('theme');assert.equal(await page.locator('body').evaluate(el=>el.classList.contains('dark')),false);
@@ -73,7 +75,7 @@ try{
     await click('mobile-library');await click('new-doc');await page.locator('[name="name"]').fill('新小说.txt');await click('dialog-submit');await waitText('#current-name','新小说.txt');assert.ok((await content()).includes('第一段'),'New TXT files start with the plain-text format skeleton');
     const activeId=await page.evaluate(()=>JSON.parse(localStorage.getItem('wenzhou.workspace')).activeId);await page.locator(`[data-menu="${activeId}"]`).click();await click('rename-doc');await page.locator('[name="name"]').fill('重命名小说.txt');await click('dialog-submit');await waitText('#current-name','重命名小说.txt');
     await page.locator(`[data-menu="${activeId}"]`).click();await click('delete-doc');await click('dialog-submit');await page.locator('#dialog[open]').waitFor({state:'hidden'});assert.equal(await page.locator('[data-tab]').count(),2);assert.equal(await page.locator('#start-page').isVisible(),false,'deleting the active file switches to another open tab');await page.locator('[data-tab="book"]').click();await waitText('#current-name','全书.txt');
-    await click('settings');await click('show-licenses');assert.ok((await page.locator('#license-text').inputValue()).includes('Copyright'));assert.ok(await page.locator('#license-component option').count()>8);await click('dialog-cancel');
+    await click('settings');await settingsSection(page,'about');await click('show-licenses');assert.ok((await page.locator('#license-text').inputValue()).includes('Copyright'));assert.ok(await page.locator('#license-component option').count()>8);await closeSettings(page);
   });
   // All remote mutations below are intercepted. No real account or repository is modified.
   const remoteCalls=[];let conflict=false;
@@ -96,6 +98,7 @@ try{
     await route.fulfill({status,contentType:'application/json',body:JSON.stringify(body)});
   });
   await check('Git 按钮、令牌登录、仓库与分支浏览、远端文件读取',async()=>{
+    if(await page.locator('#start-page').isVisible())await openRecentFile(page,page.locator('[data-recent]').first());
     await click('quick-git');await click('token-login');await page.locator('[name="token"]').fill('test-token');await click('dialog-submit');await page.waitForSelector('.repo-card');
     assert.equal(await page.locator('#dialog').isVisible(),false);assert.equal(await page.evaluate(()=>localStorage.getItem('wenzhou.workspace').includes('test-token')),false);
     await page.locator('.repo-card').click();await page.waitForSelector('[data-file]');await page.locator('#branch-select').selectOption('draft');await page.waitForSelector('[data-file]');
