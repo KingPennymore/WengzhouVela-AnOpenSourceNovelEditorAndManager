@@ -3,6 +3,7 @@ import http from 'node:http';
 import path from 'node:path';
 import assert from 'node:assert/strict';
 import {readFile,mkdir,writeFile} from 'node:fs/promises';
+import {settled} from './wait-helpers.mjs';
 
 const root=path.resolve('dist/web');
 const server=http.createServer(async(req,res)=>{
@@ -39,7 +40,9 @@ try{
     assert.equal(await page.locator('.resume-card').getAttribute('data-doc'),'book');
     assert.equal(await page.locator('#start-recent-panel').isVisible(),true);
     const actions=page.locator('.start-action:visible');assert.equal(await actions.count(),profile==='windows'?7:6);assert.ok(await page.locator('[data-start=check-update]').isVisible(),'check for updates from the start page');
-    for(const button of await actions.all())assert.ok(await button.evaluate(el=>{const r=el.getBoundingClientRect();return r.width>=44&&r.height>=44&&r.left>=0&&r.right<=innerWidth;}));
+    // Measure after the start page's entrance motion: under load a mid-animation frame is offset.
+    await settled(page);
+    for(const button of await actions.all()){const box=await button.evaluate(el=>{const r=el.getBoundingClientRect();return {action:el.dataset.start,width:r.width,height:r.height,left:r.left,right:r.right,viewport:innerWidth};});assert.ok(box.width>=44&&box.height>=44&&box.left>=0&&box.right<=box.viewport,JSON.stringify(box));}
     assert.equal(await page.locator('[data-start=commands]').isVisible(),profile==='windows');
     await page.screenshot({path:`${out}/${profile}-${width}-${theme}-home.png`});
     await page.locator('#start-page').evaluate(root=>root.setStartPanel('recent'));assert.equal(await page.locator('#start-page').getAttribute('data-panel'),'recent');assert.equal(await page.locator('.start-back').evaluate(e=>e===document.activeElement),true);
