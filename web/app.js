@@ -832,8 +832,10 @@ function makeState(doc){
 }
 const documentTextInfo=textInfoCache(text=>Writer.countText(text));
 let fileListRevision='';
+// While files just read from disk have no saved baseline, an upgrade would look like overwriting an external edit.
+let configBaselinePending=false;
 function migrateConfigs(schedule=true){
-  if(!documents||projectLocked)return;
+  if(!documents||projectLocked||configBaselinePending)return;
   const changed=upgradeWorkspaceVela(workspace,{change:(doc,text)=>{
     documents.register(doc);documents.change(doc,text);editorStates.delete(doc.id);
     const editor=view;
@@ -1541,8 +1543,11 @@ $('#refresh-folder').onclick=async()=>{
     if(session.needsSave&&!await session.saveBackground())return;
     if(native){
       const context=fileViewContext(),result=await transport('refreshFolder');
-      applyFileState(result,{context,persist:false});
-      projects.changed('external');
+      // Save what was read first, so native storage records it; then upgrade older .vela files and save again.
+      configBaselinePending=true;
+      try{applyFileState(result,{context,persist:false});projects.changed('external');await session.saveBackground();}
+      finally{configBaselinePending=false;}
+      migrateConfigs();
       scheduleWorkspaceSave();
     }else renderDocuments();
     toast(t('工作区已刷新'));
